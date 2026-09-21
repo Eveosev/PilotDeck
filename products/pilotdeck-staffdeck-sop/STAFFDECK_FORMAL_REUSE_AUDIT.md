@@ -4,8 +4,8 @@
 
 | Repository | Branch | Commit |
 | --- | --- | --- |
-| PilotDeck | `codex/frontend-seven-slot-composition` | `3bc8ddb8` base before the current working-tree changes |
-| StaffDeck | `codex/staffdeck-shared-business-ui` | `d7bda2c9` base before the current working-tree changes |
+| PilotDeck | `codex/frontend-seven-slot-composition` | `24b130f9` |
+| StaffDeck | `codex/staffdeck-shared-business-ui` | `e755aaa4` |
 
 The source enterprise pages depend on the StaffDeck enterprise router,
 employee-scope storage, authentication, Toast provider, aliases, and direct

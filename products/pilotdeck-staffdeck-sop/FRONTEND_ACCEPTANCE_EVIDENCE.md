@@ -5,13 +5,13 @@ operations. It was produced against the local formal profile on 2026-09-21.
 
 ## Current G0-G7 Gate Status
 
-This is the authoritative frontend status for the current uncommitted working
-trees. A build or source inspection is not treated as proof of a real service
-workflow.
+This is the authoritative frontend status for the current committed working
+trees (`StaffDeck e755aaa4`, `PilotDeck 24b130f9`). A build or source
+inspection is not treated as proof of a real service workflow.
 
 | Gate | Status | Evidence / limitation |
 | --- | --- | --- |
-| G0 scope and traceability | PASS (static) | Formal source map, host adapters, vendor snapshot, and module profile are recorded in `STAFFDECK_FORMAL_REUSE_AUDIT.md`; final commit IDs remain pending until the intended changes are committed. |
+| G0 scope and traceability | PASS (static) | Formal source map, host adapters, vendor snapshot, module profile, and the two commit IDs are recorded in `STAFFDECK_FORMAL_REUSE_AUDIT.md`. |
 | G1 actual formal UI sharing | PARTIAL | Knowledge and Skills list/lifecycle pages are shared from the StaffDeck source; the original Distill editor is not yet extracted, so full SOP editing is not claimed. |
 | G2 generic glue/service boundary | PASS (static) | Shared pages call generic host APIs; PilotDeck adapters map module clients and route navigation; vendor check passes. |
 | G3 seven-slot/profile assembly | PASS (static) | Generated module profile includes Knowledge and SOP pages plus optional `/knowledge/new`; typecheck/build and composition tests pass. Runtime profile matrix was not rerun in this turn. |
