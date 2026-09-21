@@ -99,6 +99,10 @@ export function assembleFrontend(
   for (const [businessModuleId, binding] of Object.entries(businessBindings)) {
     if (binding.enabled === false) continue;
     const frontend = catalog.find((module) => module.id === (binding.frontendModule ?? businessModuleId));
+    // Legacy profiles predate explicit business module declarations. Preserve
+    // their native defaults only when this catalog actually contains the
+    // optional contribution; explicit profiles remain strict below.
+    if (!frontend && !profile.frontend?.businessModules) continue;
     if (!frontend || frontend.businessModuleId !== businessModuleId) {
       throw new Error(`Missing frontend business module: ${businessModuleId}`);
     }
