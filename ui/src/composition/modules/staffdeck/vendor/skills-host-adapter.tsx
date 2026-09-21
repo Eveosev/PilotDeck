@@ -33,6 +33,8 @@ function toSkill(definition: SopDefinition, status = 'published') {
     total_positive_rate: Number(definition.total_positive_rate) || Number(definition.positive_rate) || 0,
     total_negative_rate: Number(definition.total_negative_rate) || Number(definition.negative_rate) || 0,
     branch_status: text(definition.branch_status) || 'synced',
+    draft_id: text(definition.draft_id),
+    etag: text(definition.etag),
     trigger_intents: list(content.trigger_intents),
     user_utterance_examples: list(content.user_utterance_examples),
     goal: list(content.goal),
@@ -43,6 +45,19 @@ function toSkill(definition: SopDefinition, status = 'published') {
   };
 }
 
+function toManagedSkill(row: unknown) {
+  const draft = record(row);
+  const skillId = text(draft.skill_id) || text(draft.sop_id) || text(draft.id) || 'sop';
+  return toSkill({
+    ...draft,
+    id: skillId,
+    skill_id: skillId,
+    draft_id: text(draft.draft_id) || text(draft.id),
+    version: text(draft.draft_version) || text(draft.version),
+    content: record(draft.content),
+  } as SopDefinition, text(draft.status) || 'draft');
+}
+
 async function management(operation: string, input: Record<string, unknown> = {}): Promise<any> {
   return staffDeckSopManagementClient.call(operation, input);
 }
@@ -50,13 +65,15 @@ async function management(operation: string, input: Record<string, unknown> = {}
 async function listDefinitions(): Promise<any[]> {
   try {
     const result = record(await management('list'));
-    const rows = Array.isArray(result.data) ? result.data : [];
+    const rows = Array.isArray(result.data) && result.data.length > 0
+      ? result.data
+      : Array.isArray(result.drafts) ? result.drafts : [];
     const local = await staffDeckSopClient.listDefinitions();
     const localById = new Map(local.definitions.map((definition) => [definition.id, definition]));
     if (rows.length > 0) {
       return rows.map((row) => {
-        const id = text(row.skill_id) || text(row.id) || 'sop';
-        return toSkill({ ...record(row), ...(localById.get(id) || {}), id } as SopDefinition, text(row.status) || 'published');
+        const managed = toManagedSkill(row);
+        return toSkill({ ...managed, ...(localById.get(managed.skill_id) || {}) } as SopDefinition, managed.status);
       });
     }
     return local.definitions.map((definition) => toSkill(definition, text(definition.status) || 'draft'));
@@ -76,7 +93,10 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
   const suffix = match[2] ? decodeURIComponent(match[2]) : '';
   if (method === 'get' && suffix === 'versions') return await management('list_versions', { sopId }) as T;
   if (method === 'get' && suffix) return await management('get_version', { sopId, version: suffix }) as T;
-  if (method === 'post' && suffix === 'publish') return await management('publish', { sopId }) as T;
+  if (method === 'post' && suffix === 'publish') {
+    const current = await readDefinition(sopId);
+    return await management('publish', { sopId, draftId: current.draft_id }) as T;
+  }
   if (method === 'post' && suffix === 'archive') return await management('archive', { sopId }) as T;
   if (method === 'post' && suffix === 'draft') return await management('create', { sopId, content: body?.content || {} }) as T;
   if (method === 'post' && suffix === 'rollback') return await management('rollback', { sopId, version: body?.version }) as T;
@@ -90,10 +110,29 @@ function skillIdFromPath(path: string): string | undefined {
 }
 
 async function readDefinition(skillId: string): Promise<any> {
+  const managed = await listDefinitions();
+  const managedDefinition = managed.find((item) => item.id === skillId || item.skill_id === skillId);
+  if (managedDefinition) return managedDefinition;
   const definitions = await staffDeckSopClient.listDefinitions();
   const definition = definitions.definitions.find((item) => item.id === skillId || item.skill_id === skillId);
   if (!definition) throw new Error(`SOP definition not found: ${skillId}`);
   return toSkill(definition, text(definition.status) || 'draft');
+}
+
+const SOP_CONTENT_FIELDS = new Set([
+  'skill_id', 'name', 'version', 'business_domain', 'description', 'capability_scope',
+  'step_timeout_seconds', 'trigger_intents', 'user_utterance_examples', 'goal',
+  'required_info', 'slot_filling_policy', 'response_rules', 'nodes', 'edges',
+  'start_node_id', 'terminal_node_ids', 'interruption_policy',
+]);
+
+function skillContent(current: Record<string, any>, body: unknown) {
+  const next = { ...record(current.content) };
+  const candidate = record(body);
+  for (const field of SOP_CONTENT_FIELDS) {
+    if (candidate[field] !== undefined) next[field] = candidate[field];
+  }
+  return { ...next, ...record(candidate.content) };
 }
 
 async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
@@ -107,7 +146,17 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
   if (skillId && method === 'get' && !path.includes('/versions')) return await readDefinition(skillId) as T;
   if (skillId && method === 'put' && !path.includes('/versions')) {
     const current = await readDefinition(skillId);
-    const definition = { ...current, ...(body || {}), id: skillId, skill_id: skillId, content: body?.content || current.content || {} };
+    const content = skillContent(current, body);
+    if (text(current.draft_id) && text(current.etag)) {
+      const saved = await management('replace_draft', {
+        sopId: skillId,
+        draftId: current.draft_id,
+        etag: current.etag,
+        content,
+      });
+      return toManagedSkill(saved) as T;
+    }
+    const definition = { ...current, ...(body || {}), id: skillId, skill_id: skillId, content };
     const saved = await staffDeckSopClient.saveDefinition(skillId, definition);
     return toSkill(saved.definition, text(saved.definition.status) || 'draft') as T;
   }

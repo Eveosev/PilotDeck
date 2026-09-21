@@ -1,22 +1,23 @@
 # StaffDeck Frontend Acceptance Evidence
 
 This record distinguishes browser/component integration from real service
-operations. It was produced against the local formal profile on 2026-09-21.
+operations. It was produced against the local formal profile on 2026-09-22.
 
 ## Current G0-G7 Gate Status
 
-This is the authoritative frontend status for the current committed working
-trees (`StaffDeck e755aaa4`, `PilotDeck 24b130f9`). A build or source
+This is the authoritative frontend status for the current working trees
+(`StaffDeck 8fcb96fd`, `PilotDeck cb2d2627`, and adapter/evidence commit
+`052033a7`). A build or source
 inspection is not treated as proof of a real service workflow.
 
 | Gate | Status | Evidence / limitation |
 | --- | --- | --- |
 | G0 scope and traceability | PASS (static) | Formal source map, host adapters, vendor snapshot, module profile, and the two commit IDs are recorded in `STAFFDECK_FORMAL_REUSE_AUDIT.md`. |
-| G1 actual formal UI sharing | PARTIAL | Knowledge and Skills list/lifecycle pages are shared from the StaffDeck source; the original Distill editor is not yet extracted, so full SOP editing is not claimed. |
+| G1 actual formal UI sharing | PARTIAL | Knowledge, Skills, and the formal Distill editor are shared from `@staffdeck/business-ui`; PilotDeck browser evidence is complete for the Distill route, but a fresh StaffDeck host browser rerun is still missing. |
 | G2 generic glue/service boundary | PASS (static) | Shared pages call generic host APIs; PilotDeck adapters map module clients and route navigation; vendor check passes. |
 | G3 seven-slot/profile assembly | PASS (static) | Generated module profile includes Knowledge and SOP pages plus optional `/knowledge/new`; typecheck/build and composition tests pass. Runtime profile matrix was not rerun in this turn. |
 | G4 Knowledge persistence loop | PARTIAL/PASS | Owner and Gateway lifecycle evidence remains PASS. This turn also verified the formal PilotDeck Knowledge page, isolated document upload task creation, seeded document/card/search/citation rendering; the uploaded README job remained queued while the Gateway was restarting. |
-| G5 SOP edit/publish/run/reload | PARTIAL | Formal Distill source/flow editor loads. PilotDeck UI edited `operator_approval`, saved version `1.1.0`, refreshed the editor, and verified the SOP plaza shows the new name/version while preserving the approval node. Public StaffDeck `sops:*` management and AI streaming remain unconfigured. |
+| G5 SOP edit/publish/run/reload | PARTIAL | PilotDeck public-management mode loaded a three-node/two-edge draft, changed name/description in the formal Distill editor, saved `1.1.0`, refreshed with all nodes/edges/conditions/retry fields intact, published from `/sop`, and verified `list` plus `list_versions` through the public API. A stale ETag write returned `412 ETAG_MISMATCH`. Ordinary JWT-mode browser evidence, StaffDeck-host editing, and a new runtime consuming the published definition remain missing; AI streaming still reports an explicit unavailable error. |
 | G6 dual-host regression/reproducible delivery | PASS (build/static) | StaffDeck production build and focused Distill tests pass; PilotDeck typecheck/build, module tests, vendor snapshot, and formal profile build pass. Browser evidence is recorded for PilotDeck; StaffDeck browser rerun remains outside this turn. |
 | G7 independent supervision evidence | NOT RUN | No independent supervisor session has rerun G0-G6 for this working tree. |
 
@@ -75,10 +76,18 @@ Gateway lifecycle. The formal browser path was then verified at `/sop` and
 description changed, draft version `1.1.0` saved, reload preserved the updated
 fields and original node, and the plaza reflected the updated name/version.
 
-The full StaffDeck public draft/create/validate/publish/archive/version/rollback
-API is still not configured in this local formal profile. AI generation through
-the portable Distill host intentionally returns an explicit unavailable error
-until a streaming provider is supplied.
+The public-management adapter was additionally exercised against an isolated
+StaffDeck public API app. Its `drafts` response was loaded by stable `sop_id`,
+the formal editor saved the complex `acceptance_complex` graph as version
+`1.1.0`, and refresh preserved all three nodes, both conditions, capability
+references, and the review retry policy. The SOP list page published the draft;
+the public API then returned it in `data` and exposed it through
+`list_versions`. A stale `If-Match` write returned `412 ETAG_MISMATCH` and the
+original content was restored. This was a server-side public API validation,
+not ordinary JWT-mode evidence, and it does not replace a StaffDeck-host
+browser run or runtime-consumption proof. AI generation through the portable
+Distill host intentionally returns an explicit unavailable error until a
+streaming provider is supplied.
 
 ## Focused Verification
 
