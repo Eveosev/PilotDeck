@@ -6,7 +6,7 @@ operations. It was produced against the local formal profile on 2026-09-22.
 ## Current G0-G7 Gate Status
 
 This is the authoritative frontend status for the current working trees
-(`StaffDeck shared UI 38ab57a6` and `PilotDeck 4b09f71b`). A build or source
+(`StaffDeck shared UI f41c8524` and `PilotDeck eda7dabd`). A build or source
 inspection is not treated as proof of a real service workflow.
 
 | Gate | Status | Evidence / limitation |
