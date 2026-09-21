@@ -48,7 +48,7 @@ as equivalent.
 
 The adapter follows the StaffDeck owner interaction model: searchable resource
 lists, detail editing, explicit lifecycle actions, persisted job status and
-source/citation inspection. Its typed `KnowledgeClient` is intentionally kept
+vendor/citation inspection. Its typed `KnowledgeClient` is intentionally kept
 inside the StaffDeck module adapter so StaffDeck records never enter the common
 PilotDeck chat/store types. PilotDeck continues to reuse its own application
 shell, authentication client, settings system, session runtime, permission

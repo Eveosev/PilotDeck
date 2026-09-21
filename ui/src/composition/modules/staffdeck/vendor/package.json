@@ -1,0 +1,17 @@
+{
+  "name": "@staffdeck/business-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "peerDependencies": {
+    "lucide-react": "^0.500.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "exports": {
+    "./KnowledgeGraphCanvas": "./src/KnowledgeGraphCanvas.tsx",
+    "./KnowledgeOperations": "./src/KnowledgeOperations.tsx",
+    "./i18n": "./src/i18n.tsx",
+    "./SopManagement": "./src/SopManagement.tsx",
+    "./types": "./src/types.ts"
+  }
+}
