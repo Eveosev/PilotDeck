@@ -1,5 +1,8 @@
 import express from 'express';
 import http from 'node:http';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createModuleRuntimeRouter } from './modules.js';
 
@@ -24,6 +27,27 @@ describe('module runtime route', () => {
       expect(body.modules.knowledge.endpoint).toBeUndefined();
       expect(body.modules.agentLoop.secret).toBeUndefined();
       expect(body.gatewayCapabilities).toEqual(['set_permission_mode']);
+    } finally { await new Promise(resolve => server.close(resolve)); }
+  });
+
+  it('returns module bindings when the chat gateway is unavailable', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({
+      loadConfig: () => ({ modules: {
+        sop: { enabled: true, implementationId: 'staffdeck.portable-sop', contract: 'sop.lifecycle/v2' },
+      } }),
+      getGateway: vi.fn(async () => { throw new Error('Gateway is starting'); }),
+    }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/runtime`);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        modules: { sop: { enabled: true, implementationId: 'staffdeck.portable-sop' } },
+        gatewayCapabilities: [],
+      });
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 
@@ -85,6 +109,61 @@ describe('module runtime route', () => {
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));
+    }
+  });
+
+  it('proxies declared Knowledge management operations through the module contract', async () => {
+    let received;
+    const moduleApp = express();
+    moduleApp.use(express.json());
+    moduleApp.post('/v2/module/call', (req, res) => {
+      received = req.body;
+      res.json({ kind: 'response', inReplyTo: req.body.messageId, ok: true, payload: { result: [{ id: 'kb-1', name: 'Handbook' }] } });
+    });
+    const moduleServer = http.createServer(moduleApp);
+    await new Promise(resolve => moduleServer.listen(0, '127.0.0.1', resolve));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { knowledge: {
+      enabled: true,
+      endpoint: `http://127.0.0.1:${moduleServer.address().port}`,
+      methods: ['list_bases'],
+      tenantId: 'tenant-demo',
+      actorUserId: 'operator',
+    } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_bases', input: {} }) });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ result: [{ id: 'kb-1', name: 'Handbook' }] });
+      expect(received.payload).toEqual({ operation: 'list_bases', input: { tenantId: 'tenant-demo', actorUserId: 'operator' } });
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await new Promise(resolve => moduleServer.close(resolve));
+    }
+  });
+
+  it('reads and saves deployment-owned SOP definitions without exposing the runtime endpoint', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pilotdeck-sop-definitions-'));
+    const definitionsPath = join(root, 'definitions.yaml');
+    await writeFile(definitionsPath, 'sops:\n  - id: approval\n    name: Operator approval\n    content:\n      nodes:\n        - node_id: handoff\n          type: handoff\n');
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: { enabled: true, definitionsPath, defaultSopId: 'approval', endpoint: 'http://private-runtime' } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const listed = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/definitions`);
+      expect(listed.status).toBe(200);
+      expect(await listed.json()).toMatchObject({ defaultSopId: 'approval', definitions: [{ id: 'approval', name: 'Operator approval' }] });
+      const saved = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/definitions/approval`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ definition: { id: 'approval', name: 'Updated approval', content: { nodes: [{ node_id: 'handoff', type: 'handoff' }] } } }) });
+      expect(saved.status).toBe(200);
+      expect(await saved.json()).toMatchObject({ definition: { id: 'approval', name: 'Updated approval' }, restartRequired: true });
+      expect(await readFile(definitionsPath, 'utf8')).toContain('Updated approval');
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

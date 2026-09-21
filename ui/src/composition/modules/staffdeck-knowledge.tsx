@@ -1,48 +1,146 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Database, FilePlus2, RefreshCw, Save, Search } from 'lucide-react';
 import type { FrontendModule, SurfaceProps } from '../contracts';
-import { ModulePage, ProfileTextSetting } from './shared';
-import { authenticatedFetch } from '../../utils/api';
+import { ProfileTextSetting } from './shared';
+import { staffDeckKnowledgeClient } from './staffdeck/clients';
 
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
-function KnowledgePage(props: SurfaceProps) {
+type KnowledgeBase = { id: string; name?: string; description?: string; document_count?: number; version?: string; status?: string };
+type KnowledgeDocument = { id: string; title?: string; filename?: string; content_md?: string; knowledge_base_id?: string; status?: string };
+type KnowledgeChunk = { id?: string; chunk_id?: string; content?: string; summary?: string; source_ref?: string; title?: string };
+
+function KnowledgePage() {
+  const [bases, setBases] = useState<KnowledgeBase[]>([]);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [selectedBaseId, setSelectedBaseId] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocument | null>(null);
   const [query, setQuery] = useState('');
-  const [result, setResult] = useState<any | null>(null);
-  const [citation, setCitation] = useState<any | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [citation, setCitation] = useState<Record<string, unknown> | null>(null);
+  const [baseName, setBaseName] = useState('');
+  const [documentTitle, setDocumentTitle] = useState('');
+  const [documentContent, setDocumentContent] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const submit = async () => {
+
+  const selectedBase = bases.find((base) => base.id === selectedBaseId) ?? null;
+  const chunks = useMemo(() => extractChunks(result), [result]);
+
+  const loadBases = async (preferredId?: string) => {
+    setLoading(true); setError(null);
+    try {
+      const next = await staffDeckKnowledgeClient.call<KnowledgeBase[]>('list_bases');
+      setBases(next);
+      setSelectedBaseId((current) => preferredId || current || next[0]?.id || '');
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { setLoading(false); }
+  };
+
+  const loadDocuments = async (baseId: string) => {
+    if (!baseId) { setDocuments([]); return; }
+    setLoading(true); setError(null);
+    try {
+      const next = await staffDeckKnowledgeClient.call<KnowledgeDocument[]>('list_documents', { knowledgeBaseId: baseId });
+      setDocuments(next);
+      setSelectedDocument((current) => current && next.some((document) => document.id === current.id) ? current : next[0] ?? null);
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { void loadBases(); }, []);
+  useEffect(() => { void loadDocuments(selectedBaseId); }, [selectedBaseId]);
+
+  const createBase = async () => {
+    const name = baseName.trim();
+    if (!name || saving) return;
+    setSaving(true); setError(null);
+    try {
+      const created = await staffDeckKnowledgeClient.call<KnowledgeBase>('create_base', { name, description: '' });
+      setBaseName('');
+      await loadBases(created.id);
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { setSaving(false); }
+  };
+
+  const saveDocument = async () => {
+    if (!selectedBaseId || saving || !documentTitle.trim()) return;
+    setSaving(true); setError(null);
+    try {
+      if (selectedDocument) {
+        await staffDeckKnowledgeClient.call('update_document', { documentId: selectedDocument.id, title: documentTitle.trim(), contentMd: documentContent });
+      } else {
+        await staffDeckKnowledgeClient.call('import_document', {
+          knowledgeBaseId: selectedBaseId,
+          title: documentTitle.trim(),
+          filename: `${documentTitle.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'document'}.md`,
+          contentBase64: encodeText(documentContent),
+        });
+      }
+      setDocumentTitle(''); setDocumentContent(''); setSelectedDocument(null);
+      await loadDocuments(selectedBaseId);
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { setSaving(false); }
+  };
+
+  const selectDocument = async (document: KnowledgeDocument) => {
     setError(null);
     try {
-      const response = await authenticatedFetch('/api/modules/knowledge/query', { method: 'POST', body: JSON.stringify({ query }) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error?.message || 'Knowledge query failed.');
-      setCitation(null);
-      setResult(body.result ?? body);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
+      const detail = await staffDeckKnowledgeClient.call<KnowledgeDocument>('get_document', { documentId: document.id });
+      setSelectedDocument(detail);
+      setDocumentTitle(detail.title || detail.filename || 'Untitled document');
+      setDocumentContent(detail.content_md || '');
+    } catch (cause) { setError(messageOf(cause)); }
   };
-  return <ModulePage {...props} title="Knowledge" detail="StaffDeck Knowledge query and citation resolution use the selected backend module.">
+
+  const search = async () => {
+    if (!query.trim() || loading) return;
+    setLoading(true); setError(null); setCitation(null);
+    try {
+      setResult(await staffDeckKnowledgeClient.call<Record<string, unknown>>('query', {
+        query: query.trim(), mode: 'debug', needEvidencePack: true,
+        ...(selectedBaseId ? { knowledgeBaseIds: [selectedBaseId] } : {}),
+      }));
+    } catch (cause) {
+      setError(messageOf(cause));
+    } finally { setLoading(false); }
+  };
+
+  const resolveCitation = async (chunk: KnowledgeChunk) => {
+    const chunkId = chunk.chunk_id || chunk.id;
+    if (!chunkId) return;
+    setError(null);
+    try { setCitation(await staffDeckKnowledgeClient.call<Record<string, unknown>>('resolve_citation', { chunkId })); }
+    catch (cause) { setError(messageOf(cause)); }
+  };
+
+  return <main className="h-full overflow-y-auto bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100" data-testid="staffdeck-knowledge-workspace">
     <span className="sr-only" data-module-build-marker={BUILD_MARKER} />
-    <div className="flex gap-2"><input className="min-w-0 flex-1 rounded border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search the configured knowledge base" /><button className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!query.trim()} onClick={() => void submit()}>Search</button></div>
-    {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-    {result && <div className="mt-4 space-y-3">
-      <pre className="overflow-auto rounded border border-neutral-200 p-3 text-xs dark:border-neutral-800">{JSON.stringify(result, null, 2)}</pre>
-      {(result.chunks ?? []).map((chunk: { id: string; content?: string; source_ref?: string }) => (
-        <div key={chunk.id} className="flex items-start justify-between gap-3 rounded border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-          <div className="min-w-0"><p>{chunk.content}</p><p className="mt-1 text-xs text-neutral-500">{chunk.source_ref}</p></div>
-          <button type="button" className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700" onClick={async () => {
-            const response = await authenticatedFetch('/api/modules/knowledge/citation', { method: 'POST', body: JSON.stringify({ chunkId: chunk.id }) });
-            const body = await response.json().catch(() => ({}));
-            if (!response.ok) { setError(body?.error?.message || 'Citation resolve failed.'); return; }
-            setCitation(body.result ?? body);
-          }}>Resolve citation</button>
-        </div>
-      ))}
-      {citation && <pre className="overflow-auto rounded border border-emerald-200 bg-emerald-50 p-3 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">{JSON.stringify(citation, null, 2)}</pre>}
-    </div>}
-  </ModulePage>;
+    <div className="mx-auto grid max-w-6xl gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center gap-2"><Database className="h-4 w-4 text-blue-600" /><h2 className="text-sm font-semibold">Knowledge bases</h2></div><div className="mt-4 flex gap-2"><input aria-label="New knowledge base" value={baseName} onChange={(event) => setBaseName(event.target.value)} placeholder="New knowledge base" className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" aria-label="Create knowledge base" onClick={() => void createBase()} disabled={!baseName.trim() || saving} className="rounded bg-blue-600 px-2 text-white disabled:opacity-50"><FilePlus2 className="h-4 w-4" /></button></div><div className="mt-4 space-y-1">{bases.map((base) => <button key={base.id} type="button" onClick={() => setSelectedBaseId(base.id)} className={`w-full rounded px-2 py-2 text-left text-sm ${base.id === selectedBaseId ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}><span className="block truncate font-medium">{base.name || base.id}</span><span className="block text-xs text-neutral-500">{base.document_count ?? 0} documents · {base.version || base.status || 'active'}</span></button>)}</div></aside>
+      <section className="min-w-0 space-y-5"><header className="flex flex-wrap items-center justify-between gap-3"><div><div className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-blue-600" /><h1 className="text-xl font-semibold">{selectedBase?.name || 'Knowledge workspace'}</h1></div><p className="mt-1 text-sm text-neutral-500">StaffDeck knowledge management through the selected module contract.</p></div><button type="button" onClick={() => void loadBases(selectedBaseId)} className="inline-flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button></header>
+        {error ? <p role="alert" className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</p> : null}
+        <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold">Documents</h2><button type="button" onClick={() => { setSelectedDocument(null); setDocumentTitle(''); setDocumentContent(''); }} disabled={!selectedBaseId} className="rounded border border-neutral-300 px-2.5 py-1.5 text-sm dark:border-neutral-700">New document</button></div><div className="mt-3 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]"><div className="space-y-1">{documents.map((document) => <button key={document.id} type="button" onClick={() => void selectDocument(document)} className={`w-full rounded px-2 py-2 text-left text-sm ${document.id === selectedDocument?.id ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'}`}><span className="block truncate font-medium">{document.title || document.filename || document.id}</span><span className="block text-xs text-neutral-500">{document.status || 'ready'}</span></button>)}{selectedBaseId && documents.length === 0 ? <p className="px-2 py-3 text-xs text-neutral-500">No documents yet.</p> : null}</div><div className="space-y-3"><input aria-label="Document title" value={documentTitle} onChange={(event) => setDocumentTitle(event.target.value)} placeholder="Document title" disabled={!selectedBaseId} className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><textarea aria-label="Document content" value={documentContent} onChange={(event) => setDocumentContent(event.target.value)} placeholder="Write knowledge content in Markdown" disabled={!selectedBaseId} className="min-h-40 w-full resize-y rounded border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" onClick={() => void saveDocument()} disabled={!selectedBaseId || !documentTitle.trim() || saving} className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"><Save className="h-4 w-4" />{selectedDocument ? 'Save document' : 'Create document'}</button></div></div></section>
+        <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center gap-2"><Search className="h-4 w-4 text-blue-600" /><h2 className="text-sm font-semibold">Search and citations</h2></div><div className="mt-3 flex gap-2"><input aria-label="Knowledge query" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void search(); }} placeholder="Ask this knowledge base" className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" onClick={() => void search()} disabled={!query.trim() || loading} className="rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900">Search</button></div>{result ? <div className="mt-4 space-y-3">{summaryOf(result) ? <p className="rounded bg-neutral-50 p-3 text-sm leading-6 dark:bg-neutral-800/60">{summaryOf(result)}</p> : null}{chunks.map((chunk, index) => <article key={chunk.chunk_id || chunk.id || index} className="rounded border border-neutral-200 p-3 dark:border-neutral-700"><p className="text-sm leading-6">{chunk.content || chunk.summary || 'Knowledge result'}</p><div className="mt-2 flex items-center justify-between gap-3"><span className="truncate text-xs text-neutral-500">{chunk.source_ref || chunk.title || chunk.chunk_id || chunk.id}</span><button type="button" onClick={() => void resolveCitation(chunk)} disabled={!chunk.chunk_id && !chunk.id} className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700">Open citation</button></div></article>)}{citation ? <details open className="rounded border border-blue-200 bg-blue-50 p-3 text-xs dark:border-blue-900 dark:bg-blue-950/30"><summary className="cursor-pointer font-medium">Citation source</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap">{JSON.stringify(citation, null, 2)}</pre></details> : null}</div> : null}</section>
+      </section>
+    </div>
+  </main>;
 }
+
+function extractChunks(result: Record<string, unknown> | null): KnowledgeChunk[] {
+  if (!result) return [];
+  for (const value of [result.chunks, result.evidence, result.results]) if (Array.isArray(value)) return value.filter((item): item is KnowledgeChunk => typeof item === 'object' && item !== null);
+  return [];
+}
+
+function summaryOf(result: Record<string, unknown>): string | null {
+  for (const value of [result.answer, result.summary, result.content]) if (typeof value === 'string' && value.trim()) return value;
+  return null;
+}
+
+function encodeText(value: string): string { return btoa(unescape(encodeURIComponent(value))); }
+function messageOf(cause: unknown): string { return cause instanceof Error ? cause.message : String(cause); }
 
 function KnowledgeArtifactRenderer(props: SurfaceProps) {
   const artifact = props.artifact as { name?: string; path?: string } | undefined;
