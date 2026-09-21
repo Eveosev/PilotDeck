@@ -6,13 +6,12 @@ operations. It was produced against the local formal profile on 2026-09-22.
 ## Current G0-G7 Gate Status
 
 This is the authoritative frontend status for the current working trees
-(`StaffDeck 8fcb96fd` plus `e755aaa4`, `PilotDeck 0587b2b0`, and the
-PilotDeck shared-composition commits through `cb2d2627`). A build or source
+(`StaffDeck shared UI 38ab57a6` and `PilotDeck 4b09f71b`). A build or source
 inspection is not treated as proof of a real service workflow.
 
 | Gate | Status | Evidence / limitation |
 | --- | --- | --- |
-| G0 scope and traceability | FAIL | The source map and commit IDs are recorded, but the PilotDeck implementation and evidence changes remain uncommitted; there is no final reviewable revision yet. |
+| G0 scope and traceability | PASS | The source map and acceptance evidence are committed in reviewable revisions: StaffDeck shared UI `38ab57a6` and PilotDeck `4b09f71b`. |
 | G1 actual formal UI sharing | PASS | PilotDeck-hosted formal browser checks mount the shared StaffDeck Knowledge/SOP modules, and an independent StaffDeck-native host run at `http://127.0.0.1:15217` rendered `/enterprise/skills` and `/enterprise/knowledge` from the same shared build. The native run used an authenticated admin session and captured desktop screenshots under `/tmp/staffdeck-native-enterprise-skills.png` and `/tmp/staffdeck-native-enterprise-knowledge.png`; the observed API requests (`/api/enterprise/skills`, `/api/enterprise/knowledge-bases`, `/api/enterprise/knowledge/documents`, and `/api/enterprise/knowledge-bases/:id/okf/concepts`) all carried the JWT. |
 | G2 generic glue/service boundary | PASS | The Knowledge adapter covers job polling, document deletion, sync/publish/rollback, and the focused adapter tests pass. The SOP adapter uses explicit management calls and reports unavailable host capabilities instead of falling back silently. |
 | G3 seven-slot/profile assembly | NOT RUN | Generator/typecheck/build checks pass, and authenticated native/minimal route matrices passed at desktop and mobile viewports. The required complete independent profile/network matrix has not been rerun. |
