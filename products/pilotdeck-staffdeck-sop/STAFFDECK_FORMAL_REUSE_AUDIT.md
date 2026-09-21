@@ -21,7 +21,8 @@ imports a StaffDeck checkout at runtime.
 | --- | --- | --- |
 | `frontend-enterprise/src/pages/KnowledgePage.tsx` | StaffDeck formal Knowledge page is the source; the complete page and its add/import route are extracted into the versioned package. | `packages/staffdeck-business-ui/src/KnowledgePage.tsx`, `packages/staffdeck-business-ui/src/KnowledgePageHost.tsx` |
 | `frontend-enterprise/src/components/KnowledgeGraphCanvas.tsx` | Production Knowledge page imports the versioned shared package directly; no sibling checkout is required by either host. | `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx`, PilotDeck vendor snapshot |
-| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal SOP inventory page is the source; inventory, filters, copy/import, publish/archive/draft, version, rollback, ranking, and detail state are extracted into the versioned package. The linked formal Distill editor remains a separate extraction task. | `packages/staffdeck-business-ui/src/SkillsPage.tsx`, `packages/staffdeck-business-ui/src/SkillsPageHost.tsx` |
+| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal SOP inventory page is the source; inventory, filters, copy/import, publish/archive/draft, version, rollback, ranking, and detail state are extracted into the versioned package. | `packages/staffdeck-business-ui/src/SkillsPage.tsx`, `packages/staffdeck-business-ui/src/SkillsPageHost.tsx` |
+| `frontend-enterprise/src/pages/DistillPage.tsx` | StaffDeck formal Distill editor is extracted with source/flow views, field editing, draft save, and host-provided streaming/API hooks. | `packages/staffdeck-business-ui/src/DistillPage.tsx`, `packages/staffdeck-business-ui/src/DistillPageHost.tsx` |
 | `frontend-enterprise/src/types/index.ts` | normalized record shapes for the shared public view models | `packages/staffdeck-business-ui/src/types.ts` |
 | `backend/app/api/module_knowledge.py` | supported `staffdeck.knowledge/v1` operations and input shape | `ui/server/routes/modules.js`, `ui/src/composition/modules/staffdeck/clients.ts` |
 | `backend/app/public_api/sops.py` | authoritative draft/ETag/publish/version management contract | SOP management adapter design; not substituted with the runtime lifecycle contract |
@@ -43,7 +44,7 @@ operation evidence is recorded by the acceptance run.
 | Discoveries | list/confirm/reject | `list_discoveries`, `confirm_discovery`, `reject_discovery` | discovery panel | surface; verification pending |
 | Retrieval | query/citation resolve | `query`, `resolve_citation` | search and citation inspector | surface; verification pending |
 | SOP runtime | prepare/submit/status/resume | `sop.lifecycle/v2` through Gateway | chat wait, approval and resume | surface; verification pending |
-| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API or host-owned definition adapter | Shared formal Skills page presents the source lifecycle UI; each host supplies the API/permission adapter | surface; real public-API verification pending |
+| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API or host-owned definition adapter | Shared formal Skills and Distill pages; PilotDeck local adapter supports definition read/save/reload and explicit streaming-unavailable errors | surface; local edit/reload verified, public API verification pending |
 
 Real Knowledge lifecycle evidence is recorded in `FRONTEND_ACCEPTANCE_EVIDENCE.md`.
 
@@ -56,12 +57,13 @@ scope provided by the operator. Those actions are presented as unavailable
 until that value is supplied.
 
 SOP YAML management belongs to the current portable deployment and is not
-equivalent to StaffDeck's public draft/publish API. The shared Skills page
-preserves the original inventory/lifecycle surface while the host adapter
-selects the configured public API or deployment-owned definition service. The
-formal Distill editor is not yet in the shared package, so draft editing is not
-claimed by this audit. Scoped credentials and ETag semantics remain
-server-side. The previous hand-written
+equivalent to StaffDeck's public draft/publish API. The shared Skills and
+Distill pages preserve the original inventory, editing, and lifecycle surfaces
+while the host adapter selects the configured public API or deployment-owned
+definition service. PilotDeck's portable adapter supports local definition
+editing and preserves unmodified node content; AI generation returns a clear
+unavailable error until a streaming provider is configured. Scoped credentials
+and ETag semantics remain server-side. The previous hand-written
 `SopManagement` and `KnowledgeOperations` replacement panels were removed from
 both hosts and are not part of the reuse claim.
 

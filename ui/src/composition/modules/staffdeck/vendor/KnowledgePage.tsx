@@ -15,6 +15,14 @@ import {
   openGalleryImportSourceOptions, persistSharedAgentScope, readEmployeeScope,
   renderMarkdownBlocks, resourceCreatorName, visibleEmployeeAgents, useClientPagination, navigate,
   useKnowledgePageHost, TENANT_ID, KnowledgeGraphVisualization as HostKnowledgeGraphVisualization,
+  DIALOG_CANCEL_BUTTON_CLASS, DIALOG_FOOTER_CLASS, DIALOG_PRIMARY_BUTTON_CLASS,
+  MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_ITEM_DANGER_CLASS, MOBILE_CARD_CLASS,
+  OUTLINE_ACTION_BUTTON_CLASS, OUTLINE_ACTION_BUTTON_SM_CLASS, SEARCH_COMBO_BUTTON_CLASS,
+  SEARCH_COMBO_CLASS, SEARCH_COMBO_INPUT_CLASS, SELECT_TRIGGER_CLASS,
+  AuditOutlined, CheckOutlined, CloseOutlined, DatabaseOutlined, DeleteOutlined,
+  DownloadOutlined, EditOutlined, FileAddOutlined, FileMarkdownOutlined, HistoryOutlined,
+  InboxOutlined, MoreOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined,
+  RightOutlined, TeamOutlined,
 } from './KnowledgePageHost';
 import type { AgentProfileRead, CapabilityScope, EnterpriseAuthUser, KnowledgeBaseRead, KnowledgeBucketRead, KnowledgeChunkRead, KnowledgeConceptRead, KnowledgeDiscoveryRead, KnowledgeDocumentRead, KnowledgeIngestJobRead, KnowledgeSearchResponse, ModelConfigRead } from './KnowledgePageHost';
 

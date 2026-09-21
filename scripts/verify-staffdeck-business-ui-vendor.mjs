@@ -10,7 +10,7 @@ if (!upstreamRoot) {
 }
 
 const vendorRoot = resolve(root, 'ui/src/composition/modules/staffdeck/vendor');
-const files = ['KnowledgeGraphCanvas.tsx', 'KnowledgeGraphCanvas.css', 'types.ts', 'KnowledgePage.tsx', 'KnowledgePageHost.tsx', 'SkillsPage.tsx', 'SkillsPageHost.tsx', 'SopVersionDetailDialog.tsx'];
+const files = ['KnowledgeGraphCanvas.tsx', 'KnowledgeGraphCanvas.css', 'types.ts', 'KnowledgePage.tsx', 'KnowledgePageHost.tsx', 'SkillsPage.tsx', 'SkillsPageHost.tsx', 'DistillPage.tsx', 'DistillPageHost.tsx', 'distillPageStyles.ts', 'distillFailure.ts', 'skillFlowModel.ts', 'SopVersionDetailDialog.tsx'];
 const mismatches = [];
 for (const file of files) {
   const [upstream, vendor] = await Promise.all([

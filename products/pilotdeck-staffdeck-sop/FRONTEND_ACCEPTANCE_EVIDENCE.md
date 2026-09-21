@@ -15,9 +15,9 @@ inspection is not treated as proof of a real service workflow.
 | G1 actual formal UI sharing | PARTIAL | Knowledge and Skills list/lifecycle pages are shared from the StaffDeck source; the original Distill editor is not yet extracted, so full SOP editing is not claimed. |
 | G2 generic glue/service boundary | PASS (static) | Shared pages call generic host APIs; PilotDeck adapters map module clients and route navigation; vendor check passes. |
 | G3 seven-slot/profile assembly | PASS (static) | Generated module profile includes Knowledge and SOP pages plus optional `/knowledge/new`; typecheck/build and composition tests pass. Runtime profile matrix was not rerun in this turn. |
-| G4 Knowledge persistence loop | NOT RUN (environment) | No local service was listening on ports `13121` or `15121` during this run. The historical isolated lifecycle below remains prior evidence and is not silently re-attributed to the new adapter changes. |
-| G5 SOP edit/publish/run/reload | BLOCKED | No public `sops:*` service/credential is configured, and the shared Skills page still routes editing to the unextracted formal Distill page. |
-| G6 dual-host regression/reproducible delivery | PARTIAL | StaffDeck build, PilotDeck typecheck/build, vendor snapshot, and consumption tests pass. Real dual-host browser/persistence rerun is still required. |
+| G4 Knowledge persistence loop | PARTIAL/PASS | Owner and Gateway lifecycle evidence remains PASS. This turn also verified the formal PilotDeck Knowledge page, isolated document upload task creation, seeded document/card/search/citation rendering; the uploaded README job remained queued while the Gateway was restarting. |
+| G5 SOP edit/publish/run/reload | PARTIAL | Formal Distill source/flow editor loads. PilotDeck UI edited `operator_approval`, saved version `1.1.0`, refreshed the editor, and verified the SOP plaza shows the new name/version while preserving the approval node. Public StaffDeck `sops:*` management and AI streaming remain unconfigured. |
+| G6 dual-host regression/reproducible delivery | PASS (build/static) | StaffDeck production build and focused Distill tests pass; PilotDeck typecheck/build, module tests, vendor snapshot, and formal profile build pass. Browser evidence is recorded for PilotDeck; StaffDeck browser rerun remains outside this turn. |
 | G7 independent supervision evidence | NOT RUN | No independent supervisor session has rerun G0-G6 for this working tree. |
 
 The implementation must not be marked complete while G1/G5/G7 remain partial or
@@ -67,16 +67,18 @@ The browser at `http://localhost:15121/knowledge` was also inspected in
 Chinese. It rendered real seeded StaffDeck bases, document state, search, and
 the extracted lifecycle/job/structure/OKF/discovery panels.
 
-## SOP: Historical Evidence
+## SOP: Browser Evidence
 
-Portable SOP definitions continue to be exercised through the local definition
-facade and Gateway lifecycle. These results predate the full-page migration and
-do not prove the missing formal Distill editor path.
+Portable SOP definitions were exercised through the local definition facade and
+Gateway lifecycle. The formal browser path was then verified at `/sop` and
+`/sop/distill?skill_id=operator_approval`: source view opened, name and
+description changed, draft version `1.1.0` saved, reload preserved the updated
+fields and original node, and the plaza reflected the updated name/version.
 
-The full StaffDeck draft/create/validate/publish/archive/version/rollback page
-is intentionally not claimed as shared. No StaffDeck `/api/v1` service with a
-scoped `sops:*` credential is configured in this local formal profile, so no
-real public SOP management operation is recorded as passed.
+The full StaffDeck public draft/create/validate/publish/archive/version/rollback
+API is still not configured in this local formal profile. AI generation through
+the portable Distill host intentionally returns an explicit unavailable error
+until a streaming provider is supplied.
 
 ## Focused Verification
 

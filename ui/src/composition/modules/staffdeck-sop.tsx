@@ -3,12 +3,17 @@ import { useTranslation } from 'react-i18next';
 import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
 import SharedSkillsPage from './staffdeck/vendor/SkillsPage';
-import { PilotDeckSkillsPageProvider } from './staffdeck/vendor/skills-host-adapter';
+import SharedDistillPage from './staffdeck/vendor/DistillPage';
+import { PilotDeckDistillPageProvider, PilotDeckSkillsPageProvider } from './staffdeck/vendor/skills-host-adapter';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 
 function FormalSopPage() {
   return <PilotDeckSkillsPageProvider><SharedSkillsPage /></PilotDeckSkillsPageProvider>;
+}
+
+function FormalSopDistillPage() {
+  return <PilotDeckDistillPageProvider><SharedDistillPage /></PilotDeckDistillPageProvider>;
 }
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {
@@ -42,7 +47,10 @@ const module: FrontendModule = {
   id: 'staffdeck.sop', slot: 'sop', contract: 'sop.lifecycle/v2', source: 'staffdeck', frontendApiVersion: 'frontend-module/v1',
   buildMarker: BUILD_MARKER,
   requires: ['agentLoop'],
-  pages: [{ id: 'sop', path: '/sop', label: 'Workflow', labelKey: 'staffdeck:nav.workflow', component: FormalSopPage }],
+  pages: [
+    { id: 'sop', path: '/sop', label: 'Workflow', labelKey: 'staffdeck:nav.workflow', component: FormalSopPage },
+    { id: 'sop-distill', path: '/sop/distill', label: 'Edit workflow', labelKey: 'staffdeck:nav.workflow', component: FormalSopDistillPage },
+  ],
   settings: [{ id: 'sop-default-workflow', settingsSection: 'sop', label: 'Workflow', labelKey: 'staffdeck:nav.workflow', component: () => <SopProfileSetting /> }],
   chatExtensions: [{ id: 'sop-wait', label: 'SOP wait state', component: SopExtension, requiresRuntime: true }],
   permissionPanels: [{ id: 'sop-approval', label: 'SOP approval', toolNames: ['operator_approval'], component: SopPermissionPanel, requiresRuntime: true }],

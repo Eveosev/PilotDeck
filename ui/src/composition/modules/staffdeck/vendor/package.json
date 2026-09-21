@@ -11,6 +11,8 @@
     "./KnowledgeGraphCanvas": "./src/KnowledgeGraphCanvas.tsx",
     "./KnowledgePage": "./src/KnowledgePage.tsx",
     "./KnowledgePageHost": "./src/KnowledgePageHost.tsx",
+    "./DistillPage": "./src/DistillPage.tsx",
+    "./DistillPageHost": "./src/DistillPageHost.tsx",
     "./SkillsPage": "./src/SkillsPage.tsx",
     "./SkillsPageHost": "./src/SkillsPageHost.tsx",
     "./SopVersionDetailDialog": "./src/SopVersionDetailDialog.tsx",
