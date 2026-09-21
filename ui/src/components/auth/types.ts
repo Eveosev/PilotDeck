@@ -18,6 +18,7 @@ export type AuthSessionPayload = {
 export type AuthStatusPayload = {
   needsSetup?: boolean;
   authDisabled?: boolean;
+  moduleAdmin?: boolean;
 };
 
 export type AuthUserPayload = {

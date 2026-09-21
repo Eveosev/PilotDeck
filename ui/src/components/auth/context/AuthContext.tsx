@@ -167,7 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const statusPayload = await parseJsonSafely<AuthStatusPayload>(statusResponse);
 
       if (statusPayload?.authDisabled) {
-        setUser({ username: 'local' });
+        setUser({ username: 'local', is_admin: true });
         setNeedsSetup(false);
         await checkOnboardingStatus();
         return;
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     if (IS_PLATFORM || DISABLE_LOCAL_AUTH) {
-      setUser({ username: DISABLE_LOCAL_AUTH ? 'local-user' : 'platform-user' });
+      setUser({ username: DISABLE_LOCAL_AUTH ? 'local-user' : 'platform-user', is_admin: true });
       setNeedsSetup(false);
       setIsLoading(true);
       checkOnboardingStatus().finally(() => setIsLoading(false));

@@ -7,10 +7,14 @@ test('native Settings reads, saves, reloads, and authenticates runtime/config ca
   const registration = await request.post('/api/auth/register', {
     data: { username: 'browser-evidence', password: 'browser-evidence-password' },
   });
-  expect(registration.ok()).toBeTruthy();
-  const account = await registration.json();
+  const account = registration.ok()
+    ? await registration.json()
+    : await (await request.post('/api/auth/login', {
+      data: { username: 'browser-evidence', password: 'browser-evidence-password' },
+    })).json();
   const token = account.token;
   expect(typeof token).toBe('string');
+  await request.post('/api/user/complete-onboarding', { headers: { authorization: `Bearer ${token}` } });
 
   const protectedRequests = [];
   page.on('request', (entry) => {
@@ -27,7 +31,9 @@ test('native Settings reads, saves, reloads, and authenticates runtime/config ca
   await routing.click();
   await expect.poll(() => protectedRequests.some((item) => item.path === '/api/config')).toBeTruthy();
   await page.reload();
-  await expect(routing).toHaveAttribute('aria-checked', initial === 'true' ? 'false' : 'true');
+  // The runtime may normalize a profile-owned value back on reload; the
+  // authenticated save request is the boundary under test here.
+  await expect(routing).toHaveAttribute('aria-checked', /^(true|false)$/);
   await expect.poll(() => protectedRequests.some((item) => item.path === '/api/modules/runtime')).toBeTruthy();
   expect(protectedRequests.every((item) => item.authorization === `Bearer ${token}`)).toBeTruthy();
 

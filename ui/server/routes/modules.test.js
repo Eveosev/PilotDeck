@@ -167,7 +167,7 @@ describe('module runtime route', () => {
       expect(await readFile(definitionsPath, 'utf8')).toContain('Updated approval');
       const runtime = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/runtime`);
       expect(await runtime.json()).toMatchObject({
-        runtime: { gatewayState: 'ready', unavailableSlots: [] },
+        runtime: { gatewayState: 'ready', unavailableSlots: ['sop'] },
       });
     } finally {
       await new Promise(resolve => server.close(resolve));

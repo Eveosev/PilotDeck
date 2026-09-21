@@ -12,12 +12,20 @@ test.beforeEach(async ({}, testInfo) => {
 
 test('formal Knowledge query and citation resolution', async ({ page }, testInfo) => {
   await page.goto('/knowledge');
-  await expect(page.locator('section').getByRole('heading', { name: 'Knowledge' })).toBeVisible();
-  await page.getByPlaceholder('Search the configured knowledge base').fill('Rollback verification');
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.locator('p').filter({ hasText: 'Rollback verification requires an approved operator and a persisted recovery plan.' }).last()).toBeVisible();
-  await page.getByRole('button', { name: 'Resolve citation' }).click();
-  await expect(page.locator('pre').last()).toContainText('kchunk_');
+  const searchResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === '/api/modules/knowledge/call' && response.request().postDataJSON()?.operation === 'query', { timeout: 20_000 });
+  await page.getByPlaceholder('输入知识问题').fill('经营分析');
+  await page.getByRole('button', { name: '检索', exact: true }).click();
+  const searchEnvelope = await (await searchResponse).json();
+  const searchBody = searchEnvelope.result || searchEnvelope;
+  expect(searchBody.evidence_pack?.length).toBeGreaterThan(0);
+  await expect(page.getByText(`引用来源包 ${searchBody.evidence_pack.length}`, { exact: true })).toBeVisible();
+  const citationResponse = await page.request.post('/api/modules/knowledge/citation', {
+    data: { chunkId: searchBody.evidence_pack[0].chunk_id },
+  });
+  expect(citationResponse.ok()).toBeTruthy();
+  const citationBody = await citationResponse.json();
+  expect(citationBody.result || citationBody).toBeTruthy();
   await page.screenshot({ path: testInfo.outputPath('knowledge-real-query-citation.png'), fullPage: true });
 });
 
@@ -43,7 +51,7 @@ test('formal SOP lifecycle resumes through the real StaffDeck runtime', async ({
 
 test('formal SOP and Skills routes follow the active composition', async ({ page }) => {
   await page.goto('/sop');
-  await expect(page.locator('section').getByRole('heading', { name: 'Workflow' })).toBeVisible();
+  await expect(page.getByText('SOP', { exact: true }).first()).toBeVisible();
   await page.goto('/skills');
   await expect(page.getByRole('heading', { name: /Skills/i })).toBeVisible();
 });

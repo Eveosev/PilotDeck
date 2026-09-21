@@ -14,7 +14,7 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
 async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
-  if (url.pathname === '/api/enterprise/agents' && method === 'get') return [{ id: 'overall', name: 'StaffDeck', is_overall: true }] as T;
+  if (url.pathname === '/api/enterprise/agents' && method === 'get') return [] as T;
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') return await knowledge<T>('list_bases');
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'post') return await knowledge<T>('create_base', body || {});
   if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'get') return await knowledge<T>('list_documents', { knowledgeBaseId: url.searchParams.get('knowledge_base_id') || url.searchParams.get('knowledgeBaseId') || '' });
@@ -22,8 +22,12 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && segments[5] === 'buckets' && method === 'get') return await knowledge<T>('list_document_buckets', { documentId: segments[4], knowledgeBaseId: url.searchParams.get('knowledge_base_id') || '' });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'get') return await knowledge<T>('get_document', { documentId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'put') return await knowledge<T>('update_document', { documentId: segments[4], ...(body || {}) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'delete') return await knowledge<T>('delete_document', { documentId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'knowledge-bases') return await knowledge<T>('list_bases');
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'versions' && method === 'get') return await knowledge<T>('list_versions', { knowledgeBaseId: segments[3] });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'sync-from-overall' && method === 'post') return await knowledge<T>('sync_base', { knowledgeBaseId: segments[3], agentId: url.searchParams.get('agent_id') || '' });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'promote-to-overall' && method === 'post') return await knowledge<T>('publish_version', { knowledgeBaseId: segments[3], agentId: url.searchParams.get('agent_id') || '' });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'rollback' && method === 'post') return await knowledge<T>('rollback_version', { knowledgeBaseId: segments[3], ...(body || {}) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'concepts' && method === 'get') return await knowledge<T>('list_okf_concepts', { knowledgeBaseId: segments[3] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'export' && method === 'get') return await knowledge<T>('export_okf', { knowledgeBaseId: segments[3] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'lint' && method === 'post') return await knowledge<T>('lint_okf', { knowledgeBaseId: segments[3], ...(body || {}) });
@@ -36,6 +40,7 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'chunks' && segments[4] && method === 'put') return await knowledge<T>('update_chunk', { chunkId: segments[4], ...(body || {}) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'citations' && segments[4] && method === 'get') return await knowledge<T>('resolve_citation', { chunkId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && segments[5] === 'cancel' && method === 'post') return await knowledge<T>('cancel_job', { jobId: segments[4] });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && method === 'get') return await knowledge<T>('get_job', { jobId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && method === 'get') return await knowledge<T>('list_jobs', { limit: Number(url.searchParams.get('limit') || 20) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'confirm' && method === 'post') return await knowledge<T>('confirm_discovery', { discoveryId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'reject' && method === 'post') return await knowledge<T>('reject_discovery', { discoveryId: segments[4] });
@@ -46,9 +51,9 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
 export const pilotDeckKnowledgePageHost: Host = {
   api: { get: (path) => callKnowledge(path, 'get'), post: (path, body) => callKnowledge(path, 'post', body), put: (path, body) => callKnowledge(path, 'put', body), delete: (path) => callKnowledge(path, 'delete'), blob: async (path) => new Blob([JSON.stringify(await callKnowledge(path, 'get'))], { type: 'application/json' }) },
   navigate: (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
-  tenantId: 'tenant_demo', notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) }, isEnterpriseAdmin: () => true,
-  loadEmployeeDirectory: async () => [{ id: 'overall', name: 'StaffDeck', is_overall: true }], agentScope: { read: () => '', persist: () => {}, clear: () => {}, emit: () => {} },
-  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: () => true, openGalleryAgentId: 'overall', openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
+  tenantId: 'tenant_demo', notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) }, isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
+  loadEmployeeDirectory: async () => [], agentScope: { read: () => '', persist: () => {}, clear: () => {}, emit: () => {} },
+  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin), openGalleryAgentId: 'overall', openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
 };
 
 function mapKnowledgePath(path: string): string {

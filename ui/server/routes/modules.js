@@ -35,6 +35,11 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try { return parseYaml(readFileSync(path, 'utf8')) ?? {}; } catch { return {}; }
   });
   const route = express.Router();
+  // A definition write is visible immediately on disk, but the active AgentLoop
+  // keeps its previous snapshot until the process is restarted. Keep that
+  // distinction explicit in the runtime contract so the UI can disable only
+  // the affected workflow while the restart is pending.
+  const unavailableSlots = new Set();
   route.get('/runtime', async (_req, res) => {
     try {
       const config = readConfig() ?? {};
@@ -52,7 +57,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         gatewayCapabilities: gateway.capabilities,
         runtime: {
           gatewayState: gateway.state,
-          unavailableSlots: [],
+          unavailableSlots: [...unavailableSlots],
         },
       });
     } catch (error) {
@@ -188,6 +193,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const next = { ...bundle, sops: bundle.sops.map((item, itemIndex) => itemIndex === index ? definition : item) };
       validateSopBundle(next);
       writeFileSync(binding.definitionsPath, stringifyYaml(next), 'utf8');
+      unavailableSlots.add('sop');
       return res.json({ definition, restartRequired: true });
     } catch (error) {
       return res.status(422).json({ error: { code: 'SOP_DEFINITION_SAVE_FAILED', message: error instanceof Error ? error.message : String(error) } });

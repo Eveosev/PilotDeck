@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../components/auth';
 import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
 import SharedKnowledgePage, { KnowledgeAddPage as SharedKnowledgeAddPage } from './staffdeck/vendor/KnowledgePage';
@@ -7,10 +8,14 @@ import { PilotDeckKnowledgePageProvider } from './staffdeck/vendor/knowledge-hos
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
 function KnowledgePage() {
-  return <PilotDeckKnowledgePageProvider><SharedKnowledgePage /></PilotDeckKnowledgePageProvider>;
+  const { user } = useAuth();
+  const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
+  return <PilotDeckKnowledgePageProvider><SharedKnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider>;
 }
 function KnowledgeAddPage() {
-  return <PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage /></PilotDeckKnowledgePageProvider>;
+  const { user } = useAuth();
+  const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
+  return <PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage currentUser={currentUser} /></PilotDeckKnowledgePageProvider>;
 }
 
 function KnowledgeArtifactRenderer(props: SurfaceProps) {

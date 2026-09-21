@@ -247,16 +247,16 @@ REAL_COMPOSITION_PROFILE=staffdeck \
 pnpm --dir ui exec playwright test -c e2e/real-auth-composition.config.mjs
 ```
 
-The isolated worktree uses the already-installed workspace dependencies from
-the SDK merge worktree. To recreate those local links after a clean worktree
-setup, run:
+The worktree is self-contained. After a clean checkout, install the locked
+workspace dependencies from the repository root; no sibling checkout or
+dependency symlink is required:
 
 ```sh
-ln -s /Users/a1/Desktop/claw/openbmb/PilotDeck-sdk-staffdeck-merge/node_modules \
-  /Users/a1/Desktop/claw/openbmb/PilotDeck-frontend-seven-slot/node_modules
-ln -s /Users/a1/Desktop/claw/openbmb/PilotDeck-sdk-staffdeck-merge/ui/node_modules \
-  /Users/a1/Desktop/claw/openbmb/PilotDeck-frontend-seven-slot/ui/node_modules
+corepack pnpm install --frozen-lockfile
 ```
+
+The vendored `@staffdeck/business-ui` snapshot is checked into this worktree,
+so the frontend build does not require a live StaffDeck source checkout either.
 
 Focused consumer coverage in `ui/src/composition/consumption.test.tsx` proves
 that an active assembly reaches custom Tool, permission, artifact, lifecycle,

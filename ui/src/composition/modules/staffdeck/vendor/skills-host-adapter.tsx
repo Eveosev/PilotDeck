@@ -63,31 +63,39 @@ async function management(operation: string, input: Record<string, unknown> = {}
 }
 
 async function listDefinitions(): Promise<any[]> {
+  let result: Record<string, any>;
   try {
-    const result = record(await management('list'));
-    const rows = Array.isArray(result.data) && result.data.length > 0
-      ? result.data
-      : Array.isArray(result.drafts) ? result.drafts : [];
+    result = record(await management('list'));
+  } catch (error) {
+    // A portable YAML profile has no public management endpoint. Listing its
+    // local definitions is a real read-only capability; upstream failures must
+    // still surface instead of silently changing the source of truth.
+    if ((error as { status?: number })?.status !== 501) throw error;
     const local = await staffDeckSopClient.listDefinitions();
-    const localById = new Map(local.definitions.map((definition) => [definition.id, definition]));
-    if (rows.length > 0) {
-      return rows.map((row) => {
-        const managed = toManagedSkill(row);
-        return toSkill({ ...managed, ...(localById.get(managed.skill_id) || {}) } as SopDefinition, managed.status);
-      });
-    }
     return local.definitions.map((definition) => toSkill(definition, text(definition.status) || 'draft'));
-  } catch {
-    const result = await staffDeckSopClient.listDefinitions();
-    return result.definitions.map((definition) => toSkill(definition, text(definition.status) || 'draft'));
   }
+  const rows = Array.isArray(result.data) && result.data.length > 0
+    ? result.data
+    : Array.isArray(result.drafts) ? result.drafts : [];
+  const local = await staffDeckSopClient.listDefinitions();
+  const localById = new Map(local.definitions.map((definition) => [definition.id, definition]));
+  return rows.map((row) => {
+    const managed = toManagedSkill(row);
+    return toSkill({ ...managed, ...(localById.get(managed.skill_id) || {}) } as SopDefinition, managed.status);
+  });
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
   const match = path.match(/^\/api\/enterprise\/skills\/([^/?]+)(?:\/([^/?]+))?/);
-  if (path.startsWith('/api/enterprise/skills?')) return await listDefinitions() as T;
-  if (path.startsWith('/api/enterprise/agents?')) return [{ id: 'overall', name: 'StaffDeck', is_overall: true }] as T;
-  if (path.startsWith('/api/enterprise/agents/') && path.endsWith('/skills?tenant_id=tenant_demo')) return await listDefinitions() as T;
+  if (path.startsWith('/api/enterprise/skills?')) {
+    if (method === 'get') return await listDefinitions() as T;
+    if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
+  }
+  if (path.startsWith('/api/enterprise/agents?')) return [] as T;
+  if (path.startsWith('/api/enterprise/agents/') && path.endsWith('/skills?tenant_id=tenant_demo')) {
+    if (method !== 'get') throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
+    return await listDefinitions() as T;
+  }
   if (!match) throw new Error(`Unsupported StaffDeck skills path: ${path}`);
   const sopId = decodeURIComponent(match[1]);
   const suffix = match[2] ? decodeURIComponent(match[2]) : '';
@@ -136,12 +144,15 @@ function skillContent(current: Record<string, any>, body: unknown) {
 }
 
 async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
-  if (path.startsWith('/api/enterprise/tools')) return [] as T;
-  if (path.startsWith('/api/enterprise/general-skills')) return [] as T;
-  if (path.startsWith('/api/enterprise/model-configs')) return [] as T;
-  if (path.startsWith('/api/auth/users')) return [] as T;
+  if (path.startsWith('/api/enterprise/tools')) throw new Error('PilotDeck tools capability is unavailable in this host.');
+  if (path.startsWith('/api/enterprise/general-skills')) throw new Error('PilotDeck general-skills capability is unavailable in this host.');
+  if (path.startsWith('/api/enterprise/model-configs')) throw new Error('PilotDeck model-configs capability is unavailable in this host.');
+  if (path.startsWith('/api/auth/users')) throw new Error('PilotDeck user-directory capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/knowledge-bases')) return await staffDeckKnowledgeClient.call<T>('list_bases');
-  if (path.startsWith('/api/enterprise/skills?')) return await listDefinitions() as T;
+  if (path.startsWith('/api/enterprise/skills?')) {
+    if (method === 'get') return await listDefinitions() as T;
+    if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
+  }
   const skillId = skillIdFromPath(path);
   if (skillId && method === 'get' && !path.includes('/versions')) return await readDefinition(skillId) as T;
   if (skillId && method === 'put' && !path.includes('/versions')) {
@@ -174,9 +185,9 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   navigate: (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
   tenantId: 'tenant_demo',
   notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) },
-  isEnterpriseAdmin: () => true,
-  canManageEmployeeAgent: () => true,
-  openGalleryAgentId: 'overall',
+  isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
+  canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin),
+  openGalleryAgentId: '',
   openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })),
   resourceCreatorName: (row) => text(row.created_by_name) || '',
   visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId),

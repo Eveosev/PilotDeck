@@ -84,9 +84,12 @@ export function selectFrontendModules(profile) {
   for (const slot of SLOT_ORDER) {
     const binding = bindings[slot];
     if (binding?.enabled === false) continue;
+    // External implementations still use the slot's public browser adapter
+    // unless the profile explicitly selects a frontend module. The frontend
+    // does not need to know the deployment owner's implementation id.
     const id = binding?.frontendModule
       ?? IMPLEMENTATION_FRONTENDS[binding?.implementationId]
-      ?? (binding?.implementationId ? null : DEFAULT_FRONTEND[slot]);
+      ?? DEFAULT_FRONTEND[slot];
     if (!id || !MODULE_SOURCES[id]) {
       throw new Error(`No registered frontend implementation for ${slot}${binding?.implementationId ? ` (${binding.implementationId})` : ''}.`);
     }

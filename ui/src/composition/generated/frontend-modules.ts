@@ -4,15 +4,15 @@ import module1 from '../modules/pilotdeck-skills';
 import module2 from '../modules/pilotdeck-tools';
 import module3 from '../modules/pilotdeck-context';
 import module4 from '../modules/pilotdeck-model';
-import module5 from '../modules/staffdeck-sop';
-import module6 from '../modules/staffdeck-knowledge';
-import module7 from '../modules/agent-routing';
-import module8 from '../modules/agent-scheduling';
-import module9 from '../modules/channels-integrations';
-import module10 from '../modules/model-providers';
-import module11 from '../modules/agent-model-selection';
-import module12 from '../modules/tools-search';
-import module13 from '../modules/tools-mcp';
+import module5 from '../modules/agent-routing';
+import module6 from '../modules/agent-resident';
+import module7 from '../modules/agent-scheduling';
+import module8 from '../modules/channels-integrations';
+import module9 from '../modules/model-providers';
+import module10 from '../modules/agent-model-selection';
+import module11 from '../modules/tools-search';
+import module12 from '../modules/tools-mcp';
+import module13 from '../modules/context-memory';
 import module14 from '../modules/workspace-office-preview';
 import module15 from '../modules/system-advanced';
 import module16 from '../modules/tools-permissions';
@@ -28,8 +28,8 @@ export const generatedFrontendModules = [
   Object.assign({ slot: 'tools' }, module2),
   Object.assign({ slot: 'context' }, module3),
   Object.assign({ slot: 'modelProvider' }, module4),
-  Object.assign({ slot: 'sop' }, module5),
-  Object.assign({ slot: 'knowledge' }, module6),
+  module5,
+  module6,
   module7,
   module8,
   module9,
@@ -48,7 +48,9 @@ export const generatedFrontendModules = [
 ] as const;
 
 export const generatedBusinessPaths = [
-  "/cron"
+  "/always-on",
+  "/cron",
+  "/memory"
 ] as const;
 
 export const generatedBusinessRoutePaths = [
@@ -80,55 +82,18 @@ export const generatedFrontendProfile = {
       "provider": "pilotdeck"
     },
     "sop": {
-      "enabled": true,
-      "implementationId": "staffdeck.portable-sop",
-      "contract": "sop.lifecycle/v2",
-      "transport": "sop-http-v2"
+      "enabled": false
     },
     "knowledge": {
-      "enabled": true,
-      "implementationId": "staffdeck.knowledge",
-      "contract": "staffdeck.knowledge/v1",
-      "transport": "module-http-v2",
-      "methods": [
-        "list_bases",
-        "create_base",
-        "get_base",
-        "update_base",
-        "delete_base",
-        "list_versions",
-        "sync_base",
-        "publish_version",
-        "rollback_version",
-        "list_documents",
-        "get_document",
-        "import_document",
-        "import_okf",
-        "update_document",
-        "delete_document",
-        "list_document_buckets",
-        "update_bucket",
-        "list_bucket_chunks",
-        "update_chunk",
-        "get_job",
-        "list_jobs",
-        "cancel_job",
-        "list_okf_concepts",
-        "get_okf_concept",
-        "upsert_okf_concept",
-        "export_okf",
-        "lint_okf",
-        "list_discoveries",
-        "confirm_discovery",
-        "reject_discovery",
-        "query",
-        "resolve_citation"
-      ]
+      "enabled": false
     }
   },
   "frontend": {
     "businessModules": {
       "agent.routing": {
+        "enabled": true
+      },
+      "agent.resident": {
         "enabled": true
       },
       "agent.scheduling": {
@@ -147,6 +112,9 @@ export const generatedFrontendProfile = {
         "enabled": true
       },
       "tools.mcp": {
+        "enabled": true
+      },
+      "context.memory": {
         "enabled": true
       },
       "workspace.office-preview": {

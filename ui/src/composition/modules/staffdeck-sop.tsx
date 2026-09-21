@@ -1,4 +1,5 @@
 import SopWaitBanner from '../../components/chat-v2/SopWaitBanner';
+import { useAuth } from '../../components/auth';
 import { useTranslation } from 'react-i18next';
 import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
@@ -9,11 +10,15 @@ import { PilotDeckDistillPageProvider, PilotDeckSkillsPageProvider } from './sta
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 
 function FormalSopPage() {
-  return <PilotDeckSkillsPageProvider><SharedSkillsPage /></PilotDeckSkillsPageProvider>;
+  const { user } = useAuth();
+  const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
+  return <PilotDeckSkillsPageProvider><SharedSkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider>;
 }
 
 function FormalSopDistillPage() {
-  return <PilotDeckDistillPageProvider><SharedDistillPage /></PilotDeckDistillPageProvider>;
+  const { user } = useAuth();
+  const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
+  return <PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider>;
 }
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {
