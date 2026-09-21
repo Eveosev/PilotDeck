@@ -64,6 +64,8 @@ export type Contribution = {
   toolNames?: string[];
   artifactMimeTypes?: string[];
   fileExtensions?: string[];
+  /** Requires an operational runtime, rather than only a valid module profile. */
+  requiresRuntime?: boolean;
 };
 export type PageContribution = Contribution & { path: string };
 export type ChatSurfaceContribution = {

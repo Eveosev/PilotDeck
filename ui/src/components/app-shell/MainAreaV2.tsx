@@ -92,6 +92,7 @@ type MainAreaV2Props = MainContentProps & {
   moduleChatExtensions?: Contribution[];
   moduleCompositionError?: string | null;
   moduleCompositionLoading?: boolean;
+  moduleRuntimeWarning?: string | null;
   moduleUnavailableMessage?: string | null;
 };
 
@@ -107,6 +108,7 @@ function MainAreaV2Content(props: MainAreaV2Props) {
     moduleChatExtensions = [],
     moduleCompositionError,
     moduleCompositionLoading = false,
+    moduleRuntimeWarning,
   } = props;
   const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
@@ -404,12 +406,13 @@ function MainAreaV2Content(props: MainAreaV2Props) {
       {/* Body */}
       <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden">
         {moduleCompositionError ? <div role="alert" className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{moduleCompositionError}</div> : null}
+        {moduleRuntimeWarning ? <div role="status" className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{moduleRuntimeWarning}</div> : null}
         {moduleCompositionLoading ? <div role="status" className="shrink-0 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">Verifying runtime modules. Module actions are temporarily read-only.</div> : null}
         <div className="min-h-0 flex-1">
           <MainContent
             {...props}
             chatSurface={props.moduleChatSurface?.component ?? null}
-            chatUnavailableMessage={moduleCompositionLoading ? 'Verifying runtime modules before chat is available.' : null}
+            chatUnavailableMessage={moduleCompositionLoading ? 'Verifying runtime modules before chat is available.' : (moduleRuntimeWarning ?? null)}
             activeTab={displayActiveTab}
           />
         </div>

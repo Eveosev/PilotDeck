@@ -16,11 +16,20 @@ export function setActiveAssembly(next: Assembly | null): void {
 }
 
 /** Activate registry-backed contributions and return their deterministic cleanup. */
-export function activateAssembly(assembly: Assembly): () => void {
-  setActiveAssembly(assembly);
+export function activateAssembly(assembly: Assembly, runtime?: RuntimeCapabilities | null): () => void {
+  const runtimeUnavailable = runtime !== null && runtime !== undefined
+    && (runtime.gatewayState !== 'ready' || (runtime.unavailableSlots?.length ?? 0) > 0);
+  const activeAssembly = runtimeUnavailable
+    ? {
+      ...assembly,
+      chatExtensions: assembly.chatExtensions.filter((extension) => !extension.requiresRuntime),
+      permissionPanels: assembly.permissionPanels.filter((panel) => !panel.requiresRuntime),
+    }
+    : assembly;
+  setActiveAssembly(activeAssembly);
   let disposed = false;
   const cleanups: Array<() => void | Promise<void>> = [];
-  cleanups.push(registerPermissionPanels(assembly.permissionPanels.map((panel) => ({
+  cleanups.push(registerPermissionPanels(activeAssembly.permissionPanels.map((panel) => ({
     toolNames: panel.toolNames,
     component: panel.component as any,
   }))));
@@ -53,6 +62,8 @@ export type RuntimeModule = {
 export type RuntimeCapabilities = {
   modules: Partial<Record<Slot, RuntimeModule>>;
   gatewayCapabilities: string[];
+  gatewayState?: 'ready' | 'unavailable';
+  unavailableSlots?: Slot[];
 };
 
 /**
@@ -74,6 +85,10 @@ export async function readRuntimeCapabilities(
     modules: modules as Partial<Record<Slot, RuntimeModule>>,
     gatewayCapabilities: Array.isArray(body.gatewayCapabilities)
       ? body.gatewayCapabilities.filter((item): item is string => typeof item === 'string')
+      : [],
+    gatewayState: body.runtime?.gatewayState === 'ready' ? 'ready' : 'unavailable',
+    unavailableSlots: Array.isArray(body.runtime?.unavailableSlots)
+      ? body.runtime.unavailableSlots.filter((item: unknown): item is Slot => slots.includes(item as Slot))
       : [],
   };
 }
@@ -132,6 +147,7 @@ export type ModuleCompositionState = {
   loading: boolean;
   error: string | null;
   runtime: RuntimeCapabilities | null;
+  runtimeWarning: string | null;
 };
 
 const staticProfile: CompositionProfile = generatedFrontendProfile as unknown as CompositionProfile;
@@ -150,12 +166,23 @@ export function resolveModuleCompositionState(
     // Static imports are not an authorization to activate a module. Keep
     // every module-owned contribution dormant until the server projection
     // has confirmed that this exact assembly is available.
-    if (error) return { assembly: null, profile, loading: false, error, runtime };
-    if (!runtime) return { assembly: null, profile, loading: true, error: null, runtime };
+    if (error) return { assembly: null, profile, loading: false, error, runtime, runtimeWarning: null };
+    if (!runtime) return { assembly: null, profile, loading: true, error: null, runtime, runtimeWarning: null };
     assertRuntimeCapabilities(assembly, runtime);
-    return { assembly, profile, loading: false, error: null, runtime };
+    return {
+      assembly,
+      profile,
+      loading: false,
+      error: null,
+      runtime,
+      runtimeWarning: (runtime.unavailableSlots?.length ?? 0) > 0
+        ? `Runtime reload required for: ${(runtime.unavailableSlots ?? []).join(', ')}. Workflow chat actions are disabled until restart.`
+        : runtime.gatewayState !== 'ready'
+          ? 'Chat runtime is unavailable. Management pages remain available; workflow chat actions are disabled.'
+          : null,
+    };
   } catch (cause) {
-    return { assembly: null, profile, loading: false, error: cause instanceof Error ? cause.message : String(cause), runtime };
+    return { assembly: null, profile, loading: false, error: cause instanceof Error ? cause.message : String(cause), runtime, runtimeWarning: null };
   }
 }
 
@@ -163,13 +190,19 @@ export function resolveModuleCompositionState(
 export function useModuleComposition(): ModuleCompositionState {
   const [runtime, setRuntime] = useState<RuntimeCapabilities | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void readRuntimeCapabilities()
       .then((next) => { if (!cancelled) { setRuntime(next); setError(null); } })
       .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause)); });
-    return () => { cancelled = true; };
-  }, []);
+    const refresh = () => setRefreshKey((current) => current + 1);
+    window.addEventListener('pilotdeck:module-runtime-changed', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pilotdeck:module-runtime-changed', refresh);
+    };
+  }, [refreshKey]);
 
   const state = useMemo(
     () => resolveModuleCompositionState(staticProfile, runtime, error),
@@ -181,8 +214,8 @@ export function useModuleComposition(): ModuleCompositionState {
       setActiveAssembly(null);
       return;
     }
-    return activateAssembly(state.assembly);
-  }, [state.assembly, state.error]);
+    return activateAssembly(state.assembly, state.runtime);
+  }, [state.assembly, state.error, state.runtime]);
 
   return state;
 }

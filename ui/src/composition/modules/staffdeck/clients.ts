@@ -33,10 +33,14 @@ export type StaffDeckSopClient = {
 
 export const staffDeckSopClient: StaffDeckSopClient = {
   listDefinitions: () => request('/api/modules/sop/definitions'),
-  saveDefinition: (id, definition) => request(`/api/modules/sop/definitions/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ definition }),
-  }),
+  async saveDefinition(id, definition) {
+    const result = await request<{ definition: SopDefinition; restartRequired: boolean }>(`/api/modules/sop/definitions/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ definition }),
+    });
+    if (result.restartRequired) window.dispatchEvent(new Event('pilotdeck:module-runtime-changed'));
+    return result;
+  },
   async status(sessionKey, projectKey) {
     const query = new URLSearchParams({ sessionKey });
     if (projectKey) query.set('projectKey', projectKey);

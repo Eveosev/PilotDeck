@@ -47,6 +47,7 @@ describe('module runtime route', () => {
       expect(await response.json()).toMatchObject({
         modules: { sop: { enabled: true, implementationId: 'staffdeck.portable-sop' } },
         gatewayCapabilities: [],
+        runtime: { gatewayState: 'unavailable', unavailableSlots: [] },
       });
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
@@ -150,7 +151,10 @@ describe('module runtime route', () => {
     await writeFile(definitionsPath, 'sops:\n  - id: approval\n    name: Operator approval\n    content:\n      nodes:\n        - node_id: handoff\n          type: handoff\n');
     const app = express();
     app.use(express.json());
-    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: { enabled: true, definitionsPath, defaultSopId: 'approval', endpoint: 'http://private-runtime' } } }) }));
+    app.use('/api/modules', createModuleRuntimeRouter({
+      loadConfig: () => ({ modules: { sop: { enabled: true, definitionsPath, defaultSopId: 'approval', endpoint: 'http://private-runtime' } } }),
+      getGateway: vi.fn(async () => ({ describeServer: async () => ({ capabilities: ['sop_status'] }) })),
+    }));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
@@ -161,6 +165,10 @@ describe('module runtime route', () => {
       expect(saved.status).toBe(200);
       expect(await saved.json()).toMatchObject({ definition: { id: 'approval', name: 'Updated approval' }, restartRequired: true });
       expect(await readFile(definitionsPath, 'utf8')).toContain('Updated approval');
+      const runtime = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/runtime`);
+      expect(await runtime.json()).toMatchObject({
+        runtime: { gatewayState: 'ready', unavailableSlots: ['sop'] },
+      });
     } finally {
       await new Promise(resolve => server.close(resolve));
       await rm(root, { recursive: true, force: true });

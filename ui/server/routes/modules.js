@@ -31,6 +31,10 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try { return parseYaml(readFileSync(path, 'utf8')) ?? {}; } catch { return {}; }
   });
   const route = express.Router();
+  // The portable SOP runtime reads deployment-owned YAML at process start.
+  // Once this process writes a definition, chat/runtime actions must remain
+  // unavailable until the supervised runtime has restarted and reloaded it.
+  let sopRuntimeRestartRequired = false;
   route.get('/runtime', async (_req, res) => {
     try {
       const config = readConfig() ?? {};
@@ -42,8 +46,15 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
           .map((field) => [field, field === 'methods' && Array.isArray(value[field]) ? [...value[field]] : value[field]]));
         return [slot, sanitized];
       }));
-      const gatewayCapabilities = await readGatewayCapabilities(getGateway);
-      return res.json({ modules, gatewayCapabilities });
+      const gateway = await readGatewayCapabilities(getGateway);
+      return res.json({
+        modules,
+        gatewayCapabilities: gateway.capabilities,
+        runtime: {
+          gatewayState: gateway.state,
+          unavailableSlots: sopRuntimeRestartRequired ? ['sop'] : [],
+        },
+      });
     } catch (error) {
       return res.status(503).json({
         error: { code: 'MODULE_RUNTIME_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) },
@@ -177,6 +188,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const next = { ...bundle, sops: bundle.sops.map((item, itemIndex) => itemIndex === index ? definition : item) };
       validateSopBundle(next);
       writeFileSync(binding.definitionsPath, stringifyYaml(next), 'utf8');
+      sopRuntimeRestartRequired = true;
       return res.json({ definition, restartRequired: true });
     } catch (error) {
       return res.status(422).json({ error: { code: 'SOP_DEFINITION_SAVE_FAILED', message: error instanceof Error ? error.message : String(error) } });
@@ -195,9 +207,9 @@ async function readGatewayCapabilities(getGateway) {
   try {
     const gateway = await Promise.race([getGateway(), timeout]);
     const server = await Promise.race([gateway.describeServer(), timeout]);
-    return Array.isArray(server?.capabilities) ? server.capabilities : [];
+    return { state: 'ready', capabilities: Array.isArray(server?.capabilities) ? server.capabilities : [] };
   } catch {
-    return [];
+    return { state: 'unavailable', capabilities: [] };
   }
 }
 

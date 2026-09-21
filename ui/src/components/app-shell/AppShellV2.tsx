@@ -763,6 +763,7 @@ export default function AppShellV2() {
           moduleChatExtensions={composition.assembly?.chatExtensions}
           moduleCompositionError={composition.error}
           moduleCompositionLoading={composition.loading}
+          moduleRuntimeWarning={composition.runtimeWarning}
           moduleUnavailableMessage={moduleUnavailableMessage}
         />
       </main>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Database, FilePlus2, RefreshCw, Save, Search } from 'lucide-react';
+import { BookOpen, Database, FilePlus2, History, RefreshCw, Save, Search } from 'lucide-react';
 import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
 import { staffDeckKnowledgeClient } from './staffdeck/clients';
@@ -7,6 +7,7 @@ import { staffDeckKnowledgeClient } from './staffdeck/clients';
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
 type KnowledgeBase = { id: string; name?: string; description?: string; document_count?: number; version?: string; status?: string };
+type KnowledgeVersion = { id: string; version?: string; name?: string; status?: string; updated_at?: string };
 type KnowledgeDocument = { id: string; title?: string; filename?: string; content_md?: string; knowledge_base_id?: string; status?: string };
 type KnowledgeChunk = { id?: string; chunk_id?: string; content?: string; summary?: string; source_ref?: string; title?: string };
 
@@ -18,7 +19,11 @@ function KnowledgePage() {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [citation, setCitation] = useState<Record<string, unknown> | null>(null);
+  const [newBaseName, setNewBaseName] = useState('');
   const [baseName, setBaseName] = useState('');
+  const [baseDescription, setBaseDescription] = useState('');
+  const [baseStatus, setBaseStatus] = useState('active');
+  const [versions, setVersions] = useState<KnowledgeVersion[]>([]);
   const [documentTitle, setDocumentTitle] = useState('');
   const [documentContent, setDocumentContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,17 +56,46 @@ function KnowledgePage() {
 
   useEffect(() => { void loadBases(); }, []);
   useEffect(() => { void loadDocuments(selectedBaseId); }, [selectedBaseId]);
+  useEffect(() => {
+    setBaseName(selectedBase?.name || '');
+    setBaseDescription(selectedBase?.description || '');
+    setBaseStatus(selectedBase?.status || 'active');
+    setVersions([]);
+  }, [selectedBase?.id]);
 
   const createBase = async () => {
-    const name = baseName.trim();
+    const name = newBaseName.trim();
     if (!name || saving) return;
     setSaving(true); setError(null);
     try {
       const created = await staffDeckKnowledgeClient.call<KnowledgeBase>('create_base', { name, description: '' });
-      setBaseName('');
+      setNewBaseName('');
       await loadBases(created.id);
     } catch (cause) { setError(messageOf(cause)); }
     finally { setSaving(false); }
+  };
+
+  const saveBase = async () => {
+    if (!selectedBase || saving || !baseName.trim()) return;
+    setSaving(true); setError(null);
+    try {
+      await staffDeckKnowledgeClient.call('update_base', {
+        knowledgeBaseId: selectedBase.id,
+        name: baseName.trim(),
+        description: baseDescription.trim(),
+        status: baseStatus,
+      });
+      await loadBases(selectedBase.id);
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { setSaving(false); }
+  };
+
+  const loadVersions = async () => {
+    if (!selectedBase || loading) return;
+    setLoading(true); setError(null);
+    try { setVersions(await staffDeckKnowledgeClient.call<KnowledgeVersion[]>('list_versions', { knowledgeBaseId: selectedBase.id })); }
+    catch (cause) { setError(messageOf(cause)); }
+    finally { setLoading(false); }
   };
 
   const saveDocument = async () => {
@@ -118,9 +152,10 @@ function KnowledgePage() {
   return <main className="h-full overflow-y-auto bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100" data-testid="staffdeck-knowledge-workspace">
     <span className="sr-only" data-module-build-marker={BUILD_MARKER} />
     <div className="mx-auto grid max-w-6xl gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center gap-2"><Database className="h-4 w-4 text-blue-600" /><h2 className="text-sm font-semibold">Knowledge bases</h2></div><div className="mt-4 flex gap-2"><input aria-label="New knowledge base" value={baseName} onChange={(event) => setBaseName(event.target.value)} placeholder="New knowledge base" className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" aria-label="Create knowledge base" onClick={() => void createBase()} disabled={!baseName.trim() || saving} className="rounded bg-blue-600 px-2 text-white disabled:opacity-50"><FilePlus2 className="h-4 w-4" /></button></div><div className="mt-4 space-y-1">{bases.map((base) => <button key={base.id} type="button" onClick={() => setSelectedBaseId(base.id)} className={`w-full rounded px-2 py-2 text-left text-sm ${base.id === selectedBaseId ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}><span className="block truncate font-medium">{base.name || base.id}</span><span className="block text-xs text-neutral-500">{base.document_count ?? 0} documents · {base.version || base.status || 'active'}</span></button>)}</div></aside>
+      <aside className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center gap-2"><Database className="h-4 w-4 text-blue-600" /><h2 className="text-sm font-semibold">Knowledge bases</h2></div><div className="mt-4 flex gap-2"><input aria-label="New knowledge base" value={newBaseName} onChange={(event) => setNewBaseName(event.target.value)} placeholder="New knowledge base" className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" aria-label="Create knowledge base" onClick={() => void createBase()} disabled={!newBaseName.trim() || saving} className="rounded bg-blue-600 px-2 text-white disabled:opacity-50"><FilePlus2 className="h-4 w-4" /></button></div><div className="mt-4 space-y-1">{bases.map((base) => <button key={base.id} type="button" onClick={() => setSelectedBaseId(base.id)} className={`w-full rounded px-2 py-2 text-left text-sm ${base.id === selectedBaseId ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}><span className="block truncate font-medium">{base.name || base.id}</span><span className="block text-xs text-neutral-500">{base.document_count ?? 0} documents · {base.version || base.status || 'active'}</span></button>)}</div></aside>
       <section className="min-w-0 space-y-5"><header className="flex flex-wrap items-center justify-between gap-3"><div><div className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-blue-600" /><h1 className="text-xl font-semibold">{selectedBase?.name || 'Knowledge workspace'}</h1></div><p className="mt-1 text-sm text-neutral-500">StaffDeck knowledge management through the selected module contract.</p></div><button type="button" onClick={() => void loadBases(selectedBaseId)} className="inline-flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button></header>
         {error ? <p role="alert" className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</p> : null}
+        <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-semibold">Knowledge base details</h2><div className="flex gap-2"><button type="button" onClick={() => void loadVersions()} disabled={!selectedBase || loading} className="inline-flex items-center gap-1.5 rounded border border-neutral-300 px-2.5 py-1.5 text-sm dark:border-neutral-700"><History className="h-4 w-4" />Versions</button><button type="button" onClick={() => void saveBase()} disabled={!selectedBase || !baseName.trim() || saving} className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-2.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"><Save className="h-4 w-4" />Save details</button></div></div><div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]"><div><label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300" htmlFor="knowledge-base-name">Name</label><input id="knowledge-base-name" value={baseName} onChange={(event) => setBaseName(event.target.value)} disabled={!selectedBase} className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" /></div><div><label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300" htmlFor="knowledge-base-status">Status</label><select id="knowledge-base-status" value={baseStatus} onChange={(event) => setBaseStatus(event.target.value)} disabled={!selectedBase} className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950"><option value="active">Active</option><option value="archived">Archived</option></select></div></div><label className="mt-3 block text-xs font-medium text-neutral-600 dark:text-neutral-300" htmlFor="knowledge-base-description">Description</label><textarea id="knowledge-base-description" value={baseDescription} onChange={(event) => setBaseDescription(event.target.value)} disabled={!selectedBase} className="mt-1 min-h-20 w-full resize-y rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" />{versions.length > 0 ? <div className="mt-3 border-t border-neutral-100 pt-3 dark:border-neutral-800"><h3 className="text-xs font-medium text-neutral-600 dark:text-neutral-300">Version history</h3><ul className="mt-2 space-y-1 text-sm">{versions.map((version) => <li key={version.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-neutral-50 px-2.5 py-2 dark:bg-neutral-800/60"><span>{version.version || version.id}</span><span className="text-xs text-neutral-500">{version.status || ''} {version.updated_at || ''}</span></li>)}</ul></div> : null}</section>
         <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold">Documents</h2><button type="button" onClick={() => { setSelectedDocument(null); setDocumentTitle(''); setDocumentContent(''); }} disabled={!selectedBaseId} className="rounded border border-neutral-300 px-2.5 py-1.5 text-sm dark:border-neutral-700">New document</button></div><div className="mt-3 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]"><div className="space-y-1">{documents.map((document) => <button key={document.id} type="button" onClick={() => void selectDocument(document)} className={`w-full rounded px-2 py-2 text-left text-sm ${document.id === selectedDocument?.id ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'}`}><span className="block truncate font-medium">{document.title || document.filename || document.id}</span><span className="block text-xs text-neutral-500">{document.status || 'ready'}</span></button>)}{selectedBaseId && documents.length === 0 ? <p className="px-2 py-3 text-xs text-neutral-500">No documents yet.</p> : null}</div><div className="space-y-3"><input aria-label="Document title" value={documentTitle} onChange={(event) => setDocumentTitle(event.target.value)} placeholder="Document title" disabled={!selectedBaseId} className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><textarea aria-label="Document content" value={documentContent} onChange={(event) => setDocumentContent(event.target.value)} placeholder="Write knowledge content in Markdown" disabled={!selectedBaseId} className="min-h-40 w-full resize-y rounded border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" onClick={() => void saveDocument()} disabled={!selectedBaseId || !documentTitle.trim() || saving} className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"><Save className="h-4 w-4" />{selectedDocument ? 'Save document' : 'Create document'}</button></div></div></section>
         <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center gap-2"><Search className="h-4 w-4 text-blue-600" /><h2 className="text-sm font-semibold">Search and citations</h2></div><div className="mt-3 flex gap-2"><input aria-label="Knowledge query" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void search(); }} placeholder="Ask this knowledge base" className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" /><button type="button" onClick={() => void search()} disabled={!query.trim() || loading} className="rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900">Search</button></div>{result ? <div className="mt-4 space-y-3">{summaryOf(result) ? <p className="rounded bg-neutral-50 p-3 text-sm leading-6 dark:bg-neutral-800/60">{summaryOf(result)}</p> : null}{chunks.map((chunk, index) => <article key={chunk.chunk_id || chunk.id || index} className="rounded border border-neutral-200 p-3 dark:border-neutral-700"><p className="text-sm leading-6">{chunk.content || chunk.summary || 'Knowledge result'}</p><div className="mt-2 flex items-center justify-between gap-3"><span className="truncate text-xs text-neutral-500">{chunk.source_ref || chunk.title || chunk.chunk_id || chunk.id}</span><button type="button" onClick={() => void resolveCitation(chunk)} disabled={!chunk.chunk_id && !chunk.id} className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700">Open citation</button></div></article>)}{citation ? <details open className="rounded border border-blue-200 bg-blue-50 p-3 text-xs dark:border-blue-900 dark:bg-blue-950/30"><summary className="cursor-pointer font-medium">Citation source</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap">{JSON.stringify(citation, null, 2)}</pre></details> : null}</div> : null}</section>
       </section>

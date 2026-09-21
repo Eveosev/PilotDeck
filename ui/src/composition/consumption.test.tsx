@@ -60,6 +60,18 @@ describe('active composition consumers', () => {
     expect(dispose).toHaveBeenCalledOnce();
   });
 
+  it('keeps runtime-required workflow controls out of chat while the runtime is unavailable', () => {
+    const Panel = () => <div />;
+    const active = assembly({
+      chatExtensions: [{ id: 'sop-wait', label: 'Workflow wait', requiresRuntime: true, component: Panel }],
+      permissionPanels: [{ id: 'sop-approval', label: 'Workflow approval', requiresRuntime: true, toolNames: ['operator_approval'], component: Panel }],
+    });
+    const stop = activateAssembly(active, { modules: {}, gatewayCapabilities: [], gatewayState: 'unavailable', unavailableSlots: [] });
+    expect(getActiveAssembly()?.chatExtensions).toEqual([]);
+    expect(getPermissionPanel('operator_approval')).toBeNull();
+    stop();
+  });
+
   it('keeps a normalized persisted module message readable without importing its renderer', () => {
     setActiveAssembly(assembly());
     const history: NormalizedMessage[] = [{
