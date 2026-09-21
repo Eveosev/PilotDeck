@@ -4,18 +4,19 @@ import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
 import SharedKnowledgePage, { KnowledgeAddPage as SharedKnowledgeAddPage } from './staffdeck/vendor/KnowledgePage';
 import { PilotDeckKnowledgePageProvider } from './staffdeck/vendor/knowledge-host-adapter';
+import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
 function KnowledgePage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <PilotDeckKnowledgePageProvider><SharedKnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider>;
+  return <StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary>;
 }
 function KnowledgeAddPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage currentUser={currentUser} /></PilotDeckKnowledgePageProvider>;
+  return <StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary>;
 }
 
 function KnowledgeArtifactRenderer(props: SurfaceProps) {

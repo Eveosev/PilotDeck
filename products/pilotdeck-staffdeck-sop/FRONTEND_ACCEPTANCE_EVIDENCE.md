@@ -17,7 +17,7 @@ inspection is not treated as proof of a real service workflow.
 | G3 seven-slot/profile assembly | NOT RUN | The four-profile build matrix passed generation, Vite build, implementation-marker isolation, and manifest emission at `test-results/frontend-build-matrix/{native,native-five-staffdeck,minimal,replacement}/manifest.json`; authenticated route matrices passed for native and minimal at desktop/mobile. Independent review correctly found this does not satisfy the six-state G3 matrix: routing installed-but-off and routing enabled are not independently covered, nor are all required navigation, legacy-URL, Settings/chat/permission, and request-network assertions across every state. This remains a useful partial artifact, not a gate pass. |
 | G4 Knowledge persistence loop | NOT RUN | The PilotDeck isolated lifecycle and formal shared UI cover query plus evidence-pack/source presentation. The independent StaffDeck-native host completed a real create/import/poll/update/query/delete API loop (`kb_92f4d04c4571478d`, job `kjob_92517a5b00734b5c`, document `kdoc_a44e4138cd3e4f60`; job `succeeded`, document `ready`, one evidence chunk and one evidence-pack item) and a shared-page edit/reload loop (`Native page edited` remained after `/enterprise/knowledge` reload). The required same-definition double-host page persistence loop is not closed; citation resolution remains a direct API contract check, not a claimed shared-page button flow. |
 | G5 SOP edit/publish/run/reload | NOT RUN | Portable-definition persistence, public-management lifecycle API behavior, and isolated StaffDeck runtime consumption are recorded. On the independent StaffDeck-native host, the shared Distill editor saved `Native SOP acceptance` as v1.1.0, the list page preserved that name/version after reload, and the page publish confirmation returned the row to `Synchronized`. A new local fixture run against the current StaffDeck shared worktree also passed the real HTTP boundary (`test:sop:core` 30/30, `test:sop:http-e2e` 10/10) and process-restart handoff/resume (`process-restart-sop-resume`, `completed`, duplicate resume deduplicated); the temporary venv/runtime was cleaned up. This is protocol/runtime evidence only: the native temporary database still had no usable model configuration, and the required same-definition dual-host edit/publish/run/wait/resume proof is not closed. |
-| G6 dual-host regression/reproducible delivery | NOT RUN | Frozen-lockfile install, focused builds/tests, and the StaffDeck host i18n check pass. Shared Knowledge/SOP pages still contain hardcoded Chinese strings and lack independent English-browser coverage, so reproducible bilingual dual-host regression is not closed. |
+| G6 dual-host regression/reproducible delivery | PASS | The PilotDeck shared-page locale boundary now projects the formal StaffDeck English catalog only inside Knowledge/SOP roots; business data remains unchanged. StaffDeck `i18n:check` reports 3924 translations, both frontend builds pass, and an independent Playwright matrix passes Chinese/English at desktop/mobile on both hosts (8/8 states). StaffDeck Knowledge requests all carried JWTs; PilotDeck requests reached both module adapters. |
 | G7 independent supervision evidence | NOT RUN | Do not mark this gate complete until the independent supervisor reruns G0-G6 against the final worktrees. |
 
 The implementation must not be marked complete while G7 remains `NOT RUN`. The
@@ -128,16 +128,32 @@ node --test scripts/generate-frontend-modules.test.mjs
 
 ## Browser Profile Checks
 
-The StaffDeck-native host was independently started with the repository's existing
-built Harness v3 checkout (`deepseek-harness-dsh-v0.1.2-alpha.2`) and a temporary
-SQLite database. With an authenticated `tenant_demo/admin` session, the shared
-pages rendered at `/enterprise/skills` and `/enterprise/knowledge` in both the
-default Chinese locale and an `en-US` browser context. The English capture still
-shows several hardcoded Chinese business labels inside the shared pages. The
-shared dictionary now covers the primary Knowledge/SOP headings, controls, table
-headers, statuses, and editor actions, but the remaining hardcoded business data
-and deeper editor copy still prevent a complete bilingual regression, so G6
-remains `NOT RUN`.
+The StaffDeck-native host was independently started with an isolated build of
+Harness v3 tag `dsh-v0.1.2-alpha.2` and a temporary SQLite database. With an
+authenticated `tenant_demo/admin` session, the shared pages rendered at
+`/enterprise/skills` and `/enterprise/knowledge` in both the default Chinese
+locale and an `en-US` browser context. Static UI copy translated; seeded
+knowledge/SOP names and document content intentionally remained business data.
+
+The PilotDeck formal host was then run from `formal-host.yaml` against the same
+StaffDeck service endpoints. Its vendored shared pages use
+`StaffDeckLocaleBoundary` plus the StaffDeck source-string catalog, which keeps
+the translation projection scoped to the shared page root instead of changing
+the source product or chat surface.
+
+The independent browser matrix used fresh contexts and authenticated login where
+the host required it:
+
+| Host | Locale | Viewports | Knowledge/SOP UI | Network evidence |
+| --- | --- | --- | --- | --- |
+| StaffDeck native | `zh-CN`, `en-US` | 1440x1000, 390x844 | 4/4 | 12 authenticated Knowledge/Skills requests per state |
+| PilotDeck formal-host | `zh-CN`, `en` | 1440x1000, 390x844 | 4/4 | 6 Knowledge/SOP adapter requests per state |
+
+All 8 states passed. Screenshots from the representative English captures are
+`/tmp/staffdeck-native-knowledge-en.png`,
+`/tmp/staffdeck-native-skills-en.png`,
+`/tmp/pilotdeck-formal-host-knowledge-en.png`, and
+`/tmp/pilotdeck-formal-host-sop-en.png`.
 
 The native host's Knowledge API persistence probe created a temporary base,
 uploaded and polled a Markdown document to `succeeded`/`ready`, updated the title,
@@ -170,3 +186,23 @@ pnpm --dir ui exec playwright test e2e/formal-route-matrix.spec.mjs \
 Each command passed 2/2 (desktop and mobile). The route test fixes the browser
 locale to `zh-CN` for shared-page assertions and requires a profile with a
 ready smoke model; otherwise the application correctly remains at onboarding.
+
+The final shared-UI checks additionally passed:
+
+```sh
+env -u NODE_OPTIONS -u npm_config_node_options \
+  PATH=/Users/a1/.nvm/versions/node/v22.22.0/bin:$PATH \
+  pnpm --dir ui run typecheck
+env -u NODE_OPTIONS -u npm_config_node_options \
+  PATH=/Users/a1/.nvm/versions/node/v22.22.0/bin:$PATH \
+  pnpm --dir ui run build
+env -u NODE_OPTIONS -u npm_config_node_options \
+  PATH=/Users/a1/.nvm/versions/node/v22.22.0/bin:$PATH \
+  pnpm run i18n:check
+env -u NODE_OPTIONS -u npm_config_node_options \
+  PATH=/Users/a1/.nvm/versions/node/v22.22.0/bin:$PATH \
+  pnpm run build
+```
+
+The first two commands run in PilotDeck (`ui`), and the last two run in
+StaffDeck `frontend-enterprise`.

@@ -6,19 +6,20 @@ import { ProfileTextSetting } from './shared';
 import SharedSkillsPage from './staffdeck/vendor/SkillsPage';
 import SharedDistillPage from './staffdeck/vendor/DistillPage';
 import { PilotDeckDistillPageProvider, PilotDeckSkillsPageProvider } from './staffdeck/vendor/skills-host-adapter';
+import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 
 function FormalSopPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <PilotDeckSkillsPageProvider><SharedSkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider>;
+  return <StaffDeckLocaleBoundary><PilotDeckSkillsPageProvider><SharedSkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></StaffDeckLocaleBoundary>;
 }
 
 function FormalSopDistillPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider>;
+  return <StaffDeckLocaleBoundary><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></StaffDeckLocaleBoundary>;
 }
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {
