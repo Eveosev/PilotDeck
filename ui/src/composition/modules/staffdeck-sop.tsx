@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { CircleDot, FileCode2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import type { FrontendModule, SurfaceProps } from '../contracts';
 import { ProfileTextSetting } from './shared';
-import { staffDeckSopClient, staffDeckSopManagementClient, type SopDefinition, type SopManagementStatus } from './staffdeck/clients';
-import { FormalSopManagement } from './staffdeck/vendor/SopManagement';
-import { BusinessUiProvider } from './staffdeck/vendor/i18n';
+import { staffDeckSopClient, type SopDefinition } from './staffdeck/clients';
+import SopVersionDetailDialog, { type StaffDeckSopVersion } from './staffdeck/vendor/SopVersionDetailDialog';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 export type SopNode = Record<string, unknown> & { _draftKey: string; node_id: string; type?: string; instruction?: string };
@@ -58,7 +57,7 @@ export function buildSopDefinition(selected: SopDefinition, draft: SopDefinition
 }
 
 function SopPage({ sessionId, projectKey }: SurfaceProps) {
-  const { t, i18n } = useTranslation('staffdeck');
+  const { t } = useTranslation('staffdeck');
   const [definitions, setDefinitions] = useState<SopDefinition[]>([]);
   const [defaultSopId, setDefaultSopId] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -70,7 +69,7 @@ function SopPage({ sessionId, projectKey }: SurfaceProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [management, setManagement] = useState<SopManagementStatus | null>(null);
+  const [versionDetailOpen, setVersionDetailOpen] = useState(false);
   const selected = useMemo(() => definitions.find((definition) => definition.id === selectedId) ?? null, [definitions, selectedId]);
 
   const loadDefinitions = async () => {
@@ -90,7 +89,6 @@ function SopPage({ sessionId, projectKey }: SurfaceProps) {
   };
 
   useEffect(() => { void loadDefinitions(); }, []);
-  useEffect(() => { void staffDeckSopManagementClient.status().then(setManagement).catch(() => setManagement(null)); }, []);
   useEffect(() => {
     const content = isRecord(selected?.content) ? selected.content : {};
     setName(textOf(selected?.name) || '');
@@ -126,7 +124,18 @@ function SopPage({ sessionId, projectKey }: SurfaceProps) {
   };
 
   const runtimeState = isRecord(status?.state) ? status.state : null;
+  const selectedVersion: StaffDeckSopVersion | null = selected ? {
+    id: selected.id,
+    name: textOf(selected.name) || selected.id,
+    version: textOf(selected.version) || '1',
+    business_domain: textOf(selected.business_domain),
+    status: textOf(selected.status),
+    updated_at: textOf(selected.updated_at) || new Date().toISOString(),
+    content: selected.content,
+  } : null;
   return <main className="h-full overflow-y-auto bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100" data-testid="staffdeck-sop-workspace">
+    <div className="mx-auto flex max-w-6xl justify-end px-6 pt-4"><button type="button" onClick={() => setVersionDetailOpen(true)} disabled={!selected} className="rounded border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700">{t('sop.versionDetails')}</button></div>
+    <SopVersionDetailDialog detail={versionDetailOpen ? selectedVersion : null} onClose={() => setVersionDetailOpen(false)} />
     <span className="sr-only" data-module-build-marker={BUILD_MARKER} />
     <div className="mx-auto grid max-w-6xl gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><FileCode2 className="h-4 w-4 text-violet-600" /><h2 className="text-sm font-semibold">{t('sop.definitions')}</h2></div><button type="button" aria-label={t('sop.refreshDefinitions')} onClick={() => void loadDefinitions()} className="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button></div><div className="mt-4 space-y-1">{definitions.map((definition) => <button key={definition.id} type="button" onClick={() => setSelectedId(definition.id)} className={`w-full rounded px-2 py-2 text-left text-sm ${definition.id === selectedId ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}><span className="block truncate font-medium">{textOf(definition.name) || definition.id}</span><span className="block text-xs text-neutral-500">{definition.id === defaultSopId ? t('sop.defaultWorkflow') : t('sop.version', { version: textOf(definition.version) || '1' })}</span></button>)}</div></aside>
@@ -135,7 +144,6 @@ function SopPage({ sessionId, projectKey }: SurfaceProps) {
         <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold">{t('sop.details')}</h2><button type="button" onClick={() => void save()} disabled={!selected || saving} className="inline-flex items-center gap-2 rounded bg-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"><Save className="h-4 w-4" />{t('sop.saveAndRestart')}</button></div><div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]"><label className="text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.name')}<input aria-label={t('sop.name')} value={name} onChange={(event) => setName(event.target.value)} disabled={!selected} className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950" /></label><label className="text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.version', { version: '' }).trim()}<input aria-label={t('sop.version', { version: '' }).trim()} value={version} onChange={(event) => setVersion(event.target.value)} disabled={!selected} className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950" /></label></div><label className="mt-3 block text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.startNode')}<input aria-label={t('sop.startNode')} value={startNodeId} onChange={(event) => setStartNodeId(event.target.value)} disabled={!selected} className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950" /></label><div className="mt-4 border-t border-neutral-100 pt-4 dark:border-neutral-800"><div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{t('sop.nodes')}</h3><button type="button" onClick={() => setNodes((current) => [...current, { _draftKey: `new-node-${Date.now()}-${current.length}`, node_id: '', type: 'step', instruction: '' }])} disabled={!selected} className="inline-flex items-center gap-1.5 rounded border border-neutral-300 px-2.5 py-1.5 text-sm dark:border-neutral-700"><Plus className="h-4 w-4" />{t('sop.addNode')}</button></div><div className="mt-3 space-y-3">{nodes.map((node, index) => <article key={node._draftKey} className="rounded border border-neutral-200 p-3 dark:border-neutral-700"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]"><label className="text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.nodeId')}<input aria-label={t('sop.nodeIdLabel', { index: index + 1 })} value={node.node_id} onChange={(event) => setNodes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, node_id: event.target.value } : item))} className="mt-1 w-full rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950" /></label><label className="text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.type')}<select aria-label={t('sop.nodeTypeLabel', { index: index + 1 })} value={node.type || 'step'} onChange={(event) => setNodes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item))} className="mt-1 w-full rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950"><option value="step">{t('sop.step')}</option><option value="handoff">{t('sop.handoff')}</option></select></label><button type="button" aria-label={t('sop.removeNode', { index: index + 1 })} onClick={() => setNodes((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="self-end rounded p-2 text-neutral-500 hover:bg-neutral-100 hover:text-red-600 dark:hover:bg-neutral-800"><Trash2 className="h-4 w-4" /></button></div><label className="mt-3 block text-xs font-medium text-neutral-600 dark:text-neutral-300">{t('sop.instruction')}<textarea aria-label={t('sop.nodeInstructionLabel', { index: index + 1 })} value={node.instruction || ''} onChange={(event) => setNodes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, instruction: event.target.value } : item))} className="mt-1 min-h-20 w-full resize-y rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950" /></label></article>)}</div></div><p className="mt-3 text-xs text-neutral-500">{t('sop.restartNotice')}</p></section>
         <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><h2 className="text-sm font-semibold">{t('sop.graph')}</h2><div className="mt-3 grid gap-2 md:grid-cols-2">{nodes.map((node, index) => <article key={node._draftKey} className="rounded border border-neutral-200 p-3 text-sm dark:border-neutral-700"><p className="font-medium">{textOf(isRecord(node) ? node.node_id : undefined) || `${t('sop.step')} ${index + 1}`}</p><p className="mt-1 text-xs text-violet-700 dark:text-violet-300">{node.type === 'handoff' ? t('sop.handoff') : node.type === 'step' || !node.type ? t('sop.step') : node.type}</p><p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-neutral-300">{textOf(isRecord(node) ? node.instruction : undefined) || t('sop.noInstruction')}</p></article>)}{selected && nodes.length === 0 ? <p className="text-sm text-neutral-500">{t('sop.noNodes')}</p> : null}</div></section>
         <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold">{t('sop.currentSession')}</h2><button type="button" onClick={() => void loadStatus()} disabled={!sessionId} className="rounded border border-neutral-300 px-2.5 py-1.5 text-sm dark:border-neutral-700">{t('sop.refreshState')}</button></div>{sessionId ? <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-xs text-neutral-500">{t('sop.session')}</dt><dd className="mt-1 break-all font-medium">{sessionId}</dd></div><div><dt className="text-xs text-neutral-500">{t('sop.workflow')}</dt><dd className="mt-1 font-medium">{textOf(runtimeState?.selected_skill_id) || textOf(runtimeState?.active_skill_id) || t('sop.notStarted')}</dd></div><div><dt className="text-xs text-neutral-500">{t('sop.status')}</dt><dd className="mt-1 font-medium">{textOf(runtimeState?.status) || t('sop.noActiveState')}</dd></div></dl> : <p className="mt-3 text-sm text-neutral-500">{t('sop.selectConversation')}</p>}</section>
-        {management?.enabled && management.agentId ? <BusinessUiProvider value={{ t, locale: i18n.resolvedLanguage }}><FormalSopManagement client={staffDeckSopManagementClient} agentId={management.agentId} /></BusinessUiProvider> : null}
       </section>
     </div>
   </main>;

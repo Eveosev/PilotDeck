@@ -9,9 +9,7 @@
   },
   "exports": {
     "./KnowledgeGraphCanvas": "./src/KnowledgeGraphCanvas.tsx",
-    "./KnowledgeOperations": "./src/KnowledgeOperations.tsx",
-    "./i18n": "./src/i18n.tsx",
-    "./SopManagement": "./src/SopManagement.tsx",
+    "./SopVersionDetailDialog": "./src/SopVersionDetailDialog.tsx",
     "./types": "./src/types.ts"
   }
 }

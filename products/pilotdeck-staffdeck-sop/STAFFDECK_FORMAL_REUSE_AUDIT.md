@@ -19,9 +19,9 @@ the public module client replaces only host auth/routing concerns.
 
 | Source | Reuse status and responsibility | PilotDeck destination |
 | --- | --- | --- |
-| `frontend-enterprise/src/pages/KnowledgePage.tsx` | StaffDeck remains the formal source; the shared package owns the graph and lifecycle/structure operation surface behind a public client contract | `packages/staffdeck-business-ui/src/KnowledgeOperations.tsx`, PilotDeck `ui/src/composition/modules/staffdeck/vendor/KnowledgeOperations.tsx` |
+| `frontend-enterprise/src/pages/KnowledgePage.tsx` | StaffDeck remains the formal source; faithful full-page extraction is pending. Only the graph slice is currently shared. | `frontend-enterprise/src/pages/KnowledgePage.tsx` (source), `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx` (shared slice) |
 | `frontend-enterprise/src/components/KnowledgeGraphCanvas.tsx` | Production Knowledge route now imports the versioned shared package directly; no sibling checkout is required by PilotDeck | `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx`, PilotDeck vendor snapshot |
-| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal page remains the source of the full SOP inventory/editor; shared package owns the adapter-driven draft/version management surface used by composed hosts | `packages/staffdeck-business-ui/src/SopManagement.tsx`, PilotDeck `ui/src/composition/modules/staffdeck/vendor/SopManagement.tsx` |
+| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal page remains the source; the version-detail dialog is extracted faithfully, while the editor and lifecycle controls remain in the formal page. | `frontend-enterprise/src/pages/SkillsPage.tsx`, `packages/staffdeck-business-ui/src/SopVersionDetailDialog.tsx` |
 | `frontend-enterprise/src/types/index.ts` | normalized record shapes for the shared public view models | `packages/staffdeck-business-ui/src/types.ts` |
 | `backend/app/api/module_knowledge.py` | supported `staffdeck.knowledge/v1` operations and input shape | `ui/server/routes/modules.js`, `ui/src/composition/modules/staffdeck/clients.ts` |
 | `backend/app/public_api/sops.py` | authoritative draft/ETag/publish/version management contract | SOP management adapter design; not substituted with the runtime lifecycle contract |
@@ -43,7 +43,7 @@ operation evidence is recorded by the acceptance run.
 | Discoveries | list/confirm/reject | `list_discoveries`, `confirm_discovery`, `reject_discovery` | discovery panel | surface; verification pending |
 | Retrieval | query/citation resolve | `query`, `resolve_citation` | search and citation inspector | surface; verification pending |
 | SOP runtime | prepare/submit/status/resume | `sop.lifecycle/v2` through Gateway | chat wait, approval and resume | surface; verification pending |
-| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API through a strict allowlisted facade | versioned `@staffdeck/business-ui` `SopManagement` release, conditionally mounted only when the profile enables management | surface; mock HTTP and component verification complete; real public-API acceptance pending |
+| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API | Original StaffDeck editor remains in place; only the formal version-detail dialog is shared | G1 FAIL / partial slice only |
 
 Real Knowledge lifecycle evidence is recorded in `FRONTEND_ACCEPTANCE_EVIDENCE.md`.
 
@@ -57,14 +57,12 @@ until that value is supplied.
 
 SOP YAML management belongs to the current portable deployment and is not
 equivalent to StaffDeck's public draft/publish API. The latter has scoped
-credentials and ETag concurrency semantics. The versioned `SopManagement`
-surface is mounted through the profile-selected `modules.sop.management`
-binding, which exposes only list,
-create, draft read/replace, validate, publish, archive, version read, and
-rollback. `endpoint` and `apiKey` are held by `ui/server/routes/modules.js`;
-the generated browser profile contains only the enabled flag, methods, and
-agent ID. The runtime lifecycle endpoint is not used as a management
-substitute.
+credentials and ETag concurrency semantics. No replacement management panel
+is claimed in this release. The shared SOP slice is limited to the original
+version-detail dialog; draft/publish management remains in the StaffDeck
+formal page and its explicit service adapter. The previous hand-written
+`SopManagement` and `KnowledgeOperations` replacement panels were removed from
+both hosts and are not part of the reuse claim.
 
 ## SOP Public Management Binding
 
