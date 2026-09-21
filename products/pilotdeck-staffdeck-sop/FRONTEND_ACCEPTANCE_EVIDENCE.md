@@ -6,12 +6,12 @@ operations. It was produced against the local formal profile on 2026-09-22.
 ## Current G0-G7 Gate Status
 
 This is the authoritative frontend status for the current working trees
-(`StaffDeck shared UI f41c8524` and `PilotDeck 6a640d71`). A build or source
+(`StaffDeck shared UI f41c8524` and `PilotDeck bad34814`). A build or source
 inspection is not treated as proof of a real service workflow.
 
 | Gate | Status | Evidence / limitation |
 | --- | --- | --- |
-| G0 scope and traceability | PASS | The source map and acceptance evidence are committed in reviewable revisions: StaffDeck shared UI `f41c8524` (parent `38ab57a6`) and PilotDeck `6a640d71` (evidence parent `e8310670`, implementation ancestor `4b09f71b`). |
+| G0 scope and traceability | PASS | The source map and acceptance evidence are committed in reviewable revisions: StaffDeck shared UI `f41c8524` (parent `38ab57a6`) and PilotDeck `bad34814` (evidence parent `cd6f8b6e`, implementation ancestor `4b09f71b`). |
 | G1 actual formal UI sharing | PASS | PilotDeck-hosted formal browser checks mount the shared StaffDeck Knowledge/SOP modules, and an independent StaffDeck-native host run at `http://127.0.0.1:15217` rendered `/enterprise/skills` and `/enterprise/knowledge` from the same shared build. The native run used an authenticated admin session and captured desktop screenshots under `/tmp/staffdeck-native-enterprise-skills.png` and `/tmp/staffdeck-native-enterprise-knowledge.png`; the observed API requests (`/api/enterprise/skills`, `/api/enterprise/knowledge-bases`, `/api/enterprise/knowledge/documents`, and `/api/enterprise/knowledge-bases/:id/okf/concepts`) all carried the JWT. |
 | G2 generic glue/service boundary | PASS | The Knowledge adapter covers job polling, document deletion, sync/publish/rollback, and the focused adapter tests pass. The SOP adapter uses explicit management calls and reports unavailable host capabilities instead of falling back silently. |
 | G3 seven-slot/profile assembly | NOT RUN | The four-profile build matrix passed generation, Vite build, implementation-marker isolation, and manifest emission at `test-results/frontend-build-matrix/{native,native-five-staffdeck,minimal,replacement}/manifest.json`; authenticated route matrices passed for native and minimal at desktop/mobile. Independent review correctly found this does not satisfy the six-state G3 matrix: routing installed-but-off and routing enabled are not independently covered, nor are all required navigation, legacy-URL, Settings/chat/permission, and request-network assertions across every state. This remains a useful partial artifact, not a gate pass. |
