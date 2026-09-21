@@ -121,11 +121,11 @@ export default function SettingsSidebar({
         ))}
         {moduleSettings.length > 0 ? (
           <section className="nav-section nav-section-nested">
-            <h2>Modules</h2>
+            <h2>{t("settingsPage.modules.title")}</h2>
             <div className="nav-items">
               {Array.from(new Map(moduleSettings.map((setting) => [setting.settingsSection || setting.id, setting])).values()).map((setting) => {
                 const key = `module:${setting.settingsSection || setting.id}` as SettingsMenuKey;
-                return <NavButton key={key} item={{ key, labelKey: '', label: setting.label }} selectedKey={selectedKey} onSelect={onSelect} />;
+                return <NavButton key={key} item={{ key, labelKey: '', label: setting.labelKey ? t(setting.labelKey, { defaultValue: setting.label }) : setting.label }} selectedKey={selectedKey} onSelect={onSelect} />;
               })}
             </div>
           </section>

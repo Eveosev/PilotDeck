@@ -54,7 +54,7 @@ const module: FrontendModule = {
   buildMarker: BUILD_MARKER,
   requiresCapabilities: ['query'],
   pages: [{ id: 'knowledge', path: '/knowledge', label: 'Knowledge', component: KnowledgePage }],
-  settings: [{ id: 'knowledge-default-base', settingsSection: 'knowledge', label: 'Knowledge', component: () => <ProfileTextSetting slot="knowledge" field="defaultBaseId" label="Default knowledge base" description="Used when a Knowledge query does not select a base." /> }],
+  settings: [{ id: 'knowledge-default-base', settingsSection: 'knowledge', label: 'Knowledge', labelKey: 'settingsPage.modules.knowledge', component: () => <ProfileTextSetting slot="knowledge" field="defaultBaseId" label="Default knowledge base" description="Used when a Knowledge query does not select a base." /> }],
   artifactRenderers: [{ id: 'staffdeck.knowledge-citation-artifact', label: 'Knowledge citation artifact', artifactMimeTypes: ['application/x-staffdeck-citation'], component: KnowledgeArtifactRenderer }],
 };
 export default module;

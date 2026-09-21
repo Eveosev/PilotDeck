@@ -28,6 +28,6 @@ function AlwaysOnPage({ host }: SurfaceProps) {
 const module: FrontendModule = {
   id: 'agent.resident', businessModuleId: 'agent.resident', contract: 'pilotdeck.business/v1', source: 'pilotdeck', frontendApiVersion: 'frontend-module/v1', requires: ['agentLoop'],
   pages: [{ id: 'always-on', path: '/always-on', label: 'Always On', component: AlwaysOnPage }],
-  settings: [{ id: 'agent-resident', settingsSection: 'agent-resident', label: 'Always on', component: ({ host }: SurfaceProps) => <AgentResidentSections title="Always on" projects={(host?.projects ?? []) as SettingsProject[]} /> }],
+  settings: [{ id: 'agent-resident', settingsSection: 'agent-resident', label: 'Always on', labelKey: 'settingsPage.menu.agentResident', component: ({ host }: SurfaceProps) => <AgentResidentSections title="Always on" projects={(host?.projects ?? []) as SettingsProject[]} /> }],
 };
 export default module;

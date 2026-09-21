@@ -41,6 +41,6 @@ const module: FrontendModule = {
   buildMarker: BUILD_MARKER,
   requiresCapabilities: ['query'],
   pages: [{ id: 'knowledge-search', path: '/knowledge-search', label: 'Knowledge search', component: SearchFixture }],
-  settings: [{ id: 'replacement-knowledge-limit', settingsSection: 'knowledge', label: 'Knowledge search', component: () => <ProfileTextSetting slot="knowledge" field="resultLimit" label="Result limit" description="The selected replacement receives this limit for future searches." valueType="positiveInteger" /> }],
+  settings: [{ id: 'replacement-knowledge-limit', settingsSection: 'knowledge', label: 'Knowledge search', labelKey: 'settingsPage.modules.knowledgeSearch', component: () => <ProfileTextSetting slot="knowledge" field="resultLimit" label="Result limit" description="The selected replacement receives this limit for future searches." valueType="positiveInteger" /> }],
 };
 export default module;

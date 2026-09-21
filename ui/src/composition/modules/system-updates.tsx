@@ -57,6 +57,6 @@ function SystemUpdatesSettings({ onClose }: SurfaceProps) {
 
 const module: FrontendModule = {
   id: 'system.updates', businessModuleId: 'system.updates', contract: 'pilotdeck.business/v1', source: 'pilotdeck', frontendApiVersion: 'frontend-module/v1',
-  settings: [{ id: 'system-updates', settingsSection: 'system-updates', label: 'About', component: SystemUpdatesSettings }],
+  settings: [{ id: 'system-updates', settingsSection: 'system-updates', label: 'About', labelKey: 'settingsPage.menu.about', component: SystemUpdatesSettings }],
 };
 export default module;

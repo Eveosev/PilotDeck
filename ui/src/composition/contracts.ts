@@ -56,6 +56,8 @@ export type ModuleLifecycle = {
 };
 export type Contribution = {
   id: string;
+  /** Optional i18n key for the user-facing label; label remains the fallback. */
+  labelKey?: string;
   label: string;
   component: ComponentType<SurfaceProps>;
   settingsSection?: string;

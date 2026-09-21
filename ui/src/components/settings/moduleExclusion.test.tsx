@@ -6,7 +6,7 @@ import { authenticatedFetch } from '../../utils/api';
 
 vi.mock('../../hooks/usePilotDeckConfig', () => ({ PilotDeckConfigProvider: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock('../../utils/api', () => ({ authenticatedFetch: vi.fn() }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key }) }));
 
 afterEach(() => {
   cleanup();
@@ -15,6 +15,6 @@ afterEach(() => {
 
 it.each(['about', 'privacy'])("does not mount %s module requests when the profile omits it", (section) => {
   render(<MemoryRouter><Settings section={section} onClose={vi.fn()} moduleSettings={[]} /></MemoryRouter>);
-  expect(screen.getByRole('status').textContent).toContain('not installed');
+  expect(screen.getByRole('status').textContent).toContain('settingsPage.modules.unavailable');
   expect(authenticatedFetch).not.toHaveBeenCalled();
 });

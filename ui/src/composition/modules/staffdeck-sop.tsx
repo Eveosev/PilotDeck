@@ -39,7 +39,7 @@ const module: FrontendModule = {
   buildMarker: BUILD_MARKER,
   requires: ['agentLoop'],
   pages: [{ id: 'sop', path: '/sop', label: 'Workflow', component: SopPage }],
-  settings: [{ id: 'sop-default-workflow', settingsSection: 'sop', label: 'Workflow', component: () => <ProfileTextSetting slot="sop" field="defaultSopId" label="Default workflow" description="The SOP selected for new workflow runs." /> }],
+  settings: [{ id: 'sop-default-workflow', settingsSection: 'sop', label: 'Workflow', labelKey: 'settingsPage.modules.workflow', component: () => <ProfileTextSetting slot="sop" field="defaultSopId" label="Default workflow" description="The SOP selected for new workflow runs." /> }],
   chatExtensions: [{ id: 'sop-wait', label: 'SOP wait state', component: SopExtension }],
   permissionPanels: [{ id: 'sop-approval', label: 'SOP approval', toolNames: ['operator_approval'], component: SopPermissionPanel }],
 };

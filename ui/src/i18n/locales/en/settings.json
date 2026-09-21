@@ -81,6 +81,17 @@
       "system": "System",
       "about": "About"
     },
+    "modules": {
+      "title": "Modules",
+      "chatPreferences": "Chat preferences",
+      "editorPreferences": "Editor preferences",
+      "permissions": "Permissions",
+      "telemetry": "Telemetry",
+      "knowledge": "Knowledge",
+      "knowledgeSearch": "Knowledge search",
+      "workflow": "Workflow",
+      "unavailable": "This feature is not installed in the current product profile."
+    },
     "descriptions": {
       "general": "Set PilotDeck's interface appearance, chat input, and code editing experience.",
       "modelPool": "Centrally manage model providers, connection credentials, and available models. Enabled models are used by agents, routing, and memory.",

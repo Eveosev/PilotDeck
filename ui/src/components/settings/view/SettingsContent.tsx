@@ -100,8 +100,13 @@ export default function SettingsContent({
   const { t } = useTranslation("settings");
   const moduleSection = selectedKey.startsWith('module:') ? selectedKey.slice('module:'.length) : null;
   const selectedModuleSetting = moduleSettings.find((setting) => (setting.settingsSection || setting.id) === moduleSection);
-  const title = moduleSection ? (selectedModuleSetting?.label || moduleSection) : t(MENU_TITLE_KEYS[selectedKey as keyof typeof MENU_TITLE_KEYS]);
-  const heading = moduleSection ? (selectedModuleSetting?.label || moduleSection) : t(PAGE_HEADING_KEYS[selectedKey as keyof typeof PAGE_HEADING_KEYS]);
+  const moduleLabel = selectedModuleSetting
+    ? (selectedModuleSetting.labelKey
+      ? t(selectedModuleSetting.labelKey, { defaultValue: selectedModuleSetting.label })
+      : selectedModuleSetting.label)
+    : moduleSection;
+  const title = moduleSection ? moduleLabel : t(MENU_TITLE_KEYS[selectedKey as keyof typeof MENU_TITLE_KEYS]);
+  const heading = moduleSection ? moduleLabel : t(PAGE_HEADING_KEYS[selectedKey as keyof typeof PAGE_HEADING_KEYS]);
   const descriptionKey = PAGE_DESCRIPTION_KEYS[selectedKey];
   const pageClass = PAGE_CLASS[selectedKey as keyof typeof PAGE_CLASS];
   const selectedModuleSettings = moduleSettings.filter((setting) => (setting.settingsSection || setting.id) === moduleSection);
@@ -161,7 +166,7 @@ export default function SettingsContent({
           </section>
         ) : moduleSection ? (
           <div role="status" data-testid={`module-settings-unavailable-${moduleSection}`} className="mt-6 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            This feature is not installed in the current product profile.
+            {t("settingsPage.modules.unavailable")}
           </div>
         ) : (
           <div className="mt-6 flex min-h-[360px] flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">

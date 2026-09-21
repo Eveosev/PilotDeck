@@ -81,6 +81,17 @@
       "system": "高级",
       "about": "关于"
     },
+    "modules": {
+      "title": "模块",
+      "chatPreferences": "聊天偏好",
+      "editorPreferences": "编辑器偏好",
+      "permissions": "权限",
+      "telemetry": "遥测",
+      "knowledge": "知识库",
+      "knowledgeSearch": "知识库搜索",
+      "workflow": "工作流",
+      "unavailable": "此功能未安装在当前产品配置中。"
+    },
     "descriptions": {
       "general": "设置 PilotDeck 的界面外观、聊天输入和代码编辑体验。",
       "modelPool": "集中管理模型提供商、连接凭据和可用模型。已启用模型将供智能体、路由和记忆功能使用。",
