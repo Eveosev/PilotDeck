@@ -15,8 +15,8 @@ inspection is not treated as proof of a real service workflow.
 | G1 actual formal UI sharing | PASS | PilotDeck-hosted formal browser checks mount the shared StaffDeck Knowledge/SOP modules, and an independent StaffDeck-native host run at `http://127.0.0.1:15217` rendered `/enterprise/skills` and `/enterprise/knowledge` from the same shared build. The native run used an authenticated admin session and captured desktop screenshots under `/tmp/staffdeck-native-enterprise-skills.png` and `/tmp/staffdeck-native-enterprise-knowledge.png`; the observed API requests (`/api/enterprise/skills`, `/api/enterprise/knowledge-bases`, `/api/enterprise/knowledge/documents`, and `/api/enterprise/knowledge-bases/:id/okf/concepts`) all carried the JWT. |
 | G2 generic glue/service boundary | PASS | The Knowledge adapter covers job polling, document deletion, sync/publish/rollback, and the focused adapter tests pass. The SOP adapter uses explicit management calls and reports unavailable host capabilities instead of falling back silently. |
 | G3 seven-slot/profile assembly | NOT RUN | Generator/typecheck/build checks pass, and authenticated native/minimal route matrices passed at desktop and mobile viewports. The required complete independent profile/network matrix has not been rerun. |
-| G4 Knowledge persistence loop | NOT RUN | The PilotDeck isolated lifecycle and formal shared UI cover query plus evidence-pack/source presentation. The independent StaffDeck-native host also completed a real create/import/poll/update/query/delete loop (`kb_92f4d04c4571478d`, job `kjob_92517a5b00734b5c`, document `kdoc_a44e4138cd3e4f60`; job `succeeded`, document `ready`, one evidence chunk and one evidence-pack item), but the required same-definition double-host page persistence loop is not closed; citation resolution remains a direct API contract check, not a claimed shared-page button flow. |
-| G5 SOP edit/publish/run/reload | NOT RUN | Portable-definition persistence, public-management lifecycle API behavior, and isolated StaffDeck runtime consumption are recorded. The required same-definition dual-host publish/reload/run proof is not closed. |
+| G4 Knowledge persistence loop | NOT RUN | The PilotDeck isolated lifecycle and formal shared UI cover query plus evidence-pack/source presentation. The independent StaffDeck-native host completed a real create/import/poll/update/query/delete API loop (`kb_92f4d04c4571478d`, job `kjob_92517a5b00734b5c`, document `kdoc_a44e4138cd3e4f60`; job `succeeded`, document `ready`, one evidence chunk and one evidence-pack item) and a shared-page edit/reload loop (`Native page edited` remained after `/enterprise/knowledge` reload). The required same-definition double-host page persistence loop is not closed; citation resolution remains a direct API contract check, not a claimed shared-page button flow. |
+| G5 SOP edit/publish/run/reload | NOT RUN | Portable-definition persistence, public-management lifecycle API behavior, and isolated StaffDeck runtime consumption are recorded. On the independent StaffDeck-native host, the shared Distill editor saved `Native SOP acceptance` as v1.1.0, the list page preserved that name/version after reload, and the page publish confirmation returned the row to `Synchronized`. The native temporary database had no usable model configuration, so a real post-publish run/wait/resume was not attempted; the required same-definition dual-host publish/reload/run proof is not closed. |
 | G6 dual-host regression/reproducible delivery | NOT RUN | Frozen-lockfile install, focused builds/tests, and the StaffDeck host i18n check pass. Shared Knowledge/SOP pages still contain hardcoded Chinese strings and lack independent English-browser coverage, so reproducible bilingual dual-host regression is not closed. |
 | G7 independent supervision evidence | NOT RUN | Do not mark this gate complete until the independent supervisor reruns G0-G6 against the final worktrees. |
 
@@ -133,8 +133,11 @@ built Harness v3 checkout (`deepseek-harness-dsh-v0.1.2-alpha.2`) and a temporar
 SQLite database. With an authenticated `tenant_demo/admin` session, the shared
 pages rendered at `/enterprise/skills` and `/enterprise/knowledge` in both the
 default Chinese locale and an `en-US` browser context. The English capture still
-shows several hardcoded Chinese business labels inside the shared pages, which is
-why G6 remains `NOT RUN`.
+shows several hardcoded Chinese business labels inside the shared pages. The
+shared dictionary now covers the primary Knowledge/SOP headings, controls, table
+headers, statuses, and editor actions, but the remaining hardcoded business data
+and deeper editor copy still prevent a complete bilingual regression, so G6
+remains `NOT RUN`.
 
 The native host's Knowledge API persistence probe created a temporary base,
 uploaded and polled a Markdown document to `succeeded`/`ready`, updated the title,
