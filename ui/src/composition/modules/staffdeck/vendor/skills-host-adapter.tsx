@@ -92,5 +92,9 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
 
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => navigate(path.startsWith('/enterprise/skills') ? `/sop${path.slice('/enterprise/skills'.length)}` : path) }}>{children}</SkillsPageHostProvider>;
+  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => {
+    if (!path.startsWith('/enterprise/skills')) return navigate(path);
+    const queryIndex = path.indexOf('?');
+    navigate(`/sop${queryIndex >= 0 ? path.slice(queryIndex) : ''}`);
+  } }}>{children}</SkillsPageHostProvider>;
 }
