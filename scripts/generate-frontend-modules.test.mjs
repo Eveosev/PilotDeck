@@ -41,8 +41,9 @@ test('does not statically select business modules omitted from an explicit produ
   assert.deepEqual(selectBusinessFrontendModules(profile), []);
   assert.doesNotMatch(source, /agent-routing|agent-resident|agent-scheduling|channels-integrations|model-providers|agent-model-selection|tools-search|tools-mcp|context-memory|workspace-office-preview|system-privacy|tools-permissions|system-telemetry|system-updates|host-preferences|chat-preferences|workspace-editor-preferences|CronV2/);
   assert.match(source, /generatedBusinessPaths/);
-  assert.match(source, /"\/always-on"/);
-  assert.match(source, /"\/cron"/);
+  assert.match(source, /generatedBusinessRoutePaths/);
+  assert.match(source, /generatedBusinessPaths = \[\] as const/);
+  assert.match(source, /generatedBusinessRoutePaths = \[\n\s+"\/always-on",\n\s+"\/cron",\n\s+"\/memory"/);
 });
 
 test('selects only explicitly installed business modules', () => {
@@ -54,6 +55,8 @@ test('selects only explicitly installed business modules', () => {
   assert.deepEqual(selectBusinessFrontendModules(profile).map((item) => item.id), ['agent.routing']);
   assert.match(source, /agent-routing/);
   assert.doesNotMatch(source, /agent-scheduling|agent-resident|channels-integrations/);
+  assert.match(source, /generatedBusinessPaths = \[\] as const/);
+  assert.match(source, /generatedBusinessRoutePaths = \[\n\s+"\/always-on",\n\s+"\/cron",\n\s+"\/memory"/);
 });
 
 test('selects model-management modules independently from the model-provider slot adapter', () => {
@@ -87,4 +90,17 @@ test('selects tool permissions and telemetry independently', () => {
   assert.match(source, /modules\/tools-permissions/);
   assert.match(source, /modules\/system-telemetry/);
   assert.doesNotMatch(source, /modules\/system-privacy/);
+});
+
+test('omits management credentials and endpoints from the browser composition', () => {
+  const source = renderGeneratedEntrypoint({ ...native, modules: {
+    ...native.modules,
+    sop: {
+      enabled: true,
+      implementationId: 'staffdeck.portable-sop',
+      management: { enabled: true, endpoint: 'https://staffdeck.internal/api/v1', apiKey: 'secret', agentId: 'agent-1', methods: ['list'] },
+    },
+  } }, '/tmp/generated/frontend-modules.ts');
+  assert.match(source, /"management": \{\n\s+"enabled": true,\n\s+"methods": \[\n\s+"list"\n\s+\],\n\s+"agentId": "agent-1"/);
+  assert.doesNotMatch(source, /staffdeck\.internal|secret/);
 });

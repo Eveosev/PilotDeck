@@ -28,7 +28,25 @@ export type SopDefinition = Record<string, unknown> & { id: string };
 export type StaffDeckSopClient = {
   listDefinitions(): Promise<{ defaultSopId: string; definitions: SopDefinition[] }>;
   saveDefinition(id: string, definition: SopDefinition): Promise<{ definition: SopDefinition; restartRequired: boolean }>;
+  restartRuntime(): Promise<void>;
   status(sessionKey: string, projectKey?: string): Promise<Record<string, unknown> | null>;
+};
+
+export type SopManagementStatus = { enabled: true; methods: string[]; agentId: string };
+export type StaffDeckSopManagementClient = {
+  status(): Promise<SopManagementStatus>;
+  call<T>(operation: string, input?: Record<string, unknown>): Promise<T>;
+};
+
+export const staffDeckSopManagementClient: StaffDeckSopManagementClient = {
+  status: () => request('/api/modules/sop/management'),
+  async call<T>(operation: string, input: Record<string, unknown> = {}) {
+    const body = await request<{ result: T }>('/api/modules/sop/management/call', {
+      method: 'POST',
+      body: JSON.stringify({ operation, input }),
+    });
+    return body.result;
+  },
 };
 
 export const staffDeckSopClient: StaffDeckSopClient = {
@@ -38,8 +56,10 @@ export const staffDeckSopClient: StaffDeckSopClient = {
       method: 'PUT',
       body: JSON.stringify({ definition }),
     });
-    if (result.restartRequired) window.dispatchEvent(new Event('pilotdeck:module-runtime-changed'));
     return result;
+  },
+  async restartRuntime() {
+    await request('/api/update/restart', { method: 'POST' });
   },
   async status(sessionKey, projectKey) {
     const query = new URLSearchParams({ sessionKey });

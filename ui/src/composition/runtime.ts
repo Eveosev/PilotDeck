@@ -19,17 +19,17 @@ export function setActiveAssembly(next: Assembly | null): void {
 export function activateAssembly(assembly: Assembly, runtime?: RuntimeCapabilities | null): () => void {
   const runtimeUnavailable = runtime !== null && runtime !== undefined
     && (runtime.gatewayState !== 'ready' || (runtime.unavailableSlots?.length ?? 0) > 0);
-  const activeAssembly = runtimeUnavailable
+  const registeredAssembly = runtimeUnavailable
     ? {
       ...assembly,
       chatExtensions: assembly.chatExtensions.filter((extension) => !extension.requiresRuntime),
       permissionPanels: assembly.permissionPanels.filter((panel) => !panel.requiresRuntime),
     }
     : assembly;
-  setActiveAssembly(activeAssembly);
+  setActiveAssembly(registeredAssembly);
   let disposed = false;
   const cleanups: Array<() => void | Promise<void>> = [];
-  cleanups.push(registerPermissionPanels(activeAssembly.permissionPanels.map((panel) => ({
+  cleanups.push(registerPermissionPanels(registeredAssembly.permissionPanels.map((panel) => ({
     toolNames: panel.toolNames,
     component: panel.component as any,
   }))));
@@ -43,7 +43,7 @@ export function activateAssembly(assembly: Assembly, runtime?: RuntimeCapabiliti
   }
   return () => {
     disposed = true;
-    if (activeAssembly === assembly) setActiveAssembly(null);
+    if (getActiveAssembly() === registeredAssembly) setActiveAssembly(null);
     for (const cleanup of cleanups) void cleanup();
     for (const selection of [...assembly.selections, ...(assembly.businessSelections ?? [])]) void selection.frontend.lifecycle?.dispose?.();
   };

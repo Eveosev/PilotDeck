@@ -167,11 +167,60 @@ describe('module runtime route', () => {
       expect(await readFile(definitionsPath, 'utf8')).toContain('Updated approval');
       const runtime = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/runtime`);
       expect(await runtime.json()).toMatchObject({
-        runtime: { gatewayState: 'ready', unavailableSlots: ['sop'] },
+        runtime: { gatewayState: 'ready', unavailableSlots: [] },
       });
     } finally {
       await new Promise(resolve => server.close(resolve));
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('proxies allowlisted StaffDeck public SOP management with server-side credentials and ETags', async () => {
+    const received = [];
+    const managementApp = express();
+    managementApp.use(express.json());
+    managementApp.get('/api/v1/agents/agent-1/sops', (req, res) => {
+      received.push({ path: req.path, authorization: req.headers.authorization });
+      res.json({ data: [{ skill_id: 'review', name: 'Review', status: 'published' }], drafts: [] });
+    });
+    managementApp.put('/api/v1/agents/agent-1/sops/review', (req, res) => {
+      received.push({ path: req.path, authorization: req.headers.authorization, ifMatch: req.headers['if-match'], body: req.body });
+      res.setHeader('ETag', 'etag-next');
+      res.json({ id: 'draft-1', sop_id: 'review', content: req.body.content });
+    });
+    const managementServer = http.createServer(managementApp);
+    await new Promise(resolve => managementServer.listen(0, '127.0.0.1', resolve));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: {
+      enabled: true,
+      management: {
+        enabled: true,
+        endpoint: `http://127.0.0.1:${managementServer.address().port}/api/v1`,
+        apiKey: 'server-only-key',
+        agentId: 'agent-1',
+        methods: ['list', 'replace_draft'],
+      },
+    } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const listed = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list' }) });
+      expect(listed.status).toBe(200);
+      expect(await listed.json()).toEqual({ result: { data: [{ skill_id: 'review', name: 'Review', status: 'published' }], drafts: [] } });
+      const saved = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'replace_draft', input: { sopId: 'review', draftId: 'draft-1', etag: 'etag-current', content: { skill_id: 'review', nodes: [] } } }) });
+      expect(saved.status).toBe(200);
+      expect(await saved.json()).toMatchObject({ result: { id: 'draft-1', etag: 'etag-next' } });
+      expect(received).toEqual([
+        { path: '/api/v1/agents/agent-1/sops', authorization: 'Bearer server-only-key' },
+        { path: '/api/v1/agents/agent-1/sops/review', authorization: 'Bearer server-only-key', ifMatch: 'etag-current', body: { content: { skill_id: 'review', nodes: [] } } },
+      ]);
+      const denied = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'publish', input: { sopId: 'review', draftId: 'draft-1' } }) });
+      expect(denied.status).toBe(409);
+      expect((await denied.json()).error.code).toBe('SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE');
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await new Promise(resolve => managementServer.close(resolve));
     }
   });
 });

@@ -4,25 +4,23 @@ import module1 from '../modules/pilotdeck-skills';
 import module2 from '../modules/pilotdeck-tools';
 import module3 from '../modules/pilotdeck-context';
 import module4 from '../modules/pilotdeck-model';
-import module5 from '../modules/staffdeck-sop';
-import module6 from '../modules/staffdeck-knowledge';
-import module7 from '../modules/agent-routing';
-import module8 from '../modules/agent-resident';
-import module9 from '../modules/agent-scheduling';
-import module10 from '../modules/channels-integrations';
-import module11 from '../modules/model-providers';
-import module12 from '../modules/agent-model-selection';
-import module13 from '../modules/tools-search';
-import module14 from '../modules/tools-mcp';
-import module15 from '../modules/context-memory';
-import module16 from '../modules/workspace-office-preview';
-import module17 from '../modules/system-advanced';
-import module18 from '../modules/tools-permissions';
-import module19 from '../modules/system-telemetry';
-import module20 from '../modules/system-updates';
-import module21 from '../modules/host-preferences';
-import module22 from '../modules/chat-preferences';
-import module23 from '../modules/workspace-editor-preferences';
+import module5 from '../modules/agent-routing';
+import module6 from '../modules/agent-resident';
+import module7 from '../modules/agent-scheduling';
+import module8 from '../modules/channels-integrations';
+import module9 from '../modules/model-providers';
+import module10 from '../modules/agent-model-selection';
+import module11 from '../modules/tools-search';
+import module12 from '../modules/tools-mcp';
+import module13 from '../modules/context-memory';
+import module14 from '../modules/workspace-office-preview';
+import module15 from '../modules/system-advanced';
+import module16 from '../modules/tools-permissions';
+import module17 from '../modules/system-telemetry';
+import module18 from '../modules/system-updates';
+import module19 from '../modules/host-preferences';
+import module20 from '../modules/chat-preferences';
+import module21 from '../modules/workspace-editor-preferences';
 
 export const generatedFrontendModules = [
   Object.assign({ slot: 'agentLoop' }, module0),
@@ -30,8 +28,8 @@ export const generatedFrontendModules = [
   Object.assign({ slot: 'tools' }, module2),
   Object.assign({ slot: 'context' }, module3),
   Object.assign({ slot: 'modelProvider' }, module4),
-  Object.assign({ slot: 'sop' }, module5),
-  Object.assign({ slot: 'knowledge' }, module6),
+  module5,
+  module6,
   module7,
   module8,
   module9,
@@ -47,11 +45,15 @@ export const generatedFrontendModules = [
   module19,
   module20,
   module21,
-  module22,
-  module23,
 ] as const;
 
 export const generatedBusinessPaths = [
+  "/always-on",
+  "/cron",
+  "/memory"
+] as const;
+
+export const generatedBusinessRoutePaths = [
   "/always-on",
   "/cron",
   "/memory"
@@ -80,58 +82,10 @@ export const generatedFrontendProfile = {
       "provider": "pilotdeck"
     },
     "sop": {
-      "enabled": true,
-      "implementationId": "staffdeck.portable-sop",
-      "contract": "sop.lifecycle/v2",
-      "transport": "sop-http-v2",
-      "endpoint": "http://127.0.0.1:18091",
-      "definitionsPath": "/Users/a1/Desktop/claw/openbmb/PilotDeck-frontend-seven-slot/products/pilotdeck-staffdeck-sop/sops/operator-approval.yaml",
-      "defaultSopId": "operator_approval",
-      "timeoutMs": 30000
+      "enabled": false
     },
     "knowledge": {
-      "enabled": true,
-      "implementationId": "staffdeck.knowledge",
-      "contract": "staffdeck.knowledge/v1",
-      "transport": "module-http-v2",
-      "endpoint": "http://127.0.0.1:18090",
-      "tenantId": "tenant_demo",
-      "actorUserId": "admin",
-      "defaultBaseId": "kb_preset_data_001",
-      "methods": [
-        "list_bases",
-        "create_base",
-        "get_base",
-        "update_base",
-        "delete_base",
-        "list_versions",
-        "sync_base",
-        "publish_version",
-        "rollback_version",
-        "list_documents",
-        "get_document",
-        "import_document",
-        "import_okf",
-        "update_document",
-        "delete_document",
-        "list_document_buckets",
-        "update_bucket",
-        "list_bucket_chunks",
-        "update_chunk",
-        "get_job",
-        "list_jobs",
-        "cancel_job",
-        "list_okf_concepts",
-        "get_okf_concept",
-        "upsert_okf_concept",
-        "export_okf",
-        "lint_okf",
-        "list_discoveries",
-        "confirm_discovery",
-        "reject_discovery",
-        "query",
-        "resolve_citation"
-      ]
+      "enabled": false
     }
   },
   "frontend": {

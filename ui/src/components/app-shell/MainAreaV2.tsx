@@ -93,7 +93,6 @@ type MainAreaV2Props = MainContentProps & {
   moduleCompositionError?: string | null;
   moduleCompositionLoading?: boolean;
   moduleRuntimeWarning?: string | null;
-  moduleUnavailableMessage?: string | null;
 };
 
 function MainAreaV2Content(props: MainAreaV2Props) {
@@ -422,14 +421,13 @@ function MainAreaV2Content(props: MainAreaV2Props) {
 }
 
 export default function MainAreaV2(props: MainAreaV2Props) {
-  if (props.moduleUnavailableMessage) {
-    return <DedicatedWorkspacePage title="Unavailable feature" isSidebarCollapsed={props.isSidebarCollapsed} onOpenSidebar={props.onOpenSidebar}>
-      <div role="status" className="m-6 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">{props.moduleUnavailableMessage}</div>
-    </DedicatedWorkspacePage>;
-  }
+  const { t } = useTranslation();
   if (props.modulePage) {
     const Page = props.modulePage.component;
-    return <DedicatedWorkspacePage title={props.modulePage.label} isSidebarCollapsed={props.isSidebarCollapsed} onOpenSidebar={props.onOpenSidebar}>
+    const title = props.modulePage.labelKey
+      ? t(props.modulePage.labelKey, { defaultValue: props.modulePage.label })
+      : props.modulePage.label;
+    return <DedicatedWorkspacePage title={title} isSidebarCollapsed={props.isSidebarCollapsed} onOpenSidebar={props.onOpenSidebar}>
       <Page
         sessionId={props.selectedSession?.id ?? ''}
         projectKey={props.selectedProject?.name}

@@ -11,6 +11,11 @@ export type Binding = {
   contract?: string;
   transport?: string;
   methods?: string[];
+  management?: {
+    enabled?: boolean;
+    methods?: string[];
+    agentId?: string;
+  };
 };
 export type BusinessBinding = {
   /** Installed in this browser product build. Omission means not installed. */

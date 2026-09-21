@@ -9,6 +9,10 @@
   },
   "exports": {
     "./KnowledgeGraphCanvas": "./src/KnowledgeGraphCanvas.tsx",
+    "./KnowledgePage": "./src/KnowledgePage.tsx",
+    "./KnowledgePageHost": "./src/KnowledgePageHost.tsx",
+    "./SkillsPage": "./src/SkillsPage.tsx",
+    "./SkillsPageHost": "./src/SkillsPageHost.tsx",
     "./SopVersionDetailDialog": "./src/SopVersionDetailDialog.tsx",
     "./types": "./src/types.ts"
   }

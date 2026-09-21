@@ -4,24 +4,24 @@
 
 | Repository | Branch | Commit |
 | --- | --- | --- |
-| PilotDeck | `codex/frontend-seven-slot-composition` | `023e3556b6c5a2eb1babc5a9236ba6703731cdd1` (before this delivery) |
-| StaffDeck | `codex/delivery-protocol-20260920` | `4305310eecf70472849a81dfab20d7ff84a9fd80` |
+| PilotDeck | `codex/frontend-seven-slot-composition` | `3bc8ddb8` base before the current working-tree changes |
+| StaffDeck | `codex/staffdeck-shared-business-ui` | `d7bda2c9` base before the current working-tree changes |
 
-The source enterprise pages are not imported wholesale. They depend on the
-StaffDeck enterprise router, employee-scope storage, enterprise authentication,
-the Toast provider, aliases, and direct `/api/enterprise/*` requests. Current
-PilotDeck workspaces are **source-logic adaptations**, not shared source page
-components. The next extraction boundary is a StaffDeck-owned reusable
-component package, starting with the independent Knowledge graph component;
-the public module client replaces only host auth/routing concerns.
+The source enterprise pages depend on the StaffDeck enterprise router,
+employee-scope storage, authentication, Toast provider, aliases, and direct
+`/api/enterprise/*` requests. Those host concerns are now isolated behind the
+versioned package bridges. The package owns the source-derived Knowledge and
+SOP pages; each host supplies only API, scope, notification, routing, and UI
+primitive adapters. PilotDeck vendors the exact package snapshot and never
+imports a StaffDeck checkout at runtime.
 
 ## Reused Source Files
 
 | Source | Reuse status and responsibility | PilotDeck destination |
 | --- | --- | --- |
-| `frontend-enterprise/src/pages/KnowledgePage.tsx` | StaffDeck remains the formal source; faithful full-page extraction is pending. Only the graph slice is currently shared. | `frontend-enterprise/src/pages/KnowledgePage.tsx` (source), `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx` (shared slice) |
-| `frontend-enterprise/src/components/KnowledgeGraphCanvas.tsx` | Production Knowledge route now imports the versioned shared package directly; no sibling checkout is required by PilotDeck | `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx`, PilotDeck vendor snapshot |
-| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal page remains the source; the version-detail dialog is extracted faithfully, while the editor and lifecycle controls remain in the formal page. | `frontend-enterprise/src/pages/SkillsPage.tsx`, `packages/staffdeck-business-ui/src/SopVersionDetailDialog.tsx` |
+| `frontend-enterprise/src/pages/KnowledgePage.tsx` | StaffDeck formal Knowledge page is the source; the complete page and its add/import route are extracted into the versioned package. | `packages/staffdeck-business-ui/src/KnowledgePage.tsx`, `packages/staffdeck-business-ui/src/KnowledgePageHost.tsx` |
+| `frontend-enterprise/src/components/KnowledgeGraphCanvas.tsx` | Production Knowledge page imports the versioned shared package directly; no sibling checkout is required by either host. | `packages/staffdeck-business-ui/src/KnowledgeGraphCanvas.tsx`, PilotDeck vendor snapshot |
+| `frontend-enterprise/src/pages/SkillsPage.tsx` | StaffDeck formal SOP inventory page is the source; inventory, filters, copy/import, publish/archive/draft, version, rollback, ranking, and detail state are extracted into the versioned package. The linked formal Distill editor remains a separate extraction task. | `packages/staffdeck-business-ui/src/SkillsPage.tsx`, `packages/staffdeck-business-ui/src/SkillsPageHost.tsx` |
 | `frontend-enterprise/src/types/index.ts` | normalized record shapes for the shared public view models | `packages/staffdeck-business-ui/src/types.ts` |
 | `backend/app/api/module_knowledge.py` | supported `staffdeck.knowledge/v1` operations and input shape | `ui/server/routes/modules.js`, `ui/src/composition/modules/staffdeck/clients.ts` |
 | `backend/app/public_api/sops.py` | authoritative draft/ETag/publish/version management contract | SOP management adapter design; not substituted with the runtime lifecycle contract |
@@ -43,7 +43,7 @@ operation evidence is recorded by the acceptance run.
 | Discoveries | list/confirm/reject | `list_discoveries`, `confirm_discovery`, `reject_discovery` | discovery panel | surface; verification pending |
 | Retrieval | query/citation resolve | `query`, `resolve_citation` | search and citation inspector | surface; verification pending |
 | SOP runtime | prepare/submit/status/resume | `sop.lifecycle/v2` through Gateway | chat wait, approval and resume | surface; verification pending |
-| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API | Original StaffDeck editor remains in place; only the formal version-detail dialog is shared | G1 FAIL / partial slice only |
+| SOP management | draft/create/copy/validate/publish/archive/version/rollback | StaffDeck public SOP API or host-owned definition adapter | Shared formal Skills page presents the source lifecycle UI; each host supplies the API/permission adapter | surface; real public-API verification pending |
 
 Real Knowledge lifecycle evidence is recorded in `FRONTEND_ACCEPTANCE_EVIDENCE.md`.
 
@@ -56,11 +56,12 @@ scope provided by the operator. Those actions are presented as unavailable
 until that value is supplied.
 
 SOP YAML management belongs to the current portable deployment and is not
-equivalent to StaffDeck's public draft/publish API. The latter has scoped
-credentials and ETag concurrency semantics. No replacement management panel
-is claimed in this release. The shared SOP slice is limited to the original
-version-detail dialog; draft/publish management remains in the StaffDeck
-formal page and its explicit service adapter. The previous hand-written
+equivalent to StaffDeck's public draft/publish API. The shared Skills page
+preserves the original inventory/lifecycle surface while the host adapter
+selects the configured public API or deployment-owned definition service. The
+formal Distill editor is not yet in the shared package, so draft editing is not
+claimed by this audit. Scoped credentials and ETag semantics remain
+server-side. The previous hand-written
 `SopManagement` and `KnowledgeOperations` replacement panels were removed from
 both hosts and are not part of the reuse claim.
 

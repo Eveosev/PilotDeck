@@ -34,7 +34,7 @@ import { ConnectionBanner } from '../ui/ConnectionBanner';
 import SidebarV2 from './SidebarV2';
 import MainAreaV2 from './MainAreaV2';
 import { useModuleComposition } from '../../composition/runtime';
-import { generatedBusinessPaths } from '../../composition/generated/frontend-modules';
+import { generatedBusinessRoutePaths } from '../../composition/generated/frontend-modules';
 import {
   chooseDefaultProject,
   resolveHomeNewConversationProject,
@@ -78,20 +78,24 @@ export default function AppShellV2() {
   const matchSettingsSection = useMatch(`${SETTINGS_PATH}/*`);
   const modulePage = composition.assembly?.pages.find((page) => page.path === location.pathname) ?? null;
   const hasScheduledTasks = Boolean(composition.assembly?.pages.some((page) => page.path === SCHEDULED_TASKS_PATH));
-  const moduleUnavailableMessage = generatedBusinessPaths.some((path) => path === location.pathname) && !modulePage && !composition.loading
-    ? 'This feature is not installed in the current product profile.'
-    : null;
+  const isDisabledBusinessRoute = generatedBusinessRoutePaths.some((path) => path === location.pathname)
+    && !modulePage
+    && !composition.loading;
   const isSettingsRoute = Boolean(matchSettingsIndex || matchSettingsSection);
   const settingsSection = matchSettingsSection?.params['*'];
   const dedicatedTab = matchScheduledTasks
       ? 'cron' as const
       : null;
-  const isDedicatedRoute = dedicatedTab !== null || isSettingsRoute || modulePage !== null;
+  const isDedicatedRoute = dedicatedTab !== null || isSettingsRoute || modulePage !== null || isDisabledBusinessRoute;
   const projectNameParam =
     matchProjectChat?.params.projectName ?? matchProject?.params.projectName ?? undefined;
   const sessionId =
     matchProjectChat?.params.sessionId ?? matchLegacySession?.params.sessionId ?? undefined;
   const { t } = useTranslation('common');
+
+  useEffect(() => {
+    if (isDisabledBusinessRoute) navigate('/', { replace: true });
+  }, [isDisabledBusinessRoute, navigate]);
 
   const { isMobile } = useDeviceSettings({ trackPWA: false });
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
@@ -764,7 +768,6 @@ export default function AppShellV2() {
           moduleCompositionError={composition.error}
           moduleCompositionLoading={composition.loading}
           moduleRuntimeWarning={composition.runtimeWarning}
-          moduleUnavailableMessage={moduleUnavailableMessage}
         />
       </main>
       </div>

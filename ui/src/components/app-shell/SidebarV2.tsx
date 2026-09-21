@@ -1161,7 +1161,7 @@ export default function SidebarV2({
               onClick={() => navigate(page.path)}
             >
               <span className="primary-action-icon">{Icon ? <Icon className="icon" /> : <span aria-hidden="true">◆</span>}</span>
-              <span className="truncate">{page.label}</span>
+              <span className="truncate">{page.labelKey ? t(page.labelKey, { defaultValue: page.label }) : page.label}</span>
             </button>
           );
         })}

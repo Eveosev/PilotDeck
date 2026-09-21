@@ -16,6 +16,10 @@ const KNOWLEDGE_OPERATIONS = new Set([
   'list_okf_concepts', 'get_okf_concept', 'upsert_okf_concept', 'export_okf', 'lint_okf',
   'list_discoveries', 'confirm_discovery', 'reject_discovery', 'query', 'resolve_citation',
 ]);
+const SOP_MANAGEMENT_OPERATIONS = new Set([
+  'list', 'create', 'get_draft', 'replace_draft', 'validate',
+  'publish', 'archive', 'list_versions', 'get_version', 'rollback',
+]);
 
 /**
  * Return the sanitized runtime composition used by the generated frontend.
@@ -31,10 +35,6 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try { return parseYaml(readFileSync(path, 'utf8')) ?? {}; } catch { return {}; }
   });
   const route = express.Router();
-  // The portable SOP runtime reads deployment-owned YAML at process start.
-  // Once this process writes a definition, chat/runtime actions must remain
-  // unavailable until the supervised runtime has restarted and reloaded it.
-  let sopRuntimeRestartRequired = false;
   route.get('/runtime', async (_req, res) => {
     try {
       const config = readConfig() ?? {};
@@ -52,7 +52,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         gatewayCapabilities: gateway.capabilities,
         runtime: {
           gatewayState: gateway.state,
-          unavailableSlots: sopRuntimeRestartRequired ? ['sop'] : [],
+          unavailableSlots: [],
         },
       });
     } catch (error) {
@@ -188,10 +188,34 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const next = { ...bundle, sops: bundle.sops.map((item, itemIndex) => itemIndex === index ? definition : item) };
       validateSopBundle(next);
       writeFileSync(binding.definitionsPath, stringifyYaml(next), 'utf8');
-      sopRuntimeRestartRequired = true;
       return res.json({ definition, restartRequired: true });
     } catch (error) {
       return res.status(422).json({ error: { code: 'SOP_DEFINITION_SAVE_FAILED', message: error instanceof Error ? error.message : String(error) } });
+    }
+  });
+  route.get('/sop/management', (_req, res) => {
+    try {
+      const management = readSopManagement(readConfig()?.modules?.sop);
+      return res.json({ enabled: true, methods: management.methods, agentId: management.agentId });
+    } catch (error) {
+      return res.status(501).json({ error: { code: 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
+    }
+  });
+  route.post('/sop/management/call', async (req, res) => {
+    try {
+      const operation = typeof req.body?.operation === 'string' ? req.body.operation : '';
+      if (!SOP_MANAGEMENT_OPERATIONS.has(operation)) {
+        return res.status(400).json({ error: { code: 'SOP_MANAGEMENT_OPERATION_UNSUPPORTED', message: 'SOP management operation is not supported.' } });
+      }
+      const management = readSopManagement(readConfig()?.modules?.sop);
+      if (!management.methods.includes(operation)) {
+        return res.status(409).json({ error: { code: 'SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE', message: `SOP management does not advertise ${operation}.` } });
+      }
+      const result = await callSopManagement(management, operation, req.body?.input);
+      return res.status(result.status).json({ result: result.body });
+    } catch (error) {
+      const status = Number.isInteger(error?.status) ? error.status : 502;
+      return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
   });
   return route;
@@ -247,6 +271,77 @@ function readSopDefinitions(binding) {
   const bundle = Array.isArray(parsed) ? { sops: parsed } : parsed;
   validateSopBundle(bundle);
   return bundle;
+}
+
+function readSopManagement(binding) {
+  const management = binding?.management;
+  if (!isRecord(management) || management.enabled !== true || typeof management.endpoint !== 'string' || !management.endpoint.trim()) {
+    throw new Error('StaffDeck public SOP management is not configured.');
+  }
+  const apiKey = typeof management.apiKey === 'string' && management.apiKey.trim()
+    ? management.apiKey
+    : typeof management.apiKeyEnv === 'string' && management.apiKeyEnv.trim()
+      ? process.env[management.apiKeyEnv]
+      : undefined;
+  if (typeof apiKey !== 'string' || !apiKey.trim()) {
+    throw new Error('StaffDeck public SOP management credentials are not configured.');
+  }
+  if (typeof management.agentId !== 'string' || !management.agentId.trim()) {
+    throw new Error('StaffDeck public SOP management requires an agentId.');
+  }
+  const methods = Array.isArray(management.methods) ? management.methods.filter((item) => SOP_MANAGEMENT_OPERATIONS.has(item)) : [];
+  if (methods.length === 0) throw new Error('StaffDeck public SOP management does not declare any supported methods.');
+  return { endpoint: management.endpoint.endsWith('/') ? management.endpoint : `${management.endpoint}/`, apiKey, agentId: management.agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
+}
+
+async function callSopManagement(management, operation, value) {
+  const input = isRecord(value) ? value : {};
+  const sopId = text(input.sopId);
+  const version = text(input.version);
+  const draftId = text(input.draftId);
+  const path = (...segments) => segments.map((segment) => encodeURIComponent(segment)).join('/');
+  let method = 'GET';
+  let target;
+  let body;
+  switch (operation) {
+    case 'list': target = `agents/${path(management.agentId)}/sops`; break;
+    case 'create':
+      method = 'POST'; target = `agents/${path(management.agentId)}/sops`; body = { content: input.content }; break;
+    case 'get_draft':
+      required(sopId, 'sopId'); required(draftId, 'draftId'); target = `agents/${path(management.agentId)}/sops/${path(sopId)}/drafts/${path(draftId)}`; break;
+    case 'replace_draft':
+      required(sopId, 'sopId'); required(draftId, 'draftId'); method = 'PUT'; target = `agents/${path(management.agentId)}/sops/${path(sopId)}?draft_id=${encodeURIComponent(draftId)}`; body = { content: input.content }; break;
+    case 'validate':
+      required(sopId, 'sopId'); required(draftId, 'draftId'); method = 'POST'; target = `sops/${path(sopId)}:validate?agent_id=${encodeURIComponent(management.agentId)}&draft_id=${encodeURIComponent(draftId)}`; break;
+    case 'publish':
+      required(sopId, 'sopId'); required(draftId, 'draftId'); method = 'POST'; target = `sops/${path(sopId)}:publish?agent_id=${encodeURIComponent(management.agentId)}`; body = { draft_id: draftId }; break;
+    case 'archive':
+      required(sopId, 'sopId'); method = 'POST'; target = `sops/${path(sopId)}:archive?agent_id=${encodeURIComponent(management.agentId)}`; break;
+    case 'list_versions':
+      required(sopId, 'sopId'); target = `sops/${path(sopId)}/versions?agent_id=${encodeURIComponent(management.agentId)}`; break;
+    case 'get_version':
+      required(sopId, 'sopId'); required(version, 'version'); target = `sops/${path(sopId)}/versions/${path(version)}?agent_id=${encodeURIComponent(management.agentId)}`; break;
+    case 'rollback':
+      required(sopId, 'sopId'); required(version, 'version'); method = 'POST'; target = `sops/${path(sopId)}/versions/${path(version)}:rollback?agent_id=${encodeURIComponent(management.agentId)}`; break;
+    default: throw Object.assign(new Error('Unsupported SOP management operation.'), { code: 'SOP_MANAGEMENT_OPERATION_UNSUPPORTED', status: 400 });
+  }
+  const headers = { accept: 'application/json', authorization: `Bearer ${management.apiKey}` };
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  if (operation === 'replace_draft') {
+    required(text(input.etag), 'etag');
+    headers['if-match'] = text(input.etag);
+  }
+  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(management.timeoutMs) });
+  const payload = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw Object.assign(new Error(payload?.error?.message || payload?.detail || `StaffDeck SOP management request failed (${response.status}).`), { code: payload?.error?.code || 'SOP_MANAGEMENT_UPSTREAM_FAILED', status: response.status });
+  }
+  if (isRecord(payload) && !payload.etag && ['get_draft', 'replace_draft'].includes(operation) && response.headers.get('etag')) payload.etag = response.headers.get('etag');
+  return { status: response.status, body: payload };
+}
+
+function required(value, field) {
+  if (!value) throw Object.assign(new Error(`${field} is required.`), { code: 'SOP_MANAGEMENT_INPUT_INVALID', status: 400 });
 }
 
 function validateSopBundle(bundle) {
