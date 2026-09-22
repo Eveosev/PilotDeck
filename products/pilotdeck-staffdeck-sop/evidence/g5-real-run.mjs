@@ -6,15 +6,11 @@ import { dirname, join, resolve } from "node:path";
 import { createLocalGateway } from "../../../dist/src/cli/createLocalGateway.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const publishedPath = process.env.G5_PUBLISHED_SOP_JSON;
+const publishedPath = process.env.G5_PUBLISHED_SOP_JSON ?? join(repoRoot, "products/pilotdeck-staffdeck-sop/evidence/g5-page-published-1.2.0.json");
 const outputPath = process.env.G5_OUTPUT_PATH ?? "/tmp/g5-real-run.json";
 const endpoint = process.env.STAFFDECK_SOP_ENDPOINT ?? "http://127.0.0.1:16213";
 const expectedSopId = process.env.G5_SOP_ID ?? "project_delivery_plan";
-const expectedVersion = process.env.G5_SOP_VERSION ?? "1.0.2";
-
-if (!publishedPath) {
-  throw new Error("G5_PUBLISHED_SOP_JSON must point to the saved management publish/get-version response.");
-}
+const expectedVersion = process.env.G5_SOP_VERSION ?? "1.2.0";
 
 const publishedResponse = JSON.parse(await readFile(resolve(publishedPath), "utf8"));
 const published = publishedResponse?.result?.sop ?? publishedResponse?.sop ?? publishedResponse;
