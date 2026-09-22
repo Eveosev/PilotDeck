@@ -224,6 +224,8 @@ try {
     assert.equal(pdConfirmed.ok(), true); assert.equal(pdRejected.ok(), true); output.pilotdeck.persistence.discoveryAfterReload = { confirmed: await pdConfirmed.json(), rejected: await pdRejected.json() }; output.coverage.pilotdeck_adapter_discoveries_confirm_reject = 'real_shared_page_adapter_model_fixture_pending_confirm_reject_and_reload_readback'; output.pilotdeck.actions.push('confirm and reject through PilotDeck shared adapter and read back persisted statuses');
   } catch (error) {
     output.coverage.pilotdeck_adapter_discoveries_confirm_reject = 'blocked_ui_modal_not_rendered_after_pending_row_returned_by_adapter';
+    output.requiredFailures = ['pilotdeck_adapter_discoveries_confirm_reject'];
+    process.exitCode = 1;
     output.pilotdeck.persistence.discoveryBoundary = { status: 'BLOCKED', reason: 'PilotDeck adapter list_discoveries returned a pending model-fixture row, but the shared page did not render the discovery modal after the job reached succeeded; no confirm/reject click or terminal status is claimed.', error: error instanceof Error ? error.message : String(error) };
   }
   await native.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-staffdeck.png'), fullPage: true }).catch(() => undefined); await pilot.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-pilotdeck.png'), fullPage: true }).catch(() => undefined);
