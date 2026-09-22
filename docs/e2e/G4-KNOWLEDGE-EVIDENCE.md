@@ -31,14 +31,17 @@ env -u NODE_OPTIONS pnpm exec vitest run ui/src/composition/modules/staffdeck/ve
 env -u NODE_OPTIONS pnpm exec vitest run tests/composition/real-staffdeck-seven-slot-e2e.spec.ts
 env -u NODE_OPTIONS node scripts/verify-staffdeck-business-ui-vendor.mjs
 env -u NODE_OPTIONS HARNESS_V3_ROOT=/Users/a1/Desktop/claw/openbmb/deepseek-harness-dsh-v0.1.2-alpha.2 /Users/a1/.nvm/versions/node/v22.13.1/bin/node scripts/g4-knowledge-browser.mjs
+env -u NODE_OPTIONS HARNESS_V3_ROOT=/Users/a1/Desktop/claw/openbmb/deepseek-harness-dsh-v0.1.2-alpha.2 /Users/a1/.nvm/versions/node/v22.13.1/bin/node scripts/g4-knowledge-advanced-browser.mjs
 ```
 
 The focused route and adapter suites passed with 32 tests. The formal dual-host browser runner passed with `staffdeckStartup: formal_app_main_with_harness_v3`: PilotDeck UI and StaffDeck native UI both imported and persisted separate documents in the same isolated StaffDeck service/database; both edited and reloaded content; both submitted a non-empty query input; and StaffDeck rendered the required evidence-pack excerpt. The run used Node `22.13.1` with `NODE_OPTIONS` cleared and the reusable built Harness root above.
 
 The captured report is `test-results/g4-knowledge-browser/report.json`. Screenshots are `test-results/g4-knowledge-browser/g4-knowledge-browser.png` (PilotDeck) and `test-results/g4-knowledge-browser/g4-knowledge-staffdeck-native.png` (StaffDeck native). Cleanup status is `test-results/g4-knowledge-browser/cleanup.json`.
 
+The incremental native-capability report is `test-results/g4-knowledge-advanced-browser/report.json`, with screenshot `g4-knowledge-advanced-staffdeck.png` and its own cleanup record. It proves native StaffDeck bucket/chunk edit and reload, branch version listing and rollback (`HTTP 200`, head changed to the prior version), OKF export (`.zip`, `HTTP 200`), OKF lint (`HTTP 200`), and native OKF import failure (`HTTP 400`, invalid archive). The discovery UI was reached with no pending suggestion; confirm/reject therefore remains unavailable without a real model-produced pending suggestion. Cancellation likewise remains NOT RUN because this fixture has no long-running ingest window.
+
 ## Limits
 
 No credentials, database dumps, or running service output are committed. The browser runner uses an isolated temporary SQLite database and a local smoke model configuration; model responses are not used to establish Knowledge persistence. Harness v3 is supplied from the built checkout only so the normal StaffDeck startup path can initialize; unrelated Harness runtime operations are outside this Knowledge acceptance scope.
 
-The report's `operationCoverage` is intentionally explicit: `import_document`, `update_document`, and `query` are real UI coverage on both hosts; `resolve_citation` is API-only PilotDeck module-protocol evidence; versions, rollback, cancellation, buckets/chunks, OKF import/export/lint, and discovery confirmation/rejection remain `not_run_real_ui_adapter_only`.
+The reports' coverage fields are intentionally explicit: `import_document`, `update_document`, and `query` are real UI coverage on both hosts; `resolve_citation` is API-only PilotDeck module-protocol evidence; versions/rollback, buckets/chunks, and OKF export/lint now have native StaffDeck UI evidence; invalid OKF import has a native failure-state assertion; cancellation remains not run; and discovery confirm/reject remains unavailable because the real UI had no pending model-produced suggestion.

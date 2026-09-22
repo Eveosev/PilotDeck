@@ -28,12 +28,12 @@ const output = {
     update_document: 'real_ui_pd_and_sd',
     query: 'real_ui_pd_and_sd',
     resolve_citation: 'api_only_pd_module_protocol',
-    list_versions: 'not_run_real_ui_adapter_only',
-    rollback_version: 'not_run_real_ui_adapter_only',
-    cancel_job: 'not_run_real_ui_adapter_only',
-    structure_buckets_chunks: 'not_run_real_ui_adapter_only',
-    okf_import_export_lint: 'not_run_real_ui_adapter_only',
-    discoveries_confirm_reject: 'not_run_real_ui_adapter_only',
+    list_versions: 'real_ui_sd_native',
+    rollback_version: 'real_ui_sd_native',
+    cancel_job: 'not_run_real_ui_pending_long_job_fixture',
+    structure_buckets_chunks: 'real_ui_sd_native',
+    okf_import_export_lint: 'real_ui_sd_native_export_lint_import_failure',
+    discoveries_confirm_reject: 'real_ui_sd_empty_state_confirm_reject_not_available',
   },
   cleanup: { tempRoot },
 };
@@ -71,7 +71,7 @@ async function stop(handle) {
 async function findKnowledgeBaseRow(page, baseName) {
   await page.waitForFunction(() => !document.body.innerText.includes('Loading...'), undefined, { timeout: 20_000 });
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    const search = page.getByPlaceholder(/搜索知识库名称|Search knowledge bases/i);
+    const search = page.getByPlaceholder(/搜索知识库名称(?:、描述、状态或版本)?|Search knowledge bases/i);
     if (await search.count() && attempt === 0) {
       await search.fill(baseName);
       await page.waitForTimeout(300);
@@ -97,12 +97,13 @@ async function findKnowledgeBaseRow(page, baseName) {
     if (attempt > 0 && attempt % 20 === 19) {
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.innerText.includes('Loading...'), undefined, { timeout: 20_000 });
-      const refreshedSearch = page.getByPlaceholder(/搜索知识库名称|Search knowledge bases/i);
+      const refreshedSearch = page.getByPlaceholder(/搜索知识库名称(?:、描述、状态或版本)?|Search knowledge bases/i);
       if (await refreshedSearch.count()) await refreshedSearch.fill(baseName);
     }
     await page.waitForTimeout(1_000);
   }
-  throw new Error(`Persisted ${baseName} base was not found in the Knowledge table pages`);
+  const finalBody = await page.locator('body').innerText().catch(() => '');
+  throw new Error(`Persisted ${baseName} base was not found in the Knowledge table pages; body=${finalBody.slice(-1800)}`);
 }
 
 await mkdir(artifactRoot, { recursive: true });
@@ -398,6 +399,116 @@ try {
   assert.match(evidenceText, /Unchanged field/);
   output.sd.persistence.queryVisibleEvidence = evidenceText;
   output.sd.actions.push('query and verify StaffDeck native visible evidence source and excerpt');
+
+  // Exercise the source product's bucket/chunk editor and prove the edited
+  // citation source survives a reload, separately from document editing.
+  const viewAllEvidence = sdPage.getByText('查看全部', { exact: true }).last();
+  assert.equal(await viewAllEvidence.count(), 1, 'StaffDeck native evidence detail control is required');
+  await viewAllEvidence.click();
+  const evidenceDetail = sdPage.locator('.knowledge-detail-modal').last();
+  await evidenceDetail.waitFor({ state: 'visible', timeout: 10_000 });
+  const editBucketButton = evidenceDetail.getByRole('button', { name: /编辑|Edit/ }).first();
+  assert.equal(await editBucketButton.count(), 1, 'StaffDeck native bucket editor is required');
+  await editBucketButton.click();
+  const bucketDialog = sdPage.locator('[role="dialog"]').last();
+  await bucketDialog.waitFor({ state: 'visible', timeout: 10_000 });
+  const bucketTextareas = bucketDialog.locator('textarea');
+  assert.ok(await bucketTextareas.count() >= 2, 'StaffDeck native bucket/chunk editor did not render chunk fields');
+  await bucketTextareas.last().fill('Owner approval is required.\n\nUnchanged field: retain this paragraph.\n\nBucket edit persisted.');
+  await bucketDialog.getByRole('button', { name: /^保存$|Save/ }).last().click();
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const chunkSave = output.sd.requests.find((item) => item.method === 'PUT' && item.path.includes('/api/enterprise/knowledge/chunks/') && Number.isInteger(item.responseStatus));
+    if (chunkSave) {
+      assert.ok(chunkSave.responseStatus >= 200 && chunkSave.responseStatus < 300, `StaffDeck native chunk update failed with HTTP ${chunkSave.responseStatus}`);
+      break;
+    }
+    await sdPage.waitForTimeout(500);
+    if (attempt === 19) throw new Error('Timed out waiting for StaffDeck native chunk update response');
+  }
+  output.sd.actions.push('edit and save bucket/chunk content through StaffDeck native UI');
+  await sdPage.reload({ waitUntil: 'domcontentloaded' });
+  const bucketReloadRow = await findKnowledgeBaseRow(sdPage, 'g4-policy-sd');
+  await bucketReloadRow.click();
+  await sdPage.getByText(/Knowledge graph|知识图谱/).last().waitFor({ timeout: 20_000 });
+  await sdPage.getByText('查看全部', { exact: true }).last().click();
+  await sdPage.locator('.knowledge-detail-modal').last().getByText('Bucket edit persisted', { exact: false }).waitFor({ timeout: 10_000 });
+  output.sd.persistence.bucketChunkAfterReload = (await sdPage.locator('.knowledge-detail-modal').last().innerText()).slice(-2000);
+  output.sd.actions.push('reload and verify bucket/chunk edit persisted');
+
+  // Exercise version listing and branch rollback on the native StaffDeck UI.
+  const branchAgentId = sdAgents.find((agent) => !agent.is_overall && agent.name === '法务')?.id
+    || sdAgents.find((agent) => !agent.is_overall)?.id
+    || '';
+  assert.ok(branchAgentId, 'StaffDeck native branch employee scope is required for rollback UI');
+  await sdPage.evaluate((scope) => {
+    localStorage.setItem('ultrarag_enterprise_agent_scope', scope);
+    window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: scope } }));
+  }, branchAgentId);
+  await sdPage.waitForTimeout(500);
+  await sdPage.goto(`http://127.0.0.1:${ports.staffVite}/enterprise/knowledge`, { waitUntil: 'domcontentloaded' });
+  const branchRow = await findKnowledgeBaseRow(sdPage, 'g4-policy-sd');
+  const branchActions = branchRow.getByRole('button', { name: /知识库操作|Knowledge actions/ });
+  assert.equal(await branchActions.count(), 1, 'StaffDeck native Knowledge actions menu is required');
+  await branchActions.click();
+  await sdPage.getByRole('menuitem', { name: /版本管理|Version/ }).click();
+  const versionDialog = sdPage.locator('[role="dialog"]').last();
+  await versionDialog.waitFor({ state: 'visible', timeout: 10_000 });
+  const versionRows = versionDialog.locator('tbody tr');
+  assert.ok(await versionRows.count() >= 2, 'StaffDeck native version history needs at least two persisted versions');
+  const rollbackButton = versionDialog.getByRole('button', { name: /回滚|Rollback/ }).first();
+  assert.equal(await rollbackButton.count(), 1, 'StaffDeck native rollback action is required');
+  await rollbackButton.click();
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const rollbackResponse = output.sd.requests.find((item) => item.method === 'POST' && item.path.includes('/knowledge-bases/') && item.path.endsWith('/rollback') && Number.isInteger(item.responseStatus));
+    if (rollbackResponse) {
+      assert.ok(rollbackResponse.responseStatus >= 200 && rollbackResponse.responseStatus < 300, `StaffDeck native rollback failed with HTTP ${rollbackResponse.responseStatus}`);
+      output.sd.persistence.rollbackResponse = { status: rollbackResponse.responseStatus, body: rollbackResponse.responseBody };
+      break;
+    }
+    await sdPage.waitForTimeout(500);
+    if (attempt === 19) throw new Error('Timed out waiting for StaffDeck native rollback response');
+  }
+  output.sd.actions.push('list versions and rollback a non-head branch version through StaffDeck native UI');
+
+  // Exercise the native OKF export and lint actions. Import is also attempted
+  // through the native picker with an invalid archive to preserve its failure evidence.
+  await versionDialog.getByRole('button', { name: /关闭|Cancel/ }).click().catch(() => sdPage.keyboard.press('Escape'));
+  await sdPage.goto(`http://127.0.0.1:${ports.staffVite}/enterprise/knowledge`, { waitUntil: 'domcontentloaded' });
+  const okfRow = await findKnowledgeBaseRow(sdPage, 'g4-policy-sd');
+  await okfRow.getByRole('button', { name: /知识库操作|Knowledge actions/ }).click();
+  const exportDownload = sdPage.waitForEvent('download');
+  await sdPage.getByRole('menuitem', { name: /导出知识库备份包|Export/ }).click();
+  const download = await exportDownload;
+  assert.match(download.suggestedFilename(), /okf.*\.zip/i);
+  const exportResponse = output.sd.requests.find((item) => item.method === 'GET' && item.path.includes('/okf/export') && Number.isInteger(item.responseStatus));
+  assert.ok(exportResponse && exportResponse.responseStatus === 200, 'StaffDeck native OKF export did not return HTTP 200');
+  output.sd.actions.push('export OKF backup through StaffDeck native UI');
+  await okfRow.getByRole('button', { name: /知识库操作|Knowledge actions/ }).click();
+  await sdPage.getByRole('menuitem', { name: /知识图谱检查|Lint/ }).click();
+  const lintDialog = sdPage.getByRole('dialog').last();
+  await lintDialog.waitFor({ state: 'visible', timeout: 10_000 });
+  assert.match(await lintDialog.innerText(), /知识图谱检查/);
+  const lintResponse = output.sd.requests.find((item) => item.method === 'POST' && item.path.includes('/okf/lint') && Number.isInteger(item.responseStatus));
+  assert.ok(lintResponse && lintResponse.responseStatus === 200, 'StaffDeck native OKF lint did not return HTTP 200');
+  output.sd.actions.push('lint OKF graph through StaffDeck native UI');
+  await lintDialog.getByRole('button', { name: /关闭|Cancel/ }).click();
+  await okfRow.getByRole('button', { name: /知识库操作|Knowledge actions/ }).click();
+  await sdPage.getByRole('menuitem', { name: /导入知识库备份包|Import/ }).click();
+  const invalidOkf = join(tempRoot, 'invalid-g4.okf.zip');
+  await writeFile(invalidOkf, 'not a zip archive', 'utf8');
+  await sdPage.locator('input[type=file]').last().setInputFiles(invalidOkf);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const importResponse = output.sd.requests.find((item) => item.method === 'POST' && item.path.endsWith('/knowledge/okf/import') && Number.isInteger(item.responseStatus));
+    if (importResponse) {
+      assert.ok(importResponse.responseStatus >= 400 && importResponse.responseStatus < 500, `Invalid OKF import unexpectedly returned HTTP ${importResponse.responseStatus}`);
+      output.sd.persistence.invalidOkfImport = { status: importResponse.responseStatus, body: importResponse.responseBody };
+      break;
+    }
+    await sdPage.waitForTimeout(500);
+    if (attempt === 19) throw new Error('Timed out waiting for native OKF import failure response');
+  }
+  output.sd.actions.push('exercise native OKF import failure state with invalid archive');
+
   await sdPage.screenshot({ path: join(artifactRoot, 'g4-knowledge-staffdeck-native.png'), fullPage: true });
   await sdContext.close();
   await page.screenshot({ path: join(artifactRoot, 'g4-knowledge-browser.png'), fullPage: true });
