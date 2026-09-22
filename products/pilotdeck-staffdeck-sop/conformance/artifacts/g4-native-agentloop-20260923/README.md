@@ -5,12 +5,13 @@ This evidence closes the native StaffDeck AgentLoop/Harness comparison for the s
 - tenant `tenant_demo`
 - actor `admin`
 - agent `agent_7d062081c03b4e16`
-- fact `Native branch-only owner approval fact 7d062081c03b4e16`
+- initial fact `Native branch-only owner approval fact 7d062081c03b4e16`
+- updated fact `Native branch updated security review fact 7d062081c03b4e16`
 - ordinary question: "What is the current approval policy for a release decision, specifically what owner-approval fact applies before release?"
 
 `native-mock.json` is deterministic Harness/permission evidence only. Its model intentionally returns empty document/bucket routing choices, so the Knowledge trace uses `document_route_lexical_fallback` and `bucket_route_lexical_fallback`. It is explicitly classified as `lexical_fallback`, not normal native model selection. It covers native Knowledge exposure, overreach denial, SOP submission, and both no-grant outcomes: the slash SOP is rejected before model invocation, while a normal non-slash question reaches the model with no Knowledge tool schema or call.
 
-`native-real.json` is the real native model turn using `provider1/qwen3.6-flash-distill`. The runtime recorder shows the actual model input, native Knowledge tool call, Knowledge evidence result, SOP submission, and final cited answer. Its route phases contain no fallback or failed selection phase and are classified as `normal_model_route`.
+`native-real.json` records two real native model sessions using `provider1/qwen3.6-flash-distill`. The first ordinary question retrieves the initial fact. The runner then replaces the document through `KnowledgeService.replace_document_content`, resets the Harness runtime, and sends a second ordinary question with the same tenant, actor, and agent. The second session returns the updated fact with `[1]` and `ultrarag://knowledge/documents/kdoc_native_g4`; its serialized evidence and reply exclude the initial fact. Both sessions show native Knowledge tool calls, Knowledge evidence results, SOP submission, and final cited answers. Their route phases contain no fallback or failed selection phase and are classified as `normal_model_route`.
 
 ## Reproduction
 

@@ -30,6 +30,7 @@ from app.security.encryption import encrypt_secret
 from app.session.session_schema import ChatTurnRequest
 from staffdeck_harness.bridge.engine_host import reset_runtime
 from app.config import get_settings
+from app.knowledge.service import KnowledgeService
 
 TENANT = os.environ.get("NATIVE_TENANT_ID", "tenant_demo")
 ACTOR = os.environ.get("NATIVE_ACTOR_USER_ID", "admin")
@@ -43,6 +44,10 @@ CHUNK = "kchunk_native_g4"
 SKILL_ROW = "skill_native_g4"
 SKILL_ID = "native-g4-knowledge"
 FACT = os.environ.get("NATIVE_FACT", "Native branch-only owner approval fact 7d062081c03b4e16")
+UPDATED_FACT = os.environ.get(
+    "NATIVE_UPDATED_FACT",
+    "Native branch updated security review fact 7d062081c03b4e16",
+)
 PORT_START = int(os.environ.get("NATIVE_MODEL_PORT_START", "16100"))
 PORT_END = int(os.environ.get("NATIVE_MODEL_PORT_END", "16129"))
 PORTS = range(PORT_START, PORT_END + 1)
@@ -258,9 +263,10 @@ def turn(db: Session, *, mode: str, client_id: str, message: str, recorder: type
         MockLLM.mode = mode
     request_start = len(recorder.requests)  # type: ignore[attr-defined]
     response_start = len(recorder.responses)  # type: ignore[attr-defined]
+    invocation_start = len(db.exec(select(HarnessInvocationRecord)).all())
     request = ChatTurnRequest(tenant_id=TENANT, agent_id=AGENT, model_config_id="model_native_g4", client_turn_id=client_id, user_id=ACTOR, message=message, channel="web", interaction_mode="normal")
     response = AgentLoop(db).handle_turn(request)
-    records = db.exec(select(HarnessInvocationRecord)).all()
+    records = db.exec(select(HarnessInvocationRecord)).all()[invocation_start:]
     model_requests = recorder.requests[request_start:]  # type: ignore[attr-defined]
     tool_schemas = sorted(
         {
@@ -458,12 +464,34 @@ def main() -> None:
             else:
                 output["realProviderTurn"] = safe_turn(db, mode="allowed", client_id="native-g4-real", message=message, recorder=server_class)
                 real = output["realProviderTurn"]
+                document = db.get(KnowledgeDocument, DOC)
+                if document is None:
+                    raise RuntimeError(f"Seeded document {DOC} was not found")
+                KnowledgeService(db).replace_document_content(
+                    document,
+                    f"# Release approval\n\nOwner approval is required before release. {UPDATED_FACT}.",
+                )
+                reset_runtime()
+                updated_message = (
+                    "After the policy update, what is the current owner approval fact "
+                    "for release?"
+                )
+                output["realProviderUpdatedTurn"] = safe_turn(
+                    db,
+                    mode="allowed",
+                    client_id="native-g4-real-updated",
+                    message=updated_message,
+                    recorder=server_class,
+                )
+                updated = output["realProviderUpdatedTurn"]
                 output["routingComparison"] = {
                     "realPath": real.get("routing", {}).get("kind"),
+                    "realUpdatedPath": updated.get("routing", {}).get("kind"),
                     "mockPath": "lexical_fallback",
                     "normalModelSelectionRequired": True,
                 }
                 real_text = json.dumps(real, ensure_ascii=False)
+                updated_text = json.dumps(updated, ensure_ascii=False)
                 output["checks"] = {
                     "realProviderNativeTurn": {
                         "passed": (
@@ -472,9 +500,28 @@ def main() -> None:
                             and "[1]" in real_text
                             and real.get("routing", {}).get("kind") == "normal_model_route"
                         )
-                    }
+                    },
+                    "realProviderKnowledgeUpdateNewSession": {
+                        "passed": (
+                            updated.get("runtimeError") is None
+                            and UPDATED_FACT in updated_text
+                            and "[1]" in updated_text
+                            and "ultrarag://knowledge/documents/kdoc_native_g4" in updated_text
+                            and updated.get("routing", {}).get("kind") == "normal_model_route"
+                            and FACT not in updated_text
+                            and updated.get("modelRequests", 0) > 0
+                        )
+                    },
                 }
-                output["status"] = "PASS" if output["checks"]["realProviderNativeTurn"]["passed"] else "BLOCKED"
+                output["knowledgeUpdate"] = {
+                    "documentId": DOC,
+                    "oldFact": FACT,
+                    "newFact": UPDATED_FACT,
+                    "newSessionUserMessage": updated_message,
+                    "service": "KnowledgeService.replace_document_content",
+                    "updatedTurn": updated,
+                }
+                output["status"] = "PASS" if all(item["passed"] for item in output["checks"].values()) else "BLOCKED"
     finally:
         with suppress(Exception):
             reset_runtime()
