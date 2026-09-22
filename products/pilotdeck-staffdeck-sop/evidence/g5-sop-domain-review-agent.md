@@ -73,6 +73,22 @@ The exact `1.2.1` object was replayed through the real SOP runtime with
 runtime reload, accepted the resume once, replayed the duplicate request, and
 completed at terminal `finalize_plan` with `scope_confirmed=true`.
 
+### Post-f91dfed9 Recheck
+
+After `f91dfed9`, the real page path initially exposed a stale management draft
+row: `replace_draft` returned `SOP_DRAFT_NOT_FOUND` after the prior draft had
+been published. The adapter now falls back to `create` only for that explicit
+404. On 2026-09-22, the page edit was saved in the UI, reloaded with the same
+description and four-node/four-edge graph, and published with the normal
+`启用` action as version `1.1.1`.
+
+The returned object is preserved at
+`evidence/g5-pilotdeck-postfix-page-published-1.1.1.json`; its replay output is
+`/tmp/g5-ui-pilotdeck-postfix-1.1.1.json`. The replay kept wait ID
+`98f134ba-c929-4055-ba1f-9ea687490f0b` across reload, accepted one resume,
+replayed the duplicate, and completed at `finalize_plan` with
+`scope_confirmed=true`.
+
 ## Follow-up Runtime Evidence
 
 After installing the lockfile with Node 22.22.0, the isolated StaffDeck

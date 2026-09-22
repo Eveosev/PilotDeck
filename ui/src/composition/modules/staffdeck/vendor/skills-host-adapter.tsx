@@ -173,13 +173,20 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
     const current = await readDefinition(skillId);
     const content = skillContent(current, body);
     if (text(current.draft_id) && text(current.etag)) {
-      const saved = await management('replace_draft', {
-        sopId: skillId,
-        draftId: current.draft_id,
-        etag: current.etag,
-        content,
-      });
-      return toManagedSkill(saved) as T;
+      try {
+        const saved = await management('replace_draft', {
+          sopId: skillId,
+          draftId: current.draft_id,
+          etag: current.etag,
+          content,
+        });
+        return toManagedSkill(saved) as T;
+      } catch (error) {
+        // Publishing can leave a stale draft row in list results. Recreate
+        // it only for the explicit not-found conflict; other failures must
+        // remain visible to the page.
+        if ((error as { status?: number })?.status !== 404) throw error;
+      }
     }
     try {
       // A published management row may not have a draft yet. Create the
