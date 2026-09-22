@@ -61,8 +61,8 @@ describe('PilotDeck Knowledge host protocol mapping', () => {
       { method: 'get', path: '/api/enterprise/knowledge/jobs/job-1', operation: 'get_job', input: { jobId: 'job-1' } },
       { method: 'post', path: '/api/enterprise/knowledge/jobs/job-1/cancel', operation: 'cancel_job', input: { jobId: 'job-1' } },
       { method: 'get', path: '/api/enterprise/knowledge/discoveries', operation: 'list_discoveries', input: {} },
-      { method: 'post', path: '/api/enterprise/knowledge/discoveries/discovery-1/confirm', operation: 'confirm_discovery', input: { discoveryId: 'discovery-1' } },
-      { method: 'post', path: '/api/enterprise/knowledge/discoveries/discovery-1/reject', operation: 'reject_discovery', input: { discoveryId: 'discovery-1' } },
+      { method: 'post', path: '/api/enterprise/knowledge/discoveries/discovery-1/confirm', operation: 'confirm_discovery', input: { suggestionId: 'discovery-1' } },
+      { method: 'post', path: '/api/enterprise/knowledge/discoveries/discovery-1/reject', operation: 'reject_discovery', input: { suggestionId: 'discovery-1' } },
     ];
 
     try {

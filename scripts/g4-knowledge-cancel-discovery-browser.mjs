@@ -55,8 +55,12 @@ async function waitFor(url, timeoutMs = 45_000) {
 async function stop(handle) {
   if (!handle?.child || handle.child.exitCode !== null) return;
   try { process.kill(-handle.child.pid, 'SIGTERM'); } catch {}
+  try { process.kill(handle.child.pid, 'SIGTERM'); } catch {}
   await new Promise((resolveStop) => setTimeout(resolveStop, 800));
-  if (handle.child.exitCode === null) { try { process.kill(-handle.child.pid, 'SIGKILL'); } catch {} }
+  if (handle.child.exitCode === null) {
+    try { process.kill(-handle.child.pid, 'SIGKILL'); } catch {}
+    try { process.kill(handle.child.pid, 'SIGKILL'); } catch {}
+  }
 }
 
 async function waitUntil(predicate, message, timeoutMs = 30_000) {
@@ -210,7 +214,7 @@ try {
     await pilot.goto(`http://127.0.0.1:${ports.pilotVite}/knowledge/new`, { waitUntil: 'domcontentloaded' });
     await pilot.waitForTimeout(500);
     if (!(await pilot.locator('input[type=file]').count())) { await pilot.goto(`http://127.0.0.1:${ports.pilotVite}/knowledge`, { waitUntil: 'domcontentloaded' }); await pilot.getByRole('button', { name: /新建知识库|New knowledge/i }).first().click(); await pilot.locator('input[type=file]').first().waitFor({ state: 'attached', timeout: 15_000 }); }
-    await pilot.locator('input[type=file]').first().setInputFiles(path); await pilot.getByText(/发现可新增资源|New resource/i).waitFor({ timeout: 20_000 });
+    await pilot.locator('input[type=file]').first().setInputFiles(path); await pilot.getByText(/发现可新增资源|Discover Resources to Add/i).waitFor({ timeout: 20_000 });
     const card = pilot.locator('.knowledge-discovery').last(); if (mode === 'confirm') await card.getByRole('button').nth(0).click(); else await card.getByRole('button').nth(1).click(); await pilot.waitForTimeout(800); await pilot.reload({ waitUntil: 'domcontentloaded' });
   }
   try {
@@ -222,7 +226,7 @@ try {
     output.coverage.pilotdeck_adapter_discoveries_confirm_reject = 'blocked_ui_modal_not_rendered_after_pending_row_returned_by_adapter';
     output.pilotdeck.persistence.discoveryBoundary = { status: 'BLOCKED', reason: 'PilotDeck adapter list_discoveries returned a pending model-fixture row, but the shared page did not render the discovery modal after the job reached succeeded; no confirm/reject click or terminal status is claimed.', error: error instanceof Error ? error.message : String(error) };
   }
-  await native.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-staffdeck.png'), fullPage: true }); await pilot.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-pilotdeck.png'), fullPage: true });
+  await native.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-staffdeck.png'), fullPage: true }).catch(() => undefined); await pilot.screenshot({ path: join(artifactRoot, 'g4-knowledge-cancel-discovery-pilotdeck.png'), fullPage: true }).catch(() => undefined);
   await nativeContext.close(); await pilotContext.close();
 } catch (error) {
   output.error = error instanceof Error ? error.stack : String(error);

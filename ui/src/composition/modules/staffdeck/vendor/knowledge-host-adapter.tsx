@@ -6,6 +6,14 @@ import { staffDeckKnowledgeClient } from '../clients';
 
 function query(path: string): URL { return new URL(path, 'http://staffdeck.local'); }
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
+function optionalQueryInput(url: URL): Record<string, string> {
+  const input: Record<string, string> = {};
+  for (const [queryKey, inputKey] of [['tenant_id', 'tenantId'], ['agent_id', 'agentId'], ['knowledge_base_id', 'knowledgeBaseId'], ['status', 'status']] as const) {
+    const value = url.searchParams.get(queryKey);
+    if (value) input[inputKey] = value;
+  }
+  return input;
+}
 
 async function knowledge<T>(operation: string, input: Record<string, unknown> = {}): Promise<T> {
   return staffDeckKnowledgeClient.call<T>(operation, input);
@@ -15,10 +23,10 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return [] as T;
-  if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') return await knowledge<T>('list_bases');
+  if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') return await knowledge<T>('list_bases', optionalQueryInput(url));
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'post') return await knowledge<T>('create_base', body || {});
-  if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'get') return await knowledge<T>('list_documents', { knowledgeBaseId: url.searchParams.get('knowledge_base_id') || url.searchParams.get('knowledgeBaseId') || '' });
-  if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') return await knowledge<T>('import_document', body || {});
+  if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'get') return await knowledge<T>('list_documents', optionalQueryInput(url));
+  if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') return await knowledge<T>('import_document', { ...body, ...optionalQueryInput(url) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && segments[5] === 'buckets' && method === 'get') return await knowledge<T>('list_document_buckets', { documentId: segments[4], knowledgeBaseId: url.searchParams.get('knowledge_base_id') || '' });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'get') return await knowledge<T>('get_document', { documentId: segments[4] });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'put') return await knowledge<T>('update_document', { documentId: segments[4], ...(body || {}) });
@@ -39,12 +47,12 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'buckets' && segments[4] && method === 'put') return await knowledge<T>('update_bucket', { bucketId: segments[4], ...(body || {}) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'chunks' && segments[4] && method === 'put') return await knowledge<T>('update_chunk', { chunkId: segments[4], ...(body || {}) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'citations' && segments[4] && method === 'get') return await knowledge<T>('resolve_citation', { chunkId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && segments[5] === 'cancel' && method === 'post') return await knowledge<T>('cancel_job', { jobId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && method === 'get') return await knowledge<T>('get_job', { jobId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && method === 'get') return await knowledge<T>('list_jobs', { limit: Number(url.searchParams.get('limit') || 20) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'confirm' && method === 'post') return await knowledge<T>('confirm_discovery', { discoveryId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'reject' && method === 'post') return await knowledge<T>('reject_discovery', { discoveryId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && method === 'get') return await knowledge<T>('list_discoveries', {});
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && segments[5] === 'cancel' && method === 'post') return await knowledge<T>('cancel_job', { jobId: segments[4], ...optionalQueryInput(url) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && segments[4] && method === 'get') return await knowledge<T>('get_job', { jobId: segments[4], ...optionalQueryInput(url) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'jobs' && method === 'get') return await knowledge<T>('list_jobs', { limit: Number(url.searchParams.get('limit') || 20), ...optionalQueryInput(url) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'confirm' && method === 'post') return await knowledge<T>('confirm_discovery', { suggestionId: segments[4], ...optionalQueryInput(url) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && segments[4] && segments[5] === 'reject' && method === 'post') return await knowledge<T>('reject_discovery', { suggestionId: segments[4], ...optionalQueryInput(url) });
+  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'discoveries' && method === 'get') return await knowledge<T>('list_discoveries', optionalQueryInput(url));
   throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
 }
 
