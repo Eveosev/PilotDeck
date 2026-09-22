@@ -21,6 +21,17 @@ if (profileFlagIndex >= 0 && !profiles[requestedProfile]) {
 }
 const selectedProfiles = requestedProfile ? { [requestedProfile]: profiles[requestedProfile] } : profiles;
 
+const compositionModuleSources = {
+  'pilotdeck-chat': 'ui/src/composition/modules/pilotdeck-chat.tsx',
+  'pilotdeck-skills': 'ui/src/composition/modules/pilotdeck-skills.tsx',
+  'pilotdeck-tools': 'ui/src/composition/modules/pilotdeck-tools.tsx',
+  'pilotdeck-context': 'ui/src/composition/modules/pilotdeck-context.tsx',
+  'pilotdeck-model': 'ui/src/composition/modules/pilotdeck-model.tsx',
+  'staffdeck-sop': 'ui/src/composition/modules/staffdeck-sop.tsx',
+  'staffdeck-knowledge': 'ui/src/composition/modules/staffdeck-knowledge.tsx',
+  'fixture-knowledge-search': 'ui/src/composition/modules/fixture-knowledge-search.tsx',
+};
+
 function run(command, args, cwd = root) {
   return new Promise((resolveRun, reject) => {
     const child = spawn(command, args, { cwd, stdio: 'inherit', env: { ...process.env, NODE_OPTIONS: '' } });
@@ -43,6 +54,25 @@ try {
     const generatedText = await readFile(generated, 'utf8');
     const assets = existsSync(distDir) ? await readdir(distDir, { recursive: true }) : [];
     const selectedImports = [...generatedText.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
+    const graphPath = resolve(distDir, 'composition-modules.json');
+    const rollupGraph = JSON.parse(await readFile(graphPath, 'utf8'));
+    if (rollupGraph.schemaVersion !== 2 || !Array.isArray(rollupGraph.modules) || !Array.isArray(rollupGraph.chunks)) {
+      throw new Error(`${name} did not emit the versioned Rollup composition graph.`);
+    }
+    const rollupModules = new Set(rollupGraph.modules);
+    const selectedModuleSources = selectedImports
+      .map((item) => compositionModuleSources[item.replace('../modules/', '')])
+      .filter(Boolean);
+    const missingSelectedSources = selectedModuleSources.filter((source) => !rollupModules.has(source));
+    if (missingSelectedSources.length > 0) {
+      throw new Error(`${name} selected modules are absent from the Rollup graph: ${missingSelectedSources.join(', ')}`);
+    }
+    const absentModuleSources = Object.values(compositionModuleSources)
+      .filter((source) => !selectedModuleSources.includes(source));
+    const leakedAbsentSources = absentModuleSources.filter((source) => rollupModules.has(source));
+    if (leakedAbsentSources.length > 0) {
+      throw new Error(`${name} emits unselected composition modules: ${leakedAbsentSources.join(', ')}`);
+    }
     const chunks = assets.filter((asset) => /\.(js|css)$/.test(asset));
     const javascript = await Promise.all(chunks.filter((asset) => asset.endsWith('.js')).map((asset) => readFile(resolve(distDir, asset), 'utf8')));
     const emittedSource = javascript.join('\n');
@@ -64,7 +94,23 @@ try {
         throw new Error(`${name} emits the disabled or replaced implementation ${id}.`);
       }
     }
-    await writeFile(resolve(outDir, 'manifest.json'), JSON.stringify({ profile: name, sourceProfile: profile, selectedImports, selectedIds, chunks, result: 'passed' }, null, 2));
+    await writeFile(resolve(outDir, 'manifest.json'), JSON.stringify({
+      profile: name,
+      sourceProfile: profile,
+      selectedImports,
+      selectedModuleSources,
+      absentModuleSources,
+      selectedIds,
+      chunks,
+      rollupGraph: rollupGraph.chunks,
+      dependencyAssertions: {
+        graphSchemaVersion: rollupGraph.schemaVersion,
+        missingSelectedSources,
+        leakedAbsentSources,
+        passed: missingSelectedSources.length === 0 && leakedAbsentSources.length === 0,
+      },
+      result: 'passed',
+    }, null, 2));
   }
 } finally {
   await writeFile(generated, original, 'utf8');

@@ -22,6 +22,9 @@ const uiRoot = resolve(root, 'ui');
 const generatedPath = resolve(uiRoot, 'src/composition/generated/frontend-modules.ts');
 const artifactRoot = resolve(root, 'test-results/frontend-g3-browser-matrix');
 const mode = process.argv.includes('--mode=real') ? 'real' : 'mock';
+const vitePortBase = Number(process.env.G3_VITE_PORT_BASE || 16300);
+const serverPortBase = Number(process.env.G3_SERVER_PORT_BASE || 16330);
+const gatewayPortBase = Number(process.env.G3_GATEWAY_PORT_BASE || 16360);
 
 const core = {
   agentLoop: { enabled: true, provider: 'pilotdeck' },
@@ -183,6 +186,85 @@ function start(command, args, env, { detached = false, cwd = uiRoot } = {}) {
   return { child, detached, getOutput: () => output };
 }
 
+async function installLifecycleProbe(page) {
+  await page.addInitScript(() => {
+    const trackedEvents = new Set([
+      'staffdeck-capability-catalog-refresh',
+      'ultrarag-enterprise-agent-scope-change',
+    ]);
+    const intervals = new Set();
+    const timeouts = new Set();
+    const subscriptions = new Map();
+    const originalSetInterval = window.setInterval.bind(window);
+    const originalClearInterval = window.clearInterval.bind(window);
+    const originalSetTimeout = window.setTimeout.bind(window);
+    const originalClearTimeout = window.clearTimeout.bind(window);
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
+    const captureOf = (options) => typeof options === 'boolean' ? options : Boolean(options?.capture);
+    const targetName = (target) => target === window ? 'window' : target === document ? 'document' : 'other';
+
+    window.setInterval = ((handler, timeout, ...args) => {
+      const id = originalSetInterval(handler, timeout, ...args);
+      intervals.add(id);
+      return id;
+    });
+    window.clearInterval = ((id) => {
+      intervals.delete(id);
+      return originalClearInterval(id);
+    });
+    window.setTimeout = ((handler, timeout, ...args) => {
+      let id;
+      const wrapped = typeof handler === 'function'
+        ? (...handlerArgs) => {
+          timeouts.delete(id);
+          handler(...handlerArgs);
+        }
+        : handler;
+      id = originalSetTimeout(wrapped, timeout, ...args);
+      timeouts.add(id);
+      return id;
+    });
+    window.clearTimeout = ((id) => {
+      timeouts.delete(id);
+      return originalClearTimeout(id);
+    });
+    EventTarget.prototype.addEventListener = function addTrackedEventListener(type, listener, options) {
+      if (trackedEvents.has(type) && listener) {
+        const key = `${targetName(this)}:${type}:${captureOf(options)}`;
+        const entries = subscriptions.get(key) ?? [];
+        entries.push(listener);
+        subscriptions.set(key, entries);
+      }
+      return originalAddEventListener.call(this, type, listener, options);
+    };
+    EventTarget.prototype.removeEventListener = function removeTrackedEventListener(type, listener, options) {
+      if (trackedEvents.has(type) && listener) {
+        const key = `${targetName(this)}:${type}:${captureOf(options)}`;
+        const entries = subscriptions.get(key) ?? [];
+        const index = entries.indexOf(listener);
+        if (index >= 0) entries.splice(index, 1);
+        if (entries.length === 0) subscriptions.delete(key);
+        else subscriptions.set(key, entries);
+      }
+      return originalRemoveEventListener.call(this, type, listener, options);
+    };
+    window.__pilotdeckG3LifecycleSnapshot = () => ({
+      intervals: [...intervals].sort((left, right) => Number(left) - Number(right)),
+      timeouts: [...timeouts].sort((left, right) => Number(left) - Number(right)),
+      subscriptions: Object.fromEntries([...subscriptions.entries()].map(([key, entries]) => [key, entries.length])),
+    });
+  });
+}
+
+function lifecycleRestored(before, after) {
+  const beforeIntervals = new Set(before.intervals);
+  const beforeTimeouts = new Set(before.timeouts);
+  return after.intervals.every((id) => beforeIntervals.has(id))
+    && after.timeouts.every((id) => beforeTimeouts.has(id))
+    && JSON.stringify(after.subscriptions) === JSON.stringify(before.subscriptions);
+}
+
 async function stop(processHandle) {
   if (!processHandle || processHandle.child.exitCode !== null) return;
   if (processHandle.detached) {
@@ -263,9 +345,9 @@ async function runState(state, index, browser) {
     build.child.once('error', rejectBuild);
   });
   void buildExit;
-  const port = 15400 + index;
-  const serverPort = 16400 + index;
-  const gatewayPort = 17400 + index;
+    const port = vitePortBase + index;
+    const serverPort = serverPortBase + index;
+    const gatewayPort = gatewayPortBase + index;
   const realRoot = resolve(stateRoot, 'pilot-home');
   await mkdir(realRoot, { recursive: true });
   const profilePath = resolve(stateRoot, 'profile.yaml');
@@ -315,10 +397,12 @@ async function runState(state, index, browser) {
     if (mode === 'real') await waitForHttp(`${baseURL}/api/auth/status`);
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
+    await installLifecycleProbe(page);
+    let currentProbe = 'initial';
     const requests = [];
     page.on('request', (request) => {
       const url = new URL(request.url());
-      if (url.pathname.startsWith('/api/')) requests.push({ path: url.pathname, method: request.method(), body: request.postDataJSON?.() ?? null });
+      if (url.pathname.startsWith('/api/')) requests.push({ path: url.pathname, method: request.method(), body: request.postDataJSON?.() ?? null, probe: currentProbe });
     });
     if (mode === 'mock') {
       await page.route('**/api/**', async (route) => {
@@ -351,6 +435,7 @@ async function runState(state, index, browser) {
     }
 
     await page.addInitScript(() => localStorage.setItem('userLanguage', 'zh-CN'));
+    currentProbe = 'home';
     const runtimeResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/modules/runtime', { timeout: 15_000 });
     await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
     const runtimeResult = await runtimeResponse;
@@ -362,6 +447,7 @@ async function runState(state, index, browser) {
     }
     assert.equal(chatSurface, true, `${state.id}: chat surface not rendered`);
 
+    currentProbe = 'settings-agent-route';
     await page.goto(`${baseURL}/settings/module/agent-route`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     const routingSettings = await page.locator('[data-testid="module-settings-agent-route"]').count();
@@ -374,6 +460,7 @@ async function runState(state, index, browser) {
       assert.equal(await routingSwitch.getAttribute('aria-checked'), String(state.routingEnabled), `${state.id}: routing runtime switch mismatch`);
     }
 
+    currentProbe = 'settings-tools-permissions';
     await page.goto(`${baseURL}/settings/module/tools-permissions`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     const permissionSettings = await page.locator('[data-testid="module-settings-tools-permissions"]').count();
@@ -386,6 +473,7 @@ async function runState(state, index, browser) {
       ['/sop', '搜索 SOP 名称、ID、业务域', Boolean(state.modules.sop?.enabled)],
       ['/knowledge', '输入知识问题', Boolean(state.modules.knowledge?.enabled && !state.replacement)],
     ]) {
+      currentProbe = `route:${path}`;
       await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
       // A replacement module is selected asynchronously by the runtime
       // projection; retry the deep link once after the shell has hydrated.
@@ -413,18 +501,54 @@ async function runState(state, index, browser) {
 
     const legacy = {};
     for (const path of ['/always-on', '/cron', '/memory']) {
+      currentProbe = `legacy:${path}`;
       await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(250);
       legacy[path] = new URL(page.url()).pathname;
       assert.ok(['/','/p/general'].includes(legacy[path]), `${state.id}: legacy route ${path} was not redirected`);
     }
 
-    const forbiddenOptionalPaths = state.modules.sop?.enabled || state.modules.knowledge?.enabled
-      ? []
-      : ['/api/modules/sop/', '/api/modules/knowledge/'];
-    for (const forbiddenPrefix of forbiddenOptionalPaths) {
-      assert.equal(requests.some((item) => item.path.startsWith(forbiddenPrefix)), false, `${state.id}: unloaded module request leaked: ${forbiddenPrefix}`);
+    const forbiddenOptionalPaths = [
+      ...(!state.modules.sop?.enabled ? ['/api/modules/sop/'] : []),
+      ...(!state.modules.knowledge?.enabled ? ['/api/modules/knowledge/'] : []),
+    ];
+    const forbiddenOptionalRequests = forbiddenOptionalPaths.map((prefix) => ({
+      prefix,
+      requests: requests.filter((item) => item.path.startsWith(prefix)),
+    }));
+    for (const assertion of forbiddenOptionalRequests) {
+      assert.equal(assertion.requests.length, 0, `${state.id}: unloaded module request leaked: ${assertion.prefix}`);
     }
+    const settingsOptionalRequests = requests.filter((item) => (
+      item.probe.startsWith('settings-')
+      && forbiddenOptionalPaths.some((prefix) => item.path.startsWith(prefix))
+    ));
+    assert.equal(settingsOptionalRequests.length, 0, `${state.id}: unloaded module request leaked from Settings.`);
+
+    let lifecycle = { status: 'not-applicable', reason: 'No mounted StaffDeck Distill surface in this state.' };
+    if (mode === 'real' && state.modules.sop?.enabled) {
+      currentProbe = 'lifecycle-before';
+      const before = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
+      currentProbe = 'lifecycle-mount';
+      await page.goto(`${baseURL}/sop/distill`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(700);
+      assert.equal(new URL(page.url()).pathname, '/sop/distill', `${state.id}: lifecycle probe route did not mount`);
+      const mounted = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
+      currentProbe = 'lifecycle-unmount';
+      await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(900);
+      const after = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
+      const restored = Boolean(before && mounted && after && lifecycleRestored(before, after));
+      assert.equal(restored, true, `${state.id}: StaffDeck Distill timers/subscriptions were not restored after unmount.`);
+      lifecycle = { status: 'passed', probePath: '/sop/distill', before, mounted, after, restored };
+    }
+
+    const assertions = {
+      routingRuntimeSwitch: state.routingInstalled && mode === 'real' ? state.routingEnabled : null,
+      forbiddenOptionalRequests,
+      settingsOptionalRequests: { count: settingsOptionalRequests.length, passed: settingsOptionalRequests.length === 0 },
+      lifecycle,
+    };
 
     const report = {
       id: state.id,
@@ -437,6 +561,7 @@ async function runState(state, index, browser) {
       browser: { baseURL, chatSurface, settings: { routingSettings, routingUnavailable, permissionSettings, permissionUnavailable }, legacy },
       requests,
       requestPaths: [...new Set(requests.map((item) => item.path))].sort(),
+      assertions,
       runtime: runtimeFor(state.modules),
     };
     await page.screenshot({ path: resolve(stateRoot, 'g3-browser.png'), fullPage: true });

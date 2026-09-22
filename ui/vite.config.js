@@ -12,15 +12,26 @@ function compositionModuleGraphPlugin() {
   const modulesRoot = path.resolve(__dirname, 'src', 'composition', 'modules')
   return {
     name: 'pilotdeck-composition-module-graph',
-    generateBundle() {
+    generateBundle(_options, bundle) {
+      const relativeModule = (id) => path.relative(repoRoot, id).replaceAll(path.sep, '/')
       const modules = [...this.getModuleIds()]
         .filter((id) => id.startsWith(modulesRoot))
-        .map((id) => path.relative(repoRoot, id).replaceAll(path.sep, '/'))
+        .map(relativeModule)
         .sort()
+      const chunks = Object.values(bundle)
+        .filter((item) => item.type === 'chunk')
+        .map((chunk) => ({
+          fileName: chunk.fileName,
+          modules: Object.keys(chunk.modules)
+            .filter((id) => id.startsWith(modulesRoot))
+            .map(relativeModule)
+            .sort(),
+        }))
+        .sort((left, right) => left.fileName.localeCompare(right.fileName))
       this.emitFile({
         type: 'asset',
         fileName: 'composition-modules.json',
-        source: `${JSON.stringify({ modules }, null, 2)}\n`,
+        source: `${JSON.stringify({ schemaVersion: 2, modules, chunks }, null, 2)}\n`,
       })
     },
   }
