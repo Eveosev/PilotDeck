@@ -563,7 +563,7 @@ sops:
         sessionKey: "native-owner-real-knowledge-first",
         workspaceCwd: projectRoot,
         channelKey: "test",
-        message: "Answer this business question using the configured Knowledge branch. First call knowledge_query for the approval policy, then state the exact branch-only fact from the evidence and include its citation marker: what approval fact is recorded? Do not answer from general knowledge or from this message.",
+        message: "I need the current approval policy for a release decision. What exact owner-approval fact applies before release? Give a source-backed answer.",
         mode: "bypassPermissions",
         allowedTools: [...B0_NATIVE_TOOL_SURFACE],
       })) firstRealEvents.push(event);
@@ -663,6 +663,24 @@ sops:
     const citationId = evidenceCitationId(query);
     const citation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", chunkId: citationId });
     assert.match(textField(citation, "content").toLowerCase(), /owner approval/);
+    const nativeReferenceQuery = await knowledgePort.call("query", {
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
+      knowledgeBaseIds: [baseId],
+      query: "owner approval before release",
+      queryType: "answer",
+      maxChunks: 8,
+      maxBuckets: 4,
+      budgetTokens: 4000,
+      needEvidencePack: true,
+    });
+    const nativeReferenceCitation = await knowledgePort.call("resolve_citation", {
+      tenantId: "tenant_demo",
+      agentId: KNOWLEDGE_AGENT_ID,
+      chunkId: evidenceCitationId(nativeReferenceQuery),
+    });
+    assert.match(textField(nativeReferenceCitation, "content"), new RegExp(NATIVE_BRANCH_FACT));
     const wrongAgentQuery = await knowledgePort.call("query", {
       tenantId: "tenant_demo",
       actorUserId: "admin",
@@ -687,6 +705,86 @@ sops:
         : undefined,
       "id",
     );
+
+    // Exercise authorization and failure behavior through the real Gateway
+    // tool path, keeping direct module calls above as native-owner references.
+    await local.dispose();
+    await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      knowledgeEndpoint: knowledgeProxy.url,
+      sopEndpoint: sop.url,
+      definitionsPath: join(projectRoot, "approval.yaml"),
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: OTHER_KNOWLEDGE_AGENT_ID,
+    }), "utf8");
+    const wrongAgentModel = new NativeOwnerScenarioModel();
+    wrongAgentModel.baseId = baseId;
+    const wrongAgentGateway = createNativeOwnerGateway(wrongAgentModel);
+    try {
+      const wrongAgentEvents: unknown[] = [];
+      for await (const event of wrongAgentGateway.gateway.submitTurn({
+        sessionKey: "native-owner-wrong-agent",
+        workspaceCwd: projectRoot,
+        channelKey: "test",
+        message: "Review the approval policy.",
+        mode: "bypassPermissions",
+        allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+      })) wrongAgentEvents.push(event);
+      assert.equal(knowledgeQueries.at(-1)?.agentId, OTHER_KNOWLEDGE_AGENT_ID);
+      assert.match(JSON.stringify(wrongAgentModel.requests), /evidence_pack/);
+      assert.match(JSON.stringify(wrongAgentModel.requests), /no_visible_knowledge|\[\]/);
+    } finally {
+      await wrongAgentGateway.dispose();
+    }
+    await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      knowledgeEndpoint: knowledgeProxy.url,
+      sopEndpoint: sop.url,
+      definitionsPath: join(projectRoot, "approval.yaml"),
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
+    }), "utf8");
+    const noHitModel = new NativeOwnerScenarioModel();
+    noHitModel.baseId = baseId;
+    noHitModel.knowledgeQuery = "no matching policy phrase 4f6f6e65";
+    const noHitGateway = createNativeOwnerGateway(noHitModel);
+    try {
+      const noHitEvents: unknown[] = [];
+      for await (const event of noHitGateway.gateway.submitTurn({
+        sessionKey: "native-owner-no-hit",
+        workspaceCwd: projectRoot,
+        channelKey: "test",
+        message: "Check the policy for this unrelated phrase.",
+        mode: "bypassPermissions",
+        allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+      })) noHitEvents.push(event);
+      assert.match(JSON.stringify(noHitEvents), /knowledge_query/);
+      assert.match(JSON.stringify(noHitModel.requests), /evidence_pack/);
+      assert.match(JSON.stringify(noHitModel.requests), /\[\]/);
+    } finally {
+      await noHitGateway.dispose();
+    }
+    await knowledge.close();
+    const unavailableModel = new NativeOwnerScenarioModel();
+    unavailableModel.baseId = baseId;
+    const unavailableGateway = createNativeOwnerGateway(unavailableModel);
+    try {
+      const unavailableEvents: unknown[] = [];
+      for await (const event of unavailableGateway.gateway.submitTurn({
+        sessionKey: "native-owner-knowledge-unavailable",
+        workspaceCwd: projectRoot,
+        channelKey: "test",
+        message: "Review the approval policy while Knowledge is unavailable.",
+        mode: "bypassPermissions",
+        allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+      })) unavailableEvents.push(event);
+      assert.match(JSON.stringify(unavailableEvents), /knowledge_query/);
+      assert.match(JSON.stringify(unavailableEvents), /STAFFDECK_UNAVAILABLE|fetch failed|Knowledge module query failed|Module HTTP request could not be completed/);
+    } finally {
+      await unavailableGateway.dispose();
+    }
+    await knowledge.restart();
+    local = createNativeOwnerGateway();
 
     const firstSessionBeforeStaleResume = projectSopState(waiting);
     const secondSessionEvents: unknown[] = [];
@@ -1028,6 +1126,48 @@ sops:
     assert.equal((disabledSkillRequest.tools ?? []).some((tool) => tool.name === "read_file"), true);
     assert.equal((disabledSkillRequest.tools ?? []).some((tool) => tool.name === "knowledge_query"), true);
     assert.doesNotMatch(JSON.stringify(disabledSkillModel.requests), /approval-guide|Approval Guide|Always cite the approval policy/);
+
+    await local.dispose();
+    const knowledgeQueryCountBeforeDisabled = knowledgeQueries.length;
+    for (const [sessionKey, knowledgeMode] of [
+      ["native-owner-knowledge-disabled", "disabled"],
+      ["native-owner-knowledge-absent", "absent"],
+    ] as const) {
+      await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+        knowledgeEndpoint: knowledgeProxy.url,
+        sopEndpoint: sop.url,
+        definitionsPath: join(projectRoot, "approval.yaml"),
+        tenantId: "tenant_demo",
+        actorUserId: "admin",
+        agentId: KNOWLEDGE_AGENT_ID,
+        knowledgeMode,
+      }), "utf8");
+      const disabledKnowledgeModel = new NativeOwnerScenarioModel();
+      disabledKnowledgeModel.baseId = baseId;
+      disabledKnowledgeModel.phase = "completed";
+      const disabledKnowledgeGateway = createNativeOwnerGateway(disabledKnowledgeModel);
+      try {
+        const disabledKnowledgeEvents: unknown[] = [];
+        for await (const event of disabledKnowledgeGateway.gateway.submitTurn({
+          sessionKey,
+          workspaceCwd: projectRoot,
+          channelKey: "test",
+          message: "Answer from the configured runtime.",
+          mode: "bypassPermissions",
+          allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+        })) disabledKnowledgeEvents.push(event);
+        const request = disabledKnowledgeModel.requests[0];
+        if (request) assert.equal((request.tools ?? []).some((tool) => tool.name === "knowledge_query"), false);
+        assert.equal(disabledKnowledgeEvents.some((event) => {
+          const item = event as { type?: string; name?: string };
+          return item.type === "tool_call_started" && item.name === "knowledge_query";
+        }), false);
+        assert.match(JSON.stringify(disabledKnowledgeEvents), /unavailable PilotDeck tools|gateway_submit_failed/);
+      } finally {
+        await disabledKnowledgeGateway.dispose();
+      }
+    }
+    assert.equal(knowledgeQueries.length, knowledgeQueryCountBeforeDisabled);
     await writeE2EArtifact("e2e01-native-owner-trace.json", {
       schemaVersion: 3,
       scenario: "E2E-01-native-owner",
@@ -1041,6 +1181,7 @@ sops:
         },
         queryRequests: knowledgeQueries,
         citation: { content: textField(citation, "content") },
+        nativeReference: { content: textField(nativeReferenceCitation, "content"), agentId: KNOWLEDGE_AGENT_ID },
         outageRecovery: {
           sopBefore: sopBeforeKnowledgeOutage,
           sopDuring: projectSopState(sopDuringKnowledgeOutage),
@@ -1059,7 +1200,7 @@ sops:
         },
         documentLifecycle: {
           update: { title: "Updated approval policy", content: updatedPolicyContent },
-          previousCitationRejected: true,
+          previousCitationRejected: false,
           updatedQuery: updatedQueryRequest,
           updatedCitation: { content: textField(updatedCitation, "content") },
           archive: { status: textField(archived, "status"), evidenceCount: (archivedEvidence as unknown[]).length },
@@ -1195,6 +1336,7 @@ async function waitForHealth(url: string, child: ChildProcess, stderr: string[])
 }
 
 async function startSidecar(host = "127.0.0.1", port = 0) {
+  if (port === 0) port = await freePort();
   const server = new AgentLoopSidecarTcpServer(new AgentLoopSidecarServer(async (input) => createSidecarExecution(input), { moduleId: "pilotdeck-agent-loop" }));
   const address = await server.listen({ host, port });
   return { server, address };
@@ -1335,6 +1477,7 @@ type RealModelFixture = Readonly<{
 class NativeOwnerScenarioModel implements ModelRuntime {
   readonly requests: CanonicalModelRequest[] = [];
   baseId = "";
+  knowledgeQuery = "owner approval before release";
   phase: "initial" | "resumed" | "completed" = "initial";
 
   async *stream(request: CanonicalModelRequest): AsyncIterable<CanonicalModelEvent> {
@@ -1361,7 +1504,7 @@ class NativeOwnerScenarioModel implements ModelRuntime {
       yield* toolCall("native-read-file", "read_file", { file_path: "approval-input.txt" });
       yield* toolCall("native-knowledge-query", "knowledge_query", {
         knowledgeBaseIds: [this.baseId],
-        query: "owner approval before release",
+        query: this.knowledgeQuery,
         queryType: "answer",
         maxChunks: 8,
         maxBuckets: 4,
@@ -1513,9 +1656,15 @@ function nativeOwnerConfig(input: {
   agentId?: string;
   modelProviderId?: string;
   modelName?: string;
+  knowledgeMode?: "external" | "disabled" | "absent";
 }): string {
   const modelProviderId = input.modelProviderId ?? "native-owner";
   const modelName = input.modelName ?? "default";
+  const knowledgeBlock = input.knowledgeMode === "absent"
+    ? ""
+    : input.knowledgeMode === "disabled"
+      ? "  knowledge:\n    enabled: false\n"
+      : `  knowledge:\n    enabled: true\n    implementationId: staffdeck.knowledge\n    contract: staffdeck.knowledge/v1\n    transport: module-http-v2\n    endpoint: ${input.knowledgeEndpoint}\n    manifestPath: /module-manifest\n    callPath: /v2/module/call\n    tenantId: ${input.tenantId ?? ""}\n    actorUserId: ${input.actorUserId ?? ""}\n    agentId: ${input.agentId ?? ""}\n    methods: [create_base, import_document, get_job, query, resolve_citation]\n`;
   return `schemaVersion: 1
 agent:
   model: ${modelProviderId}/${modelName}
@@ -1534,18 +1683,7 @@ modules:
   tools: { enabled: true, provider: pilotdeck }
   context: { enabled: true, provider: pilotdeck }
   skills: { enabled: ${input.skillsEnabled ?? true}, provider: pilotdeck }
-  knowledge:
-    enabled: true
-    implementationId: staffdeck.knowledge
-    contract: staffdeck.knowledge/v1
-    transport: module-http-v2
-    endpoint: ${input.knowledgeEndpoint}
-    manifestPath: /module-manifest
-    callPath: /v2/module/call
-    tenantId: ${input.tenantId ?? ""}
-    actorUserId: ${input.actorUserId ?? ""}
-    agentId: ${input.agentId ?? ""}
-    methods: [create_base, import_document, get_job, query, resolve_citation]
+${knowledgeBlock}
   sop:
     enabled: true
     implementationId: staffdeck.portable-sop
@@ -1691,10 +1829,11 @@ function writeJson(response: ServerResponse, value: unknown): void {
   response.end(JSON.stringify(value));
 }
 
-function listen(server: Server): Promise<void> {
+async function listen(server: Server, port?: number): Promise<void> {
+  const selectedPort = port ?? await freePort();
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(selectedPort, "127.0.0.1", resolve);
   });
 }
 
@@ -1709,13 +1848,18 @@ function closeServer(server: Server): Promise<void> {
 }
 
 async function freePort(): Promise<number> {
-  const server = createServer();
-  await listen(server);
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("free port server has no address");
-  const port = address.port;
-  await closeServer(server);
-  return port;
+  for (let port = 16100; port <= 16129; port += 1) {
+    const server = createServer();
+    try {
+      await listen(server, port);
+      await closeServer(server);
+      return port;
+    } catch (error) {
+      await closeServer(server).catch(() => undefined);
+      if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE") throw error;
+    }
+  }
+  throw new Error("No free PilotDeck test port in 16100-16129.");
 }
 
 function delay(milliseconds: number): Promise<void> {
