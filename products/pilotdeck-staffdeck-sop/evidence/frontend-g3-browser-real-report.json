@@ -1,0 +1,851 @@
+{
+  "stateCount": 6,
+  "states": [
+    {
+      "id": "native-routing-installed-off",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-skills",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model",
+          "../modules/tools-permissions"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15400",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 0,
+          "routingUnavailable": 1,
+          "permissionSettings": 1,
+          "permissionUnavailable": 0
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/",
+          "/memory": "/p/general"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/runtime",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": null,
+            "transport": null,
+            "methods": null
+          },
+          "knowledge": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": null,
+            "transport": null,
+            "methods": null
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    },
+    {
+      "id": "native-routing-enabled",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-skills",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model",
+          "../modules/agent-routing",
+          "../modules/tools-permissions"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15401",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 1,
+          "routingUnavailable": 0,
+          "permissionSettings": 1,
+          "permissionUnavailable": 0
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/",
+          "/memory": "/"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/runtime",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": null,
+            "transport": null,
+            "methods": null
+          },
+          "knowledge": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": null,
+            "transport": null,
+            "methods": null
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    },
+    {
+      "id": "staffdeck-routing-installed-off",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-skills",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model",
+          "../modules/staffdeck-sop",
+          "../modules/staffdeck-knowledge",
+          "../modules/tools-permissions"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15402",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 0,
+          "routingUnavailable": 1,
+          "permissionSettings": 1,
+          "permissionUnavailable": 0
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/p/general",
+          "/memory": "/p/general"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/knowledge/call",
+        "/api/modules/runtime",
+        "/api/modules/sop/definitions",
+        "/api/modules/sop/management/call",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": true,
+            "provider": null,
+            "implementationId": "staffdeck.portable-sop",
+            "contract": "sop.lifecycle/v2",
+            "transport": "sop-http-v2",
+            "methods": [
+              "prepare",
+              "submit"
+            ]
+          },
+          "knowledge": {
+            "enabled": true,
+            "provider": null,
+            "implementationId": "staffdeck.knowledge",
+            "contract": "staffdeck.knowledge/v1",
+            "transport": "module-http-v2",
+            "methods": [
+              "list_bases",
+              "import_document",
+              "get_job",
+              "update_document",
+              "query",
+              "resolve_citation"
+            ]
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    },
+    {
+      "id": "staffdeck-routing-enabled",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-skills",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model",
+          "../modules/staffdeck-sop",
+          "../modules/staffdeck-knowledge",
+          "../modules/agent-routing",
+          "../modules/tools-permissions"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15403",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 1,
+          "routingUnavailable": 0,
+          "permissionSettings": 1,
+          "permissionUnavailable": 0
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/p/general",
+          "/memory": "/"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/knowledge/call",
+        "/api/modules/runtime",
+        "/api/modules/sop/definitions",
+        "/api/modules/sop/management/call",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": true,
+            "provider": null,
+            "implementationId": "staffdeck.portable-sop",
+            "contract": "sop.lifecycle/v2",
+            "transport": "sop-http-v2",
+            "methods": [
+              "prepare",
+              "submit"
+            ]
+          },
+          "knowledge": {
+            "enabled": true,
+            "provider": null,
+            "implementationId": "staffdeck.knowledge",
+            "contract": "staffdeck.knowledge/v1",
+            "transport": "module-http-v2",
+            "methods": [
+              "list_bases",
+              "import_document",
+              "get_job",
+              "update_document",
+              "query",
+              "resolve_citation"
+            ]
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    },
+    {
+      "id": "minimal-routing-installed-off",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15404",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 0,
+          "routingUnavailable": 1,
+          "permissionSettings": 0,
+          "permissionUnavailable": 1
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/",
+          "/memory": "/p/general"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/runtime",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "sop.lifecycle/v2",
+            "transport": "sop-http-v2",
+            "methods": [
+              "prepare",
+              "submit",
+              "status",
+              "resume"
+            ]
+          },
+          "knowledge": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "staffdeck.knowledge/v1",
+            "transport": "module-http-v2",
+            "methods": [
+              "list_bases",
+              "import_document",
+              "get_job",
+              "update_document",
+              "query",
+              "resolve_citation"
+            ]
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    },
+    {
+      "id": "minimal-routing-enabled",
+      "result": "passed",
+      "mode": "real",
+      "build": {
+        "selectedImports": [
+          "../modules/pilotdeck-chat",
+          "../modules/pilotdeck-tools",
+          "../modules/pilotdeck-context",
+          "../modules/pilotdeck-model",
+          "../modules/agent-routing",
+          "../modules/tools-permissions"
+        ]
+      },
+      "browser": {
+        "baseURL": "http://127.0.0.1:15405",
+        "chatSurface": true,
+        "settings": {
+          "routingSettings": 1,
+          "routingUnavailable": 0,
+          "permissionSettings": 1,
+          "permissionUnavailable": 0
+        },
+        "legacy": {
+          "/always-on": "/p/general",
+          "/cron": "/p/general",
+          "/memory": "/p/general"
+        }
+      },
+      "requestPaths": [
+        "/api/agents/runtime-config",
+        "/api/auth/status",
+        "/api/auth/user",
+        "/api/commands/list",
+        "/api/config",
+        "/api/mcp-utils/taskmaster-server",
+        "/api/models",
+        "/api/modules/runtime",
+        "/api/plugins",
+        "/api/projects",
+        "/api/settings/permissions",
+        "/api/taskmaster/installation-status",
+        "/api/taskmaster/tasks/general",
+        "/api/user/onboarding-status"
+      ],
+      "runtime": {
+        "modules": {
+          "agentLoop": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.agent-loop/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute",
+              "cancel",
+              "status",
+              "resume",
+              "ack"
+            ]
+          },
+          "skills": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "pilotdeck.skills/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "list",
+              "read"
+            ]
+          },
+          "tools": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.tools/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "execute"
+            ]
+          },
+          "context": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.context/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare_for_model",
+              "apply_tool_results",
+              "try_auto_compact"
+            ]
+          },
+          "modelProvider": {
+            "enabled": true,
+            "provider": "pilotdeck",
+            "implementationId": null,
+            "contract": "pilotdeck.model-provider/v1",
+            "transport": "pilotdeck-http-v1",
+            "methods": [
+              "prepare",
+              "stream"
+            ]
+          },
+          "sop": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "sop.lifecycle/v2",
+            "transport": "sop-http-v2",
+            "methods": [
+              "prepare",
+              "submit",
+              "status",
+              "resume"
+            ]
+          },
+          "knowledge": {
+            "enabled": false,
+            "provider": null,
+            "implementationId": null,
+            "contract": "staffdeck.knowledge/v1",
+            "transport": "module-http-v2",
+            "methods": [
+              "list_bases",
+              "import_document",
+              "get_job",
+              "update_document",
+              "query",
+              "resolve_citation"
+            ]
+          }
+        },
+        "gatewayCapabilities": [
+          "chat",
+          "permissions"
+        ],
+        "runtime": {
+          "gatewayState": "ready",
+          "unavailableSlots": []
+        }
+      }
+    }
+  ]
+}
