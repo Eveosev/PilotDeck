@@ -20,7 +20,7 @@ import { renderGeneratedEntrypoint } from './generate-frontend-modules.mjs';
 const root = resolve(new URL('..', import.meta.url).pathname);
 const uiRoot = resolve(root, 'ui');
 const generatedPath = resolve(uiRoot, 'src/composition/generated/frontend-modules.ts');
-const artifactRoot = resolve(root, 'test-results/frontend-g3-browser-matrix');
+const artifactRoot = resolve(process.env.G3_ARTIFACT_ROOT || resolve(root, 'test-results/frontend-g3-browser-matrix'));
 const mode = process.argv.includes('--mode=real') ? 'real' : 'mock';
 const vitePortBase = Number(process.env.G3_VITE_PORT_BASE || 16300);
 const serverPortBase = Number(process.env.G3_SERVER_PORT_BASE || 16330);
@@ -163,6 +163,41 @@ function runtimeFor(modules) {
   };
 }
 
+function findRuntimeMismatches(actual, expected) {
+  const mismatches = [];
+  for (const [slot, expectedBinding] of Object.entries(expected.modules)) {
+    const actualBinding = actual?.modules?.[slot];
+    for (const field of ['enabled', 'provider', 'implementationId', 'frontendModule', 'contract', 'transport', 'methods']) {
+      const expectedValue = expectedBinding[field];
+      if (expectedValue === undefined) continue;
+      const actualValue = actualBinding?.[field];
+      if (JSON.stringify(actualValue) !== JSON.stringify(expectedValue)) {
+        mismatches.push({ slot, field, expected: expectedValue, actual: actualValue });
+      }
+    }
+  }
+  return mismatches;
+}
+
+function runtimeExpectedFor(modules) {
+  const expected = runtimeFor(modules);
+  for (const [slot, binding] of Object.entries(modules)) {
+    const expectedBinding = expected.modules[slot];
+    for (const field of ['contract', 'transport', 'methods']) {
+      if (binding[field] === undefined) delete expectedBinding[field];
+    }
+  }
+  return expected;
+}
+
+const sharedSettingsRequestPaths = new Set([
+  '/api/auth/status', '/api/auth/user', '/api/config', '/api/commands/list',
+  '/api/models', '/api/agents/runtime-config', '/api/modules/runtime',
+  '/api/mcp-utils/taskmaster-server', '/api/plugins', '/api/projects', '/api/settings/permissions',
+  '/api/taskmaster/installation-status', '/api/taskmaster/tasks/general',
+  '/api/user/onboarding-status', '/api/user/runtime-status',
+]);
+
 function waitForHttp(url, timeoutMs = 20_000) {
   const started = Date.now();
   return new Promise((resolveWait, reject) => {
@@ -192,8 +227,10 @@ async function installLifecycleProbe(page) {
       'staffdeck-capability-catalog-refresh',
       'ultrarag-enterprise-agent-scope-change',
     ]);
-    const intervals = new Set();
-    const timeouts = new Set();
+    const documentId = crypto.randomUUID();
+    const probeId = crypto.randomUUID();
+    const intervals = new Map();
+    const timeouts = new Map();
     const subscriptions = new Map();
     const originalSetInterval = window.setInterval.bind(window);
     const originalClearInterval = window.clearInterval.bind(window);
@@ -203,10 +240,12 @@ async function installLifecycleProbe(page) {
     const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
     const captureOf = (options) => typeof options === 'boolean' ? options : Boolean(options?.capture);
     const targetName = (target) => target === window ? 'window' : target === document ? 'document' : 'other';
+    const ownerOf = (stack) => stack?.split('\n').find((line) => line.includes('/src/')) || '';
 
     window.setInterval = ((handler, timeout, ...args) => {
       const id = originalSetInterval(handler, timeout, ...args);
-      intervals.add(id);
+      const stack = new Error().stack;
+      intervals.set(id, { identity: crypto.randomUUID(), stack, owner: ownerOf(stack) });
       return id;
     });
     window.clearInterval = ((id) => {
@@ -222,7 +261,8 @@ async function installLifecycleProbe(page) {
         }
         : handler;
       id = originalSetTimeout(wrapped, timeout, ...args);
-      timeouts.add(id);
+      const stack = new Error().stack;
+      timeouts.set(id, { identity: crypto.randomUUID(), stack, owner: ownerOf(stack) });
       return id;
     });
     window.clearTimeout = ((id) => {
@@ -233,7 +273,7 @@ async function installLifecycleProbe(page) {
       if (trackedEvents.has(type) && listener) {
         const key = `${targetName(this)}:${type}:${captureOf(options)}`;
         const entries = subscriptions.get(key) ?? [];
-        entries.push(listener);
+        entries.push({ listener, identity: crypto.randomUUID() });
         subscriptions.set(key, entries);
       }
       return originalAddEventListener.call(this, type, listener, options);
@@ -242,7 +282,7 @@ async function installLifecycleProbe(page) {
       if (trackedEvents.has(type) && listener) {
         const key = `${targetName(this)}:${type}:${captureOf(options)}`;
         const entries = subscriptions.get(key) ?? [];
-        const index = entries.indexOf(listener);
+        const index = entries.findIndex((entry) => entry.listener === listener);
         if (index >= 0) entries.splice(index, 1);
         if (entries.length === 0) subscriptions.delete(key);
         else subscriptions.set(key, entries);
@@ -250,19 +290,35 @@ async function installLifecycleProbe(page) {
       return originalRemoveEventListener.call(this, type, listener, options);
     };
     window.__pilotdeckG3LifecycleSnapshot = () => ({
-      intervals: [...intervals].sort((left, right) => Number(left) - Number(right)),
-      timeouts: [...timeouts].sort((left, right) => Number(left) - Number(right)),
-      subscriptions: Object.fromEntries([...subscriptions.entries()].map(([key, entries]) => [key, entries.length])),
+      documentId,
+      probeId,
+      intervals: [...intervals.values()].map((entry) => entry.identity).sort(),
+      timeouts: [...timeouts.values()].map((entry) => entry.identity).sort(),
+      intervalDetails: [...intervals.values()].sort((left, right) => left.identity.localeCompare(right.identity)),
+      timeoutDetails: [...timeouts.values()].sort((left, right) => left.identity.localeCompare(right.identity)),
+      staffdeckIntervals: [...intervals.values()].filter((entry) => entry.owner.includes('/composition/modules/staffdeck/')).map((entry) => entry.identity).sort(),
+      staffdeckTimeouts: [...timeouts.values()].filter((entry) => entry.owner.includes('/composition/modules/staffdeck/')).map((entry) => entry.identity).sort(),
+      subscriptions: Object.fromEntries([...subscriptions.entries()].map(([key, entries]) => [key, entries.map((entry) => entry.identity).sort()])),
     });
   });
 }
 
 function lifecycleRestored(before, after) {
-  const beforeIntervals = new Set(before.intervals);
-  const beforeTimeouts = new Set(before.timeouts);
-  return after.intervals.every((id) => beforeIntervals.has(id))
-    && after.timeouts.every((id) => beforeTimeouts.has(id))
+  return Boolean(before.documentId && before.probeId)
+    && before.documentId === after.documentId
+    && before.probeId === after.probeId
+    && JSON.stringify(after.staffdeckIntervals) === JSON.stringify(before.staffdeckIntervals)
+    && JSON.stringify(after.staffdeckTimeouts) === JSON.stringify(before.staffdeckTimeouts)
     && JSON.stringify(after.subscriptions) === JSON.stringify(before.subscriptions);
+}
+
+function lifecycleMounted(before, mounted) {
+  const mountedSubscriptions = Object.values(mounted.subscriptions).flat();
+  return before.documentId === mounted.documentId
+    && before.probeId === mounted.probeId
+    && (mounted.staffdeckIntervals.length > before.staffdeckIntervals.length
+      || mounted.staffdeckTimeouts.length > before.staffdeckTimeouts.length
+      || mountedSubscriptions.length > Object.values(before.subscriptions).flat().length);
 }
 
 async function stop(processHandle) {
@@ -440,6 +496,10 @@ async function runState(state, index, browser) {
     await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
     const runtimeResult = await runtimeResponse;
     assert.equal(runtimeResult.status(), 200, `${state.id}: runtime projection failed`);
+    const runtimeProjection = await runtimeResult.json();
+    const expectedRuntime = runtimeExpectedFor(state.modules);
+    const runtimeMismatches = findRuntimeMismatches(runtimeProjection, expectedRuntime);
+    assert.deepEqual(runtimeMismatches, [], `${state.id}: actual runtime projection differs from the independently expected profile`);
     await page.waitForTimeout(600);
     const chatSurface = await page.locator('textarea').count() > 0 || await page.locator('[data-chat-composer-slot]').count() > 0;
     if (!chatSurface && state.replacement) {
@@ -447,26 +507,45 @@ async function runState(state, index, browser) {
     }
     assert.equal(chatSurface, true, `${state.id}: chat surface not rendered`);
 
-    currentProbe = 'settings-agent-route';
-    await page.goto(`${baseURL}/settings/module/agent-route`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(200);
-    const routingSettings = await page.locator('[data-testid="module-settings-agent-route"]').count();
-    const routingUnavailable = await page.locator('[data-testid="module-settings-unavailable-agent-route"]').count();
-    assert.equal(routingSettings > 0, state.expectedRoutingSettings, `${state.id}: agent route settings mismatch`);
-    assert.equal(routingUnavailable > 0, !state.expectedRoutingSettings, `${state.id}: agent route unavailable mismatch`);
-    if (state.routingInstalled && mode === 'real') {
-      const routingSwitch = page.getByRole('switch', { name: /智能路由|smart routing/i });
-      await routingSwitch.waitFor({ state: 'visible' });
-      assert.equal(await routingSwitch.getAttribute('aria-checked'), String(state.routingEnabled), `${state.id}: routing runtime switch mismatch`);
+    const settingsEffects = [];
+    for (const { section, expected, label } of [
+      { section: 'agent-route', expected: state.expectedRoutingSettings, label: 'agent route' },
+      { section: 'tools-permissions', expected: state.expectedPermissions, label: 'tool permissions' },
+      { section: 'sop', expected: Boolean(state.modules.sop?.enabled), label: 'SOP' },
+      { section: 'knowledge', expected: Boolean(state.modules.knowledge?.enabled), label: 'knowledge' },
+    ]) {
+      currentProbe = `settings-${section}`;
+      const beforeRequestCount = requests.length;
+      await page.goto(`${baseURL}/settings/module/${section}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(250);
+      const settingsPresent = await page.locator(`[data-testid="module-settings-${section}"]`).count() > 0;
+      const unavailablePresent = await page.locator(`[data-testid="module-settings-unavailable-${section}"]`).count() > 0;
+      assert.equal(settingsPresent, expected, `${state.id}: ${label} settings mismatch`);
+      assert.equal(unavailablePresent, !expected, `${state.id}: ${label} unavailable mismatch`);
+      if (section === 'agent-route' && state.routingInstalled && mode === 'real') {
+        const routingSwitch = page.getByRole('switch', { name: /智能路由|smart routing/i });
+        await routingSwitch.waitFor({ state: 'visible' });
+        assert.equal(await routingSwitch.getAttribute('aria-checked'), String(state.routingEnabled), `${state.id}: routing runtime switch mismatch`);
+      }
+      const requestDelta = requests.slice(beforeRequestCount);
+      const unloadedPrefixes = [
+        ...(!state.modules.sop?.enabled ? ['/api/modules/sop/'] : []),
+        ...(!state.modules.knowledge?.enabled ? ['/api/modules/knowledge/'] : []),
+      ];
+      const unloadedModuleRequests = requestDelta.filter((item) => unloadedPrefixes.some((prefix) => item.path.startsWith(prefix)));
+      const sharedHostRequests = requestDelta.filter((item) => sharedSettingsRequestPaths.has(item.path));
+      const unexpectedRequests = requestDelta.filter((item) => !sharedSettingsRequestPaths.has(item.path) && !unloadedModuleRequests.includes(item));
+      assert.equal(unloadedModuleRequests.length, 0, `${state.id}: absent ${section} settings form triggered an unloaded module request`);
+      settingsEffects.push({
+        section,
+        expected,
+        settingsPresent,
+        unavailablePresent,
+        sharedHostRequests: sharedHostRequests.map((item) => item.path),
+        unloadedModuleRequests,
+        unexpectedRequests,
+      });
     }
-
-    currentProbe = 'settings-tools-permissions';
-    await page.goto(`${baseURL}/settings/module/tools-permissions`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(200);
-    const permissionSettings = await page.locator('[data-testid="module-settings-tools-permissions"]').count();
-    const permissionUnavailable = await page.locator('[data-testid="module-settings-unavailable-tools-permissions"]').count();
-    assert.equal(permissionSettings > 0, state.expectedPermissions, `${state.id}: permission settings mismatch`);
-    assert.equal(permissionUnavailable > 0, !state.expectedPermissions, `${state.id}: permission unavailable mismatch`);
 
     for (const [path, placeholder, enabled] of [
       ...(state.replacement ? [['/knowledge-search', 'Search the replacement knowledge service', true]] : []),
@@ -476,9 +555,13 @@ async function runState(state, index, browser) {
       currentProbe = `route:${path}`;
       await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
       // A replacement module is selected asynchronously by the runtime
-      // projection; retry the deep link once after the shell has hydrated.
+      // projection. If the first deep link arrives before the shell has
+      // assembled its page table, use the rendered sidebar control so the
+      // second attempt follows the real client-side route.
       if (mode === 'real' && state.replacement && new URL(page.url()).pathname !== path) {
-        await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
+        const replacementNav = page.locator('nav.primary-actions button').filter({ hasText: /Knowledge search/ }).first();
+        await replacementNav.waitFor({ state: 'visible', timeout: 15_000 });
+        await replacementNav.click();
       }
       if (mode === 'real' && enabled) {
         try {
@@ -527,28 +610,56 @@ async function runState(state, index, browser) {
 
     let lifecycle = { status: 'not-applicable', reason: 'No mounted StaffDeck Distill surface in this state.' };
     if (mode === 'real' && state.modules.sop?.enabled) {
+      // Use the shell's client-side controls so the React tree stays in one
+      // document. A page.goto here would recreate the probe and make timer IDs
+      // look clean even when the component leaked resources.
+      const documentBeforeLifecycle = await page.evaluate(() => ({
+        documentId: window.__pilotdeckG3LifecycleSnapshot?.().documentId,
+        probeId: window.__pilotdeckG3LifecycleSnapshot?.().probeId,
+      }));
+      const homeButton = page.locator('nav.primary-actions button').filter({ hasText: /新对话|New conversation/ }).first();
+      await homeButton.click();
+      await page.waitForURL((url) => ['/','/p/general'].includes(url.pathname), { timeout: 5_000 });
+      await page.waitForTimeout(700);
+      const documentAfterHome = await page.evaluate(() => ({
+        documentId: window.__pilotdeckG3LifecycleSnapshot?.().documentId,
+        probeId: window.__pilotdeckG3LifecycleSnapshot?.().probeId,
+      }));
+      assert.deepEqual(documentAfterHome, documentBeforeLifecycle, `${state.id}: shell home navigation recreated the document/probe`);
       currentProbe = 'lifecycle-before';
       const before = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
       currentProbe = 'lifecycle-mount';
-      await page.goto(`${baseURL}/sop/distill`, { waitUntil: 'domcontentloaded' });
+      const workflowButtons = page.locator('nav.primary-actions button[aria-pressed]').filter({ hasText: /工作流|Workflow/ });
+      assert.ok(await workflowButtons.count() >= 2, `${state.id}: StaffDeck workflow navigation controls were not rendered`);
+      await workflowButtons.last().click();
+      await page.waitForURL((url) => url.pathname === '/sop/distill', { timeout: 5_000 });
       await page.waitForTimeout(700);
       assert.equal(new URL(page.url()).pathname, '/sop/distill', `${state.id}: lifecycle probe route did not mount`);
+      assert.ok(await page.locator('textarea').count() > 0, `${state.id}: StaffDeck Distill component did not mount in the existing document`);
       const mounted = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
+      assert.equal(lifecycleMounted(before, mounted), true, `${state.id}: lifecycle mount did not create a distinct resource identity`);
+      const mountRequests = requests.filter((item) => item.probe === 'lifecycle-mount' && item.path.startsWith('/api/modules/sop/'));
+      assert.ok(mountRequests.some((item) => item.path.includes('/definitions') || item.path.includes('/management/')), `${state.id}: lifecycle mount did not issue a StaffDeck-specific follow-up request`);
       currentProbe = 'lifecycle-unmount';
-      await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
+      await page.locator('nav.primary-actions button').filter({ hasText: /新对话|New conversation/ }).first().click();
+      await page.waitForURL((url) => ['/','/p/general'].includes(url.pathname), { timeout: 5_000 });
       await page.waitForTimeout(900);
       const after = await page.evaluate(() => window.__pilotdeckG3LifecycleSnapshot?.() ?? null);
       const restored = Boolean(before && mounted && after && lifecycleRestored(before, after));
-      assert.equal(restored, true, `${state.id}: StaffDeck Distill timers/subscriptions were not restored after unmount.`);
-      lifecycle = { status: 'passed', probePath: '/sop/distill', before, mounted, after, restored };
+      assert.equal(restored, true, `${state.id}: StaffDeck Distill timers/subscriptions were not restored after unmount. before=${JSON.stringify(before)} mounted=${JSON.stringify(mounted)} after=${JSON.stringify(after)}`);
+      const unmountRequests = requests.filter((item) => item.probe === 'lifecycle-unmount' && item.path.startsWith('/api/modules/sop/'));
+      assert.equal(unmountRequests.length, 0, `${state.id}: StaffDeck-specific requests continued after Distill unmount`);
+      lifecycle = { status: 'passed', navigation: 'same-document-sidebar-controls', probePath: '/sop/distill', before, mounted, after, restored, mountRequests, unmountRequests };
     }
 
     const assertions = {
       routingRuntimeSwitch: state.routingInstalled && mode === 'real' ? state.routingEnabled : null,
       forbiddenOptionalRequests,
+      settingsEffects,
       settingsOptionalRequests: { count: settingsOptionalRequests.length, passed: settingsOptionalRequests.length === 0 },
       lifecycle,
     };
+    const settingsBySection = Object.fromEntries(settingsEffects.map((item) => [item.section, item]));
 
     const report = {
       id: state.id,
@@ -558,11 +669,23 @@ async function runState(state, index, browser) {
         ? 'Only the shell API and runtime projection are mocked; browser routing, composition, Settings, legacy redirects, and request observation are real.'
         : null,
       build: { outDir: distDir, selectedImports: imports },
-      browser: { baseURL, chatSurface, settings: { routingSettings, routingUnavailable, permissionSettings, permissionUnavailable }, legacy },
+      browser: {
+        baseURL,
+        chatSurface,
+        settings: {
+          routingSettings: settingsBySection['agent-route']?.settingsPresent ? 1 : 0,
+          routingUnavailable: settingsBySection['agent-route']?.unavailablePresent ? 1 : 0,
+          permissionSettings: settingsBySection['tools-permissions']?.settingsPresent ? 1 : 0,
+          permissionUnavailable: settingsBySection['tools-permissions']?.unavailablePresent ? 1 : 0,
+        },
+        legacy,
+      },
       requests,
       requestPaths: [...new Set(requests.map((item) => item.path))].sort(),
       assertions,
-      runtime: runtimeFor(state.modules),
+      runtimeExpected: expectedRuntime,
+      runtimeProjection,
+      runtimeMismatches,
     };
     await page.screenshot({ path: resolve(stateRoot, 'g3-browser.png'), fullPage: true });
     await writeFile(resolve(stateRoot, 'result.json'), `${JSON.stringify(report, null, 2)}\n`);

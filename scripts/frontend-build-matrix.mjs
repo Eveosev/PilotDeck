@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const generated = resolve(root, 'ui/src/composition/generated/frontend-modules.ts');
-const artifactRoot = resolve(root, 'test-results/frontend-build-matrix');
+const artifactRoot = resolve(process.env.G3_BUILD_ARTIFACT_ROOT || resolve(root, 'test-results/frontend-build-matrix'));
 const profiles = {
   native: 'products/pilotdeck-staffdeck-sop/profiles/native.yaml',
   'native-five-staffdeck': 'products/pilotdeck-staffdeck-sop/profiles/native-five-staffdeck.yaml',
@@ -21,16 +21,59 @@ if (profileFlagIndex >= 0 && !profiles[requestedProfile]) {
 }
 const selectedProfiles = requestedProfile ? { [requestedProfile]: profiles[requestedProfile] } : profiles;
 
-const compositionModuleSources = {
-  'pilotdeck-chat': 'ui/src/composition/modules/pilotdeck-chat.tsx',
-  'pilotdeck-skills': 'ui/src/composition/modules/pilotdeck-skills.tsx',
-  'pilotdeck-tools': 'ui/src/composition/modules/pilotdeck-tools.tsx',
-  'pilotdeck-context': 'ui/src/composition/modules/pilotdeck-context.tsx',
-  'pilotdeck-model': 'ui/src/composition/modules/pilotdeck-model.tsx',
-  'staffdeck-sop': 'ui/src/composition/modules/staffdeck-sop.tsx',
-  'staffdeck-knowledge': 'ui/src/composition/modules/staffdeck-knowledge.tsx',
-  'fixture-knowledge-search': 'ui/src/composition/modules/fixture-knowledge-search.tsx',
+const moduleOwnership = {
+  'pilotdeck.chat': ['ui/src/composition/modules/pilotdeck-chat.tsx'],
+  'pilotdeck.skills': ['ui/src/composition/modules/pilotdeck-skills.tsx'],
+  'pilotdeck.tools': ['ui/src/composition/modules/pilotdeck-tools.tsx'],
+  'pilotdeck.context': ['ui/src/composition/modules/pilotdeck-context.tsx'],
+  'pilotdeck.model': ['ui/src/composition/modules/pilotdeck-model.tsx'],
+  'staffdeck.sop': ['ui/src/composition/modules/staffdeck-sop.tsx'],
+  'staffdeck.knowledge': ['ui/src/composition/modules/staffdeck-knowledge.tsx'],
+  'fixture.knowledge-search': ['ui/src/composition/modules/fixture-knowledge-search.tsx'],
+  'agent.routing': ['ui/src/composition/modules/agent-routing.tsx'],
+  'agent.resident': ['ui/src/composition/modules/agent-resident.tsx'],
+  'agent.scheduling': ['ui/src/composition/modules/agent-scheduling.tsx'],
+  'channels.integrations': ['ui/src/composition/modules/channels-integrations.tsx'],
+  'model.providers': ['ui/src/composition/modules/model-providers.tsx'],
+  'agent.model-selection': ['ui/src/composition/modules/agent-model-selection.tsx'],
+  'tools.search': ['ui/src/composition/modules/tools-search.tsx'],
+  'tools.mcp': ['ui/src/composition/modules/tools-mcp.tsx'],
+  'context.memory': ['ui/src/composition/modules/context-memory.tsx'],
+  'workspace.office-preview': ['ui/src/composition/modules/workspace-office-preview.tsx'],
+  'system.advanced': ['ui/src/composition/modules/system-advanced.tsx'],
+  'tools.permissions': ['ui/src/composition/modules/tools-permissions.tsx'],
+  'system.telemetry': ['ui/src/composition/modules/system-telemetry.tsx'],
+  'system.updates': ['ui/src/composition/modules/system-updates.tsx'],
+  'host.preferences': ['ui/src/composition/modules/host-preferences.tsx'],
+  'chat.preferences': ['ui/src/composition/modules/chat-preferences.tsx'],
+  'workspace.editor-preferences': ['ui/src/composition/modules/workspace-editor-preferences.tsx'],
 };
+
+// These files are the StaffDeck-only implementation surface. Shared shell
+// modules are intentionally not listed, so their presence is allowed when a
+// slot is disabled.
+const staffdeckVendorSources = [
+  'ui/src/composition/modules/staffdeck/StaffDeckLocaleBoundary.tsx',
+  'ui/src/composition/modules/staffdeck/clients.ts',
+  'ui/src/composition/modules/staffdeck/staffdeck-source-translations.json',
+  'ui/src/composition/modules/staffdeck/vendor/DistillPage.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/DistillPageHost.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/KnowledgeGraphCanvas.css',
+  'ui/src/composition/modules/staffdeck/vendor/KnowledgeGraphCanvas.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/KnowledgePage.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/KnowledgePageHost.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/SkillsPage.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/SkillsPageHost.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/SopVersionDetailDialog.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/distillFailure.ts',
+  'ui/src/composition/modules/staffdeck/vendor/distillPageStyles.ts',
+  'ui/src/composition/modules/staffdeck/vendor/knowledge-host-adapter.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/skillFlowModel.ts',
+  'ui/src/composition/modules/staffdeck/vendor/skills-host-adapter.tsx',
+];
+
+const sourceToOwner = new Map(Object.entries(moduleOwnership).flatMap(([owner, sources]) => sources.map((source) => [source, owner])));
+for (const source of staffdeckVendorSources) sourceToOwner.set(source, 'staffdeck.vendor');
 
 function run(command, args, cwd = root) {
   return new Promise((resolveRun, reject) => {
@@ -59,19 +102,25 @@ try {
     if (rollupGraph.schemaVersion !== 2 || !Array.isArray(rollupGraph.modules) || !Array.isArray(rollupGraph.chunks)) {
       throw new Error(`${name} did not emit the versioned Rollup composition graph.`);
     }
-    const rollupModules = new Set(rollupGraph.modules);
-    const selectedModuleSources = selectedImports
-      .map((item) => compositionModuleSources[item.replace('../modules/', '')])
-      .filter(Boolean);
-    const missingSelectedSources = selectedModuleSources.filter((source) => !rollupModules.has(source));
+    const chunkModuleSources = new Set(rollupGraph.chunks.flatMap((chunk) => chunk.modules));
+    const selectedOwners = new Set(selectedImports.map((item) => {
+      const source = `ui/src/composition/modules/${item.replace('../modules/', '')}.tsx`;
+      return sourceToOwner.get(source);
+    }).filter(Boolean));
+    if (selectedOwners.has('staffdeck.sop') || selectedOwners.has('staffdeck.knowledge')) selectedOwners.add('staffdeck.vendor');
+    const selectedModuleSources = [...sourceToOwner.entries()]
+      .filter(([, owner]) => selectedOwners.has(owner))
+      .map(([source]) => source);
+    const missingSelectedSources = selectedModuleSources.filter((source) => !chunkModuleSources.has(source));
     if (missingSelectedSources.length > 0) {
-      throw new Error(`${name} selected modules are absent from the Rollup graph: ${missingSelectedSources.join(', ')}`);
+      throw new Error(`${name} selected modules are absent from emitted chunks: ${missingSelectedSources.join(', ')}`);
     }
-    const absentModuleSources = Object.values(compositionModuleSources)
-      .filter((source) => !selectedModuleSources.includes(source));
-    const leakedAbsentSources = absentModuleSources.filter((source) => rollupModules.has(source));
+    const absentModuleSources = [...sourceToOwner.entries()]
+      .filter(([, owner]) => !selectedOwners.has(owner))
+      .map(([source]) => source);
+    const leakedAbsentSources = absentModuleSources.filter((source) => chunkModuleSources.has(source));
     if (leakedAbsentSources.length > 0) {
-      throw new Error(`${name} emits unselected composition modules: ${leakedAbsentSources.join(', ')}`);
+      throw new Error(`${name} emits unselected owned modules: ${leakedAbsentSources.join(', ')}`);
     }
     const chunks = assets.filter((asset) => /\.(js|css)$/.test(asset));
     const javascript = await Promise.all(chunks.filter((asset) => asset.endsWith('.js')).map((asset) => readFile(resolve(distDir, asset), 'utf8')));
@@ -82,7 +131,7 @@ try {
       'staffdeck.knowledge': 'staffdeck.knowledge.ui/v1',
       'fixture.knowledge-search': 'fixture.knowledge-search.ui/v1',
     };
-    const selectedIds = Object.entries(implementationMarkers)
+    const selectedImplementations = Object.entries(implementationMarkers)
       .filter(([, marker]) => emittedSource.includes(marker))
       .map(([id]) => id);
     for (const [id, marker] of Object.entries(implementationMarkers)) {
@@ -98,13 +147,16 @@ try {
       profile: name,
       sourceProfile: profile,
       selectedImports,
+      selectedOwners: [...selectedOwners],
       selectedModuleSources,
       absentModuleSources,
-      selectedIds,
+      selectedImplementations,
       chunks,
       rollupGraph: rollupGraph.chunks,
       dependencyAssertions: {
         graphSchemaVersion: rollupGraph.schemaVersion,
+        graphModuleCount: rollupGraph.modules.length,
+        emittedChunkModuleCount: chunkModuleSources.size,
         missingSelectedSources,
         leakedAbsentSources,
         passed: missingSelectedSources.length === 0 && leakedAbsentSources.length === 0,
