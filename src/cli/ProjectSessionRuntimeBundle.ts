@@ -278,7 +278,10 @@ export class ProjectSessionRuntimeBundle {
         if (sessionTools.has("knowledge_query")) {
           throw new Error("knowledge_query is already owned by this session.");
         }
-        sessionTools.register(createKnowledgeQueryTool(createKnowledgeModulePort(knowledgeBinding)));
+        sessionTools.register(createKnowledgeQueryTool(
+          createKnowledgeModulePort(knowledgeBinding),
+          knowledgeBinding,
+        ));
       }
       const userDialogTools = [
         ...(this.options.sdkSessionConfig?.userDialogKinds?.includes("input") ? [createRequestUserInputTool()] : []),

@@ -226,6 +226,9 @@ modules:
     contract: staffdeck.knowledge/v1
     transport: module-http-v2
     endpoint: http://knowledge:9014
+    tenantId: tenant_demo
+    actorUserId: admin
+    agentId: agent_branch
     methods: [query]
 `));
     const modules = loadPilotConfig({ configPath, env: { PILOT_HOME: root } }).config.modules!;
@@ -235,6 +238,19 @@ modules:
     assert.equal("implementationId" in modules.skills!, true);
     assert.equal("implementationId" in modules.knowledge!, true);
     assert.equal((modules.tools as { tools?: unknown[] }).tools?.length, 1);
+    assert.deepEqual(modules.knowledge, {
+      enabled: true,
+      implementationId: "example.knowledge",
+      contract: "staffdeck.knowledge/v1",
+      transport: "module-http-v2",
+      endpoint: "http://knowledge:9014",
+      manifestPath: "/module-manifest",
+      callPath: "/v2/module/call",
+      methods: ["query"],
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: "agent_branch",
+    });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

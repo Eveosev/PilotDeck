@@ -126,10 +126,13 @@ function assertDeclaredMethod(binding: ExternalModuleBinding, operation: string,
   if (!binding.methods.includes(operation)) throw protocolFailure(`${owner} operation '${operation}' is not declared.`);
 }
 
-export function createKnowledgeQueryTool(port: KnowledgeModulePort): PilotDeckToolDefinition {
+export function createKnowledgeQueryTool(
+  port: KnowledgeModulePort,
+  scope: Pick<ExternalModuleBinding, "tenantId" | "actorUserId" | "agentId"> = {},
+): PilotDeckToolDefinition {
   return {
     name: "knowledge_query",
-    description: "Query the configured knowledge module and return its evidence and citations.",
+    description: "Query the configured knowledge module for grounded evidence and citations. The host supplies tenant and agent scope; provide a natural-language query and optionally select knowledge_base_ids.",
     kind: "custom",
     inputSchema: {
       type: "object",
@@ -140,7 +143,13 @@ export function createKnowledgeQueryTool(port: KnowledgeModulePort): PilotDeckTo
     isReadOnly: () => true,
     isConcurrencySafe: () => true,
     async execute(input) {
-      const result = await port.call("query", input as Record<string, unknown>);
+      const modelInput = input as Record<string, unknown>;
+      const result = await port.call("query", {
+        ...modelInput,
+        ...(scope.tenantId ? { tenantId: scope.tenantId } : {}),
+        ...(scope.actorUserId ? { actorUserId: scope.actorUserId } : {}),
+        ...(scope.agentId ? { agentId: scope.agentId } : {}),
+      });
       return { content: [{ type: "json", value: result }], data: result };
     },
   };

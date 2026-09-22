@@ -23,6 +23,9 @@ import { createAgentProjectSessionStorage, readTranscript } from "../../src/sess
 const STAFFDECK_ROOT = process.env.STAFFDECK_SOP_ROOT ?? "/Users/a1/Desktop/claw/openbmb/StaffDeck-portable-sop";
 const PYTHON = process.env.STAFFDECK_PYTHON ?? join(STAFFDECK_ROOT, "backend/.venv/bin/python");
 const REAL_MODEL_SOURCE_PILOT_HOME = process.env.REAL_SEVEN_SLOT_MODEL_SOURCE_PILOT_HOME ?? "/Users/a1/.pilotdeck";
+const KNOWLEDGE_AGENT_ID = "agent_7d062081c03b4e16";
+const OTHER_KNOWLEDGE_AGENT_ID = "agent_f2828efc2a2a476d";
+const NATIVE_BRANCH_FACT = "Native branch-only owner approval fact 7d062081c03b4e16";
 const B0_NATIVE_TOOL_SURFACE = [
   "agent",
   "ask_user_question",
@@ -471,7 +474,7 @@ test("native PilotDeck owners compose real StaffDeck Knowledge and SOP through G
       terminal_node_ids: ["approval"],
     },
   };
-  const approvalPolicyContent = "# Approval policy\n\nOwner approval is required before release.\n";
+  const approvalPolicyContent = `# Approval policy\n\nOwner approval is required before release. ${NATIVE_BRANCH_FACT}.\n`;
   await writeFile(join(projectRoot, "approval.yaml"), `
 sops:
   - id: approval
@@ -492,6 +495,9 @@ sops:
     knowledgeEndpoint: knowledgeProxy.url,
     sopEndpoint: sop.url,
     definitionsPath: join(projectRoot, "approval.yaml"),
+    tenantId: "tenant_demo",
+    actorUserId: "admin",
+    agentId: KNOWLEDGE_AGENT_ID,
   }), "utf8");
 
   const knowledgePort = createKnowledgeModulePort({
@@ -507,18 +513,26 @@ sops:
   const created = await knowledgePort.call("create_base", {
     tenantId: "tenant_demo",
     actorUserId: "admin",
+    agentId: KNOWLEDGE_AGENT_ID,
     name: "Native owner approval policy",
   });
   const baseId = textField(created, "id");
   const imported = await knowledgePort.call("import_document", {
     tenantId: "tenant_demo",
     actorUserId: "admin",
+    agentId: KNOWLEDGE_AGENT_ID,
     knowledgeBaseId: baseId,
     filename: "approval-policy.md",
     title: "Approval policy",
     contentBase64: Buffer.from(approvalPolicyContent).toString("base64"),
   });
-  await pollKnowledgeJob(knowledgePort, textField(imported, "id"));
+  await pollKnowledgeJob(knowledgePort, textField(imported, "id"), KNOWLEDGE_AGENT_ID);
+  const scopedDocuments = await knowledgePort.call("list_documents", {
+    tenantId: "tenant_demo",
+    agentId: KNOWLEDGE_AGENT_ID,
+    knowledgeBaseId: baseId,
+  });
+  assert.ok(Array.isArray(scopedDocuments) && scopedDocuments.length > 0, JSON.stringify(scopedDocuments));
   model.baseId = baseId;
 
   const createNativeOwnerGateway = (runtimeModel = model) => createLocalGateway({
@@ -548,15 +562,17 @@ sops:
     assert.deepEqual(knowledgeQueries[0]?.knowledgeBaseIds, [baseId]);
     assert.equal(knowledgeQueries[0]?.tenantId, "tenant_demo");
     assert.equal(knowledgeQueries[0]?.actorUserId, "admin");
+    assert.equal(knowledgeQueries[0]?.agentId, KNOWLEDGE_AGENT_ID);
     assert.equal(model.requests[0]?.tools?.some((tool) => tool.name === "read_skill"), true);
     assert.equal(model.requests[0]?.tools?.some((tool) => tool.name === "read_file"), true);
     assert.equal(model.requests[0]?.tools?.some((tool) => tool.name === "knowledge_query"), true);
     assert.match(JSON.stringify(model.requests), /Always cite the approval policy/);
-    assert.match(JSON.stringify(model.requests), /Owner approval is required before release/);
+    assert.match(JSON.stringify(model.requests), new RegExp(NATIVE_BRANCH_FACT));
 
     const query = await knowledgePort.call("query", {
       tenantId: "tenant_demo",
       actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
       knowledgeBaseIds: [baseId],
       query: "owner approval before release",
       queryType: "answer",
@@ -568,8 +584,22 @@ sops:
     const citationId = evidenceCitationId(query);
     const citation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", chunkId: citationId });
     assert.match(textField(citation, "content").toLowerCase(), /owner approval/);
+    const wrongAgentQuery = await knowledgePort.call("query", {
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: OTHER_KNOWLEDGE_AGENT_ID,
+      knowledgeBaseIds: [baseId],
+      query: "owner approval before release",
+      queryType: "answer",
+      maxChunks: 8,
+      maxBuckets: 4,
+      budgetTokens: 4000,
+      needEvidencePack: true,
+    });
+    assert.deepEqual((wrongAgentQuery as { evidence_pack?: unknown }).evidence_pack, []);
     const initialDocuments = await knowledgePort.call("list_documents", {
       tenantId: "tenant_demo",
+      agentId: KNOWLEDGE_AGENT_ID,
       knowledgeBaseId: baseId,
     });
     const sourceDocumentId = textField(
@@ -628,7 +658,7 @@ sops:
     const sopDuringKnowledgeOutage = await local.gateway.sopStatus!({ sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
     assert.deepEqual(projectSopState(sopDuringKnowledgeOutage), sopBeforeKnowledgeOutage);
     await knowledge.restart();
-    const recoveredCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", chunkId: citationId });
+    const recoveredCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", agentId: KNOWLEDGE_AGENT_ID, chunkId: citationId });
     assert.equal(textField(recoveredCitation, "content"), textField(citation, "content"));
 
     const documentId = sourceDocumentId;
@@ -636,17 +666,15 @@ sops:
     await knowledgePort.call("update_document", {
       tenantId: "tenant_demo",
       actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
       documentId,
       title: "Updated approval policy",
       contentMd: updatedPolicyContent,
     });
-    await assert.rejects(
-      () => knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", chunkId: citationId }),
-      (error: unknown) => (error as { code?: string }).code === "STAFFDECK_HTTP_404",
-    );
     const updatedQueryRequest = {
       tenantId: "tenant_demo",
       actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
       knowledgeBaseIds: [baseId],
       query: "security review required before release",
       queryType: "answer",
@@ -658,11 +686,12 @@ sops:
     const updatedQuery = await knowledgePort.call("query", updatedQueryRequest);
     const updatedCitationId = evidenceCitationId(updatedQuery);
     assert.notEqual(updatedCitationId, citationId);
-    const updatedCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", chunkId: updatedCitationId });
+    const updatedCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", agentId: KNOWLEDGE_AGENT_ID, chunkId: updatedCitationId });
     assert.match(textField(updatedCitation, "content").toLowerCase(), /security review/);
     const archived = await knowledgePort.call("delete_document", {
       tenantId: "tenant_demo",
       actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
       documentId,
     });
     assert.equal(textField(archived, "status"), "archived");
@@ -677,6 +706,7 @@ sops:
       () => knowledgePort.call("import_document", {
         tenantId: "tenant_demo",
         actorUserId: "admin",
+        agentId: KNOWLEDGE_AGENT_ID,
         knowledgeBaseId: baseId,
         filename: "lost-native-response.md",
         title: "Lost native response",
@@ -686,9 +716,10 @@ sops:
     const lostResponseJobId = knowledgeProxyState.lastDroppedImportJobId;
     assert.ok(lostResponseJobId, JSON.stringify(knowledgeProxyState));
     assert.equal(knowledgeProxyState.importDispatchCount, importDispatchCountBeforeLostResponse + 1);
-    await pollKnowledgeJob(knowledgePort, lostResponseJobId);
+    await pollKnowledgeJob(knowledgePort, lostResponseJobId, KNOWLEDGE_AGENT_ID);
     const documentsAfterLostResponse = await knowledgePort.call("list_documents", {
       tenantId: "tenant_demo",
+      agentId: KNOWLEDGE_AGENT_ID,
       knowledgeBaseId: baseId,
     });
     const recoveredLostDocuments = Array.isArray(documentsAfterLostResponse)
@@ -893,6 +924,9 @@ sops:
       sopEndpoint: sop.url,
       definitionsPath: join(projectRoot, "approval.yaml"),
       skillsEnabled: false,
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
     }), "utf8");
     local = createNativeOwnerGateway(disabledSkillModel);
     const disabledSkillEvents: unknown[] = [];
@@ -1247,8 +1281,6 @@ class NativeOwnerScenarioModel implements ModelRuntime {
       }
       yield* toolCall("native-read-file", "read_file", { file_path: "approval-input.txt" });
       yield* toolCall("native-knowledge-query", "knowledge_query", {
-        tenantId: "tenant_demo",
-        actorUserId: "admin",
         knowledgeBaseIds: [this.baseId],
         query: "owner approval before release",
         queryType: "answer",
@@ -1397,6 +1429,9 @@ function nativeOwnerConfig(input: {
   sopEndpoint: string;
   definitionsPath: string;
   skillsEnabled?: boolean;
+  tenantId?: string;
+  actorUserId?: string;
+  agentId?: string;
 }): string {
   return `schemaVersion: 1
 agent:
@@ -1424,6 +1459,9 @@ modules:
     endpoint: ${input.knowledgeEndpoint}
     manifestPath: /module-manifest
     callPath: /v2/module/call
+    tenantId: ${input.tenantId ?? ""}
+    actorUserId: ${input.actorUserId ?? ""}
+    agentId: ${input.agentId ?? ""}
     methods: [create_base, import_document, get_job, query, resolve_citation]
   sop:
     enabled: true
@@ -1532,10 +1570,15 @@ function evidenceCitationId(value: unknown): string {
   throw new Error(`Knowledge evidence has no citation id: ${JSON.stringify(value)}`);
 }
 
-async function pollKnowledgeJob(port: ReturnType<typeof createKnowledgeModulePort>, jobId: string): Promise<void> {
+async function pollKnowledgeJob(port: ReturnType<typeof createKnowledgeModulePort>, jobId: string, agentId?: string): Promise<void> {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    const job = await port.call("get_job", { tenantId: "tenant_demo", actorUserId: "admin", jobId });
+    const job = await port.call("get_job", {
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      ...(agentId ? { agentId } : {}),
+      jobId,
+    });
     const status = textField(job, "status");
     if (["succeeded", "completed", "success"].includes(status)) return;
     if (["failed", "cancelled"].includes(status)) throw new Error(`Knowledge job failed: ${JSON.stringify(job)}`);

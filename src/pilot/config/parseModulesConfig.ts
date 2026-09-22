@@ -93,7 +93,7 @@ function parseCoreModule(
     "enabled", "provider", "implementationId", "contract", "transport", "endpoint",
     "manifestPath", "callPath", "timeoutMs", "methods", "catalog", "frontendModule",
     "command", "args", "env", "host", "port", "connectTimeoutMs", "deployment",
-    "defaultBaseId", "resultLimit", "tenantId", "actorUserId",
+    "defaultBaseId", "resultLimit", "tenantId", "actorUserId", "agentId",
   ], path, diagnostics);
   if (value.enabled === false && (name === "skills" || name === "knowledge")) {
     return { enabled: false };
@@ -155,6 +155,7 @@ function parseExternalModule(
   const frontendModule = nonEmptyText(value.frontendModule);
   const tenantId = nonEmptyText(value.tenantId);
   const actorUserId = nonEmptyText(value.actorUserId);
+  const agentId = nonEmptyText(value.agentId);
   if (slot === "tools" && (!tools || tools.length === 0)) {
     fatal(diagnostics, "MODULE_TOOL_CATALOG_REQUIRED", `${path}.catalog must declare at least one tool for the synchronous ToolPort list operation.`, `${path}.catalog`);
   }
@@ -173,6 +174,7 @@ function parseExternalModule(
     ...(frontendModule ? { frontendModule } : {}),
     ...(tenantId ? { tenantId } : {}),
     ...(actorUserId ? { actorUserId } : {}),
+    ...(agentId ? { agentId } : {}),
     ...(deployment ? { deployment } : {}),
   };
 }

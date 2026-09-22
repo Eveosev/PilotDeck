@@ -546,6 +546,44 @@ test("unknown skill and knowledge implementations perform domain operations", as
   ]);
 });
 
+test("knowledge_query injects the configured identity and agent scope", async (t) => {
+  let queryInput: Record<string, unknown> | undefined;
+  const server = createServer(async (request, response) => {
+    if (request.method === "GET") {
+      return json(response, manifest("scoped.knowledge", "staffdeck.knowledge/v1", ["query"]));
+    }
+    const body = await readJson(request) as Record<string, unknown>;
+    queryInput = ((body.payload as Record<string, unknown>).input ?? {}) as Record<string, unknown>;
+    return json(response, envelope(body, { results: [{ excerpt: "Owner approval is required.", source: "doc-1" }], citations: [{ label: "[1]", source: "doc-1" }] }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("test server has no TCP address");
+  const bindingWithScope = binding("scoped.knowledge", "staffdeck.knowledge/v1", `http://127.0.0.1:${address.port}`, ["query"]);
+  const tool = createKnowledgeQueryTool(createKnowledgeModulePort(bindingWithScope), {
+    tenantId: "tenant_demo",
+    actorUserId: "admin",
+    agentId: "agent_branch",
+  });
+
+  await tool.execute({
+    query: "approval",
+    tenantId: "spoofed-tenant",
+    actorUserId: "spoofed-user",
+    agentId: "spoofed-agent",
+    knowledge_base_ids: ["kb-1"],
+  }, {} as never);
+
+  assert.deepEqual(queryInput, {
+    query: "approval",
+    tenantId: "tenant_demo",
+    actorUserId: "admin",
+    agentId: "agent_branch",
+    knowledge_base_ids: ["kb-1"],
+  });
+});
+
 test("external Skill write disconnect after dispatch remains an unknown transport outcome", async (t) => {
   let writeCalls = 0;
   const server = createServer(async (request, response) => {

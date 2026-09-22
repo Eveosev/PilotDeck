@@ -52,6 +52,8 @@ export type ExternalModuleBinding = Readonly<{
   tenantId?: string;
   /** Module-owned actor identity used by integrations that require it. */
   actorUserId?: string;
+  /** Module-owned agent scope used by integrations that require branch visibility. */
+  agentId?: string;
   tools?: readonly ExternalToolDescriptor[];
   deployment?: ModuleDeployment;
 }>;
