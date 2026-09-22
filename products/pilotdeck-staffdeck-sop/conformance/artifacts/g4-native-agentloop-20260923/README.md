@@ -8,7 +8,7 @@ This evidence closes the native StaffDeck AgentLoop/Harness comparison for the s
 - fact `Native branch-only owner approval fact 7d062081c03b4e16`
 - ordinary question: "What is the current approval policy for a release decision, specifically what owner-approval fact applies before release?"
 
-`native-mock.json` is deterministic Harness/permission evidence only. Its model intentionally returns empty document/bucket routing choices, so the Knowledge trace uses `document_route_lexical_fallback` and `bucket_route_lexical_fallback`. It is explicitly classified as `lexical_fallback`, not normal native model selection. It covers native Knowledge exposure, overreach denial, SOP submission, and no-grant tool hiding.
+`native-mock.json` is deterministic Harness/permission evidence only. Its model intentionally returns empty document/bucket routing choices, so the Knowledge trace uses `document_route_lexical_fallback` and `bucket_route_lexical_fallback`. It is explicitly classified as `lexical_fallback`, not normal native model selection. It covers native Knowledge exposure, overreach denial, SOP submission, and both no-grant outcomes: the slash SOP is rejected before model invocation, while a normal non-slash question reaches the model with no Knowledge tool schema or call.
 
 `native-real.json` is the real native model turn using `provider1/qwen3.6-flash-distill`. The runtime recorder shows the actual model input, native Knowledge tool call, Knowledge evidence result, SOP submission, and final cited answer. Its route phases contain no fallback or failed selection phase and are classified as `normal_model_route`.
 
@@ -36,3 +36,5 @@ env -u NODE_OPTIONS \
 ```
 
 For the real comparison, set `STAFFDECK_NATIVE_MODE=real`, `STAFFDECK_MODEL_BASE_URL`, `STAFFDECK_MODEL_API_KEY`, and `STAFFDECK_MODEL_NAME=qwen3.6-flash-distill`, and change the output path to `native-real.json`. The runner uses ports in `16100-16129`, removes only resources it created, and records cleanup status in each artifact.
+
+The companion Gateway composition test accepts `PILOTDECK_E2E_PORT_RANGE=16400-16429` (or the validated `PILOTDECK_E2E_PORT_START` and `PILOTDECK_E2E_PORT_END` pair); its default remains `16100-16129`. With `PILOTDECK_E2E_ARTIFACT_DIR` set, it writes `port-cleanup.json` containing the allocated ports, closed ports, active-port set, and `cleanupComplete` assertion.

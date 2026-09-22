@@ -82,6 +82,9 @@ class MockLLM(BaseHTTPRequestHandler):
         if has_tool_result and previous_tool_name == "mcp__staffdeck__submit_step_result":
             self._reply(body, content="Native StaffDeck turn completed.")
             return
+        if self.mode == "noGrant" and "tools" in body:
+            self._reply(body, content="No Knowledge capability is available in this scope.")
+            return
         if has_tool_result:
             if self.mode == "overreach":
                 args = {"status": "failed", "reply_fragment": "The requested base is not authorized.", "task_summary": "Native authorization denied."}
@@ -395,10 +398,23 @@ def main() -> None:
                 db.add(binding)
                 db.commit()
                 reset_runtime()
-                output["noGrant"] = safe_turn(db, mode="allowed", client_id="native-g4-no-grant", message=message, recorder=server_class)
+                output["noGrant"] = safe_turn(db, mode="allowed", client_id="native-g4-no-grant-slash", message=message, recorder=server_class)
+                reset_runtime()
+                no_grant_message = os.environ.get(
+                    "NATIVE_NO_GRANT_MESSAGE",
+                    "What is the owner approval requirement before release?",
+                )
+                output["noGrantNormal"] = safe_turn(
+                    db,
+                    mode="noGrant",
+                    client_id="native-g4-no-grant-normal",
+                    message=no_grant_message,
+                    recorder=server_class,
+                )
                 allowed = output["allowed"]
                 overreach = output["overreach"]
                 no_grant = output["noGrant"]
+                no_grant_normal = output["noGrantNormal"]
                 allowed_text = json.dumps(allowed, ensure_ascii=False)
                 overreach_text = json.dumps(overreach, ensure_ascii=False)
                 output["checks"] = {
@@ -421,10 +437,22 @@ def main() -> None:
                     "noGrantHidesNativeKnowledgeTool": {
                         "passed": "mcp__staffdeck__knowledge_search" not in (no_grant.get("modelToolSchemas") or [])
                     },
+                    "noGrantNormalTurnReachesModelWithoutKnowledge": {
+                        "passed": (
+                            no_grant_normal.get("runtimeError") is None
+                            and no_grant_normal.get("modelRequests", 0) > 0
+                            and "mcp__staffdeck__knowledge_search" not in (no_grant_normal.get("modelToolSchemas") or [])
+                            and "mcp__staffdeck__knowledge_search" not in [
+                                item.get("toolName") for item in no_grant_normal.get("modelResponses", [])
+                            ]
+                        )
+                    },
                 }
                 output["routingComparison"] = {
                     "mockPath": "lexical_fallback",
                     "reason": "The deterministic mock intentionally returns empty routing choices; this is Harness/permission evidence, not normal model-selection evidence.",
+                    "noGrantSlash": "pre_model_contract_rejection",
+                    "noGrantNormal": "model_reached_without_knowledge_tool",
                 }
                 output["status"] = "PASS" if all(item["passed"] for item in output["checks"].values()) else "FAIL"
             else:

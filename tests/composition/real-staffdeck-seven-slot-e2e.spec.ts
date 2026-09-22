@@ -54,6 +54,49 @@ const B0_NATIVE_TOOL_SURFACE = [
   "write_file",
 ] as const;
 
+type TestPortRange = { start: number; end: number };
+
+function readTestPortRange(): TestPortRange {
+  const rangeText = process.env.PILOTDECK_E2E_PORT_RANGE?.trim();
+  const startText = process.env.PILOTDECK_E2E_PORT_START?.trim();
+  const endText = process.env.PILOTDECK_E2E_PORT_END?.trim();
+  if (rangeText && (startText || endText)) {
+    throw new Error("Set either PILOTDECK_E2E_PORT_RANGE or PILOTDECK_E2E_PORT_START/END, not both.");
+  }
+  if (!rangeText && Boolean(startText) !== Boolean(endText)) {
+    throw new Error("PILOTDECK_E2E_PORT_START and PILOTDECK_E2E_PORT_END must be set together.");
+  }
+  let start = Number(startText ?? 16100);
+  let end = Number(endText ?? 16129);
+  if (rangeText) {
+    const match = /^(\d+)\s*-\s*(\d+)$/.exec(rangeText);
+    if (!match) throw new Error(`Invalid PILOTDECK_E2E_PORT_RANGE: ${rangeText}`);
+    start = Number(match[1]);
+    end = Number(match[2]);
+  }
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1024 || end > 65535 || start > end) {
+    throw new Error(`Invalid test port range: ${start}-${end}`);
+  }
+  if (end - start > 255) throw new Error(`Test port range is too wide: ${start}-${end}`);
+  return { start, end };
+}
+
+const TEST_PORT_RANGE = readTestPortRange();
+const testPortAudit = {
+  allocated: new Set<number>(),
+  active: new Set<number>(),
+  closed: new Set<number>(),
+};
+
+function portAuditSnapshot(): Record<string, unknown> {
+  return {
+    configuredRange: TEST_PORT_RANGE,
+    allocatedPorts: [...testPortAudit.allocated].sort((a, b) => a - b),
+    activePorts: [...testPortAudit.active].sort((a, b) => a - b),
+    closedPorts: [...testPortAudit.closed].sort((a, b) => a - b),
+  };
+}
+
 /**
  * This is the real-owner composition case.  Only the deterministic model and
  * the other PilotDeck module fixtures are local HTTP fixtures; Knowledge and
@@ -127,16 +170,21 @@ test("seven-slot YAML composition uses real StaffDeck Knowledge and SOP processe
   let sidecar = await startSidecar();
   const restartSidecar = async () => {
     const address = sidecar.address;
-    await sidecar.server.close();
+    await closeServer(sidecar.server);
     sidecar = await startSidecar(address.host, address.port);
   };
 
   t.after(async () => {
-    await sidecar.server.close();
+    await closeServer(sidecar.server);
     await closeServer(moduleServer);
     await knowledgeProxy.close();
     await knowledge.close();
     await sop.close();
+    await writeE2EArtifact("port-cleanup.json", {
+      schemaVersion: 1,
+      portAudit: portAuditSnapshot(),
+      cleanupComplete: testPortAudit.active.size === 0,
+    }, root);
     await rm(root, { recursive: true, force: true });
   });
 
@@ -449,6 +497,11 @@ test("native PilotDeck owners compose real StaffDeck Knowledge and SOP through G
     await knowledgeProxy.close();
     await knowledge.close();
     await sop.close();
+    await writeE2EArtifact("port-cleanup.json", {
+      schemaVersion: 1,
+      portAudit: portAuditSnapshot(),
+      cleanupComplete: testPortAudit.active.size === 0,
+    }, root);
     await rm(root, { recursive: true, force: true });
   });
 
@@ -607,6 +660,7 @@ sops:
         firstEvents: firstRealEvents,
         secondEvents: secondRealEvents,
         scope: { tenantId: "tenant_demo", actorUserId: "admin", agentId: KNOWLEDGE_AGENT_ID },
+        portAuditAtArtifactWrite: portAuditSnapshot(),
       }, root);
     } finally {
       await realGateway.dispose();
@@ -1254,6 +1308,7 @@ sops:
           readSkillDispatched: false,
         },
       },
+      portAuditAtArtifactWrite: portAuditSnapshot(),
     }, root);
   } finally {
     await local.dispose();
@@ -1306,14 +1361,24 @@ async function startPythonService(options: ServiceOptions): Promise<{ url: strin
   spawnChild();
   const url = `http://127.0.0.1:${port}`;
   await waitForHealth(url + options.healthPath, child, stderr);
+  testPortAudit.allocated.add(port);
+  testPortAudit.active.add(port);
   return {
     url,
     async restart() {
       await stopChild();
+      testPortAudit.active.delete(port);
+      testPortAudit.closed.add(port);
       spawnChild();
       await waitForHealth(url + options.healthPath, child, stderr);
+      testPortAudit.allocated.add(port);
+      testPortAudit.active.add(port);
     },
-    close: stopChild,
+    async close() {
+      await stopChild();
+      testPortAudit.active.delete(port);
+      testPortAudit.closed.add(port);
+    },
   };
 }
 
@@ -1833,7 +1898,11 @@ async function listen(server: Server, port?: number): Promise<void> {
   const selectedPort = port ?? await freePort();
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(selectedPort, "127.0.0.1", resolve);
+    server.listen(selectedPort, "127.0.0.1", () => {
+      testPortAudit.allocated.add(selectedPort);
+      testPortAudit.active.add(selectedPort);
+      resolve();
+    });
   });
 }
 
@@ -1844,11 +1913,23 @@ function serverUrl(server: Server): string {
 }
 
 function closeServer(server: Server): Promise<void> {
-  return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  const address = server.address();
+  const port = address && typeof address !== "string" ? address.port : undefined;
+  return new Promise((resolve, reject) => server.close((error) => {
+    if (error) {
+      reject(error);
+      return;
+    }
+    if (port !== undefined) {
+      testPortAudit.active.delete(port);
+      testPortAudit.closed.add(port);
+    }
+    resolve();
+  }));
 }
 
 async function freePort(): Promise<number> {
-  for (let port = 16100; port <= 16129; port += 1) {
+  for (let port = TEST_PORT_RANGE.start; port <= TEST_PORT_RANGE.end; port += 1) {
     const server = createServer();
     try {
       await listen(server, port);
@@ -1859,7 +1940,7 @@ async function freePort(): Promise<number> {
       if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE") throw error;
     }
   }
-  throw new Error("No free PilotDeck test port in 16100-16129.");
+  throw new Error(`No free PilotDeck test port in ${TEST_PORT_RANGE.start}-${TEST_PORT_RANGE.end}.`);
 }
 
 function delay(milliseconds: number): Promise<void> {
