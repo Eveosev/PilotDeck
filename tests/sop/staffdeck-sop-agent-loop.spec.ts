@@ -9,6 +9,7 @@ import test from "node:test";
 import { createAgentSession } from "../../src/agent/session/createAgentSession.js";
 import type { AgentEvent } from "../../src/agent/protocol/events.js";
 import { createDefaultPermissionContext } from "../../src/permission/index.js";
+import { DefaultContextRuntime } from "../../src/context/DefaultContextRuntime.js";
 import { InMemoryTranscriptWriter } from "../../src/session/transcript/InMemoryTranscriptWriter.js";
 import { JsonlTranscriptWriter } from "../../src/session/transcript/JsonlTranscriptWriter.js";
 import { readTranscript } from "../../src/session/transcript/TranscriptReader.js";
@@ -148,6 +149,31 @@ test("SOP loop admits a completed step only after a PilotDeck tool result", asyn
     ));
     assert.equal(persisted.state.status, "completed");
     assert.deepEqual(persisted.state.successful_tool_names, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("SOP loop tells the model declared approval handoffs are resumable", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-handoff-prompt-"));
+  try {
+    const model = scriptedModel();
+    const session = createSopSession({
+      root,
+      sessionId: "handoff-prompt",
+      model,
+      client: acceptingClient(undefined, true),
+      context: new DefaultContextRuntime(),
+    });
+
+    for await (const _event of session.submit({ type: "text", text: "Request approval" })) {
+      // Consume the turn so the model request is assembled.
+    }
+
+    assert.match(
+      JSON.stringify(model.requests),
+      /This step declares a human handoff\. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user\./,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -790,10 +816,13 @@ test("SOP state keeps the session definition snapshot after a deployment definit
     const store = new SopStateStore(root);
     await store.loadOrCreate("snapshot-session", BUNDLE, "onboarding");
     const changedBundle: StaffDeckSopBundle = {
-      sops: [{ id: "onboarding", name: "Changed deployment definition", content: { nodes: [{ node_id: "new-step" }] } }],
+      sops: [{ id: "onboarding", version: "2", name: "Changed deployment definition", content: { nodes: [{ node_id: "new-step" }] } }],
     };
     const restored = await store.loadOrCreate("snapshot-session", changedBundle, "onboarding");
     assert.equal(restored.bundle.sops[0]?.name, "Onboarding");
+    const fresh = await store.loadOrCreate("fresh-session", changedBundle, "onboarding");
+    assert.equal(fresh.bundle.sops[0]?.name, "Changed deployment definition");
+    assert.equal(fresh.bundle.sops[0]?.version, "2");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -943,6 +972,7 @@ function createSopSession(input: {
   model: ModelInvokerPort;
   client: StaffDeckSopRuntimeClient;
   tools?: ToolPort;
+  context?: import("../../src/context/ContextRuntime.js").AgentContextRuntime;
   transcript?: AgentTranscriptWriter;
 }) {
   const profile: StaffDeckSopRuntimeConfig = {
@@ -966,6 +996,7 @@ function createSopSession(input: {
     dependencies: {
       router: {} as never,
       ports: { model: input.model, tools: input.tools ?? toolPort(lookup) },
+      ...(input.context ? { context: input.context } : {}),
       tools: { registry: { list: () => [lookup] } as never, scheduler: { executeAll: async () => [] } as never },
     },
     transcript: input.transcript,
@@ -978,7 +1009,7 @@ function createSopSession(input: {
   });
 }
 
-function acceptingClient(onSubmit?: (successfulToolNames: readonly string[]) => void): StaffDeckSopRuntimeClient {
+function acceptingClient(onSubmit?: (successfulToolNames: readonly string[]) => void, declaresHandoff = false): StaffDeckSopRuntimeClient {
   return {
     async prepare({ state }) {
       return {
@@ -996,7 +1027,7 @@ function acceptingClient(onSubmit?: (successfulToolNames: readonly string[]) => 
           requiredToolNames: ["lookup_account"],
           allowedActions: ["call_tool:lookup_account"],
           isTerminal: true,
-          declaresHandoff: false,
+          declaresHandoff,
         },
       };
     },

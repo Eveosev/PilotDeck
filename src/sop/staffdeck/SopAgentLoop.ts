@@ -506,6 +506,7 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
     step.expectedUserInfo.length > 0 ? `Required user information: ${step.expectedUserInfo.join(", ")}.` : undefined,
     step.requiredToolNames.length > 0 ? `Required successful tools: ${step.requiredToolNames.join(", ")}.` : undefined,
     step.allowedNextStepIds.length > 1 ? `Allowed next steps: ${step.allowedNextStepIds.join(", ")}.` : undefined,
+    step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user." : undefined,
     "When this step has a result, call submit_step_result exactly once. Do not claim a tool succeeded before its result is in the conversation.",
     "Use status awaiting_user for missing user information and handoff only when this step explicitly permits it.",
     "</staffdeck-sop>",

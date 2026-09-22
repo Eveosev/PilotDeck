@@ -60,6 +60,14 @@ configuration contract. It is recorded at
 ID across Gateway recreation, accepted one resume and replayed the duplicate,
 then reached `completed`.
 
+The primary normal-permission record is
+`evidence/g5-agentloop-natural-1.2.1.json`. It uses `mode: default`, ordinary
+project-delivery messages, and only the required `read_file` capability plus
+the host-owned SOP result tool. The user messages do not name the control tool
+or prescribe a result state. The model naturally selected the configured
+published SOP, reached `confirm_scope`, created the owner handoff, and
+completed `finalize_plan` after one human approval and an idempotent duplicate.
+
 ## Verification Notes
 
 - PilotDeck host route/onboarding checks: 113 passed.

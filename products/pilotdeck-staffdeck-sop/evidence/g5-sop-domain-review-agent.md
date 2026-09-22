@@ -113,6 +113,30 @@ disabled-composition and runtime-unavailable tests remain part of the focused
 Gateway/config coverage; no disabled or unavailable path is reported as a
 successful SOP run.
 
+### Natural Permissioned Runtime Recheck
+
+The initial real-provider script established callable wiring but used an
+explicit `bypassPermissions` fixture. It is retained only as a protocol
+sub-check. The primary runtime evidence is now
+`evidence/g5-agentloop-natural-1.2.1.json`, produced by
+`evidence/g5-agentloop-natural-run.mjs` with `mode: default` and ordinary
+project-delivery messages that never name `submit_step_result` or prescribe a
+result status.
+
+The real model selected the configured
+`project_delivery_plan@1.2.1`, executed `read_file`, and advanced through the
+published graph to `confirm_scope`. The owner created a human `handoff` wait;
+after Gateway recreation the same wait ID remained visible. A human approval
+was accepted once, its duplicate replay was idempotent, and normal subsequent
+turns completed `finalize_plan`. The graph and lifecycle owner were unchanged.
+
+StaffDeck's native Router selects a published, agent-visible SOP from
+`trigger_intents`; PilotDeck's current protocol profile instead has an explicit
+deployment default (`defaultSopId`). This evidence validates that formal
+default binding, not automatic multi-SOP discovery. The stored SOP snapshot
+test additionally proves an existing session retains its initial definition
+while a new session receives the newly configured version.
+
 ## Follow-up Runtime Evidence
 
 After installing the lockfile with Node 22.22.0, the isolated StaffDeck
