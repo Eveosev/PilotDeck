@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Browser-level six-state composition matrix.
+ * Browser-level seven-state composition matrix.
  *
  * Each state gets its own generated frontend entrypoint. The default mock mode
  * supplies deterministic shell responses, while --mode=real starts the actual
@@ -54,23 +54,60 @@ const minimalSlots = {
   knowledge: { enabled: false },
 };
 
+const replacementKnowledgeSlots = {
+  ...core,
+  skills: { enabled: false },
+  knowledge: {
+    enabled: true,
+    implementationId: 'replacement.knowledge',
+    frontendModule: 'fixture.knowledge-search',
+    contract: 'staffdeck.knowledge/v1',
+    transport: 'module-http-v2',
+    methods: ['query', 'resolve_citation'],
+  },
+};
+
 const states = [
-  ['native-routing-installed-off', core, false],
-  ['native-routing-enabled', core, true],
-  ['staffdeck-routing-installed-off', staffdeckSlots, false],
-  ['staffdeck-routing-enabled', staffdeckSlots, true],
-  ['minimal-routing-installed-off', minimalSlots, false],
-  ['minimal-routing-enabled', minimalSlots, true],
-].map(([id, modules, routingEnabled]) => ({
-  id,
-  modules,
+  {
+    id: 'native-routing-installed-off', modules: core, routingInstalled: true, routingEnabled: false,
+    permissionsInstalled: true, expectedKnowledge: false, expectedSop: false,
+  },
+  {
+    id: 'native-routing-enabled', modules: core, routingInstalled: true, routingEnabled: true,
+    permissionsInstalled: true, expectedKnowledge: false, expectedSop: false,
+  },
+  {
+    id: 'staffdeck-routing-installed-off', modules: staffdeckSlots, routingInstalled: true, routingEnabled: false,
+    permissionsInstalled: true, expectedKnowledge: true, expectedSop: true,
+  },
+  {
+    id: 'staffdeck-routing-enabled', modules: staffdeckSlots, routingInstalled: true, routingEnabled: true,
+    permissionsInstalled: true, expectedKnowledge: true, expectedSop: true,
+  },
+  {
+    id: 'minimal-routing-installed-off', modules: minimalSlots, routingInstalled: false, routingEnabled: false,
+    permissionsInstalled: false, expectedKnowledge: false, expectedSop: false,
+  },
+  {
+    id: 'minimal-routing-enabled', modules: minimalSlots, routingInstalled: false, routingEnabled: false,
+    permissionsInstalled: false, expectedKnowledge: false, expectedSop: false,
+  },
+  {
+    id: 'replacement-knowledge-enabled', modules: replacementKnowledgeSlots, routingInstalled: false, routingEnabled: false,
+    permissionsInstalled: true, expectedKnowledge: false, expectedSop: false, replacement: true,
+  },
+].map((state) => ({
+  ...state,
   frontend: { businessModules: {
-    'agent.routing': { enabled: routingEnabled },
-    'tools.permissions': { enabled: id !== 'minimal-routing-installed-off' },
+    ...(state.routingInstalled ? { 'agent.routing': { enabled: true } } : {}),
+    'tools.permissions': { enabled: state.permissionsInstalled },
   } },
-  expectedRouting: routingEnabled,
-  expectedPermissions: id !== 'minimal-routing-installed-off',
+  expectedRoutingSettings: state.routingInstalled,
+  expectedPermissions: state.permissionsInstalled,
 }));
+const requestedState = process.env.G3_STATE;
+const matrixStates = requestedState ? states.filter((state) => state.id === requestedState) : states;
+if (requestedState && matrixStates.length === 0) throw new Error(`Unknown G3_STATE: ${requestedState}`);
 
 const slotContracts = {
   agentLoop: 'pilotdeck.agent-loop/v1',
@@ -107,6 +144,7 @@ function runtimeFor(modules) {
       enabled: binding.enabled !== false,
       provider: binding.provider,
       implementationId: binding.implementationId,
+      frontendModule: binding.frontendModule,
       contract: binding.contract ?? slotContracts[slot],
       transport: binding.transport ?? slotTransports[slot],
       methods: binding.methods ?? slotMethods[slot],
@@ -168,7 +206,18 @@ async function startStaffDeckServices(state, stateRoot, realModules) {
     ...process.env,
     PYTHONPATH: `${resolve(staffRoot, 'backend')}:${resolve(staffRoot, 'backend/src')}:${resolve(staffRoot, 'portable_sop/src')}`,
   };
-  if (realModules.knowledge?.enabled) {
+  if (realModules.knowledge?.enabled && realModules.knowledge.frontendModule === 'fixture.knowledge-search') {
+    const port = 19993;
+    const evidencePath = resolve(stateRoot, 'replacement-evidence.jsonl');
+    const replacement = start(process.execPath, [resolve(root, 'products/pilotdeck-staffdeck-sop/fixtures/replacement-knowledge-runtime.mjs')], {
+      ...process.env,
+      REPLACEMENT_KNOWLEDGE_PORT: String(port),
+      REPLACEMENT_KNOWLEDGE_EVIDENCE_PATH: evidencePath,
+    });
+    services.push(replacement);
+    await waitForHttp(`http://127.0.0.1:${port}/healthz`);
+    realModules.knowledge.endpoint = `http://127.0.0.1:${port}`;
+  } else if (realModules.knowledge?.enabled) {
     const port = 19990;
     const database = resolve(stateRoot, 'knowledge.db');
     const knowledge = start(python, ['-m', 'uvicorn', 'app.module_knowledge_app:app', '--host', '127.0.0.1', '--port', String(port), '--log-level', 'warning'], {
@@ -239,6 +288,7 @@ async function runState(state, index, browser) {
     model: { providers: { smoke: { protocol: 'openai', url: 'http://127.0.0.1:19992/v1', apiKey: 'local-only', models: { operator: { capabilities: { supportsToolUse: true } } } } } },
     webui: { runtime: { serverPort, vitePort: port, databasePath: resolve(realRoot, 'auth.db'), workspacesRoot: resolve(realRoot, 'workspaces') } },
     modules: realModules,
+    router: { enabled: state.routingEnabled },
     frontend: state.frontend,
   }), 'utf8');
   const service = mode === 'real'
@@ -307,14 +357,22 @@ async function runState(state, index, browser) {
     assert.equal(runtimeResult.status(), 200, `${state.id}: runtime projection failed`);
     await page.waitForTimeout(600);
     const chatSurface = await page.locator('textarea').count() > 0 || await page.locator('[data-chat-composer-slot]').count() > 0;
+    if (!chatSurface && state.replacement) {
+      throw new Error(`${state.id}: replacement profile did not render chat surface at ${page.url()}\n${(await page.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
+    }
     assert.equal(chatSurface, true, `${state.id}: chat surface not rendered`);
 
     await page.goto(`${baseURL}/settings/module/agent-route`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     const routingSettings = await page.locator('[data-testid="module-settings-agent-route"]').count();
     const routingUnavailable = await page.locator('[data-testid="module-settings-unavailable-agent-route"]').count();
-    assert.equal(routingSettings > 0, state.expectedRouting, `${state.id}: agent route settings mismatch`);
-    assert.equal(routingUnavailable > 0, !state.expectedRouting, `${state.id}: agent route unavailable mismatch`);
+    assert.equal(routingSettings > 0, state.expectedRoutingSettings, `${state.id}: agent route settings mismatch`);
+    assert.equal(routingUnavailable > 0, !state.expectedRoutingSettings, `${state.id}: agent route unavailable mismatch`);
+    if (state.routingInstalled && mode === 'real') {
+      const routingSwitch = page.getByRole('switch', { name: /智能路由|smart routing/i });
+      await routingSwitch.waitFor({ state: 'visible' });
+      assert.equal(await routingSwitch.getAttribute('aria-checked'), String(state.routingEnabled), `${state.id}: routing runtime switch mismatch`);
+    }
 
     await page.goto(`${baseURL}/settings/module/tools-permissions`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
@@ -324,10 +382,16 @@ async function runState(state, index, browser) {
     assert.equal(permissionUnavailable > 0, !state.expectedPermissions, `${state.id}: permission unavailable mismatch`);
 
     for (const [path, placeholder, enabled] of [
+      ...(state.replacement ? [['/knowledge-search', 'Search the replacement knowledge service', true]] : []),
       ['/sop', '搜索 SOP 名称、ID、业务域', Boolean(state.modules.sop?.enabled)],
-      ['/knowledge', '输入知识问题', Boolean(state.modules.knowledge?.enabled)],
+      ['/knowledge', '输入知识问题', Boolean(state.modules.knowledge?.enabled && !state.replacement)],
     ]) {
       await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
+      // A replacement module is selected asynchronously by the runtime
+      // projection; retry the deep link once after the shell has hydrated.
+      if (mode === 'real' && state.replacement && new URL(page.url()).pathname !== path) {
+        await page.goto(`${baseURL}${path}`, { waitUntil: 'domcontentloaded' });
+      }
       if (mode === 'real' && enabled) {
         try {
           await page.getByPlaceholder(placeholder).first().waitFor({ state: 'visible', timeout: 15_000 });
@@ -353,6 +417,13 @@ async function runState(state, index, browser) {
       await page.waitForTimeout(250);
       legacy[path] = new URL(page.url()).pathname;
       assert.ok(['/','/p/general'].includes(legacy[path]), `${state.id}: legacy route ${path} was not redirected`);
+    }
+
+    const forbiddenOptionalPaths = state.modules.sop?.enabled || state.modules.knowledge?.enabled
+      ? []
+      : ['/api/modules/sop/', '/api/modules/knowledge/'];
+    for (const forbiddenPrefix of forbiddenOptionalPaths) {
+      assert.equal(requests.some((item) => item.path.startsWith(forbiddenPrefix)), false, `${state.id}: unloaded module request leaked: ${forbiddenPrefix}`);
     }
 
     const report = {
@@ -390,12 +461,12 @@ const browser = await chromium.launch({
 });
 const reports = [];
 try {
-  for (let index = 0; index < states.length; index += 1) {
-    reports.push(await runState(states[index], index, browser));
-    console.log(`G3 browser state ${index + 1}/${states.length} (${mode}): ${states[index].id} PASS`);
+  for (let index = 0; index < matrixStates.length; index += 1) {
+    reports.push(await runState(matrixStates[index], index, browser));
+    console.log(`G3 browser state ${index + 1}/${matrixStates.length} (${mode}): ${matrixStates[index].id} PASS`);
   }
   await writeFile(resolve(artifactRoot, 'report.json'), `${JSON.stringify({ stateCount: reports.length, states: reports }, null, 2)}\n`);
-  console.log(`G3 browser six-state matrix (${mode}): ${reports.length}/${states.length} PASS`);
+  console.log(`G3 browser matrix (${mode}): ${reports.length}/${matrixStates.length} PASS`);
 } finally {
   await browser.close();
   await writeFile(generatedPath, original, 'utf8');
