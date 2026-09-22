@@ -20,3 +20,40 @@ test("SOP definition loader rejects malformed and duplicate definitions", () => 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("SOP definition loader accepts an exact published management response", () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-published-"));
+  try {
+    const published = join(root, "published.json");
+    writeFileSync(published, JSON.stringify({
+      id: "agentbranchver_project_delivery_plan_1_2_1",
+      skill_id: "project_delivery_plan",
+      version: "1.2.1",
+      name: "Project delivery plan",
+      description: "Published page response",
+      content: {
+        skill_id: "project_delivery_plan",
+        version: "1.2.1",
+        start_node_id: "collect",
+        nodes: [{ node_id: "collect", type: "collect_info" }],
+        edges: [],
+        terminal_node_ids: ["collect"],
+      },
+    }));
+
+    const loaded = loadStaffDeckSopDefinitions(published);
+    assert.equal(loaded.sops.length, 1);
+    assert.equal(loaded.sops[0]?.id, "project_delivery_plan");
+    assert.equal(loaded.sops[0]?.version, "1.2.1");
+    assert.deepEqual(loaded.sops[0]?.content, {
+      skill_id: "project_delivery_plan",
+      version: "1.2.1",
+      start_node_id: "collect",
+      nodes: [{ node_id: "collect", type: "collect_info" }],
+      edges: [],
+      terminal_node_ids: ["collect"],
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

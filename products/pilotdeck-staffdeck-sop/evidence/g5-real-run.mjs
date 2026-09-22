@@ -21,7 +21,6 @@ if (published?.skill_id !== expectedSopId || published?.version !== expectedVers
 const root = await mkdtemp(join(tmpdir(), "g5-real-run-"));
 const projectRoot = join(root, "project");
 await mkdir(projectRoot, { recursive: true });
-const bundlePath = join(projectRoot, "project-delivery.yaml");
 const model = createServer(async (request, response) => {
   const chunks = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -48,8 +47,7 @@ const model = createServer(async (request, response) => {
 
 await new Promise((resolveListen, reject) => { model.once("error", reject); model.listen(0, "127.0.0.1", resolveListen); });
 const modelPort = model.address().port;
-await writeFile(bundlePath, `sops:\n  - id: ${published.skill_id}\n    version: "${published.version}"\n    name: ${published.name}\n    content: ${JSON.stringify(published.content)}\n`, "utf8");
-await writeFile(join(projectRoot, "pilotdeck.yaml"), `schemaVersion: 1\nagent:\n  model: test/test\nmodel:\n  providers:\n    test:\n      protocol: openai\n      url: http://127.0.0.1:${modelPort}\n      apiKey: test-only\n      models:\n        test: {}\nmodules:\n  agentLoop: { enabled: true, provider: pilotdeck }\n  modelProvider: { enabled: true, provider: pilotdeck }\n  tools: { enabled: true, provider: pilotdeck }\n  sop:\n    enabled: true\n    provider: staffdeck\n    endpoint: ${endpoint}\n    definitionsPath: ${bundlePath}\n    defaultSopId: ${published.skill_id}\n`, "utf8");
+await writeFile(join(projectRoot, "pilotdeck.yaml"), `schemaVersion: 1\nagent:\n  model: test/test\nmodel:\n  providers:\n    test:\n      protocol: openai\n      url: http://127.0.0.1:${modelPort}\n      apiKey: test-only\n      models:\n        test: {}\nmodules:\n  agentLoop: { enabled: true, provider: pilotdeck }\n  modelProvider: { enabled: true, provider: pilotdeck }\n  tools: { enabled: true, provider: pilotdeck }\n  sop:\n    enabled: true\n    provider: staffdeck\n    endpoint: ${endpoint}\n    definitionsPath: ${resolve(publishedPath)}\n    defaultSopId: ${published.skill_id}\n`, "utf8");
 
 let local = createLocalGateway({ projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot, permissionMode: "bypassPermissions" });
 const sessionKey = "g5:project:1";

@@ -89,6 +89,30 @@ The returned object is preserved at
 replayed the duplicate, and completed at `finalize_plan` with
 `scope_confirmed=true`.
 
+### AgentLoop Runtime Recheck
+
+The runtime adapter now accepts the exact page-published management response as
+the configured `modules.sop.definitionsPath`; it normalizes that response at
+the loader boundary without changing AgentLoop or StaffDeck lifecycle rules.
+The exact-object deterministic replay is recorded at
+`/tmp/g5-exact-config-replay-1.2.1.json` and preserves the four-node/four-edge
+graph, conditional branch, handoff wait, reload wait ID, one accepted resume,
+duplicate replay, and terminal `finalize_plan`.
+
+The real configured model replay is recorded at
+`/tmp/g5-agentloop-real-config-1.2.1.json`. From a normal
+`createLocalGateway().submitTurn()` entry using
+`provider1/qwen3.6-flash-distill`, the model executed `read_file` and the
+owner-controlled `submit_step_result`, entered handoff, survived Gateway
+recreation with the same wait ID, accepted one human resume, replayed the
+duplicate without a second state transition, and reached `completed` for
+`project_delivery_plan@1.2.1`.
+
+The focused SOP suite passed 31/31 after this adapter-only change. Existing
+disabled-composition and runtime-unavailable tests remain part of the focused
+Gateway/config coverage; no disabled or unavailable path is reported as a
+successful SOP run.
+
 ## Follow-up Runtime Evidence
 
 After installing the lockfile with Node 22.22.0, the isolated StaffDeck

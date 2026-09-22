@@ -21,7 +21,7 @@ export function loadStaffDeckSopDefinitions(path: string): StaffDeckSopBundle {
     throw new Error(`Invalid StaffDeck SOP YAML at ${path}: ${document.errors.map((error) => error.message).join("; ")}`);
   }
   const parsed = document.toJSON();
-  const bundle = Array.isArray(parsed) ? { sops: parsed } : parsed;
+  const bundle = normalizeBundle(parsed);
   if (!isRecord(bundle) || !Array.isArray(bundle.sops) || bundle.sops.length === 0) {
     throw new Error(`StaffDeck SOP definitions at ${path} must contain a non-empty sops list.`);
   }
@@ -38,6 +38,35 @@ export function loadStaffDeckSopDefinitions(path: string): StaffDeckSopBundle {
     ids.add(id);
   }
   return Object.freeze({ sops: Object.freeze(sops) });
+}
+
+/**
+ * The formal page-management API returns one published SOP object, while
+ * deployment profiles traditionally point at a `{ sops: [...] }` bundle.
+ * Accept both wire shapes so a published response can be selected directly by
+ * `modules.sop.definitionsPath` without a runner-specific conversion step.
+ */
+function normalizeBundle(parsed: unknown): Record<string, unknown> {
+  if (Array.isArray(parsed)) return { sops: parsed };
+  if (!isRecord(parsed)) return parsed as Record<string, unknown>;
+  if (Array.isArray(parsed.sops)) return parsed;
+
+  const skillId = text(parsed.skill_id) ?? text(parsed.id);
+  const version = text(parsed.version);
+  const content = isRecord(parsed.content) ? parsed.content : undefined;
+  if (!skillId || !version || !content) return parsed;
+
+  return {
+    sops: [{
+      id: skillId,
+      skill_id: skillId,
+      version,
+      ...(text(parsed.name) ? { name: text(parsed.name) } : {}),
+      ...(text(parsed.business_domain) ? { business_domain: text(parsed.business_domain) } : {}),
+      ...(text(parsed.description) ? { description: text(parsed.description) } : {}),
+      content,
+    }],
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -26,10 +26,12 @@ draft save and then `publish`; the adapter's returned version is visible in
 the page's version-management dialog and was fetched again through
 `GET /api/v1/sops/project_delivery_plan/versions/1.2.0`.
 
-The primary run bundle is built directly from that page-published response, not
-from a later replace, a different graph, or a same-ID lookup. Its content has
-4 nodes, 4 edges, the page-authored conditions and labels, and no capability
-references were removed by the runner.
+The primary run now points `modules.sop.definitionsPath` directly at that
+page-published response. PilotDeck's definition loader accepts the management
+response shape and normalizes it at the adapter boundary; the runner does not
+construct or inject a replacement bundle. Its content has 4 nodes, 4 edges,
+the page-authored conditions and labels, and no capability references were
+removed by the loader.
 
 ## Minimal Replay
 
@@ -48,7 +50,15 @@ node --import tsx products/pilotdeck-staffdeck-sop/evidence/g5-real-run.mjs
 
 The replay asserts a durable handoff, identical wait ID after gateway reload,
 single acceptance plus duplicate replay for the same request ID, and terminal
-completion at `finalize_plan` with `scope_confirmed: true`.
+completion at `finalize_plan` with `scope_confirmed: true`. The exact-object
+configuration replay was recorded at `/tmp/g5-exact-config-replay-1.2.1.json`.
+
+The real-provider normal-entry replay uses the same exact published file and
+configuration contract. It is recorded at
+`/tmp/g5-agentloop-real-config-1.2.1.json`: the configured model executed
+`read_file` and `submit_step_result`, entered a handoff, retained the same wait
+ID across Gateway recreation, accepted one resume and replayed the duplicate,
+then reached `completed`.
 
 ## Verification Notes
 
