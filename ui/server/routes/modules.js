@@ -220,6 +220,10 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const result = await callSopManagement(management, operation, req.body?.input);
       return res.status(result.status).json({ result: result.body });
     } catch (error) {
+      // A portable YAML-backed SOP host intentionally has no public
+      // management endpoint. Preserve the capability-missing contract so the
+      // shared page can fall back to its local definition source; reserve 502
+      // for an actually configured upstream that failed.
       const status = Number.isInteger(error?.status) ? error.status : 502;
       return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
@@ -282,7 +286,7 @@ function readSopDefinitions(binding) {
 function readSopManagement(binding) {
   const management = binding?.management;
   if (!isRecord(management) || management.enabled !== true || typeof management.endpoint !== 'string' || !management.endpoint.trim()) {
-    throw new Error('StaffDeck public SOP management is not configured.');
+    throw Object.assign(new Error('StaffDeck public SOP management is not configured.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
   }
   const apiKey = typeof management.apiKey === 'string' && management.apiKey.trim()
     ? management.apiKey
@@ -290,13 +294,13 @@ function readSopManagement(binding) {
       ? process.env[management.apiKeyEnv]
       : undefined;
   if (typeof apiKey !== 'string' || !apiKey.trim()) {
-    throw new Error('StaffDeck public SOP management credentials are not configured.');
+    throw Object.assign(new Error('StaffDeck public SOP management credentials are not configured.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
   }
   if (typeof management.agentId !== 'string' || !management.agentId.trim()) {
-    throw new Error('StaffDeck public SOP management requires an agentId.');
+    throw Object.assign(new Error('StaffDeck public SOP management requires an agentId.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
   }
   const methods = Array.isArray(management.methods) ? management.methods.filter((item) => SOP_MANAGEMENT_OPERATIONS.has(item)) : [];
-  if (methods.length === 0) throw new Error('StaffDeck public SOP management does not declare any supported methods.');
+  if (methods.length === 0) throw Object.assign(new Error('StaffDeck public SOP management does not declare any supported methods.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
   return { endpoint: management.endpoint.endsWith('/') ? management.endpoint : `${management.endpoint}/`, apiKey, agentId: management.agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
 }
 

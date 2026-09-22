@@ -23,6 +23,12 @@ inspection is not treated as proof of a real service workflow.
 The implementation must not be marked complete while G7 remains `NOT RUN`. The
 commands used for the passing static checks are listed below.
 
+## Latest Shared-Host Follow-Up (2026-09-22)
+
+- StaffDeck native editing appended `双宿主 G4 acceptance marker 2026-09-22.` to the shared document in base `kb_dee9ad74d3a24492`; native API readback returned document `kdoc_f74aa10735064b29` with the updated `online_edited_at`.
+- PilotDeck Vite `/knowledge` selected the same base, rendered its 17 citation/source entries, and sent a real `POST /api/modules/knowledge/call` query (HTTP 200). The retrieval trace reported `Secret cannot be decrypted with current APP_SECRET`, so this is not claimed as a successful marker query or G4 pass. The indexed chunks still do not contain the marker, which remains an index/re-read gap to resolve.
+- PilotDeck `/sop` now correctly falls back to local YAML definitions when public SOP management is not configured. The module route returns `501 SOP_MANAGEMENT_UNAVAILABLE` only for that capability absence; configured upstream failures retain their original error status. This is fallback/error-classification evidence only, not G5 public-management or dual-host publish evidence.
+
 ## Knowledge: Real Isolated Lifecycle
 
 The PilotDeck facade at `http://localhost:13121/api/modules/knowledge/call`

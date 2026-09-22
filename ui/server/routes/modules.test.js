@@ -175,6 +175,49 @@ describe('module runtime route', () => {
     }
   });
 
+  it('returns 501 only when public SOP management is not configured', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({
+      loadConfig: () => ({ modules: { sop: { enabled: true, definitionsPath: '/tmp/unused.yaml' } } }),
+    }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list' }),
+      });
+      expect(response.status).toBe(501);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  it('preserves configured SOP management upstream failures as non-501 errors', async () => {
+    const managementApp = express();
+    managementApp.get('/api/v1/agents/agent-1/sops', (_req, res) => res.status(503).json({ error: { code: 'UPSTREAM_DOWN', message: 'temporarily unavailable' } }));
+    const managementServer = http.createServer(managementApp);
+    await new Promise(resolve => managementServer.listen(0, '127.0.0.1', resolve));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: {
+      enabled: true,
+      management: { enabled: true, endpoint: `http://127.0.0.1:${managementServer.address().port}/api/v1`, apiKey: 'server-only-key', agentId: 'agent-1', methods: ['list'] },
+    } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list' }),
+      });
+      expect(response.status).toBe(503);
+      expect((await response.json()).error.code).toBe('UPSTREAM_DOWN');
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await new Promise(resolve => managementServer.close(resolve));
+    }
+  });
+
   it('proxies allowlisted StaffDeck public SOP management with server-side credentials and ETags', async () => {
     const received = [];
     const managementApp = express();
