@@ -16,7 +16,11 @@
 
 ## Real persistence path
 
-The existing real-owner E2E in `tests/composition/real-staffdeck-seven-slot-e2e.spec.ts` starts an isolated StaffDeck Knowledge service with an isolated SQLite database, creates a base, imports a document, polls the durable ingest job to completion, queries, resolves a citation, edits a document, refreshes it from storage, and verifies unchanged fields plus citation source retention. It also exercises failed import response handling and cancellation through the protocol proxy. It is the real persistence evidence; mock model fixtures are only used for the surrounding AgentLoop turn.
+The dual-host browser run starts the StaffDeck **formal** `app.main:app` entrypoint with the built Harness v3 engine, an isolated SQLite database, and the native `frontend-enterprise` Vite host. PilotDeck is started against that same StaffDeck service/database through the `staffdeck.knowledge/v1` module protocol. Both hosts exercise the shared Knowledge page: file-input import, persisted base/document reopen, edit/save, reload/readback with the unchanged field retained, and query.
+
+The StaffDeck-native query assertion is page-visible: the runner expands the evidence-pack panel and verifies both `Owner approval` and `Unchanged field` in the rendered source excerpt. The report separately records the HTTP evidence-pack response and the PilotDeck API-only citation resolution. Model fixtures are not persistence evidence.
+
+The runner also contains an explicitly labeled `G4_KNOWLEDGE_WRAPPER=1` startup-cleared Knowledge-only wrapper for integration debugging. That wrapper is not used for the formal acceptance result and must not be described as full StaffDeck startup coverage.
 
 ## Reproduction
 
@@ -26,13 +30,15 @@ From the PD worktree, install the declared workspace dependencies, then run:
 env -u NODE_OPTIONS pnpm exec vitest run ui/src/composition/modules/staffdeck/vendor/knowledge-host-adapter.test.tsx ui/server/routes/modules.test.js
 env -u NODE_OPTIONS pnpm exec vitest run tests/composition/real-staffdeck-seven-slot-e2e.spec.ts
 env -u NODE_OPTIONS node scripts/verify-staffdeck-business-ui-vendor.mjs
-env -u NODE_OPTIONS /Users/a1/.nvm/versions/node/v22.13.1/bin/node scripts/g4-knowledge-browser.mjs
+env -u NODE_OPTIONS HARNESS_V3_ROOT=/Users/a1/Desktop/claw/openbmb/deepseek-harness-dsh-v0.1.2-alpha.2 /Users/a1/.nvm/versions/node/v22.13.1/bin/node scripts/g4-knowledge-browser.mjs
 ```
 
-The focused route and adapter suites passed with 32 tests. The real browser runner also passed against isolated StaffDeck Knowledge, PilotDeck Vite/API, and gateway services: upload and ingest completed, the persisted base was reopened, document content was edited and saved through the UI, the page was reloaded and the unchanged field was verified, and query plus citation resolution returned HTTP 200. The run used Node `22.13.1` with `NODE_OPTIONS` cleared.
+The focused route and adapter suites passed with 32 tests. The formal dual-host browser runner passed with `staffdeckStartup: formal_app_main_with_harness_v3`: PilotDeck UI and StaffDeck native UI both imported and persisted separate documents in the same isolated StaffDeck service/database; both edited and reloaded content; both submitted a non-empty query input; and StaffDeck rendered the required evidence-pack excerpt. The run used Node `22.13.1` with `NODE_OPTIONS` cleared and the reusable built Harness root above.
 
-The captured report is `test-results/g4-knowledge-browser/report.json`, the screenshot is `test-results/g4-knowledge-browser/g4-knowledge-browser.png`, and cleanup status is `test-results/g4-knowledge-browser/cleanup.json`.
+The captured report is `test-results/g4-knowledge-browser/report.json`. Screenshots are `test-results/g4-knowledge-browser/g4-knowledge-browser.png` (PilotDeck) and `test-results/g4-knowledge-browser/g4-knowledge-staffdeck-native.png` (StaffDeck native). Cleanup status is `test-results/g4-knowledge-browser/cleanup.json`.
 
 ## Limits
 
-No credentials, database dumps, or running service output are committed. The browser runner uses an isolated temporary SQLite database and a local smoke model configuration; model responses are not used to establish Knowledge persistence. The StaffDeck service, its seed data, and the module transport are real for this acceptance run.
+No credentials, database dumps, or running service output are committed. The browser runner uses an isolated temporary SQLite database and a local smoke model configuration; model responses are not used to establish Knowledge persistence. Harness v3 is supplied from the built checkout only so the normal StaffDeck startup path can initialize; unrelated Harness runtime operations are outside this Knowledge acceptance scope.
+
+The report's `operationCoverage` is intentionally explicit: `import_document`, `update_document`, and `query` are real UI coverage on both hosts; `resolve_citation` is API-only PilotDeck module-protocol evidence; versions, rollback, cancellation, buckets/chunks, OKF import/export/lint, and discovery confirmation/rejection remain `not_run_real_ui_adapter_only`.
