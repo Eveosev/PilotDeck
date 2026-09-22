@@ -16,6 +16,11 @@ const KNOWLEDGE_OPERATIONS = new Set([
   'list_okf_concepts', 'get_okf_concept', 'upsert_okf_concept', 'export_okf', 'lint_okf',
   'list_discoveries', 'confirm_discovery', 'reject_discovery', 'query', 'resolve_citation',
 ]);
+const KNOWLEDGE_READ_OPERATIONS = new Set([
+  'list_bases', 'get_base', 'list_versions', 'list_documents', 'get_document',
+  'list_document_buckets', 'list_bucket_chunks', 'get_job', 'list_jobs',
+  'list_okf_concepts', 'get_okf_concept', 'export_okf', 'list_discoveries', 'query', 'resolve_citation',
+]);
 const SOP_MANAGEMENT_OPERATIONS = new Set([
   'list', 'create', 'get_draft', 'replace_draft', 'validate',
   'publish', 'archive', 'list_versions', 'get_version', 'rollback',
@@ -75,20 +80,17 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!Array.isArray(binding.methods) || !binding.methods.includes('query')) {
         return res.status(409).json({ error: { code: 'MODULE_CAPABILITY_UNAVAILABLE', message: 'Knowledge module does not advertise query.' } });
       }
+      if (!hasKnowledgeIdentity(binding)) {
+        return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
+      }
       const requestId = `knowledge-ui-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const messageId = `module-http-${requestId}`;
-      const input = { ...(req.body ?? {}) };
+      const input = withTrustedKnowledgeIdentity(binding, req.body);
       if (!input.baseId && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) {
         input.baseId = binding.defaultBaseId.trim();
       }
       if (!input.knowledgeBaseIds && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) {
         input.knowledgeBaseIds = [binding.defaultBaseId.trim()];
-      }
-      if (!input.tenantId && typeof binding.tenantId === 'string' && binding.tenantId.trim()) {
-        input.tenantId = binding.tenantId.trim();
-      }
-      if (!input.actorUserId && typeof binding.actorUserId === 'string' && binding.actorUserId.trim()) {
-        input.actorUserId = binding.actorUserId.trim();
       }
       if (input.limit === undefined && Number.isInteger(binding.resultLimit) && binding.resultLimit > 0) {
         input.limit = binding.resultLimit;
@@ -120,15 +122,12 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!Array.isArray(binding.methods) || !binding.methods.includes('resolve_citation')) {
         return res.status(409).json({ error: { code: 'MODULE_CAPABILITY_UNAVAILABLE', message: 'Knowledge module does not advertise resolve_citation.' } });
       }
+      if (!hasKnowledgeIdentity(binding)) {
+        return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
+      }
       const requestId = `knowledge-ui-citation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const messageId = `module-http-${requestId}`;
-      const input = { ...(req.body ?? {}) };
-      if (!input.tenantId && typeof binding.tenantId === 'string' && binding.tenantId.trim()) {
-        input.tenantId = binding.tenantId.trim();
-      }
-      if (!input.actorUserId && typeof binding.actorUserId === 'string' && binding.actorUserId.trim()) {
-        input.actorUserId = binding.actorUserId.trim();
-      }
+      const input = withTrustedKnowledgeIdentity(binding, req.body);
       const response = await fetch(new URL(binding.callPath || '/v2/module/call', binding.endpoint), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -154,8 +153,14 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!KNOWLEDGE_OPERATIONS.has(operation)) {
         return res.status(400).json({ error: { code: 'MODULE_OPERATION_UNSUPPORTED', message: 'Knowledge operation is not part of staffdeck.knowledge/v1.' } });
       }
+      if (!KNOWLEDGE_READ_OPERATIONS.has(operation) && process.env.PILOTDECK_MODULE_ADMIN === '0') {
+        return res.status(403).json({ error: { code: 'MODULE_ADMIN_REQUIRED', message: 'Knowledge write operations require the PilotDeck module administrator.' } });
+      }
       if (binding?.enabled !== true || typeof binding.endpoint !== 'string') {
         return res.status(501).json({ error: { code: 'MODULE_DISABLED', message: 'Knowledge module is not configured for module calls.' } });
+      }
+      if (!hasKnowledgeIdentity(binding)) {
+        return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
       }
       if (!Array.isArray(binding.methods) || !binding.methods.includes(operation)) {
         return res.status(409).json({ error: { code: 'MODULE_CAPABILITY_UNAVAILABLE', message: `Knowledge module does not advertise ${operation}.` } });
@@ -263,13 +268,25 @@ async function callKnowledgeModule(binding, operation, input) {
 }
 
 function withKnowledgeDefaults(binding, value) {
-  const input = isRecord(value) ? { ...value } : {};
+  const input = withTrustedKnowledgeIdentity(binding, value);
   if (!input.baseId && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) input.baseId = binding.defaultBaseId.trim();
   if (!input.knowledgeBaseIds && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) input.knowledgeBaseIds = [binding.defaultBaseId.trim()];
-  if (!input.tenantId && typeof binding.tenantId === 'string' && binding.tenantId.trim()) input.tenantId = binding.tenantId.trim();
-  if (!input.actorUserId && typeof binding.actorUserId === 'string' && binding.actorUserId.trim()) input.actorUserId = binding.actorUserId.trim();
   if (input.limit === undefined && Number.isInteger(binding.resultLimit) && binding.resultLimit > 0) input.limit = binding.resultLimit;
   return input;
+}
+
+function withTrustedKnowledgeIdentity(binding, value) {
+  const input = isRecord(value) ? { ...value } : {};
+  if (typeof binding?.tenantId === 'string' && binding.tenantId.trim()) input.tenantId = binding.tenantId.trim();
+  else delete input.tenantId;
+  if (typeof binding?.actorUserId === 'string' && binding.actorUserId.trim()) input.actorUserId = binding.actorUserId.trim();
+  else delete input.actorUserId;
+  return input;
+}
+
+function hasKnowledgeIdentity(binding) {
+  return typeof binding?.tenantId === 'string' && Boolean(binding.tenantId.trim())
+    && typeof binding?.actorUserId === 'string' && Boolean(binding.actorUserId.trim());
 }
 
 function readSopDefinitions(binding) {

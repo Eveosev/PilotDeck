@@ -113,6 +113,64 @@ describe('module runtime route', () => {
     }
   });
 
+  it('uses only server-bound Knowledge identity when the browser submits forged tenant and actor values', async () => {
+    let received;
+    const moduleApp = express();
+    moduleApp.use(express.json());
+    moduleApp.post('/v2/module/call', (req, res) => {
+      received = req.body;
+      res.json({ kind: 'response', inReplyTo: req.body.messageId, ok: true, payload: { result: { chunks: [] } } });
+    });
+    const moduleServer = http.createServer(moduleApp);
+    await new Promise(resolve => moduleServer.listen(0, '127.0.0.1', resolve));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { knowledge: {
+      enabled: true,
+      endpoint: `http://127.0.0.1:${moduleServer.address().port}`,
+      methods: ['query'],
+      tenantId: 'tenant-bound',
+      actorUserId: 'owner-bound',
+    } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/query`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: 'handbook', tenantId: 'tenant-forged', actorUserId: 'user-forged' }),
+      });
+      expect(response.status).toBe(200);
+      expect(received.payload.input).toMatchObject({ query: 'handbook', tenantId: 'tenant-bound', actorUserId: 'owner-bound' });
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await new Promise(resolve => moduleServer.close(resolve));
+    }
+  });
+
+  it('rejects Knowledge writes when the single-user module administrator is disabled', async () => {
+    const previous = process.env.PILOTDECK_MODULE_ADMIN;
+    process.env.PILOTDECK_MODULE_ADMIN = '0';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { knowledge: {
+      enabled: true, endpoint: 'http://127.0.0.1:1', methods: ['create_base'], tenantId: 'tenant-bound', actorUserId: 'owner-bound',
+    } } }) }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/call`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ operation: 'create_base', input: { name: 'forbidden' } }),
+      });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe('MODULE_ADMIN_REQUIRED');
+    } finally {
+      if (previous === undefined) delete process.env.PILOTDECK_MODULE_ADMIN;
+      else process.env.PILOTDECK_MODULE_ADMIN = previous;
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
   it('proxies declared Knowledge management operations through the module contract', async () => {
     let received;
     const moduleApp = express();
