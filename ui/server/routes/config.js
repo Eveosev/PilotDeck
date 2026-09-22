@@ -764,6 +764,20 @@ router.put('/', async (req, res) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return res.status(400).json({ error: 'raw YAML must parse to an object' });
       }
+      // The onboarding model save is a read-modify-write request identified by
+      // modelTestBindings. Older clients built the raw payload from the model
+      // sections only, which could silently erase valid host modules and other
+      // non-model top-level configuration. Preserve omitted host-owned fields
+      // for this narrow onboarding path; the raw editor without bindings keeps
+      // its explicit delete semantics.
+      if (Array.isArray(req.body?.modelTestBindings) && req.body.modelTestBindings.length > 0) {
+        const diskYaml = diskRecord.rawYaml && typeof diskRecord.rawYaml === 'object' ? diskRecord.rawYaml : {};
+        for (const [key, value] of Object.entries(diskYaml)) {
+          if (!(key in parsed) && !['model', 'agent', 'webui'].includes(key)) {
+            parsed[key] = structuredClone(value);
+          }
+        }
+      }
       const renamedProviders = restoreRenamedProviderSecrets(
         parsed,
         diskRecord.rawYaml ?? {},

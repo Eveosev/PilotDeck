@@ -13,6 +13,15 @@ describe('onboarding routes', () => {
   it.each([false, true])('saving onboarding preserves advanced features and channels enabled=%s', async (enabled) => {
     const { buildDefaultPilotDeckConfig } = await vi.importActual('../services/pilotdeckConfig.js');
     const config = buildDefaultPilotDeckConfig();
+    config.modules = {
+      sop: {
+        enabled: true,
+        contract: 'sop.lifecycle/v2',
+        implementationId: 'staffdeck.portable-sop',
+        management: { enabled: true, agentId: 'agent-test', methods: ['list'] },
+      },
+      knowledge: { enabled: false },
+    };
     if (enabled) {
       config.memory.enabled = true;
       config.router.enabled = true;
@@ -33,6 +42,7 @@ describe('onboarding routes', () => {
     for (const key of ['memory', 'router', 'tools', 'alwaysOn', 'adapters']) {
       expect(next[key]).toEqual(config[key]);
     }
+    expect(next.modules).toEqual(config.modules);
     expect(next.memory.enabled).toBe(enabled);
     expect(next.tools.webSearch.enabled).toBe(enabled);
     for (const adapter of Object.values(next.adapters)) expect(adapter.enabled).toBe(enabled);

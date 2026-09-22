@@ -730,6 +730,44 @@ describe('config model-pool connection test routes', () => {
     expect(reloaded.body.config.model.providers[id].models['model-a'].connectionTest.status).toBe('passed');
   });
 
+  it('preserves omitted host modules during onboarding model save', async () => {
+    const probe = vi.fn().mockResolvedValue({ ok: true });
+    const initial = {
+      schemaVersion: 1,
+      agent: { model: 'openai/model-a' },
+      model: { providers: { openai: { protocol: 'openai', url: 'https://api.openai.com/v1', apiKey: 'key', models: { 'model-a': {} } } } },
+      modules: {
+        sop: {
+          enabled: true,
+          contract: 'sop.lifecycle/v2',
+          implementationId: 'staffdeck.portable-sop',
+          management: { enabled: true, agentId: 'agent-test', methods: ['list'] },
+        },
+        knowledge: { enabled: false },
+      },
+      gateway: { enabled: true, transport: 'local' },
+    };
+    const { request, configPath } = await createDiskConfigApp(stringifyYaml(initial), { probe });
+    const tested = await request('/api/config/test-connections', {
+      method: 'POST',
+      body: JSON.stringify({ providerId: 'openai', apiKey: 'key', models: ['model-a'], retryPolicy: {} }),
+    });
+    expect(tested.status).toBe(200);
+    const onboardingRaw = stringifyYaml({
+      schemaVersion: 1,
+      agent: { model: 'openai/model-a' },
+      model: { providers: { openai: { protocol: 'openai', url: 'https://api.openai.com/v1', apiKey: 'key', models: { 'model-a': {} } } } },
+    });
+    const saved = await request('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify({ raw: onboardingRaw, modelTestBindings: [{ testId: tested.body.testId }] }),
+    });
+    expect(saved.status).toBe(200);
+    const disk = parseYaml(readFileSync(configPath, 'utf8'));
+    expect(disk.modules).toEqual(initial.modules);
+    expect(disk.gateway).toEqual(initial.gateway);
+  });
+
   it('uses a custom endpoint for catalog providers', async () => {
     const probe = vi.fn().mockResolvedValue({ ok: true });
     const { requestStatus } = await createConfigApp({ probe });
