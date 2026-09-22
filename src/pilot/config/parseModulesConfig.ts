@@ -241,7 +241,8 @@ function parseSopModule(
   }
   warnUnknownKeys(value, [
     "enabled", "provider", "implementationId", "contract", "transport", "manifestPath",
-    "endpoint", "definitionsPath", "defaultSopId", "timeoutMs", "deployment", "frontendModule",
+    "endpoint", "definitionsPath", "defaultSopId", "discoveryEndpoint", "discoveryAgentId",
+    "discoveryApiKey", "discoveryPath", "discoveryTimeoutMs", "timeoutMs", "deployment", "frontendModule",
   ], path, diagnostics);
   if (value.enabled === false) return undefined;
   if (value.enabled !== true) {
@@ -267,10 +268,30 @@ function parseSopModule(
     fatal(diagnostics, "SOP_MODULE_DEFAULT_ID_INVALID", "modules.sop.defaultSopId must be a non-empty string.", `${path}.defaultSopId`);
   }
   const timeoutMs = optionalPositiveInteger(value.timeoutMs);
+  const discoveryEndpoint = nonEmptyText(value.discoveryEndpoint);
+  const discoveryAgentId = nonEmptyText(value.discoveryAgentId);
+  const discoveryApiKey = nonEmptyText(value.discoveryApiKey);
+  const discoveryPath = nonEmptyText(value.discoveryPath);
+  const discoveryTimeoutMs = optionalPositiveInteger(value.discoveryTimeoutMs);
+  const discoveryConfigured = value.discoveryEndpoint !== undefined
+    || value.discoveryAgentId !== undefined
+    || value.discoveryApiKey !== undefined;
   const deployment = parseDeployment(value.deployment, path, diagnostics);
   const frontendModule = nonEmptyText(value.frontendModule);
   if (value.timeoutMs !== undefined && timeoutMs === undefined) {
     fatal(diagnostics, "SOP_MODULE_TIMEOUT_INVALID", "modules.sop.timeoutMs must be a positive integer.", `${path}.timeoutMs`);
+  }
+  if (discoveryConfigured && (!discoveryEndpoint || !isHttpUrl(discoveryEndpoint))) {
+    fatal(diagnostics, "SOP_DISCOVERY_ENDPOINT_INVALID", "modules.sop.discoveryEndpoint must be an absolute http(s) URL.", `${path}.discoveryEndpoint`);
+  }
+  if (discoveryConfigured && !discoveryAgentId) {
+    fatal(diagnostics, "SOP_DISCOVERY_AGENT_ID_INVALID", "modules.sop.discoveryAgentId must be a non-empty string when discovery is configured.", `${path}.discoveryAgentId`);
+  }
+  if (discoveryConfigured && !discoveryApiKey) {
+    fatal(diagnostics, "SOP_DISCOVERY_API_KEY_INVALID", "modules.sop.discoveryApiKey must be a non-empty string when discovery is configured.", `${path}.discoveryApiKey`);
+  }
+  if (value.discoveryTimeoutMs !== undefined && discoveryTimeoutMs === undefined) {
+    fatal(diagnostics, "SOP_DISCOVERY_TIMEOUT_INVALID", "modules.sop.discoveryTimeoutMs must be a positive integer.", `${path}.discoveryTimeoutMs`);
   }
   if (!endpoint || !definitionsPath || !defaultSopId) return undefined;
   const base = {
@@ -279,6 +300,15 @@ function parseSopModule(
     defaultSopId,
     stateRoot: join(pilotHome, "sop"),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    ...(discoveryConfigured && discoveryEndpoint && discoveryAgentId && discoveryApiKey
+      ? {
+          discoveryEndpoint,
+          discoveryAgentId,
+          discoveryApiKey,
+          ...(discoveryPath ? { discoveryPath } : {}),
+          ...(discoveryTimeoutMs === undefined ? {} : { discoveryTimeoutMs }),
+        }
+      : {}),
     ...(deployment ? { deployment } : {}),
   };
   if (!hasProtocolBinding) {

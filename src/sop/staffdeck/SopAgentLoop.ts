@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 import { AgentLoop, type AgentLoopSeedState } from "../../agent/loop/AgentLoop.js";
 import type {
@@ -21,6 +22,7 @@ import type {
 import { toolError } from "../../tool/index.js";
 
 import { StaffDeckSopClient, StaffDeckSopClientError } from "./StaffDeckSopClient.js";
+import { StaffDeckSopDiscoveryClient } from "./StaffDeckSopDiscoveryClient.js";
 import { loadStaffDeckSopDefinitions } from "./StaffDeckSopDefinitions.js";
 import { SopStateStore } from "./SopStateStore.js";
 import type {
@@ -31,6 +33,7 @@ import type {
   StaffDeckSopRuntimeClient,
   SopRuntimeConfig,
   StaffDeckSopSubmitResult,
+  StaffDeckSopDiscoveryPort,
 } from "./types.js";
 import type { SidecarModuleComposition } from "../../agent/modules/transport/sidecarHostModulePorts.js";
 
@@ -60,6 +63,9 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly stateStore: SopStateStore;
   private readonly client: StaffDeckSopRuntimeClient;
   private readonly submissions = new Map<string, SopSubmission>();
+  private readonly selectedSops = new Map<string, string | undefined>();
+  private readonly sessionContext = new AsyncLocalStorage<string>();
+  private readonly discovery: StaffDeckSopDiscoveryPort | undefined;
   private readonly native: AgentLoopRunner;
 
   constructor(
@@ -82,8 +88,19 @@ export class SopAgentLoop implements AgentLoopRunner {
               transport: options.profile.transport,
             },
           }
-        : {}),
+      : {}),
     });
+    this.discovery = options.profile.discoveryEndpoint && options.profile.discoveryAgentId && options.profile.discoveryApiKey
+      ? new StaffDeckSopDiscoveryClient(
+          options.profile.discoveryEndpoint,
+          options.profile.discoveryAgentId,
+          options.profile.discoveryApiKey,
+          {
+            path: options.profile.discoveryPath,
+            timeoutMs: options.profile.discoveryTimeoutMs ?? options.profile.timeoutMs,
+          },
+        )
+      : undefined;
 
     const controlPort = new SopControlToolPort({
       delegate: capabilities.toolExecution,
@@ -91,6 +108,12 @@ export class SopAgentLoop implements AgentLoopRunner {
       stateStore: this.stateStore,
       bundle: options.bundle,
       defaultSopId: options.profile.defaultSopId,
+      selectedSopId: (sessionId) => this.selectedSops.get(sessionId),
+      selectedSopForTools: () => {
+        if (!this.discovery) return options.profile.defaultSopId;
+        const sessionId = this.sessionContext.getStore();
+        return sessionId ? this.selectedSops.get(sessionId) : undefined;
+      },
       onSubmission: (sessionId, result) => this.submissions.set(sessionId, { result }),
     });
     const toolExecution: ToolExecutionPort = Object.freeze({
@@ -140,11 +163,12 @@ export class SopAgentLoop implements AgentLoopRunner {
     if (recoverableDelivery) {
       return yield* this.deliverReply(input, recoverableDelivery);
     }
+    await this.selectSop(input, this.discovery);
     const iterator = this.native.run(input);
     let completed: AgentLoopRunResult;
     let delayedCompletion: Extract<AgentEvent, { type: "turn_completed" }> | undefined;
     while (true) {
-      const next = await iterator.next();
+      const next = await this.sessionContext.run(input.sessionId, () => iterator.next());
       if (next.done) {
         completed = next.value;
         break;
@@ -212,10 +236,12 @@ export class SopAgentLoop implements AgentLoopRunner {
     capabilities: AgentTurnCapabilities,
     input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0],
   ) {
+    const selectedSopId = this.selectedSops.get(input.sessionId);
+    if (!selectedSopId) return capabilities.contextPreparation.prepareForModel(input);
     const persisted = await this.stateStore.loadOrCreate(
       input.sessionId,
       this.options.bundle,
-      this.options.profile.defaultSopId,
+      selectedSopId,
     );
     if (isTerminalSopStatus(persisted.state.status)) {
       return capabilities.contextPreparation.prepareForModel(input);
@@ -239,6 +265,36 @@ export class SopAgentLoop implements AgentLoopRunner {
       ...input,
       appendSystemPrompt: joinPrompt(input.appendSystemPrompt, renderSopInstruction(prepared)),
     });
+  }
+
+  private async selectSop(
+    input: AgentLoopInput,
+    discovery: StaffDeckSopDiscoveryPort | undefined,
+  ): Promise<void> {
+    const existing = await this.stateStore.status(input.sessionId);
+    const persistedSelection = existing?.state.selected_skill_id ?? existing?.state.active_skill_id;
+    if (persistedSelection) {
+      ensureBundleSop(this.options.bundle, persistedSelection);
+      this.selectedSops.set(input.sessionId, persistedSelection);
+      return;
+    }
+    if (!discovery) {
+      this.selectedSops.set(input.sessionId, this.options.profile.defaultSopId);
+      return;
+    }
+    const result = await discovery.route({
+      message: latestUserMessage(input.messages),
+      sessionId: input.sessionId,
+    });
+    const selected = result.selectedSopId ?? undefined;
+    if (selected && result.candidateSopIds && !result.candidateSopIds.includes(selected)) {
+      throw Object.assign(
+        new Error(`StaffDeck SOP discovery selected '${selected}', but StaffDeck did not expose it as a candidate.`),
+        { code: "SOP_DISCOVERY_SELECTION_NOT_VISIBLE", selectedSopId: selected },
+      );
+    }
+    if (selected) ensureBundleSop(this.options.bundle, selected);
+    this.selectedSops.set(input.sessionId, selected);
   }
 }
 
@@ -292,6 +348,8 @@ type SopControlToolPortOptions = Readonly<{
   stateStore: SopStateStore;
   bundle: StaffDeckSopBundle;
   defaultSopId: string;
+  selectedSopId(sessionId: string): string | undefined;
+  selectedSopForTools(): string | undefined;
   onSubmission(sessionId: string, result: StaffDeckSopSubmitResult): void;
 }>;
 
@@ -303,7 +361,7 @@ class SopControlToolPort implements ToolPort {
     if (tools.some((tool) => tool.name === SUBMIT_SOP_STEP_RESULT_TOOL)) {
       throw new Error(`${SUBMIT_SOP_STEP_RESULT_TOOL} is reserved by the StaffDeck SOP runtime.`);
     }
-    return [...tools, submitSopStepResultTool()];
+    return this.options.selectedSopForTools() ? [...tools, submitSopStepResultTool()] : tools;
   }
 
   async executeAll(
@@ -318,11 +376,12 @@ class SopControlToolPort implements ToolPort {
       : [];
     const resultByCallId = new Map(ordinaryResults.map((result) => [result.toolCallId, result]));
 
-    if (ordinaryResults.some((result) => result.type === "success")) {
+    const selectedSopId = this.options.selectedSopId(execution.sessionId);
+    if (selectedSopId && ordinaryResults.some((result) => result.type === "success")) {
       await this.options.stateStore.recordSuccessfulTools(
         execution.sessionId,
         this.options.bundle,
-        this.options.defaultSopId,
+        selectedSopId,
         ordinaryResults
           .filter((result): result is Extract<PilotDeckToolResult, { type: "success" }> => result.type === "success")
           .map((result) => result.toolName),
@@ -339,13 +398,16 @@ class SopControlToolPort implements ToolPort {
   }
 
   private async submit(call: PilotDeckToolCall, execution: ModelExecutionContext): Promise<PilotDeckToolResult> {
+    if (!this.options.selectedSopId(execution.sessionId)) {
+      return controlError(call, "No StaffDeck SOP is selected for this session.");
+    }
     const proposal = parseProposal(call.input);
     if (!proposal) return controlError(call, "submit_step_result requires a valid SOP status and non-empty replyFragment.", "invalid_tool_input");
     try {
       const persisted = await this.options.stateStore.loadOrCreate(
         execution.sessionId,
         this.options.bundle,
-        this.options.defaultSopId,
+        this.options.selectedSopId(execution.sessionId) ?? this.options.defaultSopId,
       );
       const successfulToolNames = Array.isArray(persisted.state.successful_tool_names)
         ? persisted.state.successful_tool_names.filter((name): name is string => typeof name === "string" && name.length > 0)
@@ -534,6 +596,29 @@ function text(value: unknown): string | undefined {
 
 function sopId(definition: Record<string, unknown>): string | undefined {
   return text(definition.id) ?? text(definition.skill_id);
+}
+
+function ensureBundleSop(bundle: StaffDeckSopBundle, selectedSopId: string): void {
+  if (!bundle.sops.some((definition) => sopId(definition) === selectedSopId)) {
+    throw Object.assign(
+      new Error(`StaffDeck SOP discovery selected '${selectedSopId}', but it is not present in the PilotDeck bundle.`),
+      { code: "SOP_DISCOVERY_SELECTION_UNAVAILABLE", selectedSopId },
+    );
+  }
+}
+
+function latestUserMessage(messages: readonly { role?: unknown; content?: unknown }[]): string {
+  const message = [...messages].reverse().find((item) => item.role === "user");
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((part): part is { type?: unknown; text?: unknown } => isRecord(part))
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join("\n");
+  }
+  return "";
 }
 
 /**

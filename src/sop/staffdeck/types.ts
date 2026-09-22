@@ -10,6 +10,12 @@ type SopRuntimeConfigBase = Readonly<{
   endpoint: string;
   definitionsPath: string;
   defaultSopId: string;
+  /** Optional StaffDeck-native discovery/route API. */
+  discoveryEndpoint?: string;
+  discoveryAgentId?: string;
+  discoveryApiKey?: string;
+  discoveryPath?: string;
+  discoveryTimeoutMs?: number;
   /** Host-owned directory for durable SOP state; never supplied by a client. */
   stateRoot: string;
   timeoutMs?: number;
@@ -217,4 +223,28 @@ export type StaffDeckSopRuntimeClient = Readonly<{
     context?: StaffDeckSopOperationContext;
     signal?: AbortSignal;
   }): Promise<StaffDeckSopSubmitResponse>;
+}>;
+
+export type StaffDeckSopRouteResult = Readonly<{
+  decision: string;
+  candidateSopIds?: readonly string[];
+  selectedSopId?: string | null;
+  targetStepId?: string | null;
+  confidence?: number;
+  userIntent?: string | null;
+  reason?: string | null;
+  clarificationQuestion?: string | null;
+}>;
+
+export type StaffDeckSopDiscoveryPort = Readonly<{
+  route(input: {
+    message: string;
+    sessionId: string;
+    activeSopId?: string;
+    activeStepId?: string;
+    slots?: Record<string, unknown>;
+    pendingTasks?: readonly Record<string, unknown>[];
+    awaitingInput?: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<StaffDeckSopRouteResult>;
 }>;
