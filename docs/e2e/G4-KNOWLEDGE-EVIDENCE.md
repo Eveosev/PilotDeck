@@ -26,10 +26,13 @@ From the PD worktree, install the declared workspace dependencies, then run:
 env -u NODE_OPTIONS pnpm exec vitest run ui/src/composition/modules/staffdeck/vendor/knowledge-host-adapter.test.tsx ui/server/routes/modules.test.js
 env -u NODE_OPTIONS pnpm exec vitest run tests/composition/real-staffdeck-seven-slot-e2e.spec.ts
 env -u NODE_OPTIONS node scripts/verify-staffdeck-business-ui-vendor.mjs
+env -u NODE_OPTIONS /Users/a1/.nvm/versions/node/v22.13.1/bin/node scripts/g4-knowledge-browser.mjs
 ```
 
-At evidence capture time this checkout had no installed workspace `vitest` binary and the ambient `NODE_OPTIONS` referenced the missing `/Users/a1/.openclaw/proxy-preload.mjs`; those commands were therefore not executed successfully here. `node --check ui/server/routes/modules.js` and `git diff --check` remain environment-independent checks.
+The focused route and adapter suites passed with 32 tests. The real browser runner also passed against isolated StaffDeck Knowledge, PilotDeck Vite/API, and gateway services: upload and ingest completed, the persisted base was reopened, document content was edited and saved through the UI, the page was reloaded and the unchanged field was verified, and query plus citation resolution returned HTTP 200. The run used Node `22.13.1` with `NODE_OPTIONS` cleared.
+
+The captured report is `test-results/g4-knowledge-browser/report.json`, the screenshot is `test-results/g4-knowledge-browser/g4-knowledge-browser.png`, and cleanup status is `test-results/g4-knowledge-browser/cleanup.json`.
 
 ## Limits
 
-No credentials, database dumps, or running service output are committed. A supervisor must rerun the browser actions against both real hosts on ports in `16100-16129`; API-only results do not substitute for that UI acceptance.
+No credentials, database dumps, or running service output are committed. The browser runner uses an isolated temporary SQLite database and a local smoke model configuration; model responses are not used to establish Knowledge persistence. The StaffDeck service, its seed data, and the module transport are real for this acceptance run.

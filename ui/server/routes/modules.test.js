@@ -137,30 +137,34 @@ describe('module runtime route', () => {
     try {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/query`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ query: 'handbook', tenantId: 'tenant-forged', actorUserId: 'user-forged' }),
+        body: JSON.stringify({ query: 'handbook', tenantId: 'tenant-forged', tenant_id: 'tenant-forged-snake', actorUserId: 'user-forged', actor_user_id: 'user-forged-snake' }),
       });
       expect(response.status).toBe(200);
-      expect(received.payload.input).toMatchObject({ query: 'handbook', tenantId: 'tenant-bound', actorUserId: 'owner-bound' });
+      expect(received.payload.input).toMatchObject({ query: 'handbook', tenantId: 'tenant-bound', tenant_id: 'tenant-bound', actorUserId: 'owner-bound', actor_user_id: 'owner-bound' });
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));
     }
   });
 
-  it('rejects Knowledge writes when the single-user module administrator is disabled', async () => {
+  it.each([
+    'create_base', 'update_base', 'delete_base', 'sync_base', 'publish_version', 'rollback_version',
+    'import_document', 'import_okf', 'update_document', 'delete_document', 'update_bucket',
+    'update_chunk', 'cancel_job', 'upsert_okf_concept', 'lint_okf', 'confirm_discovery', 'reject_discovery',
+  ])('rejects Knowledge write %s when the single-user module administrator is disabled', async (operation) => {
     const previous = process.env.PILOTDECK_MODULE_ADMIN;
     process.env.PILOTDECK_MODULE_ADMIN = '0';
     const app = express();
     app.use(express.json());
     app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { knowledge: {
-      enabled: true, endpoint: 'http://127.0.0.1:1', methods: ['create_base'], tenantId: 'tenant-bound', actorUserId: 'owner-bound',
+      enabled: true, endpoint: 'http://127.0.0.1:1', methods: [operation], tenantId: 'tenant-bound', actorUserId: 'owner-bound',
     } } }) }));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/call`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ operation: 'create_base', input: { name: 'forbidden' } }),
+        body: JSON.stringify({ operation, input: { name: 'forbidden' } }),
       });
       expect(response.status).toBe(403);
       expect((await response.json()).error.code).toBe('MODULE_ADMIN_REQUIRED');
@@ -196,7 +200,7 @@ describe('module runtime route', () => {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_bases', input: {} }) });
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ result: [{ id: 'kb-1', name: 'Handbook' }] });
-      expect(received.payload).toEqual({ operation: 'list_bases', input: { tenantId: 'tenant-demo', actorUserId: 'operator' } });
+      expect(received.payload).toEqual({ operation: 'list_bases', input: { tenantId: 'tenant-demo', tenant_id: 'tenant-demo', actorUserId: 'operator', actor_user_id: 'operator' } });
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));

@@ -277,10 +277,20 @@ function withKnowledgeDefaults(binding, value) {
 
 function withTrustedKnowledgeIdentity(binding, value) {
   const input = isRecord(value) ? { ...value } : {};
-  if (typeof binding?.tenantId === 'string' && binding.tenantId.trim()) input.tenantId = binding.tenantId.trim();
-  else delete input.tenantId;
-  if (typeof binding?.actorUserId === 'string' && binding.actorUserId.trim()) input.actorUserId = binding.actorUserId.trim();
-  else delete input.actorUserId;
+  if (typeof binding?.tenantId === 'string' && binding.tenantId.trim()) {
+    input.tenantId = binding.tenantId.trim();
+    input.tenant_id = binding.tenantId.trim();
+  } else {
+    delete input.tenantId;
+    delete input.tenant_id;
+  }
+  if (typeof binding?.actorUserId === 'string' && binding.actorUserId.trim()) {
+    input.actorUserId = binding.actorUserId.trim();
+    input.actor_user_id = binding.actorUserId.trim();
+  } else {
+    delete input.actorUserId;
+    delete input.actor_user_id;
+  }
   return input;
 }
 

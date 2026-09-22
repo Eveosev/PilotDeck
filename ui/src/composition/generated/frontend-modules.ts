@@ -4,23 +4,7 @@ import module1 from '../modules/pilotdeck-skills';
 import module2 from '../modules/pilotdeck-tools';
 import module3 from '../modules/pilotdeck-context';
 import module4 from '../modules/pilotdeck-model';
-import module5 from '../modules/staffdeck-sop';
-import module6 from '../modules/staffdeck-knowledge';
-import module7 from '../modules/agent-routing';
-import module8 from '../modules/agent-scheduling';
-import module9 from '../modules/channels-integrations';
-import module10 from '../modules/model-providers';
-import module11 from '../modules/agent-model-selection';
-import module12 from '../modules/tools-search';
-import module13 from '../modules/tools-mcp';
-import module14 from '../modules/workspace-office-preview';
-import module15 from '../modules/system-advanced';
-import module16 from '../modules/tools-permissions';
-import module17 from '../modules/system-telemetry';
-import module18 from '../modules/system-updates';
-import module19 from '../modules/host-preferences';
-import module20 from '../modules/chat-preferences';
-import module21 from '../modules/workspace-editor-preferences';
+import module5 from '../modules/staffdeck-knowledge';
 
 export const generatedFrontendModules = [
   Object.assign({ slot: 'agentLoop' }, module0),
@@ -28,28 +12,10 @@ export const generatedFrontendModules = [
   Object.assign({ slot: 'tools' }, module2),
   Object.assign({ slot: 'context' }, module3),
   Object.assign({ slot: 'modelProvider' }, module4),
-  Object.assign({ slot: 'sop' }, module5),
-  Object.assign({ slot: 'knowledge' }, module6),
-  module7,
-  module8,
-  module9,
-  module10,
-  module11,
-  module12,
-  module13,
-  module14,
-  module15,
-  module16,
-  module17,
-  module18,
-  module19,
-  module20,
-  module21,
+  Object.assign({ slot: 'knowledge' }, module5),
 ] as const;
 
-export const generatedBusinessPaths = [
-  "/cron"
-] as const;
+export const generatedBusinessPaths = [] as const;
 
 export const generatedBusinessRoutePaths = [
   "/always-on",
@@ -80,14 +46,12 @@ export const generatedFrontendProfile = {
       "provider": "pilotdeck"
     },
     "sop": {
-      "enabled": true,
-      "implementationId": "staffdeck.portable-sop",
-      "contract": "sop.lifecycle/v2",
-      "transport": "sop-http-v2"
+      "enabled": false
     },
     "knowledge": {
       "enabled": true,
       "implementationId": "staffdeck.knowledge",
+      "frontendModule": "staffdeck.knowledge",
       "contract": "staffdeck.knowledge/v1",
       "transport": "module-http-v2",
       "methods": [
@@ -127,52 +91,6 @@ export const generatedFrontendProfile = {
     }
   },
   "frontend": {
-    "businessModules": {
-      "agent.routing": {
-        "enabled": true
-      },
-      "agent.scheduling": {
-        "enabled": true
-      },
-      "channels.integrations": {
-        "enabled": true
-      },
-      "model.providers": {
-        "enabled": true
-      },
-      "agent.model-selection": {
-        "enabled": true
-      },
-      "tools.search": {
-        "enabled": true
-      },
-      "tools.mcp": {
-        "enabled": true
-      },
-      "workspace.office-preview": {
-        "enabled": true
-      },
-      "system.advanced": {
-        "enabled": true
-      },
-      "tools.permissions": {
-        "enabled": true
-      },
-      "system.telemetry": {
-        "enabled": true
-      },
-      "system.updates": {
-        "enabled": true
-      },
-      "host.preferences": {
-        "enabled": true
-      },
-      "chat.preferences": {
-        "enabled": true
-      },
-      "workspace.editor-preferences": {
-        "enabled": true
-      }
-    }
+    "businessModules": {}
   }
 } as const;
