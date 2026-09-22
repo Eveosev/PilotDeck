@@ -161,6 +161,14 @@ if (!apiKey) {
               messages: runInput.messages,
               tools: [],
             });
+            if (runInput.sessionId === "approval-session" && runInput.turnId === "approval-turn-1") {
+              const [submitted] = await capabilities.toolExecution.executeAll(
+                [{ id: "approval-submit", name: "submit_step_result", input: { status: "awaiting_user", replyFragment: "Approval request submitted; waiting for approval." } }],
+                { sessionId: runInput.sessionId, turnId: runInput.turnId, cwd: stateRoot },
+                { sessionId: runInput.sessionId, turnId: runInput.turnId, runId: "approval-run", operationId: "approval-submit" },
+              );
+              assert.equal(submitted?.type, "success");
+            }
             observations.push({
               sessionId: runInput.sessionId,
               hasSopTool: tools.includes("submit_step_result"),
@@ -206,6 +214,7 @@ if (!apiKey) {
     assert.equal(routeResponses.some((item) => item.selected_sop_id === "skill_price_compare_001"), true);
     assert.equal(routeResponses.some((item) => item.selected_sop_id === "expense_over_limit_approval"), true);
     assert.equal(lifecycle.filter((item) => item.sessionId === "approval-session" && item.kind === "prepare").length, 2);
+    assert.equal(lifecycle.filter((item) => item.sessionId === "approval-session" && item.kind === "submit").length, 1);
     assert.equal(observations.find((item) => item.sessionId === "ordinary-session")?.hasSopTool, false);
     assert.equal(observations.find((item) => item.sessionId === "ordinary-session")?.hasSopPrompt, false);
     const report = {

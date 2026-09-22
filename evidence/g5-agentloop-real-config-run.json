@@ -158,6 +158,12 @@
       "version": "1.0.0"
     },
     {
+      "kind": "submit",
+      "sessionId": "approval-session",
+      "sopId": "expense_over_limit_approval",
+      "status": "awaiting_user"
+    },
+    {
       "kind": "prepare",
       "sessionId": "approval-session",
       "sopId": "expense_over_limit_approval",
@@ -191,5 +197,5 @@
       "hasSopPrompt": false
     }
   ],
-  "stateRoot": "/var/folders/xd/mml9c6fj2g95x40hgf_n6lrr0000gn/T/pilotdeck-sop-chain-SjB3sH"
+  "stateRoot": "/var/folders/xd/mml9c6fj2g95x40hgf_n6lrr0000gn/T/pilotdeck-sop-chain-OJt7iS"
 }
