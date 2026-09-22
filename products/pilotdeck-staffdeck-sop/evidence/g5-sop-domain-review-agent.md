@@ -43,3 +43,24 @@ the inherited invalid `NODE_OPTIONS` preload path.
 
 No local YAML fallback was used as a management publish proof, and no runtime
 state or database event was fabricated by this task.
+
+## Follow-up Runtime Evidence
+
+After installing the lockfile with Node 22.22.0, the isolated StaffDeck
+portable runtime was started on `127.0.0.1:16200` with a temporary SQLite file,
+`APP_SECRET=g5-local-secret-16200`, and the isolated Python environment. The
+real PilotDeck Gateway tests then consumed that service through
+`sop.lifecycle/v2`:
+
+```text
+test:sop:core                 30 passed
+test:sop:http-e2e             10 passed, 0 skipped
+process-restart-sop-resume   status=passed, sopStatus=completed, duplicate=true
+```
+
+The restart smoke proves a new PilotDeck process reloads the persisted SOP
+session state, resumes the same handoff once, and deduplicates the repeated
+resume request. The HTTP matrix also covered disabled composition, handoff and
+external waits, stale/concurrent state, malformed responses, HTTP 500, and
+timeouts. The service and temporary database were stopped/removed after the
+run.

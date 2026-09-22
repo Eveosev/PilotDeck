@@ -7,6 +7,12 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
 
+// PilotDeck is a single-user host. The SOP management identity is supplied by
+// the server-side StaffDeck API-key/agent binding; this value is only the
+// local host context required by the source-derived shared page. It must not
+// impersonate StaffDeck's example tenant.
+export const PILOTDECK_SOP_TENANT_ID = 'pilotdeck-local';
+
 function text(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value : undefined; }
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
 
@@ -92,7 +98,7 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
     if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
   }
   if (path.startsWith('/api/enterprise/agents?')) return [] as T;
-  if (path.startsWith('/api/enterprise/agents/') && path.endsWith('/skills?tenant_id=tenant_demo')) {
+  if (path.startsWith('/api/enterprise/agents/') && /\/skills\?tenant_id=[^&]+$/.test(path)) {
     if (method !== 'get') throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
     return await listDefinitions() as T;
   }
@@ -183,7 +189,7 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
     delete: (path) => callSkillApi(path, 'delete'),
   },
   navigate: (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
-  tenantId: 'tenant_demo',
+  tenantId: PILOTDECK_SOP_TENANT_ID,
   notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) },
   isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
   canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin),
@@ -222,7 +228,7 @@ export const pilotDeckDistillPageHost: DistillPageHost = {
   streamGet: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
   streamPost: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
   navigate: (path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
-  tenantId: 'tenant_demo',
+  tenantId: PILOTDECK_SOP_TENANT_ID,
   notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message), info: (message) => console.info(message) },
   readEmployeeScope: () => '',
   isTeamScope: (value) => value.startsWith('team:'),
