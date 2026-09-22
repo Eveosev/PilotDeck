@@ -80,14 +80,19 @@ async function listDefinitions(): Promise<any[]> {
     const local = await staffDeckSopClient.listDefinitions();
     return local.definitions.map((definition) => toSkill(definition, text(definition.status) || 'draft'));
   }
-  const rows = Array.isArray(result.data) && result.data.length > 0
-    ? result.data
-    : Array.isArray(result.drafts) ? result.drafts : [];
+  // Prefer an existing draft for editing. The published row is still the
+  // source of truth for version history, but a page save must retain the
+  // draft id and etag returned by management.
+  const rows = Array.isArray(result.drafts) && result.drafts.length > 0
+    ? result.drafts
+    : Array.isArray(result.data) ? result.data : [];
   const local = await staffDeckSopClient.listDefinitions();
   const localById = new Map(local.definitions.map((definition) => [definition.id, definition]));
   return rows.map((row) => {
     const managed = toManagedSkill(row);
-    return toSkill({ ...managed, ...(localById.get(managed.skill_id) || {}) } as SopDefinition, managed.status);
+    // Keep draft ids, etags, versions, and draft content from management
+    // authoritative; the local definition only supplies host-only metadata.
+    return toSkill({ ...(localById.get(managed.skill_id) || {}), ...managed } as SopDefinition, managed.status);
   });
 }
 
@@ -105,7 +110,10 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
   if (!match) throw new Error(`Unsupported StaffDeck skills path: ${path}`);
   const sopId = decodeURIComponent(match[1]);
   const suffix = match[2] ? decodeURIComponent(match[2]) : '';
-  if (method === 'get' && suffix === 'versions') return await management('list_versions', { sopId }) as T;
+  if (method === 'get' && suffix === 'versions') {
+    const result = record(await management('list_versions', { sopId }));
+    return (Array.isArray(result.data) ? result.data : result) as T;
+  }
   if (method === 'get' && suffix) return await management('get_version', { sopId, version: suffix }) as T;
   if (method === 'post' && suffix === 'publish') {
     const current = await readDefinition(sopId);
@@ -172,6 +180,15 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
         content,
       });
       return toManagedSkill(saved) as T;
+    }
+    try {
+      // A published management row may not have a draft yet. Create the
+      // draft through the same management API used by the publish action so
+      // the shared page can save and publish an exact page-edited version.
+      const saved = await management('create', { sopId: skillId, content });
+      return toManagedSkill(saved) as T;
+    } catch (error) {
+      if ((error as { status?: number })?.status !== 501) throw error;
     }
     const definition = { ...current, ...(body || {}), id: skillId, skill_id: skillId, content };
     const saved = await staffDeckSopClient.saveDefinition(skillId, definition);

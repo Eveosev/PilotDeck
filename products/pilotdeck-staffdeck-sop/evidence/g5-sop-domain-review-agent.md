@@ -44,6 +44,35 @@ the inherited invalid `NODE_OPTIONS` preload path.
 No local YAML fallback was used as a management publish proof, and no runtime
 state or database event was fabricated by this task.
 
+## PilotDeck UI Publish Evidence
+
+The PilotDeck runtime was restored through the onboarding flow and then
+restarted with the SOP module binding active. The shared `/sop/distill` page
+loaded the exact four-node/four-edge page-published graph. The page edit was
+persisted as management draft `1.2.1`, the normal SOP action published it, and
+the list returned the row as `1.2.1 / 已启用`.
+
+The returned management object is preserved at
+`evidence/g5-pilotdeck-page-published-1.2.1.json`. It contains nodes
+`n1_collect`, `build_plan`, `confirm_scope`, and `finalize_plan`, with the
+conditions `default`, `scope_changed`, `no_scope_change`, and
+`confirmation_received`.
+
+The exact-object reader and PilotDeck management adapter were corrected so a
+page-published response can be loaded, edited into a management draft, and
+listed with version rows. Focused verification passed:
+
+```text
+ui/server/routes/modules.test.js
+ui/server/routes/onboarding.test.js
+35 tests passed
+```
+
+The exact `1.2.1` object was replayed through the real SOP runtime with
+`evidence/g5-real-run.mjs`. The replay preserved the handoff wait ID across
+runtime reload, accepted the resume once, replayed the duplicate request, and
+completed at terminal `finalize_plan` with `scope_confirmed=true`.
+
 ## Follow-up Runtime Evidence
 
 After installing the lockfile with Node 22.22.0, the isolated StaffDeck

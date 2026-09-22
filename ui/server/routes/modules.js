@@ -305,7 +305,14 @@ function readSopDefinitions(binding) {
   }
   if (!existsSync(binding.definitionsPath)) throw new Error('StaffDeck SOP definitions file does not exist.');
   const parsed = parseYaml(readFileSync(binding.definitionsPath, 'utf8'));
-  const bundle = Array.isArray(parsed) ? { sops: parsed } : parsed;
+  // Management GETs return one published SOP object, while the portable
+  // definition host stores a bundle. Accept both shapes so an exact
+  // page-published response can be replayed without reshaping the evidence.
+  const bundle = Array.isArray(parsed)
+    ? { sops: parsed }
+    : isRecord(parsed) && text(parsed.skill_id) && isRecord(parsed.content)
+      ? { sops: [parsed] }
+      : parsed;
   validateSopBundle(bundle);
   return bundle;
 }

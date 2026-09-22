@@ -237,6 +237,32 @@ describe('module runtime route', () => {
     }
   });
 
+  it('accepts an exact page-published SOP object as a local definition', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pilotdeck-sop-published-'));
+    const definitionsPath = join(root, 'published.json');
+    await writeFile(definitionsPath, JSON.stringify({
+      id: 'project_delivery_plan',
+      skill_id: 'project_delivery_plan',
+      version: '1.2.0',
+      content: { skill_id: 'project_delivery_plan', nodes: [{ node_id: 'n1_collect', type: 'collect_info' }] },
+    }));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/modules', createModuleRuntimeRouter({
+      loadConfig: () => ({ modules: { sop: { enabled: true, definitionsPath, defaultSopId: 'project_delivery_plan' } } }),
+    }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const listed = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/definitions`);
+      expect(listed.status).toBe(200);
+      expect(await listed.json()).toMatchObject({ defaultSopId: 'project_delivery_plan', definitions: [{ id: 'project_delivery_plan', version: '1.2.0' }] });
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('returns 501 only when public SOP management is not configured', async () => {
     const app = express();
     app.use(express.json());
