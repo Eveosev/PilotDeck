@@ -25,6 +25,18 @@ commands used for the passing static checks are listed below.
 
 ## Latest Shared-Host Follow-Up (2026-09-22)
 
+The earlier temporary-database note below is superseded by the verified
+Knowledge-only module process currently bound to `/tmp/staffdeck-g45b.sqlite3`.
+Its module call `get_document` returned document
+`kdoc_fc74742ad3894a9d` (`pilotdeck-staffdeck-acceptance.md`) with a ready
+bucket/chunk, and a real `query` for `cedar-47` returned one evidence-pack item
+(`kchunk_b6d9baec88a248ac`) plus the source citation
+`ultrarag://knowledge/documents/kdoc_fc74742ad3894a9d`. The query completed
+with HTTP 200 through `/v2/module/call`. The configured model secret does not
+match this database, so document and bucket routing recorded
+`*_lexical_fallback`; this is an explicit degraded routing trace, not a failed
+retrieval or an absent citation.
+
 - StaffDeck native editing appended `双宿主 G4 acceptance marker 2026-09-22.` to the shared document in base `kb_dee9ad74d3a24492`; native API readback returned document `kdoc_f74aa10735064b29` with the updated `online_edited_at`.
 - PilotDeck Vite `/knowledge` selected the same base, rendered its 17 citation/source entries, and sent a real `POST /api/modules/knowledge/call` query (HTTP 200). The retrieval trace reported `Secret cannot be decrypted with current APP_SECRET`, so this is not claimed as a successful marker query or G4 pass. The indexed chunks still do not contain the marker, which remains an index/re-read gap to resolve.
 - PilotDeck `/sop` now correctly falls back to local YAML definitions when public SOP management is not configured. The module route returns `501 SOP_MANAGEMENT_UNAVAILABLE` only for that capability absence; configured upstream failures retain their original error status. This is fallback/error-classification evidence only, not G5 public-management or dual-host publish evidence.
