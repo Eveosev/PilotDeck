@@ -26,6 +26,7 @@ const REAL_MODEL_SOURCE_PILOT_HOME = process.env.REAL_SEVEN_SLOT_MODEL_SOURCE_PI
 const KNOWLEDGE_AGENT_ID = "agent_7d062081c03b4e16";
 const OTHER_KNOWLEDGE_AGENT_ID = "agent_f2828efc2a2a476d";
 const NATIVE_BRANCH_FACT = "Native branch-only owner approval fact 7d062081c03b4e16";
+const NATIVE_UPDATED_FACT = "Native branch updated security review fact 7d062081c03b4e16";
 const B0_NATIVE_TOOL_SURFACE = [
   "agent",
   "ask_user_question",
@@ -414,6 +415,9 @@ test("native PilotDeck owners compose real StaffDeck Knowledge and SOP through G
   const knowledgeQueries: Record<string, unknown>[] = [];
   const automaticCompactionTriggers: CompactionAutomaticTriggerObservation[] = [];
   const model = new NativeOwnerScenarioModel();
+  const realModel = process.env.PILOTDECK_REAL_KNOWLEDGE_AGENTLOOP === "1"
+    ? createRealModelFixture(REAL_MODEL_SOURCE_PILOT_HOME)
+    : undefined;
   const knowledge = await startPythonService({
     root: STAFFDECK_ROOT,
     python: PYTHON,
@@ -534,6 +538,81 @@ sops:
   });
   assert.ok(Array.isArray(scopedDocuments) && scopedDocuments.length > 0, JSON.stringify(scopedDocuments));
   model.baseId = baseId;
+
+  if (realModel) {
+    await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      knowledgeEndpoint: knowledgeProxy.url,
+      sopEndpoint: sop.url,
+      definitionsPath: join(projectRoot, "approval.yaml"),
+      tenantId: "tenant_demo",
+      actorUserId: "admin",
+      agentId: KNOWLEDGE_AGENT_ID,
+      modelProviderId: realModel.provider,
+      modelName: realModel.model,
+    }), "utf8");
+    const realGateway = createLocalGateway({
+      projectRoot,
+      pilotHome: projectRoot,
+      fallbackProjectRoot: projectRoot,
+      permissionMode: "bypassPermissions",
+      __testModelFactory: () => realModel.runtime,
+    });
+    try {
+      const firstRealEvents: unknown[] = [];
+      for await (const event of realGateway.gateway.submitTurn({
+        sessionKey: "native-owner-real-knowledge-first",
+        workspaceCwd: projectRoot,
+        channelKey: "test",
+        message: "Answer this business question using the configured Knowledge branch. First call knowledge_query for the approval policy, then state the exact branch-only fact from the evidence and include its citation marker: what approval fact is recorded? Do not answer from general knowledge or from this message.",
+        mode: "bypassPermissions",
+        allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+      })) firstRealEvents.push(event);
+      const firstRealSerialized = JSON.stringify(firstRealEvents);
+      assert.match(firstRealSerialized, /knowledge_query/);
+      assert.match(firstRealSerialized, new RegExp(NATIVE_BRANCH_FACT));
+      assert.match(firstRealSerialized, /citations|\[1\]/i);
+
+      const realDocumentId = textField(
+        Array.isArray(scopedDocuments)
+          ? scopedDocuments.find((item) => textField(item, "filename") === "approval-policy.md")
+          : undefined,
+        "id",
+      );
+      await knowledgePort.call("update_document", {
+        tenantId: "tenant_demo",
+        actorUserId: "admin",
+        agentId: KNOWLEDGE_AGENT_ID,
+        documentId: realDocumentId,
+        title: "Updated approval policy",
+        contentMd: `# Updated approval policy\n\n${NATIVE_UPDATED_FACT}.\n`,
+      });
+      const secondRealEvents: unknown[] = [];
+      for await (const event of realGateway.gateway.submitTurn({
+        sessionKey: "native-owner-real-knowledge-second",
+        workspaceCwd: projectRoot,
+        channelKey: "test",
+        message: "Use knowledge_query against the configured Knowledge branch and answer with the exact updated fact after the security review update. Include the evidence citation marker and do not reuse the previous fact.",
+        mode: "bypassPermissions",
+        allowedTools: [...B0_NATIVE_TOOL_SURFACE],
+      })) secondRealEvents.push(event);
+      const secondRealSerialized = JSON.stringify(secondRealEvents);
+      assert.match(secondRealSerialized, /knowledge_query/);
+      assert.match(secondRealSerialized, new RegExp(NATIVE_UPDATED_FACT));
+      assert.match(secondRealSerialized, /citations|\[1\]/i);
+      assert.doesNotMatch(secondRealSerialized, new RegExp(NATIVE_BRANCH_FACT));
+      await writeE2EArtifact("e2e01-native-owner-real-knowledge-trace.json", {
+        schemaVersion: 1,
+        scenario: "E2E-01-native-owner-real-knowledge",
+        model: { provider: realModel.provider, model: realModel.model },
+        firstEvents: firstRealEvents,
+        secondEvents: secondRealEvents,
+        scope: { tenantId: "tenant_demo", actorUserId: "admin", agentId: KNOWLEDGE_AGENT_ID },
+      }, root);
+    } finally {
+      await realGateway.dispose();
+    }
+    return;
+  }
 
   const createNativeOwnerGateway = (runtimeModel = model) => createLocalGateway({
     projectRoot,
@@ -1432,18 +1511,22 @@ function nativeOwnerConfig(input: {
   tenantId?: string;
   actorUserId?: string;
   agentId?: string;
+  modelProviderId?: string;
+  modelName?: string;
 }): string {
+  const modelProviderId = input.modelProviderId ?? "native-owner";
+  const modelName = input.modelName ?? "default";
   return `schemaVersion: 1
 agent:
-  model: native-owner/default
+  model: ${modelProviderId}/${modelName}
 model:
   providers:
-    native-owner:
+    ${modelProviderId}:
       protocol: openai
       url: http://unused.invalid/v1
       apiKey: test-only
       models:
-        default:
+        ${modelName}:
           capabilities: { supportsToolUse: true, maxContextTokens: 65536, maxOutputTokens: 8192 }
 modules:
   agentLoop: { enabled: true, provider: pilotdeck }
