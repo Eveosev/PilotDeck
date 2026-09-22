@@ -34,7 +34,7 @@ import { ConnectionBanner } from '../ui/ConnectionBanner';
 import SidebarV2 from './SidebarV2';
 import MainAreaV2 from './MainAreaV2';
 import { useModuleComposition } from '../../composition/runtime';
-import { generatedBusinessRoutePaths } from '../../composition/generated/frontend-modules';
+import { generatedBusinessRoutePaths, generatedFrontendModules } from '../../composition/generated/frontend-modules';
 import {
   chooseDefaultProject,
   resolveHomeNewConversationProject,
@@ -77,6 +77,12 @@ export default function AppShellV2() {
   const matchSettingsIndex = useMatch({ path: SETTINGS_PATH, end: true });
   const matchSettingsSection = useMatch(`${SETTINGS_PATH}/*`);
   const modulePage = composition.assembly?.pages.find((page) => page.path === location.pathname) ?? null;
+  // Keep statically declared module deep links dedicated while the live
+  // composition is still loading. Otherwise the default-project effect can
+  // replace /knowledge (or another module page) with /p/general first.
+  const isDeclaredModuleRoute = generatedFrontendModules.some((module) =>
+    module.pages?.some((page) => page.path === location.pathname),
+  );
   const hasScheduledTasks = Boolean(composition.assembly?.pages.some((page) => page.path === SCHEDULED_TASKS_PATH));
   const isDisabledBusinessRoute = generatedBusinessRoutePaths.some((path) => path === location.pathname)
     && !modulePage
@@ -86,7 +92,7 @@ export default function AppShellV2() {
   const dedicatedTab = matchScheduledTasks
       ? 'cron' as const
       : null;
-  const isDedicatedRoute = dedicatedTab !== null || isSettingsRoute || modulePage !== null || isDisabledBusinessRoute;
+  const isDedicatedRoute = dedicatedTab !== null || isSettingsRoute || modulePage !== null || isDeclaredModuleRoute || isDisabledBusinessRoute;
   const projectNameParam =
     matchProjectChat?.params.projectName ?? matchProject?.params.projectName ?? undefined;
   const sessionId =
