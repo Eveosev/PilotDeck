@@ -35,15 +35,15 @@ const projectRoot = join(root, "project");
 const sessionKey = "natural-published-sop";
 const statePath = join(projectRoot, "sop", "sessions", `${Buffer.from(sessionKey, "utf8").toString("base64url")}.json`);
 const messages = [
-  "请处理这项项目推进工作。目标是交付真实SOP运行验证，当前阶段是验证，已知阻塞为无。项目材料在 approval-context.txt，请先阅读材料并完成信息收集，提交 completed 和全部已知槽位后继续到推进计划步骤。范围、资源和日期已经发生变化，但在负责人审批影响前不要输出最终行动清单。",
-  "继续完成这份项目推进计划，把范围变化的影响、负责人、里程碑和风险依赖整理清楚，并继续按流程推进；不要在信息已齐全时停留在收集步骤。",
-  "请基于当前收集的信息生成推进计划，标出范围变化的影响，并提交 scope_changed 进入负责人确认节点。确认前不要输出最终行动清单，也不要自行确认。",
-  "请把确认请求正式发给负责人，说明影响和需要确认的内容；把流程推进到等待负责人确认，不要假设负责人已经确认。",
-  "请等待负责人回复，不要自行把计划标为已确认或输出最终行动清单。",
-  "范围、资源和日期的变化影响需要负责人审批。请保持在范围变更确认环节等待负责人回复，不要继续生成最终行动清单。",
-  "请把项目流程推进到负责人确认范围变更这一步，明确说明等待审批，不要自行确认。",
+  "请处理这项项目推进工作。目标是交付真实 SOP 运行验证，当前阶段是验证，已知阻塞为无。项目材料在 approval-context.txt，请先阅读材料并整理目标、阶段和阻塞。范围、资源和日期已经发生变化，在负责人确认影响前不要输出最终行动清单。",
+  "继续推进这份项目计划，把材料中的范围变化、负责人、里程碑和风险依赖整理清楚，并说明这些变化可能带来的影响。",
+  "请形成推进计划草案，明确哪些范围、资源和日期影响需要负责人确认；确认前不要输出最终行动清单。",
+  "请把需要确认的影响正式说明给负责人，并暂停等待回复，不要假设负责人已经确认。",
+  "请等待负责人回复，不要自行确认任何变更，也不要输出最终行动清单。",
+  "负责人还没有回复。请保持暂停，继续等待确认，不要继续生成最终行动清单。",
+  "请继续等待负责人对范围、资源和日期影响的确认，不要自行确认。",
 ];
-assert.equal(messages.some((message) => /submit_step_result|status\s*=|status:/iu.test(message)), false);
+assert.equal(messages.some((message) => /submit_step_result|status\s*=|status:|slotUpdates|nextStepId|scope_changed|\bcompleted\b|n1_collect|build_plan|confirm_scope|finalize_plan/iu.test(message)), false);
 
 const collect = async (events) => {
   const result = [];
