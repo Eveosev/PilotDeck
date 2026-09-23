@@ -14,6 +14,7 @@ const outputPath = process.env.G5_NATURAL_OUTPUT ?? "/tmp/g5-agentloop-natural-d
 const discoveryEndpoint = process.env.STAFFDECK_SOP_DISCOVERY_ENDPOINT;
 const discoveryAgentId = process.env.STAFFDECK_SOP_DISCOVERY_AGENT_ID;
 const discoveryApiKey = process.env.STAFFDECK_SOP_DISCOVERY_API_KEY;
+const discoveryTimeoutMs = Number(process.env.STAFFDECK_SOP_DISCOVERY_TIMEOUT_MS ?? 120000);
 if (!sourcePilotHome) throw new Error("REAL_MODEL_SOURCE_PILOT_HOME or PILOT_HOME is required.");
 if (!discoveryEndpoint || !discoveryAgentId || !discoveryApiKey) {
   throw new Error("STAFFDECK_SOP_DISCOVERY_ENDPOINT, STAFFDECK_SOP_DISCOVERY_AGENT_ID, and STAFFDECK_SOP_DISCOVERY_API_KEY are required.");
@@ -61,6 +62,10 @@ const parseBody = (body) => {
   try { return JSON.parse(body); } catch { return body; }
 };
 const serviceTrace = [];
+const turns = [];
+const nodeTransitions = [];
+let latestStatus;
+let latestPhase = "setup";
 const endpointPrefix = endpoint.replace(/\/+$/u, "");
 const discoveryPrefix = discoveryEndpoint.replace(/\/+$/u, "");
 const classifyServiceUrl = (url) => {
@@ -70,22 +75,52 @@ const classifyServiceUrl = (url) => {
 };
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const tracedFetch = async (input, init) => {
-  const response = await nativeFetch(input, init);
   const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const kind = classifyServiceUrl(rawUrl);
-  if (kind) {
+  if (!kind) return nativeFetch(input, init);
+  const parsedUrl = new URL(rawUrl);
+  const started = performance.now();
+  const entry = {
+    kind,
+    method: init?.method ?? "GET",
+    url: `${parsedUrl.origin}${parsedUrl.pathname}`,
+    host: parsedUrl.host,
+    path: parsedUrl.pathname,
+    timeoutMs: kind === "discovery" ? discoveryTimeoutMs : undefined,
+    startedAt: new Date().toISOString(),
+    request: redact(parseBody(init?.body)),
+    outcome: "started",
+  };
+  serviceTrace.push(entry);
+  await writeEvidence();
+  try {
+    const response = await nativeFetch(input, init);
     let responseBody;
     try { responseBody = await response.clone().json(); } catch { responseBody = await response.clone().text(); }
-    serviceTrace.push({
-      kind,
-      method: init?.method ?? "GET",
-      path: new URL(rawUrl).pathname,
+    Object.assign(entry, {
+      outcome: "response",
       status: response.status,
-      request: redact(parseBody(init?.body)),
       response: redact(responseBody),
+      elapsedMs: Math.round(performance.now() - started),
+      completedAt: new Date().toISOString(),
     });
+    await writeEvidence();
+    return response;
+  } catch (error) {
+    const aborted = Boolean(init?.signal?.aborted);
+    Object.assign(entry, {
+      outcome: aborted ? "aborted" : "error",
+      error: redact({
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        signalReason: aborted ? init.signal.reason : undefined,
+      }),
+      elapsedMs: Math.round(performance.now() - started),
+      completedAt: new Date().toISOString(),
+    });
+    await writeEvidence();
+    throw error;
   }
-  return response;
 };
 globalThis.fetch = tracedFetch;
 const eventTrace = (events) => events.map((event) => {
@@ -129,6 +164,33 @@ const traceTurn = async (phase, index, message, events, status) => ({
   runtimeBinding: await persistedBinding(),
 });
 
+const recordNode = (status) => {
+  latestStatus = status;
+  const nodeId = status?.state?.active_step_id;
+  if (typeof nodeId === "string" && nodeTransitions.at(-1) !== nodeId) nodeTransitions.push(nodeId);
+};
+
+const writeEvidence = async (extra = {}) => {
+  const persisted = await persistedBinding();
+  await writeFile(outputPath, JSON.stringify({
+    status: extra.status ?? "in_progress",
+    permissionMode: "default",
+    provider: providerId,
+    model: selected.slice(providerId.length + 1),
+    modelSource: "REAL_MODEL_SOURCE_PILOT_HOME/pilotdeck.yaml",
+    inputDefinition: { path: publishedPath, skillId: published.skill_id, version: published.version },
+    discovery: { endpoint: discoveryEndpoint, agentId: discoveryAgentId, timeoutMs: discoveryTimeoutMs },
+    inputContract: "ordinary project-delivery requests; no SOP tool name or result status in user messages",
+    runtimeBinding: persisted,
+    selectedState: { skillId: published.skill_id, nodeTransitions },
+    latestPhase,
+    latestStatus: snapshot(latestStatus),
+    turns,
+    serviceTrace,
+    ...extra,
+  }, null, 2), "utf8");
+};
+
 await mkdir(projectRoot, { recursive: true });
 await writeFile(join(projectRoot, "approval-context.txt"), "The release scope changed: confirm owner impact before finalizing.\n", "utf8");
 await writeFile(join(projectRoot, "pilotdeck.yaml"), YAML.stringify({
@@ -146,7 +208,7 @@ await writeFile(join(projectRoot, "pilotdeck.yaml"), YAML.stringify({
       definitionsPath: publishedPath,
       defaultSopId: published.skill_id,
       timeoutMs: 30000,
-      discoveryTimeoutMs: Number(process.env.STAFFDECK_SOP_DISCOVERY_TIMEOUT_MS ?? 120000),
+      discoveryTimeoutMs,
       discoveryEndpoint,
       discoveryAgentId,
       discoveryApiKey,
@@ -155,9 +217,7 @@ await writeFile(join(projectRoot, "pilotdeck.yaml"), YAML.stringify({
 }), "utf8");
 
 let local;
-let turns = [];
 let current;
-let nodeTransitions = [];
 let wait;
 let reloaded;
 let resume;
@@ -166,16 +226,15 @@ let postResumeTurns = [];
 let finalStatus;
 try {
   local = createLocalGateway({ projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot });
-  const recordNode = (status) => {
-    const nodeId = status?.state?.active_step_id;
-    if (typeof nodeId === "string" && nodeTransitions.at(-1) !== nodeId) nodeTransitions.push(nodeId);
-  };
   for (const [index, message] of messages.entries()) {
+    latestPhase = `ordinary:${index + 1}`;
+    const turnStarted = performance.now();
     const events = await collect(local.gateway.submitTurn({ sessionKey, channelKey: "natural", workspaceCwd: projectRoot, message, mode: "default", canPrompt: false, allowedTools: ["read_file", "submit_step_result"] }));
     const errors = events.filter((event) => event.type === "error");
     current = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
     recordNode(current);
-    turns.push(await traceTurn("ordinary", index + 1, message, events, current));
+    turns.push({ ...(await traceTurn("ordinary", index + 1, message, events, current)), elapsedMs: Math.round(performance.now() - turnStarted) });
+    await writeEvidence({ lastErrors: summary(events).filter((event) => event.type === "error") });
     assert.equal(errors.length, 0, JSON.stringify(summary(events)));
     if (index === 0) {
       assert.equal(current?.state.selected_skill_id ?? current?.state.active_skill_id, published.skill_id);
@@ -185,6 +244,7 @@ try {
   }
 
   wait = current?.wait;
+  await writeEvidence({ status: current?.state?.status === "handoff" ? "handoff_reached" : "precondition_failed" });
   assert.equal(current?.state.status, "handoff", JSON.stringify(snapshot(current)));
   assert.ok(wait?.id, JSON.stringify(snapshot(current)));
   assert.equal(wait.kind, "handoff");
@@ -220,12 +280,15 @@ try {
     "负责人已经确认范围变化的影响，请完成最终行动清单。",
     "请完成当前流程并给出最终行动清单。",
   ].entries()) {
+    latestPhase = `post_resume:${index + 1}`;
+    const turnStarted = performance.now();
     const events = await collect(local.gateway.submitTurn({ sessionKey, channelKey: "natural", workspaceCwd: projectRoot, message, mode: "default", canPrompt: false, allowedTools: ["read_file", "submit_step_result"] }));
     postResume.push(...events);
     const status = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
     recordNode(status);
-    postResumeTurns.push(await traceTurn("post_resume", index + 1, message, events, status));
+    postResumeTurns.push({ ...(await traceTurn("post_resume", index + 1, message, events, status)), elapsedMs: Math.round(performance.now() - turnStarted) });
     assert.equal(events.some((event) => event.type === "error"), false, JSON.stringify(summary(events)));
+    await writeEvidence();
     if (status?.state.status === "completed") break;
   }
   const finalAfterResume = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
@@ -259,7 +322,7 @@ try {
     model: selected.slice(providerId.length + 1),
     modelSource: "REAL_MODEL_SOURCE_PILOT_HOME/pilotdeck.yaml",
     inputDefinition: { path: "products/pilotdeck-staffdeck-sop/evidence/g5-pilotdeck-page-published-1.2.1.json", skillId: published.skill_id, version: published.version },
-    discovery: { endpoint: discoveryEndpoint, agentId: discoveryAgentId },
+    discovery: { endpoint: discoveryEndpoint, agentId: discoveryAgentId, timeoutMs: discoveryTimeoutMs },
     published: { sopId: published.skill_id, version: published.version, nodes: published.content.nodes.length, edges: published.content.edges.length },
     inputContract: "ordinary project-delivery requests; no SOP tool name or result status in user messages",
     capabilityFilter: ["read_file", "submit_step_result"],
@@ -280,7 +343,7 @@ try {
   await writeFile(outputPath, JSON.stringify(result, null, 2), "utf8");
   console.log(JSON.stringify({ status: result.status, permissionMode: "default", sop: `${published.skill_id}@${published.version}`, wait: wait?.id ?? null, terminal: finalStatus?.state.status ?? null }));
 } catch (error) {
-  const failure = {
+  await writeEvidence({
     status: "failed",
     error: {
       name: error instanceof Error ? error.name : typeof error,
@@ -292,14 +355,8 @@ try {
     reload: reloaded ? snapshot(reloaded) : null,
     resume: resume ? redact(resume) : null,
     duplicate: duplicate ? redact(duplicate) : null,
-    nodeTransitions,
-    ordinaryTurns: turns,
     postResumeTurns,
-    service: serviceTrace,
-    inputDefinition: { path: publishedPath, skillId: published.skill_id, version: published.version },
-    runtimeBinding: await persistedBinding(),
-  };
-  await writeFile(outputPath, JSON.stringify(failure, null, 2), "utf8");
+  });
   throw error;
 } finally {
   await local?.dispose();
