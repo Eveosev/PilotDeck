@@ -173,14 +173,14 @@ try {
   for (const [index, message] of messages.entries()) {
     const events = await collect(local.gateway.submitTurn({ sessionKey, channelKey: "natural", workspaceCwd: projectRoot, message, mode: "default", canPrompt: false, allowedTools: ["read_file", "submit_step_result"] }));
     const errors = events.filter((event) => event.type === "error");
-    assert.equal(errors.length, 0, JSON.stringify(summary(events)));
     current = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
     recordNode(current);
-    if (turns.length === 0) {
+    turns.push(await traceTurn("ordinary", index + 1, message, events, current));
+    assert.equal(errors.length, 0, JSON.stringify(summary(events)));
+    if (index === 0) {
       assert.equal(current?.state.selected_skill_id ?? current?.state.active_skill_id, published.skill_id);
       assert.equal(summary(events).find((event) => event.type === "tool_call_finished" && event.ok)?.toolName, "read_file");
     }
-    turns.push(await traceTurn("ordinary", index + 1, message, events, current));
     if (current?.state.status === "handoff") break;
   }
 
@@ -221,11 +221,11 @@ try {
     "请完成当前流程并给出最终行动清单。",
   ].entries()) {
     const events = await collect(local.gateway.submitTurn({ sessionKey, channelKey: "natural", workspaceCwd: projectRoot, message, mode: "default", canPrompt: false, allowedTools: ["read_file", "submit_step_result"] }));
-    assert.equal(events.some((event) => event.type === "error"), false, JSON.stringify(summary(events)));
     postResume.push(...events);
     const status = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
     recordNode(status);
     postResumeTurns.push(await traceTurn("post_resume", index + 1, message, events, status));
+    assert.equal(events.some((event) => event.type === "error"), false, JSON.stringify(summary(events)));
     if (status?.state.status === "completed") break;
   }
   const finalAfterResume = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
