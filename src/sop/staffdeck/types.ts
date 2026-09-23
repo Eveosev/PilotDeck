@@ -154,6 +154,14 @@ export type StaffDeckSopResumeResult = Readonly<{
   message: string;
 }>;
 
+export type StaffDeckSopTransition = Readonly<{
+  nextStepId: string;
+  condition: string;
+  priority: number;
+  label?: string;
+  targetStep: Record<string, unknown>;
+}>;
+
 export type StaffDeckSopStep = Readonly<{
   skillId: string;
   skillName: string;
@@ -164,6 +172,7 @@ export type StaffDeckSopStep = Readonly<{
   expectedUserInfo: string[];
   knownSlots: Record<string, unknown>;
   allowedNextStepIds: string[];
+  transitions?: StaffDeckSopTransition[];
   requiredToolNames: string[];
   allowedActions: string[];
   isTerminal: boolean;

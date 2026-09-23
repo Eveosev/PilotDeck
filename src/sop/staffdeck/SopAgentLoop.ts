@@ -568,6 +568,24 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
     step.expectedUserInfo.length > 0 ? `Required user information: ${step.expectedUserInfo.join(", ")}.` : undefined,
     step.requiredToolNames.length > 0 ? `Required successful tools: ${step.requiredToolNames.join(", ")}.` : undefined,
     step.allowedNextStepIds.length > 1 ? `Allowed next steps: ${step.allowedNextStepIds.join(", ")}.` : undefined,
+    step.transitions && step.transitions.length > 0
+      ? `Transition guidance:\n${step.transitions.map((transition) => {
+        const target = transition.targetStep;
+        const targetName = text(target.name) ?? transition.nextStepId;
+        const targetType = text(target.type);
+        const targetInstruction = text(target.instruction);
+        const targetParts = [targetName, targetType, targetInstruction].filter(Boolean).join("; ");
+        const label = text(transition.label);
+        const condition = transition.condition || "default";
+        return `- ${transition.nextStepId}: condition=${condition}, priority=${transition.priority}${label ? `, label=${label}` : ""}; target=${targetParts}`;
+      }).join("\n")}`
+      : undefined,
+    step.expectedUserInfo.length > 0
+      ? "When required information is present in the user messages or tool results, include it in slotUpdates and submit completed to advance; use awaiting_user only when information is genuinely missing."
+      : undefined,
+    step.transitions && step.transitions.length > 0
+      ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."
+      : undefined,
     step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user." : undefined,
     "When this step has a result, call submit_step_result exactly once. Do not claim a tool succeeded before its result is in the conversation.",
     "Use status awaiting_user for missing user information and handoff only when this step explicitly permits it.",

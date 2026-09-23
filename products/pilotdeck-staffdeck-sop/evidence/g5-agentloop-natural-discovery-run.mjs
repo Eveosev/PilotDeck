@@ -35,7 +35,7 @@ const projectRoot = join(root, "project");
 const sessionKey = "natural-published-sop";
 const statePath = join(projectRoot, "sop", "sessions", `${Buffer.from(sessionKey, "utf8").toString("base64url")}.json`);
 const messages = [
-  "请处理这项项目推进工作。目标是交付真实 SOP 运行验证，当前阶段是验证，已知阻塞为无。项目材料在 approval-context.txt，请先阅读材料并整理目标、阶段和阻塞。范围、资源和日期已经发生变化，在负责人确认影响前不要输出最终行动清单。",
+  "请帮我梳理这项项目计划。目标是交付真实 SOP 运行验证，当前阶段是验证，已知阻塞为无。项目材料在 approval-context.txt，请先阅读材料并整理目标、阶段和阻塞。范围、资源和日期已经发生变化，在负责人确认影响前不要输出最终行动清单。",
   "继续推进这份项目计划，把材料中的范围变化、负责人、里程碑和风险依赖整理清楚，并说明这些变化可能带来的影响。",
   "请形成推进计划草案，明确哪些范围、资源和日期影响需要负责人确认；确认前不要输出最终行动清单。",
   "请把需要确认的影响正式说明给负责人，并暂停等待回复，不要假设负责人已经确认。",

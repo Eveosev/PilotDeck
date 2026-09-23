@@ -13,6 +13,7 @@
 - 受内部指令引导的辅助 trace：`/tmp/g5-full-repro-rerun-20260923-140951/g5-full-trace-2.json`。它确实记录了 discovery、lifecycle、handoff、reload、resume、duplicate 和 completion，但输入中直接要求内部状态/槽位/分支，不能作为普通入口验收。
 - 辅助 trace 使用的真实 public publish 对象绑定为 `project_delivery_plan@1.0.1`；原始发布 envelope 与平铺部署对象均保留在 `/tmp/g5-full-repro-rerun-20260923-140951/`，版本化输入来源和启动方式见 `evidence/g5-natural-input-audit-20260923.md`。
 - 普通请求失败 trace 已版本化：`evidence/g5-natural-input-failure-20260923.json`，摘要为 `evidence/g5-natural-input-failure-20260923.summary.json`。该次 discovery HTTP 200 并选择 `project_delivery_plan@1.0.1`，实际执行 `read_file` 和 lifecycle `prepare/submit`，随后停在 `build_plan` 的 `awaiting_user`，未产生 handoff。
+- 通用胶水修复后的普通请求成功 trace：`evidence/g5-natural-input-success-20260923.json`，摘要为 `evidence/g5-natural-input-success-20260923.summary.json`。同一普通请求在新构建上完成 discovery、`read_file`、prepare/submit、handoff、reload、human resume、duplicate replay 和 terminal `completed`。
 
 ## 可行动诊断
 
@@ -21,6 +22,7 @@
 - 复用隔离库时的 `APP_SECRET` 不一致仍保留为失败诊断；本次成功复现使用全新 SQLite，并在写入模型配置和启动 StaffDeck 时保持同一 secret，避免复用旧加密凭据。
 - 普通请求重跑必须重新确认 discovery、proposal、handoff 和 terminal gate；不能通过修改用户台词把内部状态直接喂给模型。
 - 普通请求失败的实际原因是模型在计划步骤选择等待用户，而不是自主提交范围影响确认并进入 handoff；当前没有证据表明该失败来自已撤回的非原生限制。
+- 该失败原因已定位并修复为两处通用信息缺失：StaffDeck adapter 原先只传出 outgoing step ID，丢失 edge condition/priority/label 与目标节点上下文；PilotDeck 提示也未明确要求在已知信息齐全时写入 `slotUpdates` 并按条件选择 `nextStepId`。修复增加 additive `transitions` 上下文和通用推进提示，未改变 owner validator、等待或审批规则。
 
 ## 已有 proposal / 422 定位
 
@@ -44,8 +46,9 @@
 | PilotDeck 等价等待语义 | **PASS** | `303d06a8286e912749199e7d5f8d73206066637b` |
 | PilotDeck 失败取证 | **PASS** | `e1c07521de07dbafe8fe6f2ce59677f9b49263cd` |
 | 真实 discovery 新复现 | **AUXILIARY PASS** | HTTP 200，选择 `project_delivery_plan`；输入含内部状态指令 |
-| 普通请求自然入口 | **FAIL / EVIDENCE SAVED** | discovery、prepare、submit、read_file 成功；模型在 `build_plan` 等待用户，未进入 handoff |
-| G5 完整验收 | **NOT PASS** | 未证明普通请求自主完成 handoff、reload、resume、duplicate、completion |
+| 普通请求自然入口（修复前） | **FAIL / EVIDENCE SAVED** | discovery、prepare、submit、read_file 成功；模型在 `build_plan` 等待用户，未进入 handoff |
+| 普通请求自然入口（通用胶水修复后） | **PASS / EVIDENCE SAVED** | 完成 discovery、lifecycle、handoff、reload、resume、duplicate、completion |
+| G5 完整/domain 验收 | **WITHHELD** | 本场景已闭环，但剩余领域矩阵与独立验收尚未完成 |
 
 当前最终分支 refs：
 

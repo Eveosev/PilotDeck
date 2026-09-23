@@ -262,11 +262,22 @@ function isSopStep(value: unknown): boolean {
     && isStringArray(value.expectedUserInfo)
     && isRecord(value.knownSlots)
     && isStringArray(value.allowedNextStepIds)
+    && (value.transitions === undefined || (Array.isArray(value.transitions) && value.transitions.every(isSopTransition)))
     && isStringArray(value.requiredToolNames)
     && isStringArray(value.allowedActions)
     && typeof value.isTerminal === "boolean"
     && typeof value.declaresHandoff === "boolean"
     && (value.subSopId === undefined || value.subSopId === null || typeof value.subSopId === "string");
+}
+
+function isSopTransition(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.nextStepId === "string"
+    && typeof value.condition === "string"
+    && typeof value.priority === "number"
+    && Number.isFinite(value.priority)
+    && (value.label === undefined || typeof value.label === "string")
+    && isRecord(value.targetStep);
 }
 
 function isSubmitResult(value: unknown): boolean {

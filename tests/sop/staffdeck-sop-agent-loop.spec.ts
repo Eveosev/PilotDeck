@@ -174,6 +174,7 @@ test("SOP loop tells the model declared approval handoffs are resumable", async 
       JSON.stringify(model.requests),
       /This step declares a human handoff\. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user\./,
     );
+    assert.match(JSON.stringify(model.requests), /condition=approval_required, priority=10, label=Needs approval; target=Confirm approval; handoff; Ask the owner to confirm\./);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1024,6 +1025,13 @@ function acceptingClient(onSubmit?: (successfulToolNames: readonly string[]) => 
           expectedUserInfo: [],
           knownSlots: {},
           allowedNextStepIds: [],
+          transitions: [{
+            nextStepId: "confirm",
+            condition: "approval_required",
+            priority: 10,
+            label: "Needs approval",
+            targetStep: { name: "Confirm approval", type: "handoff", instruction: "Ask the owner to confirm." },
+          }],
           requiredToolNames: ["lookup_account"],
           allowedActions: ["call_tool:lookup_account"],
           isTerminal: true,

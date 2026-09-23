@@ -50,10 +50,25 @@ products/pilotdeck-staffdeck-sop/evidence/g5-agentloop-natural-discovery-run.mjs
 
 The ordinary-request run reached discovery HTTP 200, selected
 `project_delivery_plan@1.0.1`, executed `read_file`, and made lifecycle
-prepare/submit calls. It stopped at `awaiting_user` on the planning step and
-did not reach handoff. The complete redacted failure trace is versioned at
-`g5-natural-input-failure-20260923.json` with a compact summary beside it.
+prepare/submit calls. The pre-fix complete redacted failure trace is versioned
+at `g5-natural-input-failure-20260923.json` with a compact summary beside it.
 
-Acceptance remains **NOT PASS** because the ordinary request did not
-independently show handoff, reload, human resume, duplicate replay, and
-terminal completion.
+## Adapter Fix And Recheck
+
+The failure was confirmed as two generic glue omissions. The StaffDeck adapter
+reduced outgoing graph edges to IDs, dropping each edge's condition, priority,
+label, and target-node context. PilotDeck also did not tell the model to place
+already-known required information into `slotUpdates` and advance, or to choose
+the condition-matching transition. The fix adds an additive `transitions` field
+to the existing v2 step payload and renders generic slot/transition guidance;
+owner validation and wait semantics are unchanged.
+
+The same ordinary request then completed the full chain. The post-fix redacted
+trace is `g5-natural-input-success-20260923.json`, with summary
+`g5-natural-input-success-20260923.summary.json`: discovery 200, `read_file`,
+prepare/submit, handoff, reload-preserved wait, human resume, duplicate replay,
+and terminal `completed`.
+
+This scenario is now **PASS after the generic adapter fix**. Final G5/domain
+acceptance is still withheld pending the remaining domain matrix and separate
+independent acceptance review.
