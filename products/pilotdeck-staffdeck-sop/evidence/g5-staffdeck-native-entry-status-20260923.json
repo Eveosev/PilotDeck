@@ -3,7 +3,8 @@
   "entry": "StaffDeck backend app.core.agent_loop.AgentLoop.handle_turn",
   "executionOwner": "HarnessV3Engine -> HarnessV3Runtime",
   "scenario": "ordinary SOP selection -> native handoff -> human_handoff_resume -> terminal completion",
-  "artifact": "evidence/g5-staffdeck-native-real-model-20260923.json",
+  "artifact": "evidence/g5-staffdeck-native-real-published-scope-changed-20260923.json",
+  "noChangeArtifact": "evidence/g5-staffdeck-native-real-published-no-change-20260923.json",
   "controlledWiringArtifact": "evidence/g5-staffdeck-native-harness-v3-20260923.json",
   "resolvedRuntime": {
     "harnessV3Root": "/Users/a1/Desktop/claw/openbmb/deepseek-harness-dsh-v0.1.2-alpha.2",
@@ -16,6 +17,7 @@
   },
   "result": {
     "provider": "provider1/qwen3.6-flash-distill",
+    "publishedDefinition": "skill_preset_project_001/project_delivery_plan@1.0.1",
     "selection": "project_delivery_plan@1.0.1",
     "initialStatus": "handoff",
     "resumeStatus": "completed",
@@ -30,6 +32,8 @@
     "handoffPersisted": true,
     "handoffResumed": true,
     "taskFinished": true,
+    "formalScopeChangedPath": "n1_collect -> build_plan -> confirm_scope -> finalize_plan",
+    "formalNoChangePath": "n1_collect -> build_plan -> finalize_plan",
     "executionEngine": "harness_v3",
     "runtimeErrorCode": null
   },
