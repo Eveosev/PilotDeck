@@ -174,6 +174,10 @@ test("SOP loop tells the model declared approval handoffs are resumable", async 
       JSON.stringify(model.requests),
       /This step declares a human handoff\. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user\./,
     );
+    assert.match(
+      JSON.stringify(model.requests),
+      /Waiting statuses \(awaiting_user, handoff, blocked, waiting_external_task\) must not include nextStepId; a wait never advances the SOP graph\./,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

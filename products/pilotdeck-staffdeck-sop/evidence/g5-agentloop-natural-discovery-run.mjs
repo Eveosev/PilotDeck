@@ -155,15 +155,21 @@ await writeFile(join(projectRoot, "pilotdeck.yaml"), YAML.stringify({
 }), "utf8");
 
 let local;
+let turns = [];
+let current;
+let nodeTransitions = [];
+let wait;
+let reloaded;
+let resume;
+let duplicate;
+let postResumeTurns = [];
+let finalStatus;
 try {
   local = createLocalGateway({ projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot });
-  const turns = [];
-  const nodeTransitions = [];
   const recordNode = (status) => {
     const nodeId = status?.state?.active_step_id;
     if (typeof nodeId === "string" && nodeTransitions.at(-1) !== nodeId) nodeTransitions.push(nodeId);
   };
-  let current;
   for (const [index, message] of messages.entries()) {
     const events = await collect(local.gateway.submitTurn({ sessionKey, channelKey: "natural", workspaceCwd: projectRoot, message, mode: "default", canPrompt: false, allowedTools: ["read_file", "submit_step_result"] }));
     const errors = events.filter((event) => event.type === "error");
@@ -178,17 +184,15 @@ try {
     if (current?.state.status === "handoff") break;
   }
 
-  const wait = current?.wait;
+  wait = current?.wait;
   assert.equal(current?.state.status, "handoff", JSON.stringify(snapshot(current)));
   assert.ok(wait?.id, JSON.stringify(snapshot(current)));
   assert.equal(wait.kind, "handoff");
-  let resume;
-  let duplicate;
   let afterResume;
   const before = current;
   await local.dispose();
   local = createLocalGateway({ projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot });
-  const reloaded = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
+  reloaded = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
   assert.equal(reloaded?.wait?.id, wait.id);
   recordNode(reloaded);
   resume = await local.gateway.resumeSop({
@@ -208,7 +212,7 @@ try {
   const resumedStatus = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
   recordNode(resumedStatus);
   const postResume = [];
-  const postResumeTurns = [];
+  postResumeTurns = [];
   for (const [index, message] of [
     resume.message,
     "请继续完成当前项目计划并按流程输出下一步。",
@@ -247,7 +251,7 @@ try {
     status: snapshot(finalAfterResume),
   };
 
-  const finalStatus = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
+  finalStatus = await local.gateway.sopStatus({ sessionKey, projectKey: projectRoot });
   const result = {
     status: "passed",
     permissionMode: "default",
@@ -275,6 +279,28 @@ try {
   };
   await writeFile(outputPath, JSON.stringify(result, null, 2), "utf8");
   console.log(JSON.stringify({ status: result.status, permissionMode: "default", sop: `${published.skill_id}@${published.version}`, wait: wait?.id ?? null, terminal: finalStatus?.state.status ?? null }));
+} catch (error) {
+  const failure = {
+    status: "failed",
+    error: {
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    },
+    current: snapshot(current),
+    wait: wait ? redact(wait) : null,
+    reload: reloaded ? snapshot(reloaded) : null,
+    resume: resume ? redact(resume) : null,
+    duplicate: duplicate ? redact(duplicate) : null,
+    nodeTransitions,
+    ordinaryTurns: turns,
+    postResumeTurns,
+    service: serviceTrace,
+    inputDefinition: { path: publishedPath, skillId: published.skill_id, version: published.version },
+    runtimeBinding: await persistedBinding(),
+  };
+  await writeFile(outputPath, JSON.stringify(failure, null, 2), "utf8");
+  throw error;
 } finally {
   await local?.dispose();
   globalThis.fetch = nativeFetch;
