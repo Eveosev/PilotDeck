@@ -18,12 +18,12 @@ node --test --test-force-exit \
 ```
 
 Result: **35/35 passed**. StaffDeck's focused native permission/scope suite was
-also executed in its isolated environment; the native AgentLoop parity entry
-remains separately blocked by the unavailable Harness v3 build.
+also executed in its isolated environment; the native AgentLoop lifecycle is
+separately evidenced by the versioned Harness v3 artifact below.
 
 | Domain item | Status | Evidence and fixed refs | Remaining gap / boundary |
 | --- | --- | --- | --- |
-| 1. Dual-host ordinary entry, including StaffDeck-native reference | **PD PASS; SD route-only PASS; native AgentLoop BLOCKED** | PilotDeck ordinary natural entry and full lifecycle: `g5-natural-input-success-20260923.json` and `.summary.json`. StaffDeck route-only smoke is recorded in `G5_REPRO_RESULT_REPORT_20260923.zh.md` and exercises `POST /api/v1/agents/.../sops:route` against a fresh SQLite with one shared `APP_SECRET`. The native entry boundary is explicitly recorded in `g5-staffdeck-native-entry-status-20260923.json`. | Native StaffDeck selection/execution/wait/resume was not run: `AgentLoop.handle_turn` reaches `HarnessV3Engine -> HarnessV3Runtime`, but `apps/cli/lib/bin.js` is unavailable. The route-only log/database remain under `/tmp/g5-minimal-route.rBPHQI`, not a versioned artifact. |
+| 1. Dual-host ordinary entry, including StaffDeck-native reference | **PD PASS; SD native PASS** | PilotDeck ordinary natural entry and full lifecycle: `g5-natural-input-success-20260923.json` and `.summary.json`. StaffDeck native `AgentLoop.handle_turn` now has versioned Harness v3 evidence in `g5-staffdeck-native-harness-v3-20260923.json`: resolved checkout/bin/node, SOP selection, handoff persistence, `human_handoff_resume`, accepted control receipts, and terminal `skill_completed`/`task_frame_finished: completed`. | The native run uses a private deterministic model gateway for wiring/lifecycle evidence; it is not real-provider quality evidence. |
 | 2. Multi-SOP selection | **PASS (controlled/mock routing)** | `tests/sop/staffdeck-sop-discovery-routing.spec.ts` overrides `globalThis.fetch` and asserts `purchase`/`compare`; classify this as controlled/mock transport. `g5-natural-input-success-20260923.summary.json` separately records real-provider selection of published `project_delivery_plan@1.0.1`. | PilotDeck's deployed profile uses an explicit default binding; this test is not native discovery evidence. |
 | 3. No-match routing | **PASS** | The same discovery-routing test asserts an ordinary turn with no selected SOP and confirms no SOP tool/prompt injection. | No additional gap identified for the declared routing contract. |
 | 4. SOP disabled / not installed | **PASS for declared boundary** | `tests/sop/staffdeck-sop-gateway-http-e2e.spec.ts` covers disabled composition (`SOP_MODULE_DISABLED`) and required capability absence before model dispatch; `tests/sop/staffdeck-sop-agent-loop.spec.ts` covers `SOP_REQUIRED_TOOL_UNAVAILABLE`; `staffdeck-sop-definitions.spec.ts` now covers missing definition file and absent default binding. | This is a focused boundary, not a native AgentLoop execution claim. |
@@ -36,6 +36,6 @@ remains separately blocked by the unavailable Harness v3 build.
 ## Readiness
 
 The implementation and ordinary natural-entry scenario are ready for continued
-implementation review. Do not call the G5 domain matrix fully accepted: native
-StaffDeck AgentLoop execution is blocked by the unavailable Harness v3 build,
-and the no-change branch currently has controlled evidence only.
+implementation review. Native StaffDeck AgentLoop wiring and handoff/resume are
+now evidenced; the no-change branch remains controlled evidence only, and this
+matrix is not a blanket claim of real-provider quality or complete G5 acceptance.
