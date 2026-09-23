@@ -15,7 +15,7 @@
 - 普通请求失败 trace 已版本化：`evidence/g5-natural-input-failure-20260923.json`，摘要为 `evidence/g5-natural-input-failure-20260923.summary.json`。该次 discovery HTTP 200 并选择 `project_delivery_plan@1.0.1`，实际执行 `read_file` 和 lifecycle `prepare/submit`，随后停在 `build_plan` 的 `awaiting_user`，未产生 handoff。
 - 通用胶水修复后的普通请求成功 trace：`evidence/g5-natural-input-success-20260923.json`，摘要为 `evidence/g5-natural-input-success-20260923.summary.json`。同一普通请求在新构建上完成 discovery、`read_file`、prepare/submit、handoff、reload、human resume、duplicate replay 和 terminal `completed`。
 - 受控 no-change 分支证据：`evidence/g5-no-change-controlled-20260923.json`。脚本化模型选择 `build_plan -> finalize_plan` 的 `no_scope_change`，明确标注为 controlled，不作为普通请求或原生 StaffDeck 证据。
-- StaffDeck 原生入口状态已更新：`evidence/g5-staffdeck-native-entry-status-20260923.json`，完整取证见 `evidence/g5-staffdeck-native-harness-v3-20260923.json`。真实入口 `app.core.agent_loop.AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime` 已在私有 Harness home、私有 SQLite、私有本地模型网关和 Node 22.23.1 下执行成功：选择 `project_delivery_plan@1.0.1`，进入 `confirm_scope` handoff，持久化后通过 `human_handoff_resume` 恢复，并完成 `finalize_plan`。此前“缺少 `apps/cli/lib/bin.js`”结论来自错误 checkout 探针，已更正；本次不把 PilotDeck sidecar trace 当作 native 证据。
+- StaffDeck 原生入口状态已更新：`evidence/g5-staffdeck-native-entry-status-20260923.json`。真实入口 `app.core.agent_loop.AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime` 已在 Node 22.23.1、私有 Harness home/SQLite 上使用授权的 `provider1/qwen3.6-flash-distill` 执行成功；普通用户文本选中 `project_delivery_plan@1.0.1`，进入 `confirm_scope` handoff，通过真实 `apply_handoff_reply -> human_handoff_resume` 路径恢复并完成任务。完整输入、初始化命令、生成 runner 和前后持久化快照见 `evidence/g5-staffdeck-native-real-model-20260923.json` 与同名 `.py`。`ChatSession.status` 在等待前为 `handoff`、任务恢复完成后为 `active`；同时 handoff=`answered`、task frame=`completed`、agent loop=`completed`、active step/pending tasks 清空，因此没有把“完成回复”单独当作闭环依据。此前缺少 `apps/cli/lib/bin.js` 的结论来自错误 checkout 探针，已更正；本次不把 PilotDeck sidecar trace 当作 native 证据。
 
 ## 可行动诊断
 
@@ -50,7 +50,7 @@
 | 真实 discovery 新复现 | **AUXILIARY PASS** | HTTP 200，选择 `project_delivery_plan`；输入含内部状态指令 |
 | 普通请求自然入口（修复前） | **FAIL / EVIDENCE SAVED** | discovery、prepare、submit、read_file 成功；模型在 `build_plan` 等待用户，未进入 handoff |
 | 普通请求自然入口（通用胶水修复后） | **PASS / EVIDENCE SAVED** | 完成 discovery、lifecycle、handoff、reload、resume、duplicate、completion |
-| StaffDeck native AgentLoop entry | **PASS / EVIDENCE SAVED** | `AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime`；私有运行解析到 `/Users/a1/Desktop/claw/openbmb/deepseek-harness-dsh-v0.1.2-alpha.2/apps/cli/lib/bin.js`，完成 native handoff/resume/terminal lifecycle。 |
+| StaffDeck native AgentLoop entry | **PASS / REAL PROVIDER EVIDENCE SAVED** | `AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime`；`provider1/qwen3.6-flash-distill` 普通用户文本选中 SOP，真实 handoff answer/resume 后 `handoff=answered`、task frame/agent loop=`completed`、session=`active`。 |
 | `no_scope_change` conditional branch | **CONTROLLED PASS** | `g5-no-change-controlled-20260923.json`; no natural/real-model claim |
 | G5 完整/domain 验收 | **WITHHELD** | Native entry/lifecycle 已闭环；no-change 仍为 controlled evidence，真实 provider quality 和其余独立验收仍单独保留 |
 
