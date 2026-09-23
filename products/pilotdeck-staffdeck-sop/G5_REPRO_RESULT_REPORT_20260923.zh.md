@@ -14,6 +14,8 @@
 - 辅助 trace 使用的真实 public publish 对象绑定为 `project_delivery_plan@1.0.1`；原始发布 envelope 与平铺部署对象均保留在 `/tmp/g5-full-repro-rerun-20260923-140951/`，版本化输入来源和启动方式见 `evidence/g5-natural-input-audit-20260923.md`。
 - 普通请求失败 trace 已版本化：`evidence/g5-natural-input-failure-20260923.json`，摘要为 `evidence/g5-natural-input-failure-20260923.summary.json`。该次 discovery HTTP 200 并选择 `project_delivery_plan@1.0.1`，实际执行 `read_file` 和 lifecycle `prepare/submit`，随后停在 `build_plan` 的 `awaiting_user`，未产生 handoff。
 - 通用胶水修复后的普通请求成功 trace：`evidence/g5-natural-input-success-20260923.json`，摘要为 `evidence/g5-natural-input-success-20260923.summary.json`。同一普通请求在新构建上完成 discovery、`read_file`、prepare/submit、handoff、reload、human resume、duplicate replay 和 terminal `completed`。
+- 受控 no-change 分支证据：`evidence/g5-no-change-controlled-20260923.json`。脚本化模型选择 `build_plan -> finalize_plan` 的 `no_scope_change`，明确标注为 controlled，不作为普通请求或原生 StaffDeck 证据。
+- StaffDeck 原生入口状态已版本化：`evidence/g5-staffdeck-native-entry-status-20260923.json`。入口确认是 `app.core.agent_loop.AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime`，但本 checkout 缺少 `apps/cli/lib/bin.js`，因此在 turn 执行前阻塞；不得把同次 sidecar 成功 trace 记为 native PASS。
 
 ## 可行动诊断
 
@@ -48,6 +50,8 @@
 | 真实 discovery 新复现 | **AUXILIARY PASS** | HTTP 200，选择 `project_delivery_plan`；输入含内部状态指令 |
 | 普通请求自然入口（修复前） | **FAIL / EVIDENCE SAVED** | discovery、prepare、submit、read_file 成功；模型在 `build_plan` 等待用户，未进入 handoff |
 | 普通请求自然入口（通用胶水修复后） | **PASS / EVIDENCE SAVED** | 完成 discovery、lifecycle、handoff、reload、resume、duplicate、completion |
+| StaffDeck native AgentLoop entry | **BLOCKED / EVIDENCE SAVED** | `AgentLoop.handle_turn -> HarnessV3Engine -> HarnessV3Runtime`，缺少 Harness v3 build (`apps/cli/lib/bin.js`) |
+| `no_scope_change` conditional branch | **CONTROLLED PASS** | `g5-no-change-controlled-20260923.json`; no natural/real-model claim |
 | G5 完整/domain 验收 | **WITHHELD** | 本场景已闭环，但剩余领域矩阵与独立验收尚未完成 |
 
 当前最终分支 refs：
@@ -59,15 +63,22 @@
 
 已完成九项领域交付矩阵，见
 `evidence/g5-domain-delivery-matrix-20260923.md`。修复后 PilotDeck
-聚焦 SOP 矩阵构建与测试为 **34/34 PASS**，覆盖多 SOP 选择、无匹配普通路由、
-不可见选择拒绝、禁用组合、缺少必需工具、条件分支和旧会话版本快照。
+聚焦 SOP 矩阵构建与测试为 **35/35 PASS**，覆盖多 SOP 选择、无匹配普通路由、
+不可见选择拒绝、禁用组合、缺少必需工具、定义/default binding 边界、条件分支和旧会话版本快照。
+其中 discovery-routing 测试通过覆盖 `globalThis.fetch`，应分类为 controlled/mock
+transport；real-provider ordinary entry 的证据单列在 natural-input trace 中。
 
-矩阵仍明确保留两个证据缺口：StaffDeck route-only 以及 discovery refused/
-timeout 探针目前只在 `/tmp`，尚未纳入版本化 evidence；同时没有专门的
-“缺失已发布 definition/default SOP”端到端用例。StaffDeck 原生 pytest 在本机
-环境中不可执行（pytest 不在可用 Python 环境；既有环境还曾在 capture 初始化
-阶段以 139 退出），因此原生权限/租户测试仅作为待独立执行的源码证据引用。
+StaffDeck 原生权限/租户与 SOP 边界测试已在隔离环境执行；当前聚焦命令为：
+`backend/.venv/bin/python -m pytest -p no:capture backend/tests_harness/test_handoff_core.py backend/tests_harness/test_security_profiles.py backend/tests_harness/test_sop_capability_isolation.py backend/tests_harness/modules/test_sop_runtime.py backend/tests_harness/modules/test_sop_definition.py`
+，结果 **55 passed**。这不等于原生 AgentLoop 入口已执行；该入口仍被缺少 Harness v3 build 阻塞。
 
-本报告仍不宣称 G5/domain 完整验收通过；实现和普通自然入口场景可以交给独立
-验收，但在上述缺口处理或明确豁免前不得签收。未修改独立验收活动树，未借用
-`16400–16429` 服务，也未执行自动集成。
+连接拒绝和超时探针已纳入版本化 evidence：
+`evidence/g5-discovery-refused-20260923.json`、
+`evidence/g5-discovery-timeout-20260923.json`。StaffDeck route-only 成功仍是
+HTTP 200 的 route 级证据，原始 log/database 尚在 `/tmp/g5-minimal-route.rBPHQI`，
+不能升级为 native AgentLoop PASS。条件分支方面，`scope_changed` 与
+`confirmation_received` 有 ordinary natural-entry PASS；`no_scope_change` 目前只有
+上述 controlled evidence，尚无 natural/real-model evidence。
+
+本报告仍不宣称 G5/domain 完整验收通过；当前可交给继续实现审查，但不得签收
+完整验收。未修改独立验收活动树，未借用 `16400–16429` 服务，也未执行自动集成。

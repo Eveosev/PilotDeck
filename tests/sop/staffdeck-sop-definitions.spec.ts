@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { loadStaffDeckSopDefinitions } from "../../src/sop/staffdeck/StaffDeckSopDefinitions.js";
+import { createStaffDeckSopAgentLoop } from "../../src/sop/staffdeck/SopAgentLoop.js";
 
 test("SOP definition loader rejects malformed and duplicate definitions", () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-definitions-"));
@@ -53,6 +54,37 @@ test("SOP definition loader accepts an exact published management response", () 
       edges: [],
       terminal_node_ids: ["collect"],
     });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("SOP startup rejects a missing definition file and an absent default binding", () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-definition-boundary-"));
+  try {
+    const profile = {
+      provider: "staffdeck",
+      endpoint: "http://unused.test",
+      definitionsPath: join(root, "missing.json"),
+      defaultSopId: "missing",
+      stateRoot: root,
+    };
+    assert.throws(
+      () => createStaffDeckSopAgentLoop({} as never, profile as never),
+      /StaffDeck SOP definitions file does not exist/,
+    );
+
+    const definitions = join(root, "published.json");
+    writeFileSync(definitions, JSON.stringify({
+      sops: [{ id: "published", version: "1.0.0", content: { nodes: [{ node_id: "start" }] } }],
+    }));
+    assert.throws(
+      () => createStaffDeckSopAgentLoop({} as never, {
+        ...profile,
+        definitionsPath: definitions,
+      } as never),
+      /defaultSopId 'missing' is not present/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

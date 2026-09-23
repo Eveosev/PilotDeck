@@ -1,0 +1,28 @@
+{
+  "status": "blocked",
+  "entry": "StaffDeck backend app.core.agent_loop.AgentLoop.handle_turn",
+  "executionOwner": "HarnessV3Engine -> HarnessV3Runtime",
+  "controlledScenarios": [
+    "sop_conditional_transition",
+    "sop_handoff_node",
+    "sop_handoff_resume"
+  ],
+  "attempt": {
+    "command": "tools/agent-loop-parity/run.py --pair staffdeck --comparison same-version",
+    "result": "legacy native adapter blocked before turn execution"
+  },
+  "blocker": {
+    "code": "EngineUnavailable",
+    "reason": "Harness v3 engine is not built in the available checkout",
+    "requiredPath": "apps/cli/lib/bin.js"
+  },
+  "notClaimed": [
+    "This is not a native SOP selection/execution/wait/resume PASS.",
+    "The successful PilotDeck sidecar trace from the same controlled attempt is not used as native evidence."
+  ],
+  "sourceReferences": [
+    "backend/app/core/agent_loop.py",
+    "backend/src/staffdeck_harness/bridge/engine_host.py",
+    "tools/agent-loop-parity/adapters/staffdeck_engine_impl.py"
+  ]
+}
