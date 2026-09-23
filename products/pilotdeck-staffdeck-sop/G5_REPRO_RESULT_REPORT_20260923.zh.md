@@ -55,4 +55,19 @@
 - PD：`codex/g5-sop-agent-pd`，当前提交含普通请求 runner 和本报告修正（其父链含 `e1c07521`、`303d06a8`）。
 - SD：`codex/g5-sop-agent-sd`，包含 `e7f540feeaa92dba338e30f0ff6a343f0ac8fae4`。
 
-本报告只记录复现和判定；未修改独立验收活动树，未借用 `16400–16429` 服务，也未执行自动集成。
+## Domain matrix follow-up
+
+已完成九项领域交付矩阵，见
+`evidence/g5-domain-delivery-matrix-20260923.md`。修复后 PilotDeck
+聚焦 SOP 矩阵构建与测试为 **34/34 PASS**，覆盖多 SOP 选择、无匹配普通路由、
+不可见选择拒绝、禁用组合、缺少必需工具、条件分支和旧会话版本快照。
+
+矩阵仍明确保留两个证据缺口：StaffDeck route-only 以及 discovery refused/
+timeout 探针目前只在 `/tmp`，尚未纳入版本化 evidence；同时没有专门的
+“缺失已发布 definition/default SOP”端到端用例。StaffDeck 原生 pytest 在本机
+环境中不可执行（pytest 不在可用 Python 环境；既有环境还曾在 capture 初始化
+阶段以 139 退出），因此原生权限/租户测试仅作为待独立执行的源码证据引用。
+
+本报告仍不宣称 G5/domain 完整验收通过；实现和普通自然入口场景可以交给独立
+验收，但在上述缺口处理或明确豁免前不得签收。未修改独立验收活动树，未借用
+`16400–16429` 服务，也未执行自动集成。
