@@ -25,11 +25,15 @@ export type WorkspaceSnapshotConfig = {
 export function resolveWorkspaceSnapshotConfig(
   env: Record<string, string | undefined> = process.env,
 ): WorkspaceSnapshotConfig | undefined {
-  const root = env.PILOTDECK_STORAGE_ROOT?.trim();
+  const root = env.PILOTDECK_LEGAL_STORAGE_ROOT?.trim() || env.PILOTDECK_STORAGE_ROOT?.trim();
   if (!root) return undefined;
   return {
     root: resolve(root),
-    snapshotRoot: resolve(env.PILOTDECK_SNAPSHOT_ROOT?.trim() || root),
+    snapshotRoot: resolve(
+      env.PILOTDECK_LEGAL_SNAPSHOT_ROOT?.trim()
+        || env.PILOTDECK_SNAPSHOT_ROOT?.trim()
+        || root,
+    ),
   };
 }
 

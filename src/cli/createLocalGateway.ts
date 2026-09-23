@@ -101,6 +101,7 @@ import {
   resolveWorkspaceSnapshotConfig,
   JsonlInvocationLogSink,
   resolveInvocationStorageConfig,
+  resolveLegalStorageConfig,
   type ModelInvocationLogSink,
 } from "../storage/index.js";
 import {
@@ -598,9 +599,12 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     elicitationTimeoutMs,
   } = bootConfig;
   const workspaceSnapshotConfig = resolveWorkspaceSnapshotConfig(env);
+  const legalStorageConfig = resolveLegalStorageConfig(env);
   const invocationStorageConfig = resolveInvocationStorageConfig(env);
   const invocationLogSink = options.invocationLogSink
-    ?? (invocationStorageConfig ? new JsonlInvocationLogSink(invocationStorageConfig) : undefined);
+    ?? (legalStorageConfig
+      ? new JsonlInvocationLogSink(legalStorageConfig)
+      : invocationStorageConfig ? new JsonlInvocationLogSink(invocationStorageConfig) : undefined);
   const workspaceSnapshotRecorder = workspaceSnapshotConfig
     ? new ContentAddressedWorkspaceSnapshotRecorder(workspaceSnapshotConfig)
     : undefined;
@@ -974,7 +978,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   let boundServer: { broadcastNotification(name: string, payload?: unknown): void } | undefined;
   const gateway = new InProcessGateway(router, {
     invocationLogSink,
-    storageConfigVersion: invocationStorageConfig?.storageConfigVersion,
+    storageConfigVersion: legalStorageConfig?.storageConfigVersion ?? invocationStorageConfig?.storageConfigVersion,
     runRegistry,
     snapshotRecorder: workspaceSnapshotRecorder,
     workspaceIdResolver: workspaceSnapshotRecorder
