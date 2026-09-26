@@ -121,4 +121,22 @@ describe('StaffDeck formal copy bridge', () => {
       expect((await call(rejected.origin, 'list_agents')).status).toBe(501);
     } finally { await close(rejected.server); await close(rejected.upstreamServer); await close(disabled.server); await close(disabled.upstreamServer); await close(mismatch.server); await close(mismatch.upstreamServer); }
   });
+
+  it('does not write when the PilotDeck module administrator is disabled', async () => {
+    process.env[TOKEN_ENV] = 'actual-user-token';
+    const previous = process.env.PILOTDECK_MODULE_ADMIN;
+    process.env.PILOTDECK_MODULE_ADMIN = '0';
+    const fixture = await setup();
+    try {
+      expect((await call(fixture.origin, 'import_resources', {
+        targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'skill', resourceIds: ['sop-real'],
+      })).status).toBe(403);
+      expect(fixture.requests.every((request) => request.method === 'GET')).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.PILOTDECK_MODULE_ADMIN;
+      else process.env.PILOTDECK_MODULE_ADMIN = previous;
+      await close(fixture.server);
+      await close(fixture.upstreamServer);
+    }
+  });
 });
