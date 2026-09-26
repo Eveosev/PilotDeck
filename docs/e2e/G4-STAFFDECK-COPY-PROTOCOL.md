@@ -27,6 +27,9 @@ The bridge admits only an authenticated PilotDeck user whose ID equals the
 configured `pilotDeckUserId`. Before every operation it calls StaffDeck's
 formal `GET /api/auth/me` with the server-held token and requires its returned
 `id` and `tenant_id` to equal the configured `actorUserId` and `tenantId`.
+Missing PilotDeck or StaffDeck user binding is a 501 configuration error;
+an authenticated PilotDeck user who differs from a configured binding is
+rejected with 403.
 This uses StaffDeck's normal `get_current_user`/control-provider authentication,
 not local token decoding. An expired credential, disabled user, or identity
 mismatch fails before reading the directory or copying. Redirects are not

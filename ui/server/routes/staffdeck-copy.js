@@ -28,7 +28,10 @@ function bindingFor(config, user, operation) {
     throw new CopyError(409, 'COPY_CAPABILITY_UNAVAILABLE', `StaffDeck copy bridge does not advertise ${operation}.`);
   }
   const pilotDeckUserId = configuredText(binding, 'pilotDeckUserId');
-  if (!pilotDeckUserId || String(user?.id ?? '') !== pilotDeckUserId) {
+  if (!pilotDeckUserId) {
+    throw new CopyError(501, 'COPY_IDENTITY_UNAVAILABLE', 'StaffDeck copy identity is not configured.');
+  }
+  if (String(user?.id ?? '') !== pilotDeckUserId) {
     throw new CopyError(403, 'COPY_USER_FORBIDDEN', 'This PilotDeck user is not bound to the StaffDeck copy identity.');
   }
   const endpoint = configuredText(binding, 'endpoint');

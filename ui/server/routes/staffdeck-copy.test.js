@@ -22,7 +22,7 @@ async function close(server) {
 
 async function setup({ pilotDeckUserId = 'pd-user', upstreamStatus = 200, authStatus = 200,
   authUser = { id: 'sd-user', tenant_id: 'tenant-real', disabled: false }, pathStatuses = {}, redirectPath,
-  enabled = true, moduleAgentId, directory = agents } = {}) {
+  enabled = true, moduleAgentId, directory = agents, bindingOverrides = {} } = {}) {
   const requests = [];
   const upstream = express();
   upstream.use(express.json());
@@ -47,7 +47,7 @@ async function setup({ pilotDeckUserId = 'pd-user', upstreamStatus = 200, authSt
   app.use('/api/modules/staffdeck-copy', createStaffDeckCopyRouter({ loadConfig: () => ({ modules: moduleAgentId ? { sop: { management: { agentId: moduleAgentId } } } : {}, webui: { staffdeckCopy: {
     enabled, contract: 'staffdeck.enterprise-copy/v1', methods,
     endpoint: upstreamServer.origin, tenantId: 'tenant-real', actorUserId: 'sd-user', targetAgentId: 'employee-real',
-    pilotDeckUserId: 'pd-user', userTokenEnv: TOKEN_ENV,
+    pilotDeckUserId: 'pd-user', userTokenEnv: TOKEN_ENV, ...bindingOverrides,
   } } }) }));
   const bridge = await listen(app);
   return { ...bridge, upstreamServer: upstreamServer.server, requests };
@@ -82,7 +82,11 @@ describe('StaffDeck formal copy bridge', () => {
       }
       expect(fixture.requests.every((request) => request.authorization === 'Bearer actual-user-token')).toBe(true);
       expect(fixture.requests.filter((request) => request.path === '/api/auth/me')).toHaveLength(5);
-      expect(fixture.requests[0].path).toBe('/api/auth/me');
+      for (let index = 0; index < fixture.requests.length; index += 1) {
+        if (fixture.requests[index].path.startsWith('/api/enterprise/agents?')) {
+          expect(fixture.requests[index - 1].path).toBe('/api/auth/me');
+        }
+      }
       expect(fixture.requests.filter((request) => request.method === 'POST').map((request) => request.body)).toEqual([
         { tenant_id: 'tenant-real', source_agent_id: 'plaza-real', resource_type: 'knowledge_base', resource_ids: ['base-real'] },
         { tenant_id: 'tenant-real', source_agent_id: 'plaza-real', resource_type: 'skill', resource_ids: ['sop-real'] },
@@ -129,6 +133,31 @@ describe('StaffDeck formal copy bridge', () => {
       delete process.env[TOKEN_ENV];
       expect((await call(rejected.origin, 'list_agents')).status).toBe(501);
     } finally { await close(rejected.server); await close(rejected.upstreamServer); await close(disabled.server); await close(disabled.upstreamServer); await close(mismatch.server); await close(mismatch.upstreamServer); }
+  });
+
+  it('distinguishes missing user bindings from a configured PilotDeck user mismatch', async () => {
+    process.env[TOKEN_ENV] = 'actual-user-token';
+    const noPilotDeckUser = await setup({ bindingOverrides: { pilotDeckUserId: '' } });
+    const noActor = await setup({ bindingOverrides: { actorUserId: '' } });
+    const wrongPilotDeckUser = await setup({ pilotDeckUserId: 'other-pd-user' });
+    try {
+      for (const fixture of [noPilotDeckUser, noActor]) {
+        const result = await call(fixture.origin, 'list_agents');
+        expect(result).toEqual({ status: 501, body: { error: {
+          code: 'COPY_IDENTITY_UNAVAILABLE', message: 'StaffDeck copy identity is not configured.',
+        } } });
+        expect(fixture.requests).toEqual([]);
+      }
+      const mismatch = await call(wrongPilotDeckUser.origin, 'list_agents');
+      expect(mismatch.status).toBe(403);
+      expect(mismatch.body.error.code).toBe('COPY_USER_FORBIDDEN');
+      expect(wrongPilotDeckUser.requests).toEqual([]);
+    } finally {
+      for (const fixture of [noPilotDeckUser, noActor, wrongPilotDeckUser]) {
+        await close(fixture.server);
+        await close(fixture.upstreamServer);
+      }
+    }
   });
 
   it('rejects expired credentials and mismatched formal user or tenant before reading the directory', async () => {
