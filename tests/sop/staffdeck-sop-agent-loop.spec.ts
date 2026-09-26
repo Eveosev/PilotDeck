@@ -204,6 +204,7 @@ test("evidence step without missing fields routes approval to its declared next 
 for (const scenario of [
   { name: "complete collect", type: "collect_info", fields: ["stage"], slots: { stage: "validation" }, actions: ["extract_slots"], reject: true },
   { name: "evidence approval", type: "knowledge_query", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
+  { name: "undeclared handoff", type: "knowledge_query", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
   { name: "legal missing field", type: "collect_info", fields: ["stage"], slots: {}, actions: ["extract_slots"], reject: false },
   { name: "explicit question", type: "response", fields: [], slots: {}, actions: ["ask_user"], reject: false },
 ]) test(`SOP awaiting boundary: ${scenario.name}`, async () => {
@@ -211,7 +212,7 @@ for (const scenario of [
   try {
     let calls = 0, submissions = 0;
     const model = modelFromStream(async function* () {
-      const status = calls++ === 0 ? "awaiting_user" : "completed";
+      const status = calls++ === 0 ? (scenario.name === "undeclared handoff" ? "handoff" : "awaiting_user") : "completed";
       yield* yieldToolCall(`boundary-${calls}`, "submit_step_result", { status, replyFragment: "Step result", slotUpdates: scenario.slots });
     });
     const client = acceptingClient(() => { submissions++; });

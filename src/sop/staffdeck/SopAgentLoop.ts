@@ -139,7 +139,12 @@ export class SopAgentLoop implements AgentLoopRunner {
               ...input.request,
               ...(this.preparedSteps.has(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
             } }),
-          stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream(input),
+          stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream({
+            ...input,
+            prepared: { ...input.prepared, request: { ...input.prepared.request,
+              ...(this.preparedSteps.has(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+            } },
+          }),
         },
       }),
       toolExecution,
@@ -425,6 +430,10 @@ class SopControlToolPort implements ToolPort {
         this.options.bundle,
         this.options.selectedSopId(execution.sessionId) ?? this.options.defaultSopId,
       );
+      const currentStep = this.options.currentStep(execution.sessionId);
+      if (proposal.status === "handoff" && currentStep && currentStep.nodeId === persisted.state.active_step_id && !currentStep.declaresHandoff) {
+        return controlError(call, "HANDOFF_NOT_DECLARED: complete the current evidence step and advance to the declared approval node before creating handoff.", "invalid_tool_input");
+      }
       if (proposal.status === "awaiting_user") {
         if (proposal.nextStepId) return controlError(call, "AWAITING_USER_CANNOT_ADVANCE: remove nextStepId and retain the current step.", "invalid_tool_input");
         const step = this.options.currentStep(execution.sessionId);
