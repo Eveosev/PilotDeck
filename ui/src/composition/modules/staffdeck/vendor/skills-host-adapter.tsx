@@ -6,7 +6,7 @@ import { DistillPageHostProvider } from './DistillPageHost';
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
+import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
 import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
 
 // PilotDeck is a single-user host. The SOP management identity is supplied by
@@ -71,31 +71,14 @@ async function management(operation: string, input: Record<string, unknown> = {}
 }
 
 async function listDefinitions(): Promise<any[]> {
-  let result: Record<string, any>;
-  try {
-    result = record(await management('list'));
-  } catch (error) {
-    // A portable YAML profile has no public management endpoint. Listing its
-    // local definitions is a real read-only capability; upstream failures must
-    // still surface instead of silently changing the source of truth.
-    if ((error as { status?: number })?.status !== 501) throw error;
-    const local = await staffDeckSopClient.listDefinitions();
-    return local.definitions.map((definition) => toSkill(definition, text(definition.status) || 'draft'));
-  }
+  const result = record(await management('list'));
   // Prefer an existing draft for editing. The published row is still the
   // source of truth for version history, but a page save must retain the
   // draft id and etag returned by management.
   const rows = Array.isArray(result.drafts) && result.drafts.length > 0
     ? result.drafts
     : Array.isArray(result.data) ? result.data : [];
-  const local = await staffDeckSopClient.listDefinitions();
-  const localById = new Map(local.definitions.map((definition) => [definition.id, definition]));
-  return rows.map((row) => {
-    const managed = toManagedSkill(row);
-    // Keep draft ids, etags, versions, and draft content from management
-    // authoritative; the local definition only supplies host-only metadata.
-    return toSkill({ ...(localById.get(managed.skill_id) || {}), ...managed } as SopDefinition, managed.status);
-  });
+  return rows.map(toManagedSkill);
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
@@ -143,10 +126,7 @@ async function readDefinition(skillId: string): Promise<any> {
   const managed = await listDefinitions();
   const managedDefinition = managed.find((item) => item.id === skillId || item.skill_id === skillId);
   if (managedDefinition) return managedDefinition;
-  const definitions = await staffDeckSopClient.listDefinitions();
-  const definition = definitions.definitions.find((item) => item.id === skillId || item.skill_id === skillId);
-  if (!definition) throw new Error(`SOP definition not found: ${skillId}`);
-  return toSkill(definition, text(definition.status) || 'draft');
+  throw new Error(`SOP definition not found in the configured management owner: ${skillId}`);
 }
 
 const SOP_CONTENT_FIELDS = new Set([
@@ -196,18 +176,10 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
         if ((error as { status?: number })?.status !== 404) throw error;
       }
     }
-    try {
-      // A published management row may not have a draft yet. Create the
-      // draft through the same management API used by the publish action so
-      // the shared page can save and publish an exact page-edited version.
-      const saved = await management('create', { sopId: skillId, content });
-      return toManagedSkill(saved) as T;
-    } catch (error) {
-      if ((error as { status?: number })?.status !== 501) throw error;
-    }
-    const definition = { ...current, ...(body || {}), id: skillId, skill_id: skillId, content };
-    const saved = await staffDeckSopClient.saveDefinition(skillId, definition);
-    return toSkill(saved.definition, text(saved.definition.status) || 'draft') as T;
+    // A published management row may not have a draft yet. Create it with
+    // the same owner; lack of management must remain an explicit failure.
+    const saved = await management('create', { sopId: skillId, content });
+    return toManagedSkill(saved) as T;
   }
   if (method === 'post' && path.startsWith('/api/enterprise/skills/jobs/')) throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.');
   return await callSkillApi<T>(path, method, body);
@@ -247,7 +219,10 @@ export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode 
   const [error, setError] = React.useState('');
   React.useEffect(() => {
     let mounted = true;
-    void loadCopyDirectory().then(() => { if (mounted) setReady(true); }).catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
+    void loadCopyDirectory()
+      .then(() => management('list'))
+      .then(() => { if (mounted) setReady(true); })
+      .catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
     return () => { mounted = false; };
   }, []);
   if (error) return <div role="alert">{error}</div>;

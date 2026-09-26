@@ -10,7 +10,7 @@ import SkillsPage from './SkillsPage';
 import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { PilotDeckKnowledgePageProvider, pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
-import { PilotDeckSkillsPageProvider, pilotDeckSkillsPageHost } from './skills-host-adapter';
+import { PilotDeckSkillsPageProvider, pilotDeckDistillPageHost, pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
 
 const agents = [
@@ -145,7 +145,7 @@ describe('PilotDeck shared plaza pages', () => {
       throw new Error(`Unexpected copy operation: ${operation}`);
     });
     vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [] } as never);
-    vi.spyOn(staffDeckSopClient, 'listDefinitions').mockResolvedValue({ defaultSopId: '', definitions: [] });
+    const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
     render(<MemoryRouter><PilotDeckSkillsPageProvider><SkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></MemoryRouter>);
 
     fireEvent.click(await screen.findByRole('button', { name: /新增/ }));
@@ -157,5 +157,34 @@ describe('PilotDeck shared plaza pages', () => {
     await waitFor(() => expect(calls).toContainEqual({ operation: 'import_resources', input: {
       targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'skill', resourceIds: ['sop-real'],
     } }));
+    expect(nativeDefinitions).not.toHaveBeenCalled();
+  });
+
+  it('shows missing management capability without reading another SOP owner', async () => {
+    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as never);
+    const error = Object.assign(new Error('StaffDeck public SOP management is not configured.'), { status: 501 });
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockRejectedValue(error);
+    const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
+
+    render(<MemoryRouter><PilotDeckSkillsPageProvider><SkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></MemoryRouter>);
+
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'StaffDeck public SOP management is not configured.');
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(nativeDefinitions).not.toHaveBeenCalled();
+  });
+
+  it('does not use native definitions for a missing managed SOP or a failed managed save', async () => {
+    const missing = vi.spyOn(staffDeckSopClient, 'listDefinitions');
+    const nativeSave = vi.spyOn(staffDeckSopClient, 'saveDefinition');
+    const error = Object.assign(new Error('StaffDeck public SOP management is not configured.'), { status: 501 });
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {
+      if (operation === 'list') return { data: [{ id: 'sop-real', skill_id: 'sop-real', content: { name: 'Review' } }] } as never;
+      throw error;
+    });
+
+    await expect(pilotDeckDistillPageHost.api.get('/api/enterprise/skills/other-sop')).rejects.toThrow('configured management owner');
+    await expect(pilotDeckDistillPageHost.api.put('/api/enterprise/skills/sop-real', { name: 'Updated review' })).rejects.toThrow('not configured');
+    expect(missing).not.toHaveBeenCalled();
+    expect(nativeSave).not.toHaveBeenCalled();
   });
 });
