@@ -296,6 +296,7 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
           assert.equal((prepared as { request: { toolChoice?: string } }).request.toolChoice, "required");
           yield* yieldText("unused");
         }), tools: toolPort(lookupTool()) },
+        context: new DefaultContextRuntime(),
         tools: { registry: { list: () => [lookupTool()] } as never, scheduler: { executeAll: async () => [] } as never },
       },
       agentLoopFactory: (input) => new SopAgentLoop(input.config, input.capabilities, input.seedState, {
@@ -361,6 +362,7 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
     for await (const event of session.submit({ type: "text", text: "Run external SOP" }, { turnId: "external-turn" })) {
       events.push(event);
     }
+    assert.equal(events.find((event) => event.type === "turn_failed")?.type, undefined, JSON.stringify(events));
     assert.ok(events.some((event) => event.type === "assistant_message"
       && event.message.content[0]?.type === "text"
       && event.message.content[0].text === "External loop completed."));
