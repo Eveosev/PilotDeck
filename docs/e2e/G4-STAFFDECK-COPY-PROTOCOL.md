@@ -24,9 +24,16 @@ list, or the formal two-scope resource import.
 | `import_resources` | `POST /api/enterprise/agents/<bound-target>/resources/import` | `targetAgentId`, `sourceAgentId`, `resourceType`, `resourceIds` |
 
 The bridge admits only an authenticated PilotDeck user whose ID equals the
-configured `pilotDeckUserId`. If a Knowledge or SOP management binding already
-declares an agent ID, it must equal the copy target. StaffDeck's authenticated directory must include
-the configured non-overall target. Every source must be in that same visible
+configured `pilotDeckUserId`. Before every operation it calls StaffDeck's
+formal `GET /api/auth/me` with the server-held token and requires its returned
+`id` and `tenant_id` to equal the configured `actorUserId` and `tenantId`.
+This uses StaffDeck's normal `get_current_user`/control-provider authentication,
+not local token decoding. An expired credential, disabled user, or identity
+mismatch fails before reading the directory or copying. Redirects are not
+followed with the user credential. If a Knowledge or SOP management binding
+already declares an agent ID, it must equal the copy target. StaffDeck's
+authenticated directory must include the configured non-overall target. Every
+source must be in that same visible
 directory; `import_resources` also requires the browser target to equal the
 configured target. Tenant ID, destination path and StaffDeck bearer token come
 only from server configuration. StaffDeck performs the authoritative source,
@@ -51,6 +58,8 @@ the formal page:
 - `STAFFDECK_FORMAL_API_ORIGIN`: StaffDeck formal backend origin, not the
   Knowledge module endpoint or SOP management endpoint.
 - `STAFFDECK_COPY_TENANT_ID`: tenant of the StaffDeck user token.
+- `STAFFDECK_COPY_ACTOR_USER_ID`: user ID returned by the formal StaffDeck
+  `GET /api/auth/me` for that token.
 - `STAFFDECK_COPY_TARGET_AGENT_ID`: existing employee managed by that user.
 - `STAFFDECK_COPY_PILOTDECK_USER_ID`: actual authenticated PilotDeck user ID
   authorized to use this binding.
@@ -62,7 +71,8 @@ it with a client-provided tenant, a guessed overall ID, or a silent empty
 directory. The bridge needs a renewed formal user credential when the token
 expires; no automatic privilege escalation or token minting is implemented.
 
-Contract tests exercise directory projection, both source reads, both resource
-types, scope rejection and upstream failure. They do not establish a real
-dual-host browser or StaffDeck persistence PASS; independent G4 evidence must
+Contract tests exercise formal identity preflight, directory projection, both
+source reads, both resource types, scope rejection, redirects and upstream
+failure. They do not establish a real dual-host browser or StaffDeck
+persistence PASS; independent G4 evidence must
 still cover the actual UI, HTTP response and stored result.

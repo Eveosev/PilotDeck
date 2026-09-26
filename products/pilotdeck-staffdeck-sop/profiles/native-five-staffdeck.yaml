@@ -18,6 +18,7 @@ webui:
     methods: [list_agents, list_knowledge_bases, list_skills, import_resources]
     endpointEnv: STAFFDECK_FORMAL_API_ORIGIN
     tenantIdEnv: STAFFDECK_COPY_TENANT_ID
+    actorUserIdEnv: STAFFDECK_COPY_ACTOR_USER_ID
     targetAgentIdEnv: STAFFDECK_COPY_TARGET_AGENT_ID
     pilotDeckUserIdEnv: STAFFDECK_COPY_PILOTDECK_USER_ID
     userTokenEnv: STAFFDECK_COPY_USER_TOKEN

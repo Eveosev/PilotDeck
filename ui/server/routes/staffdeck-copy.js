@@ -33,10 +33,11 @@ function bindingFor(config, user, operation) {
   }
   const endpoint = configuredText(binding, 'endpoint');
   const tenantId = configuredText(binding, 'tenantId');
+  const actorUserId = configuredText(binding, 'actorUserId');
   const targetAgentId = configuredText(binding, 'targetAgentId');
   const tokenEnv = requiredText(binding.userTokenEnv);
   const token = tokenEnv && process.env[tokenEnv];
-  if (!endpoint || !tenantId || !targetAgentId || !token) {
+  if (!endpoint || !tenantId || !actorUserId || !targetAgentId || !token) {
     throw new CopyError(501, 'COPY_IDENTITY_UNAVAILABLE', 'StaffDeck copy identity is not configured.');
   }
   for (const moduleAgentId of [config?.modules?.knowledge?.agentId, config?.modules?.sop?.management?.agentId]) {
@@ -52,12 +53,13 @@ function bindingFor(config, user, operation) {
   } catch {
     throw new CopyError(501, 'COPY_ENDPOINT_INVALID', 'StaffDeck copy endpoint is invalid.');
   }
-  return { origin, tenantId, targetAgentId, token, timeoutMs: Number(binding.timeoutMs) || 10_000 };
+  return { origin, tenantId, actorUserId, targetAgentId, token, timeoutMs: Number(binding.timeoutMs) || 10_000 };
 }
 
 async function officialRequest(binding, method, path, body) {
   const response = await fetch(new URL(path, binding.origin), {
     method,
+    redirect: 'error',
     headers: { authorization: `Bearer ${binding.token}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(binding.timeoutMs),
@@ -80,6 +82,21 @@ async function visibleDirectory(binding) {
   return visible;
 }
 
+async function verifyFormalUser(binding) {
+  let user;
+  try {
+    user = await officialRequest(binding, 'GET', '/api/auth/me');
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      throw new CopyError(error.status, 'COPY_IDENTITY_REJECTED', 'StaffDeck rejected the configured user credential.');
+    }
+    throw error;
+  }
+  if (user?.id !== binding.actorUserId || user?.tenant_id !== binding.tenantId || user?.disabled === true) {
+    throw new CopyError(403, 'COPY_IDENTITY_MISMATCH', 'StaffDeck authenticated a different user or tenant.');
+  }
+}
+
 function sourceFrom(directory, value) {
   const sourceId = requiredText(value);
   const source = directory.find((row) => row.id === sourceId);
@@ -95,6 +112,7 @@ export function createStaffDeckCopyRouter({ loadConfig }) {
       if (!OPERATIONS.has(operation)) throw new CopyError(400, 'COPY_OPERATION_UNSUPPORTED', 'Unsupported StaffDeck copy operation.');
       const binding = bindingFor(loadConfig(), req.user, operation);
       const input = req.body?.input && typeof req.body.input === 'object' && !Array.isArray(req.body.input) ? req.body.input : {};
+      await verifyFormalUser(binding);
       const directory = await visibleDirectory(binding);
       if (operation === 'list_agents') {
         return res.json({ result: directory.map((row) => ({
