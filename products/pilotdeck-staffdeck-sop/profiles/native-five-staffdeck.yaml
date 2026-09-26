@@ -81,3 +81,10 @@ modules:
     definitionsPath: ../sops/operator-approval.yaml
     defaultSopId: operator_approval
     timeoutMs: 30000
+    management:
+      enabled: true
+      endpointEnv: STAFFDECK_SOP_MANAGEMENT_ENDPOINT
+      apiKeyEnv: STAFFDECK_SOP_MANAGEMENT_API_KEY
+      credentialIdEnv: STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID
+      agentIdEnv: STAFFDECK_COPY_TARGET_AGENT_ID
+      methods: [list, create, get_draft, replace_draft, validate, publish, archive, list_versions, get_version, rollback]

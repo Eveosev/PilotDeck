@@ -197,7 +197,10 @@ describe('PilotDeck shared plaza pages', () => {
           { id: 'published-a', skill_id: 'published-a', name: 'Published A', version: '1.0.0', content: { skill_id: 'published-a', name: 'Published A' } },
           { id: 'published-b', skill_id: 'published-b', name: 'Published B', version: '1.0.0', content: { skill_id: 'published-b', name: 'Published B' } },
         ],
-        drafts: [{ id: 'draft-a', sop_id: 'published-a', draft_version: '1.0.1', etag: 'etag-a', content: { skill_id: 'published-a', name: 'Draft A' } }],
+        drafts: [
+          { id: 'draft-a', sop_id: 'published-a', status: 'draft', draft_version: '1.0.1', etag: 'etag-a', content: { skill_id: 'published-a', name: 'Draft A' } },
+          { id: 'historical-b', sop_id: 'published-b', status: 'published', draft_version: '1.0.0', etag: 'stale', content: { skill_id: 'published-b', name: 'Stale Published Draft B' } },
+        ],
       } as never;
       if (operation === 'get_draft') return { id: 'draft-a', sop_id: 'published-a', draft_version: '1.0.1', etag: 'etag-current', content: { skill_id: 'published-a', name: 'Current Draft A' } } as never;
       throw new Error(`Unexpected management operation: ${operation}`);
@@ -209,6 +212,10 @@ describe('PilotDeck shared plaza pages', () => {
     expect(rows[0].name).toBe('Draft A');
     expect(rows[1].name).toBe('Published B');
     expect(rows[1].draft_id).toBeUndefined();
+
+    const published = await pilotDeckDistillPageHost.api.get<any>('/api/enterprise/skills/published-b');
+    expect(published.name).toBe('Published B');
+    expect(published.draft_id).toBeUndefined();
 
     const editable = await pilotDeckDistillPageHost.api.get<any>('/api/enterprise/skills/published-a');
     expect(editable.name).toBe('Current Draft A');

@@ -206,12 +206,14 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       return res.status(422).json({ error: { code: 'SOP_DEFINITION_SAVE_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
   });
-  route.get('/sop/management', (_req, res) => {
+  route.get('/sop/management', async (req, res) => {
     try {
-      const management = readSopManagement(readConfig()?.modules?.sop);
+      const config = readConfig();
+      const management = readSopManagement(config);
+      await verifySopManagementIdentity(config, management, req.user);
       return res.json({ enabled: true, methods: management.methods, agentId: management.agentId });
     } catch (error) {
-      return res.status(501).json({ error: { code: 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
+      return res.status(Number.isInteger(error?.status) ? error.status : 502).json({ error: { code: error?.code || 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }
   });
   route.post('/sop/management/call', async (req, res) => {
@@ -220,17 +222,15 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!SOP_MANAGEMENT_OPERATIONS.has(operation)) {
         return res.status(400).json({ error: { code: 'SOP_MANAGEMENT_OPERATION_UNSUPPORTED', message: 'SOP management operation is not supported.' } });
       }
-      const management = readSopManagement(readConfig()?.modules?.sop);
+      const config = readConfig();
+      const management = readSopManagement(config);
       if (!management.methods.includes(operation)) {
         return res.status(409).json({ error: { code: 'SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE', message: `SOP management does not advertise ${operation}.` } });
       }
+      await verifySopManagementIdentity(config, management, req.user);
       const result = await callSopManagement(management, operation, req.body?.input);
       return res.status(result.status).json({ result: result.body });
     } catch (error) {
-      // A portable YAML-backed SOP host intentionally has no public
-      // management endpoint. Preserve the capability-missing contract so the
-      // shared page can fall back to its local definition source; reserve 502
-      // for an actually configured upstream that failed.
       const status = Number.isInteger(error?.status) ? error.status : 502;
       return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
@@ -319,25 +319,86 @@ function readSopDefinitions(binding) {
   return bundle;
 }
 
-function readSopManagement(binding) {
-  const management = binding?.management;
-  if (!isRecord(management) || management.enabled !== true || typeof management.endpoint !== 'string' || !management.endpoint.trim()) {
-    throw Object.assign(new Error('StaffDeck public SOP management is not configured.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
+function managementError(status, code, message) {
+  return Object.assign(new Error(message), { status, code });
+}
+
+function configuredValue(binding, name) {
+  return text(binding?.[name]) || text(process.env[text(binding?.[`${name}Env`])]);
+}
+
+function readSopManagement(config) {
+  const management = config?.modules?.sop?.management;
+  const endpoint = configuredValue(management, 'endpoint');
+  if (!isRecord(management) || management.enabled !== true || !endpoint) {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck public SOP management is not configured.');
   }
-  const apiKey = typeof management.apiKey === 'string' && management.apiKey.trim()
-    ? management.apiKey
-    : typeof management.apiKeyEnv === 'string' && management.apiKeyEnv.trim()
-      ? process.env[management.apiKeyEnv]
-      : undefined;
-  if (typeof apiKey !== 'string' || !apiKey.trim()) {
-    throw Object.assign(new Error('StaffDeck public SOP management credentials are not configured.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
+  const apiKey = text(process.env[text(management.apiKeyEnv)]);
+  const credentialId = configuredValue(management, 'credentialId');
+  if (!apiKey || !credentialId) {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck public SOP management account credential is not configured.');
   }
-  if (typeof management.agentId !== 'string' || !management.agentId.trim()) {
-    throw Object.assign(new Error('StaffDeck public SOP management requires an agentId.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
+  const agentId = configuredValue(management, 'agentId');
+  if (!agentId) {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck public SOP management requires an agentId.');
   }
   const methods = Array.isArray(management.methods) ? management.methods.filter((item) => SOP_MANAGEMENT_OPERATIONS.has(item)) : [];
-  if (methods.length === 0) throw Object.assign(new Error('StaffDeck public SOP management does not declare any supported methods.'), { status: 501, code: 'SOP_MANAGEMENT_UNAVAILABLE' });
-  return { endpoint: management.endpoint.endsWith('/') ? management.endpoint : `${management.endpoint}/`, apiKey, agentId: management.agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
+  if (methods.length === 0) throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck public SOP management does not declare any supported methods.');
+  return { endpoint: endpoint.endsWith('/') ? endpoint : `${endpoint}/`, apiKey, credentialId, agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
+}
+
+async function verifySopManagementIdentity(config, management, user) {
+  const copy = config?.webui?.staffdeckCopy;
+  if (copy?.enabled !== true || copy?.contract !== 'staffdeck.enterprise-copy/v1') {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck copy identity is not enabled for SOP management.');
+  }
+  const pilotDeckUserId = configuredValue(copy, 'pilotDeckUserId');
+  const tenantId = configuredValue(copy, 'tenantId');
+  const actorUserId = configuredValue(copy, 'actorUserId');
+  const targetAgentId = configuredValue(copy, 'targetAgentId');
+  const token = text(process.env[text(copy?.userTokenEnv)]);
+  let origin;
+  try {
+    const copyUrl = new URL(configuredValue(copy, 'endpoint'));
+    const managementUrl = new URL(management.endpoint);
+    if (!['http:', 'https:'].includes(copyUrl.protocol) || copyUrl.origin !== managementUrl.origin) throw new Error('Different StaffDeck origins');
+    origin = copyUrl.origin;
+  } catch {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck copy and SOP management must use the same formal service.');
+  }
+  if (!pilotDeckUserId || !tenantId || !actorUserId || !targetAgentId || !token) {
+    throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck SOP management identity binding is incomplete.');
+  }
+  if (String(user?.id ?? '') !== pilotDeckUserId) {
+    throw managementError(403, 'SOP_MANAGEMENT_USER_FORBIDDEN', 'This PilotDeck user is not bound to StaffDeck management.');
+  }
+  if (management.agentId !== targetAgentId) {
+    throw managementError(409, 'SOP_MANAGEMENT_TARGET_MISMATCH', 'StaffDeck SOP management target differs from the copy target.');
+  }
+  const officialGet = async (path) => {
+    const response = await fetch(new URL(path, origin), {
+      headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+      redirect: 'error', signal: AbortSignal.timeout(management.timeoutMs),
+    });
+    if (!response.ok) throw managementError(response.status, 'SOP_MANAGEMENT_IDENTITY_REJECTED', `StaffDeck rejected the configured user credential (${response.status}).`);
+    return response.json();
+  };
+  const actor = await officialGet('/api/auth/me');
+  if (actor?.id !== actorUserId || actor?.tenant_id !== tenantId || actor?.disabled === true) {
+    throw managementError(403, 'SOP_MANAGEMENT_ACTOR_MISMATCH', 'StaffDeck authenticated a different actor or tenant.');
+  }
+  const credentials = await officialGet('/api/auth/me/api-credentials');
+  const credential = Array.isArray(credentials) ? credentials.find((item) => item?.id === management.credentialId) : undefined;
+  const prefix = credential?.key_prefix?.endsWith('…') ? credential.key_prefix.slice(0, -1) : '';
+  if (!credential || credential.user_id !== actorUserId || prefix.length !== 20 || !management.apiKey.startsWith(prefix)) {
+    throw managementError(403, 'SOP_MANAGEMENT_CREDENTIAL_MISMATCH', 'The account key is not the configured actor credential.');
+  }
+  if (credential.status !== 'active' || credential.revoked_at || (credential.expires_at && Date.parse(credential.expires_at) <= Date.now())) {
+    throw managementError(401, 'SOP_MANAGEMENT_CREDENTIAL_INACTIVE', 'The StaffDeck account credential is inactive.');
+  }
+  if (credential.access !== 'user_full_access' || !['sops:read', 'sops:write', 'sops:publish'].every((scope) => credential.scopes?.includes(scope))) {
+    throw managementError(403, 'SOP_MANAGEMENT_SCOPE_FORBIDDEN', 'The StaffDeck account credential lacks SOP management scopes.');
+  }
 }
 
 async function callSopManagement(management, operation, value) {
@@ -377,7 +438,7 @@ async function callSopManagement(management, operation, value) {
     required(text(input.etag), 'etag');
     headers['if-match'] = text(input.etag);
   }
-  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(management.timeoutMs) });
+  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(management.timeoutMs) });
   const payload = await response.json().catch(() => undefined);
   if (!response.ok) {
     throw Object.assign(new Error(payload?.error?.message || payload?.detail || `StaffDeck SOP management request failed (${response.status}).`), { code: payload?.error?.code || 'SOP_MANAGEMENT_UPSTREAM_FAILED', status: response.status });

@@ -281,77 +281,110 @@ describe('module runtime route', () => {
     }
   });
 
-  it('preserves configured SOP management upstream failures as non-501 errors', async () => {
-    const managementApp = express();
-    managementApp.get('/api/v1/agents/agent-1/sops', (_req, res) => res.status(503).json({ error: { code: 'UPSTREAM_DOWN', message: 'temporarily unavailable' } }));
-    const managementServer = http.createServer(managementApp);
-    await new Promise(resolve => managementServer.listen(0, '127.0.0.1', resolve));
-    const app = express();
-    app.use(express.json());
-    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: {
-      enabled: true,
-      management: { enabled: true, endpoint: `http://127.0.0.1:${managementServer.address().port}/api/v1`, apiKey: 'server-only-key', agentId: 'agent-1', methods: ['list'] },
-    } } }) }));
-    const server = http.createServer(app);
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    try {
-      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list' }),
-      });
-      expect(response.status).toBe(503);
-      expect((await response.json()).error.code).toBe('UPSTREAM_DOWN');
-    } finally {
-      await new Promise(resolve => server.close(resolve));
-      await new Promise(resolve => managementServer.close(resolve));
-    }
-  });
-
-  it('proxies allowlisted StaffDeck public SOP management with server-side credentials and ETags', async () => {
+  it('binds SOP management to the formal account credential and fixed owner', async () => {
+    const key = 'sdak_account_key_for_test_123456789';
+    const previousKey = process.env.TEST_SOP_ACCOUNT_KEY;
+    const previousToken = process.env.TEST_COPY_LOGIN_TOKEN;
+    process.env.TEST_SOP_ACCOUNT_KEY = key;
+    process.env.TEST_COPY_LOGIN_TOKEN = 'user-login-token';
     const received = [];
+    const state = { pilotUserId: '1', actorId: 'actor-1', tenantId: 'tenant-1', loginActive: true, credentialId: 'credential-1', credentialPrefix: key.slice(0, 20), credentialStatus: 'active', expiresAt: null, scopes: ['sops:read', 'sops:write', 'sops:publish'], upstreamStatus: 200 };
     const managementApp = express();
     managementApp.use(express.json());
+    managementApp.get('/api/auth/me', (req, res) => {
+      received.push('me');
+      if (req.headers.authorization !== 'Bearer user-login-token' || !state.loginActive) return res.sendStatus(401);
+      return res.json({ id: state.actorId, tenant_id: state.tenantId });
+    });
+    managementApp.get('/api/auth/me/api-credentials', (_req, res) => {
+      received.push('credentials');
+      return res.json([{ id: state.credentialId, user_id: state.actorId, key_prefix: `${state.credentialPrefix}…`, access: 'user_full_access', status: state.credentialStatus, expires_at: state.expiresAt, scopes: state.scopes }]);
+    });
     managementApp.get('/api/v1/agents/agent-1/sops', (req, res) => {
-      received.push({ path: req.path, authorization: req.headers.authorization });
-      res.json({ data: [{ skill_id: 'review', name: 'Review', status: 'published' }], drafts: [] });
+      received.push('list');
+      if (req.headers.authorization !== `Bearer ${key}`) return res.sendStatus(401);
+      return res.status(state.upstreamStatus).json(state.upstreamStatus === 200 ? { data: [{ skill_id: 'review' }] } : { error: { code: 'UPSTREAM_DOWN', message: 'temporarily unavailable' } });
     });
     managementApp.put('/api/v1/agents/agent-1/sops/review', (req, res) => {
-      received.push({ path: req.path, authorization: req.headers.authorization, ifMatch: req.headers['if-match'], body: req.body });
+      received.push({ etag: req.headers['if-match'], body: req.body });
       res.setHeader('ETag', 'etag-next');
-      res.json({ id: 'draft-1', sop_id: 'review', content: req.body.content });
+      return res.json({ id: 'draft-1' });
     });
     const managementServer = http.createServer(managementApp);
     await new Promise(resolve => managementServer.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${managementServer.address().port}`;
+    const config = { webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin, tenantId: 'tenant-1', actorUserId: 'actor-1', targetAgentId: 'agent-1', pilotDeckUserId: '1', userTokenEnv: 'TEST_COPY_LOGIN_TOKEN' } }, modules: { sop: { enabled: true, management: { enabled: true, endpoint: `${origin}/api/v1`, apiKeyEnv: 'TEST_SOP_ACCOUNT_KEY', credentialId: 'credential-1', agentId: 'agent-1', methods: ['list', 'replace_draft'] } } } };
     const app = express();
     app.use(express.json());
-    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => ({ modules: { sop: {
-      enabled: true,
-      management: {
-        enabled: true,
-        endpoint: `http://127.0.0.1:${managementServer.address().port}/api/v1`,
-        apiKey: 'server-only-key',
-        agentId: 'agent-1',
-        methods: ['list', 'replace_draft'],
-      },
-    } } }) }));
+    app.use((req, _res, next) => { req.user = { id: state.pilotUserId }; next(); });
+    app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => config }));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const call = (operation, input) => fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation, input }) });
     try {
-      const listed = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list' }) });
-      expect(listed.status).toBe(200);
-      expect(await listed.json()).toEqual({ result: { data: [{ skill_id: 'review', name: 'Review', status: 'published' }], drafts: [] } });
-      const saved = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'replace_draft', input: { sopId: 'review', draftId: 'draft-1', etag: 'etag-current', content: { skill_id: 'review', nodes: [] } } }) });
+      expect((await call('list')).status).toBe(200);
+      expect(received).toEqual(['me', 'credentials', 'list']);
+      const saved = await call('replace_draft', { sopId: 'review', draftId: 'draft-1', etag: 'etag-current', content: { skill_id: 'review' } });
       expect(saved.status).toBe(200);
-      expect(await saved.json()).toMatchObject({ result: { id: 'draft-1', etag: 'etag-next' } });
-      expect(received).toEqual([
-        { path: '/api/v1/agents/agent-1/sops', authorization: 'Bearer server-only-key' },
-        { path: '/api/v1/agents/agent-1/sops/review', authorization: 'Bearer server-only-key', ifMatch: 'etag-current', body: { content: { skill_id: 'review', nodes: [] } } },
-      ]);
-      const denied = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/sop/management/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'publish', input: { sopId: 'review', draftId: 'draft-1' } }) });
-      expect(denied.status).toBe(409);
-      expect((await denied.json()).error.code).toBe('SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE');
+      expect(await saved.json()).toEqual({ result: { id: 'draft-1', etag: 'etag-next' } });
+      expect(received.at(-1)).toEqual({ etag: 'etag-current', body: { content: { skill_id: 'review' } } });
+      expect((await call('publish')).status).toBe(409);
+
+      config.webui.staffdeckCopy.enabled = false;
+      received.length = 0;
+      expect((await call('list')).status).toBe(501);
+      expect(received).toEqual([]);
+      config.webui.staffdeckCopy.enabled = true;
+
+      state.pilotUserId = '2';
+      received.length = 0;
+      expect((await call('list')).status).toBe(403);
+      expect(received).toEqual([]);
+      state.pilotUserId = '1';
+      config.modules.sop.management.agentId = 'agent-other';
+      expect((await call('list')).status).toBe(409);
+      expect(received).toEqual([]);
+      config.modules.sop.management.agentId = 'agent-1';
+      state.actorId = 'actor-other';
+      expect((await call('list')).status).toBe(403);
+      expect(received).toEqual(['me']);
+      state.actorId = 'actor-1';
+      received.length = 0;
+      state.tenantId = 'tenant-other';
+      expect((await call('list')).status).toBe(403);
+      expect(received).toEqual(['me']);
+      state.tenantId = 'tenant-1';
+      received.length = 0;
+      state.loginActive = false;
+      expect((await call('list')).status).toBe(401);
+      expect(received).toEqual(['me']);
+      state.loginActive = true;
+      received.length = 0;
+      state.credentialId = 'other-credential';
+      expect((await call('list')).status).toBe(403);
+      expect(received).toEqual(['me', 'credentials']);
+      state.credentialId = 'credential-1';
+      state.credentialPrefix = 'sdak_other_credential';
+      expect((await call('list')).status).toBe(403);
+      state.credentialPrefix = key.slice(0, 20);
+      state.credentialStatus = 'revoked';
+      expect((await call('list')).status).toBe(401);
+      state.credentialStatus = 'active';
+      state.expiresAt = '2000-01-01T00:00:00Z';
+      expect((await call('list')).status).toBe(401);
+      state.expiresAt = null;
+      state.scopes = ['sops:read'];
+      expect((await call('list')).status).toBe(403);
+      state.scopes = ['sops:read', 'sops:write', 'sops:publish'];
+      state.upstreamStatus = 503;
+      const failed = await call('list');
+      expect(failed.status).toBe(503);
+      expect((await failed.json()).error.code).toBe('UPSTREAM_DOWN');
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => managementServer.close(resolve));
+      if (previousKey === undefined) delete process.env.TEST_SOP_ACCOUNT_KEY; else process.env.TEST_SOP_ACCOUNT_KEY = previousKey;
+      if (previousToken === undefined) delete process.env.TEST_COPY_LOGIN_TOKEN; else process.env.TEST_COPY_LOGIN_TOKEN = previousToken;
     }
   });
 });

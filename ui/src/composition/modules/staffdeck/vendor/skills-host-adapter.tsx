@@ -81,6 +81,7 @@ async function listDefinitions(): Promise<any[]> {
   // A draft replaces only its own published row; unrelated published SOPs
   // remain visible and every row still belongs to this management target.
   for (const row of Array.isArray(result.drafts) ? result.drafts : []) {
+    if (record(row).status !== 'draft') continue;
     const skill = toManagedSkill(row);
     rows.set(skill.skill_id, skill);
   }

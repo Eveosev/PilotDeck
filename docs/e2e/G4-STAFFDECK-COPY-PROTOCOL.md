@@ -67,7 +67,34 @@ the formal page:
 - `STAFFDECK_COPY_PILOTDECK_USER_ID`: actual authenticated PilotDeck user ID
   authorized to use this binding.
 - `STAFFDECK_COPY_USER_TOKEN`: StaffDeck formal user bearer token issued for
-  that user. A SOP agent management API key is not interchangeable with it.
+  that user. This token remains exclusive to copy and account-credential
+  identity checks; it is not a SOP management API key.
+
+The same profile binds SOP management to that target with
+`STAFFDECK_SOP_MANAGEMENT_ENDPOINT` (the same StaffDeck origin, `/api/v1`),
+`STAFFDECK_SOP_MANAGEMENT_API_KEY` (server-held account key), and
+`STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID` (the ID returned at formal issuance).
+Sign in as the configured StaffDeck actor and use
+`POST /api/auth/me/api-credentials` to issue the key. The current formal
+profile only issues `user_full_access`, including `sops:read`, `sops:write`,
+and `sops:publish`; it does not issue a narrower SOP-only account key.
+Keep the issued key in the PD server environment, never in the browser or
+profile file. Renew the user token separately; rotate or revoke the account
+key through the formal account-credential routes and update its server value.
+
+Before each SOP management status or call, PD verifies the authenticated PD
+user, the configured copy actor/tenant/target, and `GET /api/auth/me` using
+the copy user token. It then calls `GET /api/auth/me/api-credentials` as that
+actor and requires the configured credential ID, unique key prefix, active
+status, expiry, account access profile, and SOP scopes to match the server-held
+management key. This is the formal issuance/list record linking the key to
+the actor, not a claim that `/api/auth/me` authenticates the API key. Each
+actual SOP request uses the full API key and is separately verified by
+StaffDeck's public API credential digest, status, expiry, actor permissions,
+agent scope, and ETag/version checks. PD exposes only the ten named management
+operations for the fixed target; no arbitrary public-API proxy or native SOP
+owner fallback is provided. The runtime agent key and Knowledge copy user
+token remain distinct from this account key.
 
 An absent, expired, or mismatched identity fails explicitly. Do not replace
 it with a client-provided tenant, a guessed overall ID, or a silent empty
