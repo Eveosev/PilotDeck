@@ -3,7 +3,7 @@ import { Check, ChevronDown, Download, FilePlus2, Folder, History, MoreHorizonta
 import KnowledgeGraphCanvas from './KnowledgeGraphCanvas';
 import {
   Accordion as DefaultAccordion, AccordionContent as DefaultAccordionContent, AccordionItem as DefaultAccordionItem, AccordionTrigger as DefaultAccordionTrigger,
-  ConfirmDialog as DefaultConfirmDialog, DataTable as DefaultDataTable, Dialog as DefaultDialog, DialogContent as DefaultDialogContent,
+  ConfirmDialog as DefaultConfirmDialog, BusinessDataTable as DefaultDataTable, Dialog as DefaultDialog, DialogContent as DefaultDialogContent,
   DialogTitle as DefaultDialogTitle, DropdownMenu as DefaultDropdownMenu, DropdownMenuContent as DefaultDropdownMenuContent,
   DropdownMenuItem as DefaultDropdownMenuItem, DropdownMenuSeparator as DefaultDropdownMenuSeparator, DropdownMenuTrigger as DefaultDropdownMenuTrigger,
   Paginator as DefaultPaginator, ResourceImportDialog as DefaultResourceImportDialog, SelectContent as DefaultSelectContent,

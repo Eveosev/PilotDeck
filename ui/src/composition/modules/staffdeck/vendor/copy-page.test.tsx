@@ -7,8 +7,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import KnowledgePage from './KnowledgePage';
 import SkillsPage from './SkillsPage';
 import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
-import { PilotDeckKnowledgePageProvider } from './knowledge-host-adapter';
-import { PilotDeckSkillsPageProvider } from './skills-host-adapter';
+import { BusinessDataTable, BusinessResourceImportDialog } from './SkillsPageHost';
+import { PilotDeckKnowledgePageProvider, pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
+import { PilotDeckSkillsPageProvider, pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
 
 const agents = [
@@ -24,6 +25,39 @@ afterEach(() => {
 });
 
 describe('PilotDeck shared plaza pages', () => {
+  it('injects the same complete business primitives into Knowledge and Skills', () => {
+    for (const host of [pilotDeckKnowledgePageHost, pilotDeckSkillsPageHost]) {
+      expect(host.components?.DataTable).toBe(BusinessDataTable);
+      expect(host.components?.ResourceImportDialog).toBe(BusinessResourceImportDialog);
+    }
+  });
+
+  it('preserves source, target, checkbox and submit contracts in the copy dialog', () => {
+    const onSourceChange = vi.fn();
+    const onTargetChange = vi.fn();
+    const onSelectedChange = vi.fn();
+    const onSubmit = vi.fn();
+    render(<BusinessResourceImportDialog
+      open title="Copy" icon={<span>icon</span>} loading={false}
+      targets={[{ value: 'employee-real', label: 'Employee' }]}
+      targetId="" targetPlaceholder="Select target" onTargetChange={onTargetChange}
+      sources={[{ value: 'plaza-real', label: 'Plaza' }]}
+      sourceId="" sourcePlaceholder="Select source" onSourceChange={onSourceChange}
+      itemsLabel="Resources" items={[{ id: 'base-real', label: 'Policy' }]}
+      selectedIds={[]} onSelectedChange={onSelectedChange}
+      emptyText="None" note="Scope note" onClose={vi.fn()} onSubmit={onSubmit}
+    />);
+
+    expect(onSourceChange).toHaveBeenCalledWith('plaza-real');
+    fireEvent.change(screen.getByRole('combobox', { name: /复制到/ }), { target: { value: 'employee-real' } });
+    expect(onTargetChange).toHaveBeenCalledWith('employee-real');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Policy' }));
+    expect(onSelectedChange).toHaveBeenCalledWith(['base-real']);
+    expect(screen.getByText('Scope note')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '复制' }));
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
   it('selects desktop Knowledge rows through the default shared table', async () => {
     const onRowClick = vi.fn();
     const copiedBase = { id: 'copied-base', name: 'Copied policy' };
@@ -31,7 +65,7 @@ describe('PilotDeck shared plaza pages', () => {
     render(<MemoryRouter><PilotDeckKnowledgePageProvider>
       <KnowledgeDataTable
         aria-label="知识库列表"
-        columns={[{ key: 'name', title: '名称' }]}
+        columns={[{ key: 'name', title: '名称', dataIndex: 'name' }]}
         data={[copiedBase]}
         rowKey={(row: typeof copiedBase) => row.id}
         onRowClick={onRowClick}

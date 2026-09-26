@@ -4,6 +4,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
   type ComponentType,
   type ReactNode,
 } from 'react';
@@ -24,7 +25,7 @@ type Api = {
   blob?(path: string): Promise<Blob>;
 };
 
-type DataColumn = { key: string; title: string; render?: (row: any) => ReactNode; [key: string]: any };
+type DataColumn = { key: string; title: ReactNode; render?: (row: any, index: number) => ReactNode; dataIndex?: string; width?: number | string; align?: 'left' | 'center' | 'right'; className?: string; headClassName?: string; sticky?: 'left' | 'right' };
 type HostComponent = ComponentType<any>;
 
 export type SkillsPageHost = {
@@ -61,17 +62,19 @@ function DefaultButton({ children, variant: _variant, ...props }: any) { return 
 function DefaultStatusBadge({ children, tone }: any) { return <span data-tone={tone} className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{children}</span>; }
 function DefaultDetailField({ label, children }: any) { return <div className="flex flex-col gap-1"><span className="text-xs text-neutral-500">{label}</span><strong className="text-sm">{children}</strong></div>; }
 
-function DefaultDataTable({ columns = [], data = [], rowKey, emptyText = '', loading, onRowClick, ...props }: { columns?: DataColumn[]; data?: any[]; rowKey?: (row: any) => string; emptyText?: string; loading?: boolean; onRowClick?: (row: any, index: number) => void; [key: string]: any }) {
-  return <div className="overflow-x-auto">
-    <table {...props} className={joinClasses('w-full text-left text-sm', props.className)}>
-      <thead><tr>{columns.map((column) => <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs font-medium text-neutral-500">{column.title}</th>)}</tr></thead>
-      <tbody>{loading ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">加载中...</td></tr>
-        : data.length === 0 ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">{emptyText}</td></tr>
-        : data.map((row, index) => <tr
-          key={rowKey?.(row) || row.id || index}
-          onClick={onRowClick ? () => onRowClick(row, index) : undefined}
-          className={joinClasses('border-t border-neutral-100 dark:border-neutral-800', onRowClick && 'cursor-pointer')}
-        >{columns.map((column) => <td key={column.key} className="px-3 py-2">{column.render ? column.render(row) : row[column.key]}</td>)}</tr>)}</tbody>
+export function BusinessDataTable({ columns = [], data = [], rowKey, emptyText = '暂无数据', loadingText = '加载中…', loading = false, onRowClick, size = 'default', striped = false, bordered = false, className, 'aria-label': ariaLabel }: { columns?: DataColumn[]; data?: any[]; rowKey?: (row: any, index: number) => string | number; emptyText?: ReactNode; loadingText?: ReactNode; loading?: boolean; onRowClick?: (row: any, index: number) => void; size?: 'default' | 'compact'; striped?: boolean; bordered?: boolean; className?: string; 'aria-label'?: string }) {
+  const fixedWidth = columns.every((column) => typeof column.width === 'number')
+    ? columns.reduce((total, column) => total + (column.width as number), 0) : undefined;
+  const align = (value?: string) => value === 'right' ? 'text-right' : value === 'center' ? 'text-center' : 'text-left';
+  return <div className={joinClasses('overflow-hidden rounded-[14px] border border-[#f2f3f7]', className)}>
+    <table className="w-full table-fixed text-[12px]" style={fixedWidth ? { minWidth: fixedWidth } : undefined} aria-label={ariaLabel}>
+      <thead><tr>{columns.map((column) => <th key={column.key} style={column.width ? { width: column.width } : undefined} className={joinClasses('h-[36px] bg-[#f2f3f7] px-[16px] py-[12px] align-middle text-[12px] font-normal text-[#464c5e]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-20 bg-[#f2f3f7]', column.sticky === 'right' && 'sticky right-0 z-20 bg-[#f2f3f7]', column.headClassName)}>{column.title}</th>)}</tr></thead>
+      <tbody>{data.length > 0 ? data.map((row, index) => <tr
+        key={rowKey?.(row, index) ?? row.id ?? index}
+        onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+        className={joinClasses('group hover:bg-[#fafbfc]', bordered ? 'border-0' : 'border-b border-[#f2f3f7] last:border-0', striped && index % 2 === 1 && 'bg-[#fbfbfb] hover:bg-[#f2f3f7]', onRowClick && 'cursor-pointer')}
+      >{columns.map((column) => <td key={column.key} className={joinClasses('px-[16px] py-[12px] align-middle text-[12px] text-[#858b9c]', size === 'compact' ? 'min-h-[46px]' : 'min-h-[64px]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-10 bg-white group-hover:bg-[#fafbfc]', column.sticky === 'right' && 'sticky right-0 z-10 bg-white group-hover:bg-[#fafbfc]', column.className)}>{column.render ? column.render(row, index) : column.dataIndex != null ? row[column.dataIndex] : null}</td>)}</tr>)
+        : <tr><td colSpan={columns.length} className="h-[160px] text-center align-middle text-[13px] text-[#858b9c]">{loading ? loadingText : emptyText}</td></tr>}</tbody>
     </table>
   </div>;
 }
@@ -106,9 +109,21 @@ function DefaultSelectValue({ placeholder }: any) { const state = useContext(Sel
 function DefaultSelectContent({ children, className }: any) { const state = useContext(SelectContext); return state?.open ? <div className={joinClasses('absolute left-0 top-full z-50 mt-1 min-w-full rounded border bg-white p-1 shadow-lg dark:bg-neutral-900', className)}>{children}</div> : null; }
 function DefaultSelectItem({ value, children, className }: any) { const state = useContext(SelectContext); return <button type="button" className={joinClasses('block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800', className)} onClick={() => { state?.onValueChange?.(value); state?.setOpen(false); }}>{children}</button>; }
 
-function DefaultResourceImportDialog({ open, onClose, onSubmit, sources = [], items = [], sourceId, onSourceChange, selectedIds = [], onSelectedChange, title, loading }: any) {
+export function BusinessResourceImportDialog({ open, onClose, onSubmit, sources = [], items = [], sourceId, onSourceChange, selectedIds = [], onSelectedChange, title, icon, loading, targetLabel = '复制到', targetPlaceholder, targets, targetId, onTargetChange, sourcePlaceholder = '选择来源', itemsLabel, emptyText, emptySourceText = '请先选择复制来源', note, submitText = '复制' }: any) {
+  useEffect(() => {
+    if (open && !sourceId && sources.length === 1) onSourceChange?.(sources[0].value);
+  }, [open, sourceId, sources, onSourceChange]);
   if (!open) return null;
-  return <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4"><section className="w-[min(620px,100%)] rounded-lg bg-white p-5 shadow-xl dark:bg-neutral-900"><h2 className="font-semibold">{title}</h2><select className="mt-4 w-full rounded border p-2" value={sourceId} onChange={(event) => onSourceChange?.(event.target.value)}><option value="">选择来源</option>{sources.map((source: any) => <option key={source.value} value={source.value}>{source.label}</option>)}</select><div className="mt-3 max-h-56 space-y-1 overflow-auto">{items.map((item: any) => <label key={item.id} className="flex gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => onSelectedChange?.(event.target.checked ? [...selectedIds, item.id] : selectedIds.filter((id: string) => id !== item.id))} />{item.label}</label>)}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose}>取消</button><button type="button" disabled={loading} onClick={onSubmit}>确认</button></div></section></div>;
+  return <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4"><section className="flex max-h-[calc(100dvh-4rem)] w-[min(640px,100%)] flex-col rounded-[14px] bg-white p-5 shadow-xl dark:bg-neutral-900">
+    <h2 className="flex items-center gap-2 text-sm font-medium">{icon}{title}</h2>
+    <div className="mt-4 min-h-0 space-y-4 overflow-y-auto">
+      {targets && onTargetChange && <label className="block text-xs">{targetLabel}<select className="mt-1 w-full rounded border p-2" value={targetId || ''} onChange={(event) => onTargetChange(event.target.value)}><option value="">{targetPlaceholder || targetLabel}</option>{targets.map((target: any) => <option key={target.value} value={target.value}>{target.label}</option>)}</select></label>}
+      <label className="block text-xs">复制来源<select className="mt-1 w-full rounded border p-2" value={sourceId || (sources.length === 1 ? sources[0].value : '')} onChange={(event) => onSourceChange?.(event.target.value)}><option value="" disabled>{sourcePlaceholder}</option>{sources.map((source: any) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
+      <div><span className="text-xs">{itemsLabel}</span><div className="mt-1 max-h-56 space-y-1 overflow-auto rounded border p-2">{items.length ? items.map((item: any) => <label key={item.id} className="flex cursor-pointer gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => onSelectedChange?.(event.target.checked ? [...selectedIds, item.id] : selectedIds.filter((id: string) => id !== item.id))} />{item.label}</label>) : <p className="py-4 text-center text-xs text-neutral-500">{sourceId ? emptyText : emptySourceText}</p>}</div></div>
+      {note && <p className="text-xs text-neutral-500">{note}</p>}
+    </div>
+    <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose}>取消</button><button type="button" disabled={loading} onClick={onSubmit}>{submitText}</button></div>
+  </section></div>;
 }
 
 function DefaultHostIcon({ name, ...props }: { name: string; [key: string]: any }) { const icons: Record<string, any> = { IconAdd: FilePlus2, IconChevronDown: ChevronDown, IconClear: Search, IconClipboard: Clipboard, IconEdit: Edit3, IconHistory: History, IconMore: MoreHorizontal, IconRefresh: RefreshCw, IconSearch: Search, IconSkill: FileText, IconTrash: Trash2 }; const Icon = icons[name] || FileText; return <Icon {...props} />; }
@@ -149,9 +164,9 @@ export const MOBILE_CARD_CLASS = 'rounded-lg border border-neutral-200 bg-white 
 export const SELECT_TRIGGER_CLASS = '';
 
 const componentDefaults: Record<string, HostComponent> = {
-  AppHeader: DefaultAppHeader, ConfirmDialog: DefaultConfirmDialog, DataTable: DefaultDataTable, DetailField: DefaultDetailField, Dialog: DefaultDialog, DialogContent: DefaultDialogContent, DialogTitle: DefaultDialogTitle,
+  AppHeader: DefaultAppHeader, ConfirmDialog: DefaultConfirmDialog, DataTable: BusinessDataTable, DetailField: DefaultDetailField, Dialog: DefaultDialog, DialogContent: DefaultDialogContent, DialogTitle: DefaultDialogTitle,
   DropdownMenu: DefaultDropdownMenu, DropdownMenuContent: DefaultDropdownContent, DropdownMenuItem: DefaultDropdownItem, DropdownMenuSeparator: DefaultDropdownSeparator, DropdownMenuTrigger: DefaultDropdownTrigger,
-  Paginator: DefaultPaginator, ResourceImportDialog: DefaultResourceImportDialog, Select: DefaultSelect, SelectContent: DefaultSelectContent, SelectItem: DefaultSelectItem, SelectTrigger: DefaultSelectTrigger, SelectValue: DefaultSelectValue,
+  Paginator: DefaultPaginator, ResourceImportDialog: BusinessResourceImportDialog, Select: DefaultSelect, SelectContent: DefaultSelectContent, SelectItem: DefaultSelectItem, SelectTrigger: DefaultSelectTrigger, SelectValue: DefaultSelectValue,
   StatusBadge: DefaultStatusBadge, UIButton: DefaultButton,
   Accordion: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   AccordionItem: ({ children, ...props }: any) => <details {...props}>{children}</details>,
