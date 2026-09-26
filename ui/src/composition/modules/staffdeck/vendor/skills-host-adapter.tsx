@@ -5,7 +5,8 @@ import { DistillPageHostProvider } from './DistillPageHost';
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
+import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
+import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
 
 // PilotDeck is a single-user host. The SOP management identity is supplied by
 // the server-side StaffDeck API-key/agent binding; this value is only the
@@ -98,14 +99,20 @@ async function listDefinitions(): Promise<any[]> {
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
   const match = path.match(/^\/api\/enterprise\/skills\/([^/?]+)(?:\/([^/?]+))?/);
+  const importMatch = path.match(/^\/api\/enterprise\/agents\/([^/?]+)\/resources\/import$/);
+  if (importMatch && method === 'post') return await staffDeckCopyClient.call<T>('import_resources', {
+    targetAgentId: decodeURIComponent(importMatch[1]), sourceAgentId: body?.source_agent_id,
+    resourceType: body?.resource_type, resourceIds: body?.resource_ids,
+  });
   if (path.startsWith('/api/enterprise/skills?')) {
     if (method === 'get') return await listDefinitions() as T;
     if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
   }
-  if (path.startsWith('/api/enterprise/agents?')) return [] as T;
+  if (path.startsWith('/api/enterprise/agents?')) return await loadCopyDirectory() as T;
   if (path.startsWith('/api/enterprise/agents/') && /\/skills\?tenant_id=[^&]+$/.test(path)) {
     if (method !== 'get') throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
-    return await listDefinitions() as T;
+    const sourceAgentId = decodeURIComponent(path.split('/')[4]);
+    return await staffDeckCopyClient.call<T>('list_skills', { sourceAgentId });
   }
   if (!match) throw new Error(`Unsupported StaffDeck skills path: ${path}`);
   const sopId = decodeURIComponent(match[1]);
@@ -216,12 +223,12 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   tenantId: PILOTDECK_SOP_TENANT_ID,
   notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) },
   isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
-  canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin),
+  canManageEmployeeAgent: (agent) => Boolean(isCopyTarget(agent) && agent.can_manage === true),
   openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '',
   openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })),
   resourceCreatorName: (row) => text(row.created_by_name) || '',
   visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId),
-  readEmployeeScope: () => '',
+  readEmployeeScope: readCopyAgentScope,
   isTeamScope: (value) => value.startsWith('team:'),
   useClientPagination: <T,>(items: T[], pageSize: number, resetKey: unknown) => {
     const [page, setPage] = React.useState(1);
@@ -234,6 +241,15 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
 
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const [ready, setReady] = React.useState(false);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => {
+    let mounted = true;
+    void loadCopyDirectory().then(() => { if (mounted) setReady(true); }).catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { mounted = false; };
+  }, []);
+  if (error) return <div role="alert">{error}</div>;
+  if (!ready) return null;
   return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => {
     if (!path.startsWith('/enterprise/skills')) return navigate(path);
     const queryIndex = path.indexOf('?');

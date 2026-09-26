@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
 import { pilotDeckSkillsPageHost } from './skills-host-adapter';
-import { staffDeckKnowledgeClient } from '../clients';
+import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 
 describe('PilotDeck Knowledge host authorization boundary', () => {
   it('does not grant overall administration to an authenticated non-admin user', () => {
@@ -11,11 +11,44 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
 
   it('uses the explicit single-user/admin identity supplied by the host', () => {
     expect(pilotDeckKnowledgePageHost.isEnterpriseAdmin({ id: 'user-1', is_admin: true })).toBe(true);
-    expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'agent-1' }, { id: 'user-1', is_admin: true })).toBe(true);
+    expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'agent-1' }, { id: 'user-1', is_admin: true })).toBe(false);
   });
 
-  it('does not invent an employee directory when the module has no directory capability', async () => {
-    await expect(pilotDeckKnowledgePageHost.loadEmployeeDirectory()).resolves.toEqual([]);
+  it('loads actual overall and target identities from the formal copy directory', async () => {
+    const originalCall = staffDeckCopyClient.call;
+    staffDeckCopyClient.call = async () => [
+      { id: 'employee-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
+      { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false },
+    ] as any;
+    try {
+      expect((await pilotDeckKnowledgePageHost.loadEmployeeDirectory()).map((agent) => agent.id)).toEqual(['employee-real', 'plaza-real']);
+      expect(pilotDeckKnowledgePageHost.openGalleryAgentId(await pilotDeckKnowledgePageHost.loadEmployeeDirectory())).toBe('plaza-real');
+      expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'plaza-real' }, { is_admin: true })).toBe(false);
+      expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'employee-real', can_manage: true })).toBe(true);
+      expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'employee-real', can_manage: false }, { is_admin: true })).toBe(false);
+    } finally { staffDeckCopyClient.call = originalCall; }
+  });
+
+  it('maps both shared plaza pages to scoped source reads and formal resource imports', async () => {
+    const originalCall = staffDeckCopyClient.call;
+    const calls: Array<{ operation: string; input: Record<string, unknown> }> = [];
+    staffDeckCopyClient.call = async (operation, input = {}) => {
+      calls.push({ operation, input });
+      return [] as any;
+    };
+    window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
+    try {
+      await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge-bases?tenant_id=forged&agent_id=plaza-real');
+      await pilotDeckSkillsPageHost.api.get('/api/enterprise/agents/plaza-real/skills?tenant_id=forged');
+      await pilotDeckKnowledgePageHost.api.post('/api/enterprise/agents/employee-real/resources/import', { source_agent_id: 'plaza-real', resource_type: 'knowledge_base', resource_ids: ['base-real'], tenant_id: 'forged' });
+      await pilotDeckSkillsPageHost.api.post('/api/enterprise/agents/employee-real/resources/import', { source_agent_id: 'plaza-real', resource_type: 'skill', resource_ids: ['sop-real'], tenant_id: 'forged' });
+      expect(calls).toEqual([
+        { operation: 'list_knowledge_bases', input: { sourceAgentId: 'plaza-real' } },
+        { operation: 'list_skills', input: { sourceAgentId: 'plaza-real' } },
+        { operation: 'import_resources', input: { targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'knowledge_base', resourceIds: ['base-real'] } },
+        { operation: 'import_resources', input: { targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'skill', resourceIds: ['sop-real'] } },
+      ]);
+    } finally { staffDeckCopyClient.call = originalCall; window.localStorage.removeItem('ultrarag_enterprise_agent_scope'); }
   });
 
   it('resolves plaza copy only from an actual overall agent in either shared page', () => {

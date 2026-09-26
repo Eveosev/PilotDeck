@@ -27,6 +27,16 @@ export const staffDeckKnowledgeClient: StaffDeckKnowledgeClient = {
   },
 };
 
+export const staffDeckCopyClient = {
+  async call<T>(operation: 'list_agents' | 'list_knowledge_bases' | 'list_skills' | 'import_resources', input: Record<string, unknown> = {}): Promise<T> {
+    const body = await request<{ result: T }>('/api/modules/staffdeck-copy/call', {
+      method: 'POST',
+      body: JSON.stringify({ operation, input }),
+    });
+    return body.result;
+  },
+};
+
 export type SopDefinition = Record<string, unknown> & { id: string };
 
 export type StaffDeckSopClient = {

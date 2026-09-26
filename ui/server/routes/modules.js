@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
+import { createStaffDeckCopyRouter } from './staffdeck-copy.js';
 
 const router = express.Router();
 const SLOTS = ['agentLoop', 'skills', 'tools', 'context', 'modelProvider', 'sop', 'knowledge'];
@@ -40,6 +41,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try { return parseYaml(readFileSync(path, 'utf8')) ?? {}; } catch { return {}; }
   });
   const route = express.Router();
+  route.use('/staffdeck-copy', createStaffDeckCopyRouter({ loadConfig: readConfig }));
   // A definition write is visible immediately on disk, but the active AgentLoop
   // keeps its previous snapshot until the process is restarted. Keep that
   // distinction explicit in the runtime contract so the UI can disable only

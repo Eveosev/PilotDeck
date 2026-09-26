@@ -11,6 +11,16 @@ model:
         qwen3.6-flash-distill:
           capabilities:
             supportsToolUse: true
+webui:
+  staffdeckCopy:
+    enabled: true
+    contract: staffdeck.enterprise-copy/v1
+    methods: [list_agents, list_knowledge_bases, list_skills, import_resources]
+    endpointEnv: STAFFDECK_FORMAL_API_ORIGIN
+    tenantIdEnv: STAFFDECK_COPY_TENANT_ID
+    targetAgentIdEnv: STAFFDECK_COPY_TARGET_AGENT_ID
+    pilotDeckUserIdEnv: STAFFDECK_COPY_PILOTDECK_USER_ID
+    userTokenEnv: STAFFDECK_COPY_USER_TOKEN
 modules:
   # The five PilotDeck owners stay native.  Only StaffDeck-owned services
   # cross a process boundary in this delivery profile.

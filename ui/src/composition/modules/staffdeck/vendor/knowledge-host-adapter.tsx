@@ -1,8 +1,9 @@
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { staffDeckKnowledgeClient } from '../clients';
+import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
+import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
 
 function query(path: string): URL { return new URL(path, 'http://staffdeck.local'); }
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
@@ -19,11 +20,10 @@ function optionalQueryInput(url: URL): Record<string, string> {
 }
 const PILOTDECK_AGENT_SCOPE_KEY = 'ultrarag_enterprise_agent_scope';
 function pilotDeckAgentScope(): string {
-  try { return window.localStorage.getItem(PILOTDECK_AGENT_SCOPE_KEY) || ''; } catch { return ''; }
+  return readCopyAgentScope();
 }
-function pilotDeckAgentDirectory(): Array<{ id: string; name: string; is_overall: boolean; active: boolean }> {
-  const id = pilotDeckAgentScope();
-  return id ? [{ id, name: id, is_overall: false, active: true }] : [];
+async function pilotDeckAgentDirectory(): Promise<Array<{ id: string; name: string; is_overall: boolean; active: boolean }>> {
+  return loadCopyDirectory();
 }
 
 async function knowledge<T>(operation: string, input: Record<string, unknown> = {}): Promise<T> {
@@ -33,8 +33,20 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
 async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
-  if (url.pathname === '/api/enterprise/agents' && method === 'get') return [] as T;
-  if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') return await knowledge<T>('list_bases', optionalQueryInput(url));
+  if (url.pathname === '/api/enterprise/agents' && method === 'get') return await staffDeckCopyClient.call<T>('list_agents');
+  if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') {
+    const sourceAgentId = url.searchParams.get('agent_id');
+    if (sourceAgentId && sourceAgentId !== pilotDeckAgentScope()) {
+      return await staffDeckCopyClient.call<T>('list_knowledge_bases', { sourceAgentId });
+    }
+    return await knowledge<T>('list_bases', optionalQueryInput(url));
+  }
+  if (segments[1] === 'enterprise' && segments[2] === 'agents' && segments[3] && segments[4] === 'resources' && segments[5] === 'import' && method === 'post') {
+    return await staffDeckCopyClient.call<T>('import_resources', {
+      targetAgentId: decodePathSegment(segments[3]), sourceAgentId: body?.source_agent_id,
+      resourceType: body?.resource_type, resourceIds: body?.resource_ids,
+    });
+  }
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'post') return await knowledge<T>('create_base', body || {});
   if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'get') return await knowledge<T>('list_documents', optionalQueryInput(url));
   if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') return await knowledge<T>('import_document', { ...body, ...optionalQueryInput(url) });
@@ -85,7 +97,7 @@ export const pilotDeckKnowledgePageHost: Host = {
     clear: () => { try { window.localStorage.removeItem(PILOTDECK_AGENT_SCOPE_KEY); } catch {} },
     emit: (value) => { window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: value } })); },
   },
-  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin), openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
+  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (agent) => Boolean(isCopyTarget(agent) && agent.can_manage === true), openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
 };
 
 function mapKnowledgePath(path: string): string {
@@ -96,5 +108,14 @@ function mapKnowledgePath(path: string): string {
 
 export function PilotDeckKnowledgePageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let mounted = true;
+    void loadCopyDirectory().then(() => { if (mounted) setReady(true); }).catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { mounted = false; };
+  }, []);
+  if (error) return <div role="alert">{error}</div>;
+  if (!ready) return null;
   return <KnowledgePageHostProvider value={{ ...pilotDeckKnowledgePageHost, navigate: (path) => navigate(mapKnowledgePath(path)) }}>{children}</KnowledgePageHostProvider>;
 }
