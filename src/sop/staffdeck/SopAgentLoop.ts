@@ -68,7 +68,7 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly discovery: StaffDeckSopDiscoveryPort | undefined;
   private readonly native: AgentLoopRunner;
   private readonly preparedSteps = new Map<string, StaffDeckSopPrepareResponse["step"]>();
-  private readonly protocolCorrections = new Set<string>();
+  private readonly protocolCorrections = new Map<string, string>();
   private readonly collectInputs = new Map<string, string>();
   private readonly collectCorrectionTurns = new Set<string>();
 
@@ -205,7 +205,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     await this.selectSop(input, this.discovery);
     let completed: AgentLoopRunResult;
     let delayedCompletion: Extract<AgentEvent, { type: "turn_completed" }> | undefined;
-    let protocolCorrections = 0;
+    const correctionsByStep = new Map<string, number>();
     let sawToolError = false;
     let iterator = this.native.run(input);
     while (true) {
@@ -216,11 +216,16 @@ export class SopAgentLoop implements AgentLoopRunner {
         if (!sawToolError && this.selectedSops.get(input.sessionId)
           && !this.submissions.has(input.sessionId) && state?.state.status === "active"
           && completed.result.stopReason === "completed") {
-          // A provider can ignore tool_choice and end with prose. That is not
-          // a lifecycle result. Allow one explicit protocol correction within
-          // this same user request; never synthesize a wait or completion.
-          if (protocolCorrections++ >= 1) throw new Error("SOP_STEP_RESULT_REQUIRED: model ended without submitting the active node result");
-          this.protocolCorrections.add(input.sessionId);
+          // A provider can ignore tool_choice and end with prose. Give each
+          // active node one correction in this turn, without fabricating a result.
+          const stepKey = sopStepKey(
+            state.state.active_skill_id ?? state.state.selected_skill_id ?? this.selectedSops.get(input.sessionId),
+            state.state.active_step_id ?? this.preparedSteps.get(input.sessionId)?.nodeId,
+          );
+          const attempted = correctionsByStep.get(stepKey) ?? 0;
+          if (attempted >= 1) throw new Error("SOP_STEP_RESULT_REQUIRED: model ended without submitting the active node result");
+          correctionsByStep.set(stepKey, attempted + 1);
+          this.protocolCorrections.set(input.sessionId, stepKey);
           input = { ...input, messages: completed.messages };
           iterator = this.native.run(input);
           continue;
@@ -332,7 +337,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     return capabilities.contextPreparation.prepareForModel({
       ...input,
       appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared),
-        this.protocolCorrections.has(input.sessionId)
+        this.protocolCorrections.get(input.sessionId) === sopStepKey(prepared.step.skillId, prepared.step.nodeId)
           ? prepared.step.isTerminal
             ? "SOP_STEP_RESULT_REQUIRED: The previous assistant text was only a draft. The final SOP node is still active. Call submit_step_result now with status completed, the final answer in replyFragment, slotUpdates {}, and no nextStepId. Do not repeat the draft as plain assistant text."
             : "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
@@ -402,11 +407,11 @@ function wrapSidecarModules(
       ...modules.model,
       execution: {
         prepare: (input: Parameters<typeof modules.model.execution.prepare>[0]) => modules.model.execution.prepare({
-          ...input, request: { ...input.request, ...sopToolChoice(currentStep(input.context.sessionId)) },
+          ...input, request: { ...input.request, ...sopModelTools(currentStep(input.context.sessionId), input.request.tools) },
         }),
         stream: (input: Parameters<typeof modules.model.execution.stream>[0]) => modules.model.execution.stream({
           ...input, prepared: { ...input.prepared, request: { ...input.prepared.request,
-            ...sopToolChoice(currentStep(input.context.sessionId)),
+            ...sopModelTools(currentStep(input.context.sessionId), input.prepared.request.tools),
           } },
         }),
       },
@@ -496,8 +501,8 @@ class SopControlToolPort implements ToolPort {
     if (!this.options.selectedSopId(execution.sessionId)) {
       return controlError(call, "No StaffDeck SOP is selected for this session.");
     }
-    const proposal = parseProposal(call.input);
-    if (!proposal) return controlError(call, "submit_step_result requires a valid SOP status and non-empty replyFragment.", "invalid_tool_input");
+    let proposal = parseProposal(call.input);
+    if (!proposal) return controlError(call, "submit_step_result requires a valid status, non-empty replyFragment, and correctly typed known fields.", "invalid_tool_input");
     try {
       const persisted = await this.options.stateStore.loadOrCreate(
         execution.sessionId,
@@ -505,6 +510,15 @@ class SopControlToolPort implements ToolPort {
         this.options.selectedSopId(execution.sessionId) ?? this.options.defaultSopId,
       );
       const currentStep = this.options.currentStep(execution.sessionId);
+      if (currentStep && currentStep.nodeId === persisted.state.active_step_id) {
+        for (const field of currentStep.expectedUserInfo) {
+          if (Object.hasOwn(proposal.slotUpdates ?? {}, field)
+            && slotFilled(persisted.state.slots_json?.[field])
+            && !slotFilled(proposal.slotUpdates?.[field])) {
+            return controlError(call, `REQUIRED_SLOT_ERASURE: ${field} is already filled; an empty update cannot erase it.`, "invalid_tool_input");
+          }
+        }
+      }
       if (proposal.status === "handoff" && currentStep && currentStep.nodeId === persisted.state.active_step_id && !currentStep.declaresHandoff) {
         return controlError(call, "HANDOFF_NOT_DECLARED: complete the current evidence step and advance to the declared approval node before creating handoff.", "invalid_tool_input");
       }
@@ -513,28 +527,27 @@ class SopControlToolPort implements ToolPort {
       }
       if (proposal.status === "awaiting_user") {
         if (proposal.nextStepId) return controlError(call, "AWAITING_USER_CANNOT_ADVANCE: remove nextStepId and retain the current step.", "invalid_tool_input");
-        const step = this.options.currentStep(execution.sessionId);
-        if (step && step.nodeId === persisted.state.active_step_id && step.allowedNextStepIds.length > 0) {
+        if (currentStep && currentStep.nodeId === persisted.state.active_step_id) {
           const slots = { ...persisted.state.slots_json, ...proposal.slotUpdates };
-          const missing = step.expectedUserInfo.some((field) => {
-            const value = slots[field];
-            return value == null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
-          });
-          const type = step.node.type;
-          if (missing && type === "collect_info" && step.expectedUserInfo.length > 0
+          const missing = missingFields(currentStep.expectedUserInfo, slots);
+          const type = currentStep.node.type;
+          if (missing.length > 0 && type === "collect_info"
             && Object.keys(proposal.slotUpdates ?? {}).length === 0
             && this.options.collectInput(execution.sessionId).trim()
             && this.options.shouldCorrectEmptyCollect(execution.sessionId, execution.turnId)) {
             return controlError(call,
               `COLLECT_FIELDS_CHECK: Before asking, re-read this turn's user message: ${JSON.stringify(this.options.collectInput(execution.sessionId))}. `
-              + `Extract every supplied value into slotUpdates using these exact keys: ${step.expectedUserInfo.join(", ")}. `
+              + `Extract every supplied value into slotUpdates using these exact keys: ${currentStep.expectedUserInfo.join(", ")}. `
               + "Ask only for fields genuinely absent. If none of the requested fields is supplied, an empty slotUpdates is valid on your corrected submission.",
               "invalid_tool_input");
           }
-          if (!missing && ((type === "collect_info" && step.expectedUserInfo.length > 0)
+          if (missing.length === 0 && ((type === "collect_info" && currentStep.expectedUserInfo.length > 0)
             || ((type === "response" || type === "knowledge_query")
-              && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")))) {
+              && !currentStep.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")))) {
             return controlError(call, "STEP_MUST_ADVANCE: required fields are complete. Submit completed to an allowed next step; approval belongs to the declared handoff node.", "invalid_tool_input");
+          }
+          if (type === "collect_info" && missing.length > 0) {
+            proposal = { ...proposal, replyFragment: missingFieldsReply(missing) };
           }
         }
       }
@@ -656,6 +669,9 @@ function parseProposal(value: unknown): StaffDeckSopProposal | undefined {
   const status = value.status;
   const replyFragment = text(value.replyFragment);
   if (!isSopStatus(status) || !replyFragment) return undefined;
+  if ((value.slotUpdates !== undefined && !isRecord(value.slotUpdates))
+    || (value.nextStepId !== undefined && value.nextStepId !== null && typeof value.nextStepId !== "string")
+    || (value.taskSummary !== undefined && value.taskSummary !== null && typeof value.taskSummary !== "string")) return undefined;
   return {
     status,
     replyFragment,
@@ -664,6 +680,20 @@ function parseProposal(value: unknown): StaffDeckSopProposal | undefined {
     ...(Object.hasOwn(value, "structuredResult") ? { structuredResult: value.structuredResult } : {}),
     ...(text(value.nextStepId) ? { nextStepId: text(value.nextStepId) } : {}),
   };
+}
+
+function missingFields(fields: readonly string[], slots: Record<string, unknown>): string[] {
+  return fields.filter((field) => !slotFilled(slots[field]));
+}
+
+function slotFilled(value: unknown): boolean {
+  return value != null && (typeof value !== "string" || Boolean(value.trim()))
+    && (!Array.isArray(value) || value.length > 0)
+    && (!isRecord(value) || Object.keys(value).length > 0);
+}
+
+function missingFieldsReply(fields: readonly string[]): string {
+  return `请补充以下信息，以继续当前步骤：\n${fields.map((field) => `- ${field}`).join("\n")}`;
 }
 
 function controlSuccess(call: PilotDeckToolCall, result: StaffDeckSopSubmitResult, finishTurn: boolean): PilotDeckToolResult {
@@ -745,7 +775,7 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
       ? "When required information is present in the user messages or tool results, include it in slotUpdates and submit completed to advance; use awaiting_user only when information is genuinely missing. If any required field is missing, your question MUST be the replyFragment of a submit_step_result call with status awaiting_user, known slotUpdates, and no nextStepId. Do not end with a plain-text question."
       : undefined,
     step.expectedUserInfo.length > 0
-      ? "Before submitting, extract each supplied value into slotUpdates under its exact required field key, including when other fields remain missing. Saying a value is recorded in replyFragment does not store it. Do not submit an empty slotUpdates when the user has supplied any required field."
+      ? "Before submitting, extract each supplied value into slotUpdates under its exact required field key, including when other fields remain missing. Preserve explicit user facts instead of replacing them with inferred risks or future changes. Saying a value is recorded in replyFragment does not store it. Do not submit an empty slotUpdates when the user has supplied any required field."
       : undefined,
     step.transitions && step.transitions.length > 0
       ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."
@@ -768,6 +798,10 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
 
 function joinPrompt(existing: string | undefined, sop: string): string {
   return [existing, sop].filter((value): value is string => Boolean(value?.trim())).join("\n\n");
+}
+
+function sopStepKey(skillId: string | null | undefined, stepId: string | null | undefined): string {
+  return `${skillId ?? ""}:${stepId ?? ""}`;
 }
 
 function isTerminalSopStatus(value: unknown): boolean {

@@ -161,15 +161,15 @@ test("one SOP turn continues completed nodes through required evidence to the de
     const submitted: string[] = [];
     let modelCalls = 0;
     const model = modelFromStream(async function* (prepared) {
-      const call = modelCalls++ - 1;
-      assert.deepEqual((prepared as { request: { toolChoice: unknown } }).request.toolChoice, call === 0 || call === 3
-        || call === -1
+      const call = modelCalls++;
+      const request = (prepared as { request: { toolChoice: unknown; systemPrompt: string } }).request;
+      assert.deepEqual(request.toolChoice, [0, 1, 4, 5].includes(call)
         ? { type: "tool", name: "submit_step_result" } : "required");
-      if (call === -1) { yield* yieldText("Approval will be requested."); return; }
-      assert.match((prepared as { request: { systemPrompt: string } }).request.systemPrompt, /SOP_STEP_RESULT_REQUIRED/);
-      if (call === 1) { yield* yieldToolCall("evidence", "lookup_account", { accountId: "ada" }); return; }
+      assert.equal(request.systemPrompt.includes("SOP_STEP_RESULT_REQUIRED"), [1, 5].includes(call));
+      if (call === 0 || call === 4) { yield* yieldText("Approval will be requested."); return; }
+      if (call === 2) { yield* yieldToolCall("evidence", "lookup_account", { accountId: "ada" }); return; }
       yield* yieldToolCall(`step-${call}`, "submit_step_result", {
-        status: call === 3 ? "handoff" : "completed", replyFragment: `Step ${call} result`,
+        status: call === 5 ? "handoff" : "completed", replyFragment: `Step ${call} result`,
       });
     });
     const base = acceptingClient();
@@ -197,7 +197,7 @@ test("one SOP turn continues completed nodes through required evidence to the de
     const session = createSopSession({ root, sessionId: "single-turn", model, client, context: new DefaultContextRuntime() });
     const events = await collectSessionTurn(session, "Plan the project with all fields supplied", "single-turn-request");
     assert.deepEqual(submitted, ["collect", "evidence", "approval"]);
-    assert.equal(modelCalls, 5);
+    assert.equal(modelCalls, 6);
     assert.equal(events.filter(event => event.type === "turn_completed").length, 1);
     const store = new SopStateStore(join(root, "sessions"));
     assert.equal((await store.status("single-turn"))?.wait?.kind, "handoff");
@@ -491,6 +491,103 @@ test("a collect node with no supplied fields may wait after one bounded correcti
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("collect wait uses only missing fields and rejects malformed known arguments without rejecting extras", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-collect-question-"));
+  try {
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`collect-question-${calls}`, "submit_step_result", calls === 1
+        ? { status: "awaiting_user", replyFragment: "What is the goal?", slotUpdates: "{}" }
+        : { status: "awaiting_user", replyFragment: "What is the goal?", slotUpdates: { project_goal: "SOP delivery" }, modelNote: "extra" });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+          node: { type: "collect_info" }, expectedUserInfo: ["project_goal", "current_stage"],
+          requiredToolNames: [], allowedNextStepIds: ["next"] } };
+      },
+      async submit(input) {
+        submissions++;
+        assert.deepEqual(input.proposal.slotUpdates, { project_goal: "SOP delivery" });
+        assert.equal(input.proposal.replyFragment, "请补充以下信息，以继续当前步骤：\n- current_stage");
+        return { state: { ...input.state, status: "awaiting_user",
+          slots_json: { ...input.state.slots_json, ...input.proposal.slotUpdates } },
+          result: { status: "awaiting_user", replyFragment: input.proposal.replyFragment,
+            slotUpdates: input.proposal.slotUpdates ?? {}, events: [] } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "collect-question", model, client });
+    const events = await collectSessionTurn(session, "Goal: SOP delivery", "collect-question-turn");
+    assert.equal(calls, 2);
+    assert.equal(submissions, 1);
+    assert.ok(events.some((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.error.code === "invalid_tool_input"));
+    assert.ok(events.some((event) => event.type === "assistant_message"
+      && event.message.content[0]?.type === "text"
+      && event.message.content[0].text === "请补充以下信息，以继续当前步骤：\n- current_stage"));
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("collect-question"))?.state.slots_json?.project_goal, "SOP delivery");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("collect proposal cannot erase a persisted required slot while waiting", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-slot-erasure-"));
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    await store.loadOrCreate("slot-erasure", BUNDLE, "onboarding");
+    await store.replace("slot-erasure", BUNDLE, { selected_skill_id: "onboarding", active_skill_id: "onboarding",
+      active_step_id: "lookup", status: "active", slots_json: { project_goal: "SOP delivery" } });
+    let calls = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`slot-erasure-${calls}`, "submit_step_result", {
+        status: "awaiting_user", replyFragment: "What is the stage?",
+        slotUpdates: { project_goal: calls === 1 ? "" : "SOP delivery" },
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base, async prepare(input) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+        node: { type: "collect_info" }, expectedUserInfo: ["project_goal", "current_stage"],
+        requiredToolNames: [], allowedNextStepIds: ["next"] } };
+    } };
+    const session = createSopSession({ root, sessionId: "slot-erasure", model, client });
+    const events = await collectSessionTurn(session, "Continue this project.", "slot-erasure-turn");
+    assert.equal(calls, 2);
+    assert.ok(events.some((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.content[0]?.type === "text" && event.result.content[0].text.includes("REQUIRED_SLOT_ERASURE")));
+    assert.equal((await store.status("slot-erasure"))?.state.slots_json?.project_goal, "SOP delivery");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("terminal response without missing fields cannot create an ordinary user wait", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-terminal-wait-"));
+  try {
+    let calls = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`terminal-${calls}`, "submit_step_result", {
+        status: calls === 1 ? "awaiting_user" : "completed", replyFragment: "Final response.", slotUpdates: {},
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base, async prepare(input) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+        node: { type: "response" }, requiredToolNames: [], allowedNextStepIds: [],
+        expectedUserInfo: [], allowedActions: ["answer_user"], isTerminal: true } };
+    } };
+    const session = createSopSession({ root, sessionId: "terminal-wait", model, client });
+    await collectSessionTurn(session, "Finish the plan.", "terminal-wait-turn");
+    assert.equal(calls, 2);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("terminal-wait"))?.state.status, "completed");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("SOP session construction rejects definitions whose required PilotDeck tool is unavailable", () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-missing-tool-"));
   try {
@@ -524,7 +621,12 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
       defaultSopId: "onboarding",
       stateRoot: root,
     };
-    const client = acceptingClient();
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base, async prepare(input) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+        node: { type: "response" }, requiredToolNames: [], allowedNextStepIds: [], isTerminal: true } };
+    } };
     const session = createAgentSession({
       sessionId: "external-loop-session",
       config: {
@@ -538,7 +640,9 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
       dependencies: {
         router: {} as never,
         ports: { model: modelFromStream(async function* (prepared) {
-          assert.equal((prepared as { request: { toolChoice?: string } }).request.toolChoice, "required");
+          const request = (prepared as { request: { toolChoice?: unknown; tools?: { name: string }[] } }).request;
+          assert.deepEqual(request.toolChoice, { type: "tool", name: "submit_step_result" });
+          assert.deepEqual(request.tools?.map((tool) => tool.name), ["submit_step_result"]);
           yield* yieldText("unused");
         }), tools: toolPort(lookupTool()) },
         context: new DefaultContextRuntime(),
@@ -571,12 +675,17 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
                 tools: [],
               } as never);
               const modelContext = { sessionId: runInput.sessionId, turnId: runInput.turnId, runId: "external-run" };
-              const prepared = await modules.model.execution.prepare({ request: { provider: "test", model: "test-model", messages: [] }, context: modelContext });
-              assert.equal(prepared.request.toolChoice, "required");
+              const offered = [
+                { name: "lookup_account", description: "lookup", parameters: { type: "object" } },
+                { name: "submit_step_result", description: "submit", parameters: { type: "object" } },
+              ];
+              const prepared = await modules.model.execution.prepare({ request: { provider: "test", model: "test-model", messages: [], tools: offered } as never, context: modelContext });
+              assert.deepEqual(prepared.request.toolChoice, { type: "tool", name: "submit_step_result" });
+              assert.deepEqual(prepared.request.tools?.map((tool) => tool.name), ["submit_step_result"]);
               // Even a runner's request remapping must preserve the active
               // SOP's protocol boundary at the host model execution port.
               for await (const _event of modules.model.execution.stream({
-                prepared: { ...prepared, request: { ...prepared.request, toolChoice: undefined } }, context: modelContext,
+                prepared: { ...prepared, request: { ...prepared.request, toolChoice: undefined, tools: offered as never } }, context: modelContext,
               })) {}
               const [submitted] = await modules.capability.execution.executeAll(
                 [{ id: "external-submit", name: "submit_step_result", input: { status: "completed", replyFragment: "External loop completed." } }],
@@ -1185,9 +1294,18 @@ test("SOP host control resumes handoff once and deduplicates the request", async
       waitId: waiting!.wait!.id,
       source: "human",
       message: "Approved by the account owner.",
+      slotUpdates: { approved: true },
     });
     assert.equal(duplicate.duplicate, true);
     assert.equal(duplicate.revision, resumed.revision);
+    await assert.rejects(() => store.resume({
+      sessionId: "resume-session", requestId: "human-reply-1", waitId: "another-wait",
+      source: "human", message: "Approved by the account owner.", slotUpdates: { approved: true },
+    }), (error: unknown) => (error as { code?: string }).code === "SOP_RESUME_REQUEST_CONFLICT");
+    await assert.rejects(() => store.resume({
+      sessionId: "resume-session", requestId: "human-reply-1", waitId: waiting!.wait!.id,
+      source: "human", message: "Different answer", slotUpdates: { approved: true },
+    }), (error: unknown) => (error as { code?: string }).code === "SOP_RESUME_REQUEST_CONFLICT");
 
     const status = await store.status("resume-session");
     assert.equal(status?.state.status, "active");
@@ -1196,6 +1314,23 @@ test("SOP host control resumes handoff once and deduplicates the request", async
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("handoff wait identity is stable on reload but belongs to one active node", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-wait-owner-"));
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    await store.loadOrCreate("wait-owner", BUNDLE, "onboarding");
+    const approval = { version: 1, selected_skill_id: "onboarding", active_skill_id: "onboarding",
+      active_step_id: "approval", status: "handoff", slots_json: {}, skill_stack_json: [] };
+    await store.replace("wait-owner", BUNDLE, approval);
+    const first = (await store.status("wait-owner"))?.wait;
+    assert.ok(first?.id);
+    await store.replace("wait-owner", BUNDLE, approval);
+    assert.equal((await store.status("wait-owner"))?.wait?.id, first.id);
+    await store.replace("wait-owner", BUNDLE, { ...approval, active_step_id: "second_approval" });
+    assert.notEqual((await store.status("wait-owner"))?.wait?.id, first.id);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("SOP host control rejects stale and mismatched external resumes", async () => {

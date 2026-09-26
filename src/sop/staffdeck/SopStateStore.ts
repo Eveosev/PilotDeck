@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 import type {
   StaffDeckSopBundle,
@@ -21,8 +22,14 @@ type PersistedSopState = Readonly<{
   revision: number;
   wait?: StaffDeckSopWait;
   replyDelivery?: StaffDeckSopReplyDelivery;
-  resumeRequests: Record<string, StaffDeckSopResumeResult>;
+  resumeRequests: Record<string, PersistedResumeResult>;
   updatedAt: string;
+}>;
+
+type PersistedResumeResult = StaffDeckSopResumeResult & Readonly<{
+  waitId?: string;
+  source?: StaffDeckSopResumeInput["source"];
+  slotUpdates?: Record<string, unknown>;
 }>;
 
 /** Host-owned, per-session SOP state and definition snapshot store. */
@@ -141,7 +148,16 @@ export class SopStateStore {
       const current = await this.read(input.sessionId);
       if (!current) throw sopStateError("SOP_SESSION_NOT_FOUND", `No StaffDeck SOP state exists for '${input.sessionId}'.`);
       const duplicate = current.resumeRequests[input.requestId];
-      if (duplicate) return { ...duplicate, duplicate: true };
+      if (duplicate) {
+        if (duplicate.message !== input.message
+          || (duplicate.waitId !== undefined && duplicate.waitId !== input.waitId)
+          || (duplicate.source !== undefined && duplicate.source !== input.source)
+          || (duplicate.waitId !== undefined && !isDeepStrictEqual(duplicate.slotUpdates ?? {}, input.slotUpdates ?? {}))) {
+          throw sopStateError("SOP_RESUME_REQUEST_CONFLICT", "This request id already belongs to a different SOP resume payload.");
+        }
+        return { accepted: true, duplicate: true, sessionId: duplicate.sessionId,
+          requestId: duplicate.requestId, revision: duplicate.revision, message: duplicate.message };
+      }
       if (!current.wait) throw sopStateError("SOP_NOT_WAITING", "The StaffDeck SOP session is not waiting for a resumable result.");
       if (current.wait.id !== input.waitId) throw sopStateError("SOP_WAIT_STALE", "The StaffDeck SOP wait identifier is no longer active.");
       const expectedSource = current.wait.kind === "handoff" ? "human" : "external_task";
@@ -171,7 +187,9 @@ export class SopStateStore {
         },
         revision,
         wait: undefined,
-        resumeRequests: { ...current.resumeRequests, [input.requestId]: result },
+        resumeRequests: { ...current.resumeRequests, [input.requestId]: {
+          ...result, waitId: input.waitId, source: input.source, slotUpdates: input.slotUpdates ?? {},
+        } },
         updatedAt: new Date().toISOString(),
       });
       return result;
@@ -325,7 +343,7 @@ function migratePersistedState(value: ReturnType<typeof persistedStateShape>): P
     ...(isWait(value.wait) ? { wait: value.wait } : {}),
     ...(isReplyDelivery(value.replyDelivery) ? { replyDelivery: value.replyDelivery } : {}),
     resumeRequests: isRecord(value.resumeRequests)
-      ? Object.fromEntries(Object.entries(value.resumeRequests).filter((entry): entry is [string, StaffDeckSopResumeResult] => isResumeResult(entry[1])))
+      ? Object.fromEntries(Object.entries(value.resumeRequests).filter((entry): entry is [string, PersistedResumeResult] => isResumeResult(entry[1])))
       : {},
     updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date(0).toISOString(),
   };
@@ -344,7 +362,8 @@ function waitForState(state: StaffDeckSopState, existing?: StaffDeckSopWait): St
   const status = state.status;
   const kind = status === "handoff" ? "handoff" : status === "waiting_external_task" ? "external_task" : undefined;
   if (!kind) return undefined;
-  if (existing?.kind === kind) return existing;
+  if (existing?.kind === kind && existing.skillId === state.active_skill_id
+    && existing.stepId === state.active_step_id) return existing;
   const awaiting = isRecord(state.awaiting_input_json) ? state.awaiting_input_json : {};
   return {
     id: randomUUID(),
