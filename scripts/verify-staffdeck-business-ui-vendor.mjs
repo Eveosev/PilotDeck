@@ -10,6 +10,13 @@ if (!upstreamRoot) {
 }
 
 const vendorRoot = resolve(root, 'ui/src/composition/modules/staffdeck/vendor');
+const [upstreamPackage, vendorPackage] = await Promise.all([
+  readFile(resolve(upstreamRoot, 'package.json'), 'utf8').then(JSON.parse),
+  readFile(resolve(vendorRoot, 'package.json'), 'utf8').then(JSON.parse),
+]);
+if (upstreamPackage.name !== '@staffdeck/business-ui' || vendorPackage.name !== upstreamPackage.name || vendorPackage.version !== upstreamPackage.version) {
+  throw new Error(`PilotDeck StaffDeck UI vendor version mismatch: ${vendorPackage.name}@${vendorPackage.version} != ${upstreamPackage.name}@${upstreamPackage.version}`);
+}
 const files = ['KnowledgeGraphCanvas.tsx', 'KnowledgeGraphCanvas.css', 'types.ts', 'KnowledgePage.tsx', 'KnowledgePageHost.tsx', 'SkillsPage.tsx', 'SkillsPageHost.tsx', 'DistillPage.tsx', 'DistillPageHost.tsx', 'distillPageStyles.ts', 'distillFailure.ts', 'skillFlowModel.ts', 'SopVersionDetailDialog.tsx'];
 const mismatches = [];
 for (const file of files) {
@@ -23,4 +30,4 @@ for (const file of files) {
 if (mismatches.length > 0) {
   throw new Error(`PilotDeck StaffDeck UI vendor snapshot is stale: ${mismatches.join(', ')}`);
 }
-process.stdout.write('PilotDeck StaffDeck UI vendor snapshot matches @staffdeck/business-ui 0.1.0.\n');
+process.stdout.write(`PilotDeck StaffDeck UI vendor snapshot matches ${upstreamPackage.name} ${upstreamPackage.version}.\n`);
