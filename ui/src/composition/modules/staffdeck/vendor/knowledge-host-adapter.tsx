@@ -1,6 +1,6 @@
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
-import { BusinessDataTable, BusinessResourceImportDialog } from './SkillsPageHost';
+import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
@@ -81,7 +81,7 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
 }
 
 export const pilotDeckKnowledgePageHost: Host = {
-  components: { DataTable: BusinessDataTable, ResourceImportDialog: BusinessResourceImportDialog },
+  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
   api: { get: (path) => callKnowledge(path, 'get'), post: (path, body) => callKnowledge(path, 'post', body), put: (path, body) => callKnowledge(path, 'put', body), delete: (path) => callKnowledge(path, 'delete'), blob: async (path) => {
     const result = record(await callKnowledge(path, 'get'));
     if (typeof result.content_base64 === 'string') {

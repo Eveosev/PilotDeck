@@ -1,5 +1,6 @@
 import type { SkillsPageHost } from './SkillsPageHost';
-import { BusinessDataTable, BusinessResourceImportDialog, SkillsPageHostProvider } from './SkillsPageHost';
+import { SkillsPageHostProvider } from './SkillsPageHost';
+import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import type { DistillPageHost } from './DistillPageHost';
 import { DistillPageHostProvider } from './DistillPageHost';
 import * as React from 'react';
@@ -213,7 +214,7 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
 }
 
 export const pilotDeckSkillsPageHost: SkillsPageHost = {
-  components: { DataTable: BusinessDataTable, ResourceImportDialog: BusinessResourceImportDialog },
+  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
   api: {
     get: (path) => callSkillApi(path, 'get'),
     post: (path, body) => callSkillApi(path, 'post', body),

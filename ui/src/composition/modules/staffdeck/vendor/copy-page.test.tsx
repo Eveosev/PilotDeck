@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import * as React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import KnowledgePage from './KnowledgePage';
 import SkillsPage from './SkillsPage';
 import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
-import { BusinessDataTable, BusinessResourceImportDialog } from './SkillsPageHost';
+import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { PilotDeckKnowledgePageProvider, pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
 import { PilotDeckSkillsPageProvider, pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
@@ -27,8 +28,8 @@ afterEach(() => {
 describe('PilotDeck shared plaza pages', () => {
   it('injects the same complete business primitives into Knowledge and Skills', () => {
     for (const host of [pilotDeckKnowledgePageHost, pilotDeckSkillsPageHost]) {
-      expect(host.components?.DataTable).toBe(BusinessDataTable);
-      expect(host.components?.ResourceImportDialog).toBe(BusinessResourceImportDialog);
+      expect(host.components?.DataTable).toBe(PilotDeckDataTable);
+      expect(host.components?.ResourceImportDialog).toBe(PilotDeckResourceImportDialog);
     }
   });
 
@@ -37,7 +38,7 @@ describe('PilotDeck shared plaza pages', () => {
     const onTargetChange = vi.fn();
     const onSelectedChange = vi.fn();
     const onSubmit = vi.fn();
-    render(<BusinessResourceImportDialog
+    const dialog = <PilotDeckResourceImportDialog
       open title="Copy" icon={<span>icon</span>} loading={false}
       targets={[{ value: 'employee-real', label: 'Employee' }]}
       targetId="" targetPlaceholder="Select target" onTargetChange={onTargetChange}
@@ -46,10 +47,16 @@ describe('PilotDeck shared plaza pages', () => {
       itemsLabel="Resources" items={[{ id: 'base-real', label: 'Policy' }]}
       selectedIds={[]} onSelectedChange={onSelectedChange}
       emptyText="None" note="Scope note" onClose={vi.fn()} onSubmit={onSubmit}
-    />);
+    />;
+    const view = render(React.cloneElement(dialog, { loading: true }));
+
+    expect(screen.getByRole('button', { name: '取消' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: '复制' })).toHaveProperty('disabled', true);
+    view.rerender(dialog);
 
     expect(onSourceChange).toHaveBeenCalledWith('plaza-real');
-    fireEvent.change(screen.getByRole('combobox', { name: /复制到/ }), { target: { value: 'employee-real' } });
+    fireEvent.click(screen.getByRole('combobox', { name: '复制到' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Employee' }));
     expect(onTargetChange).toHaveBeenCalledWith('employee-real');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Policy' }));
     expect(onSelectedChange).toHaveBeenCalledWith(['base-real']);
