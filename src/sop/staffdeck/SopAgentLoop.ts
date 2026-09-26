@@ -587,6 +587,11 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
       ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."
       : undefined,
     step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user." : undefined,
+    !step.declaresHandoff && step.expectedUserInfo.length === 0 && step.allowedNextStepIds.length > 0
+      && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")
+      ? "This step has no missing user fields. After producing its required evidence or draft, submit completed and advance to an allowed next step. Approval belongs to the declared handoff step; do not pause this evidence step with awaiting_user."
+      : undefined,
+    "A question asking for missing fields is also a step result: persist it with awaiting_user and no nextStepId before ending the turn. A plain-text answer without submit_step_result does not persist SOP progress.",
     "When this step has a result, call submit_step_result exactly once. Do not claim a tool succeeded before its result is in the conversation.",
     "Use status awaiting_user for missing user information and handoff only when this step explicitly permits it.",
     "</staffdeck-sop>",

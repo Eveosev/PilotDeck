@@ -180,6 +180,25 @@ test("SOP loop tells the model declared approval handoffs are resumable", async 
   }
 });
 
+test("evidence step without missing fields routes approval to its declared next node", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-evidence-prompt-"));
+  try {
+    const model = scriptedModel();
+    const client = acceptingClient();
+    const prepare = client.prepare.bind(client);
+    const session = createSopSession({ root, sessionId: "evidence-prompt", model,
+      client: { ...client, async prepare(input) {
+        const prepared = await prepare(input);
+        return { ...prepared, step: { ...prepared.step, allowedNextStepIds: ["confirm"], isTerminal: false } };
+      } }, context: new DefaultContextRuntime() });
+    for await (const _event of session.submit({ type: "text", text: "Assess the change before requesting approval." })) {}
+    const request = JSON.stringify(model.requests);
+    assert.match(request, /This step has no missing user fields/);
+    assert.match(request, /Approval belongs to the declared handoff step/);
+    assert.match(request, /persist it with awaiting_user and no nextStepId/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("SOP session construction rejects definitions whose required PilotDeck tool is unavailable", () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-missing-tool-"));
   try {
