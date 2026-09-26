@@ -67,15 +67,17 @@ export function BusinessDataTable({ columns = [], data = [], rowKey, emptyText =
     ? columns.reduce((total, column) => total + (column.width as number), 0) : undefined;
   const align = (value?: string) => value === 'right' ? 'text-right' : value === 'center' ? 'text-center' : 'text-left';
   return <div className={joinClasses('overflow-hidden rounded-[14px] border border-[#f2f3f7]', className)}>
+    <div data-slot="table-container" className="relative w-full overflow-x-auto">
     <table className="w-full table-fixed text-[12px]" style={fixedWidth ? { minWidth: fixedWidth } : undefined} aria-label={ariaLabel}>
-      <thead><tr>{columns.map((column) => <th key={column.key} style={column.width ? { width: column.width } : undefined} className={joinClasses('h-[36px] bg-[#f2f3f7] px-[16px] py-[12px] align-middle text-[12px] font-normal text-[#464c5e]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-20 bg-[#f2f3f7]', column.sticky === 'right' && 'sticky right-0 z-20 bg-[#f2f3f7]', column.headClassName)}>{column.title}</th>)}</tr></thead>
+      <thead><tr>{columns.map((column) => <th key={column.key} style={column.width ? { width: column.width } : undefined} className={joinClasses('h-[36px] bg-[#f2f3f7] px-[16px] py-[12px] align-middle text-[12px] font-normal text-[#464c5e]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-20 border-r border-[#e3e6ed] bg-[#f2f3f7]', column.sticky === 'right' && 'sticky right-0 z-20 border-l border-[#e3e6ed] bg-[#f2f3f7]', column.headClassName)}>{column.title}</th>)}</tr></thead>
       <tbody>{data.length > 0 ? data.map((row, index) => <tr
         key={rowKey?.(row, index) ?? row.id ?? index}
         onClick={onRowClick ? () => onRowClick(row, index) : undefined}
-        className={joinClasses('group hover:bg-[#fafbfc]', bordered ? 'border-0' : 'border-b border-[#f2f3f7] last:border-0', striped && index % 2 === 1 && 'bg-[#fbfbfb] hover:bg-[#f2f3f7]', onRowClick && 'cursor-pointer')}
-      >{columns.map((column) => <td key={column.key} className={joinClasses('px-[16px] py-[12px] align-middle text-[12px] text-[#858b9c]', size === 'compact' ? 'min-h-[46px]' : 'min-h-[64px]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-10 bg-white group-hover:bg-[#fafbfc]', column.sticky === 'right' && 'sticky right-0 z-10 bg-white group-hover:bg-[#fafbfc]', column.className)}>{column.render ? column.render(row, index) : column.dataIndex != null ? row[column.dataIndex] : null}</td>)}</tr>)
+        className={joinClasses('group', bordered ? 'border-0' : 'border-b border-[#f2f3f7] last:border-0', striped ? index % 2 === 1 ? 'bg-[#fbfbfb] hover:bg-[#f2f3f7]' : 'bg-white hover:bg-[#f2f3f7]' : 'hover:bg-[#fafbfc]', onRowClick && 'cursor-pointer')}
+      >{columns.map((column) => <td key={column.key} className={joinClasses('px-[16px] py-[12px] align-middle text-[12px] text-[#858b9c]', size === 'compact' ? 'min-h-[46px]' : 'min-h-[64px]', bordered && 'border border-[#f2f3f7]', align(column.align), column.sticky === 'left' && 'sticky left-0 z-10 border-r border-[#e3e6ed]', column.sticky === 'right' && 'sticky right-0 z-10 border-l border-[#e3e6ed]', column.sticky && (striped && index % 2 === 1 ? 'bg-[#fbfbfb] group-hover:bg-[#f2f3f7]' : 'bg-white group-hover:bg-[#fafbfc]'), column.className)}>{column.render ? column.render(row, index) : column.dataIndex != null ? row[column.dataIndex] : null}</td>)}</tr>)
         : <tr><td colSpan={columns.length} className="h-[160px] text-center align-middle text-[13px] text-[#858b9c]">{loading ? loadingText : emptyText}</td></tr>}</tbody>
     </table>
+    </div>
   </div>;
 }
 
