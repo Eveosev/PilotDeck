@@ -118,6 +118,10 @@ export class SopAgentLoop implements AgentLoopRunner {
         const sessionId = this.sessionContext.getStore();
         return sessionId ? this.selectedSops.get(sessionId) : undefined;
       },
+      currentStepForTools: () => {
+        const sessionId = this.sessionContext.getStore();
+        return sessionId ? this.preparedSteps.get(sessionId) : undefined;
+      },
       onSubmission: (sessionId, result) => this.submissions.set(sessionId, { result }),
       currentStep: (sessionId) => this.preparedSteps.get(sessionId),
       collectInput: (sessionId) => this.collectInputs.get(sessionId) ?? "",
@@ -147,12 +151,12 @@ export class SopAgentLoop implements AgentLoopRunner {
           prepare: (input: Parameters<typeof capabilities.model.execution.prepare>[0]) =>
             capabilities.model.execution.prepare({ ...input, request: {
               ...input.request,
-              ...sopToolChoice(this.preparedSteps.get(input.context.sessionId)),
+              ...sopModelTools(this.preparedSteps.get(input.context.sessionId), input.request.tools),
             } }),
           stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream({
             ...input,
             prepared: { ...input.prepared, request: { ...input.prepared.request,
-              ...sopToolChoice(this.preparedSteps.get(input.context.sessionId)),
+              ...sopModelTools(this.preparedSteps.get(input.context.sessionId), input.prepared.request.tools),
             } },
           }),
         },
@@ -329,7 +333,9 @@ export class SopAgentLoop implements AgentLoopRunner {
       ...input,
       appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared),
         this.protocolCorrections.has(input.sessionId)
-          ? "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
+          ? prepared.step.isTerminal
+            ? "SOP_STEP_RESULT_REQUIRED: The previous assistant text was only a draft. The final SOP node is still active. Call submit_step_result now with status completed, the final answer in replyFragment, slotUpdates {}, and no nextStepId. Do not repeat the draft as plain assistant text."
+            : "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
           : "")),
     });
   }
@@ -434,6 +440,7 @@ type SopControlToolPortOptions = Readonly<{
   collectInput(sessionId: string): string;
   shouldCorrectEmptyCollect(sessionId: string, turnId: string): boolean;
   selectedSopForTools(): string | undefined;
+  currentStepForTools(): StaffDeckSopPrepareResponse["step"] | undefined;
   onSubmission(sessionId: string, result: StaffDeckSopSubmitResult): void;
 }>;
 
@@ -445,7 +452,11 @@ class SopControlToolPort implements ToolPort {
     if (tools.some((tool) => tool.name === SUBMIT_SOP_STEP_RESULT_TOOL)) {
       throw new Error(`${SUBMIT_SOP_STEP_RESULT_TOOL} is reserved by the StaffDeck SOP runtime.`);
     }
-    return this.options.selectedSopForTools() ? [...tools, submitSopStepResultTool()] : tools;
+    if (!this.options.selectedSopForTools()) return tools;
+    const step = this.options.currentStepForTools();
+    return step && step.requiredToolNames.length === 0
+      ? [submitSopStepResultTool()]
+      : [...tools, submitSopStepResultTool()];
   }
 
   async executeAll(
@@ -496,6 +507,9 @@ class SopControlToolPort implements ToolPort {
       const currentStep = this.options.currentStep(execution.sessionId);
       if (proposal.status === "handoff" && currentStep && currentStep.nodeId === persisted.state.active_step_id && !currentStep.declaresHandoff) {
         return controlError(call, "HANDOFF_NOT_DECLARED: complete the current evidence step and advance to the declared approval node before creating handoff.", "invalid_tool_input");
+      }
+      if (proposal.status === "awaiting_user" && currentStep && currentStep.nodeId === persisted.state.active_step_id && currentStep.declaresHandoff) {
+        return controlError(call, "HANDOFF_REQUIRED: this node declares a resumable human approval handoff. Submit handoff to wait for the responsible person's reply; awaiting_user cannot create that approval wait.", "invalid_tool_input");
       }
       if (proposal.status === "awaiting_user") {
         if (proposal.nextStepId) return controlError(call, "AWAITING_USER_CANNOT_ADVANCE: remove nextStepId and retain the current step.", "invalid_tool_input");
@@ -693,6 +707,18 @@ function sopToolChoice(step: StaffDeckSopPrepareResponse["step"] | undefined) {
     ? "required" as const : { type: "tool" as const, name: SUBMIT_SOP_STEP_RESULT_TOOL } };
 }
 
+function sopModelTools<T extends { name: string }>(
+  step: StaffDeckSopPrepareResponse["step"] | undefined,
+  tools: readonly T[] | undefined,
+) {
+  return {
+    ...sopToolChoice(step),
+    ...(step && step.requiredToolNames.length === 0 && tools
+      ? { tools: tools.filter((tool) => tool.name === SUBMIT_SOP_STEP_RESULT_TOOL) }
+      : {}),
+  };
+}
+
 function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
   const step = prepared.step;
   const lines = [
@@ -725,6 +751,9 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
       ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."
       : undefined,
     step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user. When the responsible person has explicitly replied with approval, persist that reply with submit_step_result status completed and advance to an allowed next step. Do not end with a plain-text approval summary." : undefined,
+    step.isTerminal
+      ? "This is the active final SOP node, even if the previous node already submitted completed. Put the final user-facing answer in replyFragment and call submit_step_result with status completed, slotUpdates {}, and no nextStepId. Do not emit the answer as plain assistant text or claim the SOP is complete before this tool succeeds."
+      : undefined,
     !step.declaresHandoff && step.expectedUserInfo.length === 0 && step.allowedNextStepIds.length > 0
       && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")
       ? "This step has no missing user fields. After producing its required evidence or draft, submit completed and advance to an allowed next step. Approval belongs to the declared handoff step; do not pause this evidence step with awaiting_user."

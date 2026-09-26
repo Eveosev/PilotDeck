@@ -221,6 +221,44 @@ test("text-only SOP responses get one protocol correction then fail without adva
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("final SOP node offers only its submission and corrects a text draft", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-final-submit-"));
+  try {
+    let calls = 0;
+    const requests: { tools?: { name: string }[]; toolChoice: unknown; systemPrompt: string }[] = [];
+    const model = modelFromStream(async function* (prepared) {
+      const request = (prepared as { request: { tools?: { name: string }[]; toolChoice: unknown; systemPrompt: string } }).request;
+      requests.push(request);
+      if (calls++ === 0) {
+        yield* yieldText("Final checklist draft.");
+        return;
+      }
+      yield* yieldToolCall("final-submit", "submit_step_result", {
+        status: "completed", replyFragment: "Final checklist.", slotUpdates: {},
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+          node: { type: "response" }, requiredToolNames: [], allowedNextStepIds: [], isTerminal: true } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "final-submit", model, client, context: new DefaultContextRuntime() });
+    await collectSessionTurn(session, "The owner approved the plan. Produce the final checklist.", "final-turn");
+    assert.equal(calls, 2);
+    assert.deepEqual(requests.map((request) => request.tools?.map((tool) => tool.name)), [
+      ["submit_step_result"], ["submit_step_result"],
+    ]);
+    assert.deepEqual(requests[0]?.toolChoice, { type: "tool", name: "submit_step_result" });
+    assert.match(requests[0]?.systemPrompt ?? "", /This is the active final SOP node/);
+    assert.match(requests[1]?.systemPrompt ?? "", /previous assistant text was only a draft/);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("final-submit"))?.state.status, "completed");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("recovery of a committed intermediate node continues instead of ending the turn", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-active-recovery-"));
   try {
@@ -263,6 +301,46 @@ test("SOP loop tells the model declared approval handoffs are resumable", async 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("approval node rejects awaiting_user and requires a real handoff submission", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-approval-boundary-"));
+  try {
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`approval-${calls}`, "submit_step_result", {
+        status: calls === 1 ? "awaiting_user" : "handoff",
+        replyFragment: "Please confirm the plan.", slotUpdates: {},
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+          node: { type: "handoff" }, requiredToolNames: [], allowedNextStepIds: ["finalize"],
+          declaresHandoff: true, isTerminal: false } };
+      },
+      async submit(input) {
+        submissions++;
+        assert.equal(input.proposal.status, "handoff");
+        return { state: { ...input.state, status: "handoff" }, result: {
+          status: "handoff", replyFragment: input.proposal.replyFragment,
+          slotUpdates: {}, events: [],
+        } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "approval-boundary", model, client });
+    const events = await collectSessionTurn(session, "Please request owner approval.", "approval-turn");
+    assert.equal(calls, 2);
+    assert.equal(submissions, 1);
+    assert.ok(events.some((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.content[0]?.type === "text" && event.result.content[0].text.includes("HANDOFF_REQUIRED")));
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("approval-boundary"))?.wait?.kind, "handoff");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("evidence step without missing fields routes approval to its declared next node", async () => {
