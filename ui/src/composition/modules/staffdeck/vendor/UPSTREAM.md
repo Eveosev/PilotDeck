@@ -1,11 +1,11 @@
 # StaffDeck business UI release
 
-This directory is the vendored `@staffdeck/business-ui` `0.1.1` shared-slice release
+This directory is the vendored `@staffdeck/business-ui` `0.1.2` shared-slice release
 used by the PilotDeck production composition. The authoritative source package
 lives in `OpenBMB/StaffDeck` at `packages/staffdeck-business-ui` on branch
 `codex/g0-g6-unified-integration-sd`. This snapshot corresponds to StaffDeck
-candidate commit `2ebb0cfdf04bda0c0d3b4cabb06446faa19a8cc4`; its shared
-source changes come from commit `6b34f80b174a7cfa17805d186efd912fe686caed`.
+candidate commit `6e95aa6d54d226adfb24182a5d6770183193ded9`; the latest shared
+source change is that commit, following `6b34f80b174a7cfa17805d186efd912fe686caed`.
 
 The snapshot is intentionally checked into PilotDeck so a normal build never
 depends on an unversioned sibling checkout. It includes the original formal

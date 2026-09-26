@@ -36,7 +36,7 @@ export type SkillsPageHost = {
   icons?: Partial<Record<string, HostComponent>>;
   isEnterpriseAdmin(user?: EnterpriseAuthUser): boolean;
   canManageEmployeeAgent(agent: AgentProfileRead, user?: EnterpriseAuthUser): boolean;
-  openGalleryAgentId: string;
+  openGalleryAgentId(agents: AgentProfileRead[]): string;
   openGalleryImportSourceOptions(agents: AgentProfileRead[], label: string): Array<{ value: string; label: string }>;
   resourceCreatorName(row: Record<string, any>): string;
   visibleEmployeeAgents(agents: AgentProfileRead[], user?: EnterpriseAuthUser, options?: Record<string, any>): AgentProfileRead[];
@@ -107,7 +107,7 @@ const defaultHost: SkillsPageHost = {
   navigate: (path) => { window.location.assign(path); },
   tenantId: 'tenant_demo', notify: defaultNotify,
   isEnterpriseAdmin: (user) => Boolean(user?.is_admin), canManageEmployeeAgent: () => true,
-  openGalleryAgentId: 'overall', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })),
+  openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })),
   resourceCreatorName: (row) => String(row.created_by_name || row.creator_name || ''), visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId), readEmployeeScope: () => '', isTeamScope: (value) => value.startsWith('team:'),
   useClientPagination: <T,>(items: T[], pageSize: number, _resetKey: unknown) => { const [page, setPage] = useState(1); const pageCount = Math.max(1, Math.ceil(items.length / pageSize)); return { page: Math.min(page, pageCount), setPage, pageCount, pagedItems: items.slice((Math.min(page, pageCount) - 1) * pageSize, Math.min(page, pageCount) * pageSize) }; },
 };
@@ -123,7 +123,7 @@ export const navigate = (path: string) => activeHost.navigate(path);
 export const notify = { success: (message: string) => activeHost.notify.success(message), warning: (message: string) => activeHost.notify.warning(message), error: (message: string) => activeHost.notify.error(message) };
 export const isEnterpriseAdmin = (user?: EnterpriseAuthUser) => activeHost.isEnterpriseAdmin(user);
 export const canManageEmployeeAgent = (agent: AgentProfileRead, user?: EnterpriseAuthUser) => activeHost.canManageEmployeeAgent(agent, user);
-export const openGalleryAgentId = defaultHost.openGalleryAgentId;
+export const openGalleryAgentId = (agents: AgentProfileRead[]) => activeHost.openGalleryAgentId(agents);
 export const openGalleryImportSourceOptions = (...args: Parameters<SkillsPageHost['openGalleryImportSourceOptions']>) => activeHost.openGalleryImportSourceOptions(...args);
 export const resourceCreatorName = (row: Record<string, any>) => activeHost.resourceCreatorName(row);
 export const visibleEmployeeAgents = (...args: Parameters<SkillsPageHost['visibleEmployeeAgents']>) => activeHost.visibleEmployeeAgents(...args);

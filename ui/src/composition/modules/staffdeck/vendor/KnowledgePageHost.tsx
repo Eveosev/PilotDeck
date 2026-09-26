@@ -31,7 +31,7 @@ export type Host = {
   agentScope: { read(): string; persist(value: string, userId?: string): void; clear(userId?: string): void; emit(value: string): void };
   visibleEmployeeAgents(agents: AgentProfileRead[], user?: EnterpriseAuthUser, options?: Record<string, any>): AgentProfileRead[];
   canManageEmployeeAgent(agent: AgentProfileRead, user?: EnterpriseAuthUser): boolean;
-  openGalleryAgentId: string;
+  openGalleryAgentId(agents: AgentProfileRead[]): string;
   openGalleryImportSourceOptions(agents: AgentProfileRead[], label: string): Array<{ value: string; label: string }>;
   resourceCreatorName(row: Record<string, any>): string;
   renderMarkdownBlocks(value: string): ReactNode;
@@ -47,7 +47,7 @@ const defaultHost: Host = {
   tenantId: 'tenant_demo', notify: defaultNotify, isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
   loadEmployeeDirectory: async () => [], agentScope: { read: () => '', persist: () => {}, clear: () => {}, emit: () => {} },
   visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId),
-  canManageEmployeeAgent: () => true, openGalleryAgentId: 'overall', openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || row.creator_name || ''),
+  canManageEmployeeAgent: () => true, openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || row.creator_name || ''),
   renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
 };
 const HostContext = createContext<Host>(defaultHost);
@@ -67,7 +67,7 @@ export const persistSharedAgentScope = (agentId: string, userId?: string) => act
 export const readEmployeeScope = () => activeHost.agentScope.read();
 export const isTeamScope = (value: string) => value.startsWith('team:');
 export const canManageEmployeeAgent = (agent: AgentProfileRead, user?: EnterpriseAuthUser) => activeHost.canManageEmployeeAgent(agent, user);
-export const openGalleryAgentId = defaultHost.openGalleryAgentId;
+export const openGalleryAgentId = (agents: AgentProfileRead[]) => activeHost.openGalleryAgentId(agents);
 export const openGalleryImportSourceOptions = (...args: Parameters<Host['openGalleryImportSourceOptions']>) => activeHost.openGalleryImportSourceOptions(...args);
 export const resourceCreatorName = (row: Record<string, any>) => activeHost.resourceCreatorName(row);
 export const visibleEmployeeAgents = (...args: Parameters<Host['visibleEmployeeAgents']>) => activeHost.visibleEmployeeAgents(...args);

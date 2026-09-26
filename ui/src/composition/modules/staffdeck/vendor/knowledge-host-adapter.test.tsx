@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
+import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckKnowledgeClient } from '../clients';
 
 describe('PilotDeck Knowledge host authorization boundary', () => {
@@ -15,6 +16,18 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
 
   it('does not invent an employee directory when the module has no directory capability', async () => {
     await expect(pilotDeckKnowledgePageHost.loadEmployeeDirectory()).resolves.toEqual([]);
+  });
+
+  it('resolves plaza copy only from an actual overall agent in either shared page', () => {
+    const employee = { id: 'employee-1', is_overall: false };
+    const overall = { id: 'overall-actual', is_overall: true };
+    for (const host of [pilotDeckKnowledgePageHost, pilotDeckSkillsPageHost]) {
+      expect(host.openGalleryAgentId([employee])).toBe('');
+      expect(host.openGalleryAgentId([employee, overall])).toBe(overall.id);
+      expect(host.openGalleryImportSourceOptions([employee, overall], '开放广场')).toEqual([
+        { value: overall.id, label: overall.id },
+      ]);
+    }
   });
 });
 

@@ -85,7 +85,7 @@ export const pilotDeckKnowledgePageHost: Host = {
     clear: () => { try { window.localStorage.removeItem(PILOTDECK_AGENT_SCOPE_KEY); } catch {} },
     emit: (value) => { window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: value } })); },
   },
-  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin), openGalleryAgentId: 'overall', openGalleryImportSourceOptions: (agents) => agents.map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
+  visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (_agent, user) => Boolean(user?.is_admin), openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
 };
 
 function mapKnowledgePath(path: string): string {
