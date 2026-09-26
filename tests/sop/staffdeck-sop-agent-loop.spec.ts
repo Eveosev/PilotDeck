@@ -133,6 +133,7 @@ test("SOP loop admits a completed step only after a PilotDeck tool result", asyn
     assert.ok((submittedContext?.expectedRevision ?? 0) > 1);
     const firstRequest = model.requests[0];
     assert.ok(firstRequest);
+    assert.equal(firstRequest.toolChoice, "required");
     assert.ok(firstRequest.tools?.some((tool) => tool.name === "submit_step_result"));
     const finalTextIndex = events.findIndex((event) => event.type === "assistant_message"
       && event.message.content[0]?.type === "text"

@@ -67,14 +67,16 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly sessionContext = new AsyncLocalStorage<string>();
   private readonly discovery: StaffDeckSopDiscoveryPort | undefined;
   private readonly native: AgentLoopRunner;
+  private readonly defaultToolChoice: AgentRuntimeConfig["toolChoice"];
 
   constructor(
-    config: AgentRuntimeConfig,
+    private readonly config: AgentRuntimeConfig,
     capabilities: AgentTurnCapabilities,
     seedState: AgentLoopSeedState | undefined,
     private readonly options: SopAgentLoopOptions,
   ) {
     config.stopOnStructuredOutput = true;
+    this.defaultToolChoice = config.toolChoice;
     assertRequiredSopTools(options.bundle, options.profile.defaultSopId, capabilities.toolExecution.list());
     this.stateStore = options.stateStore ?? new SopStateStore(join(config.staffDeckSop!.stateRoot, "sessions"));
     this.client = options.client ?? new StaffDeckSopClient(options.profile.endpoint, {
@@ -237,6 +239,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0],
   ) {
     const selectedSopId = this.selectedSops.get(input.sessionId);
+    this.config.toolChoice = this.defaultToolChoice;
     if (!selectedSopId) return capabilities.contextPreparation.prepareForModel(input);
     const persisted = await this.stateStore.loadOrCreate(
       input.sessionId,
@@ -246,6 +249,9 @@ export class SopAgentLoop implements AgentLoopRunner {
     if (isTerminalSopStatus(persisted.state.status)) {
       return capabilities.contextPreparation.prepareForModel(input);
     }
+    // A SOP answer is a protocol result, including a legitimate missing-field
+    // question. Require a real tool call; never synthesize a result from text.
+    this.config.toolChoice = "required";
     const prepared = await this.client.prepare({
       bundle: persisted.bundle,
       state: persisted.state,
