@@ -68,6 +68,7 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly discovery: StaffDeckSopDiscoveryPort | undefined;
   private readonly native: AgentLoopRunner;
   private readonly preparedSteps = new Map<string, StaffDeckSopPrepareResponse["step"]>();
+  private readonly protocolCorrections = new Set<string>();
 
   constructor(
     config: AgentRuntimeConfig,
@@ -137,12 +138,12 @@ export class SopAgentLoop implements AgentLoopRunner {
           prepare: (input: Parameters<typeof capabilities.model.execution.prepare>[0]) =>
             capabilities.model.execution.prepare({ ...input, request: {
               ...input.request,
-              ...(this.preparedSteps.has(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+              ...sopToolChoice(this.preparedSteps.get(input.context.sessionId)),
             } }),
           stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream({
             ...input,
             prepared: { ...input.prepared, request: { ...input.prepared.request,
-              ...(this.preparedSteps.has(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+              ...sopToolChoice(this.preparedSteps.get(input.context.sessionId)),
             } },
           }),
         },
@@ -160,7 +161,7 @@ export class SopAgentLoop implements AgentLoopRunner {
           capabilities: wrappedCapabilities,
           sidecarModules: options.sidecarModules
             ? wrapSidecarModules(options.sidecarModules, controlPort, (input) => this.prepareContext(capabilities, input),
-                (sessionId) => this.preparedSteps.has(sessionId))
+                (sessionId) => this.preparedSteps.get(sessionId))
             : undefined,
           seedState,
           sidecarTransportContext: options.sidecarTransportContext,
@@ -178,21 +179,42 @@ export class SopAgentLoop implements AgentLoopRunner {
 
   async *run(input: AgentLoopInput): AsyncGenerator<AgentEvent, AgentLoopRunResult, unknown> {
     this.submissions.delete(input.sessionId);
+    this.protocolCorrections.delete(input.sessionId);
     const recoverableDelivery = await this.stateStore.replyDelivery(input.sessionId);
     if (recoverableDelivery) {
-      return yield* this.deliverReply(input, recoverableDelivery);
+      const active = (await this.stateStore.status(input.sessionId))?.state.status === "active";
+      const recovered = yield* this.deliverReply(input, recoverableDelivery, !active);
+      if (!active) return recovered;
+      input = { ...input, messages: recovered.messages };
     }
     await this.selectSop(input, this.discovery);
-    const iterator = this.native.run(input);
     let completed: AgentLoopRunResult;
     let delayedCompletion: Extract<AgentEvent, { type: "turn_completed" }> | undefined;
+    let protocolCorrections = 0;
+    let sawToolError = false;
+    let iterator = this.native.run(input);
     while (true) {
       const next = await this.sessionContext.run(input.sessionId, () => iterator.next());
       if (next.done) {
         completed = next.value;
+        const state = await this.stateStore.status(input.sessionId);
+        if (!sawToolError && this.selectedSops.get(input.sessionId)
+          && !this.submissions.has(input.sessionId) && state?.state.status === "active"
+          && completed.result.stopReason === "completed") {
+          // A provider can ignore tool_choice and end with prose. That is not
+          // a lifecycle result. Allow one explicit protocol correction within
+          // this same user request; never synthesize a wait or completion.
+          if (protocolCorrections++ >= 1) throw new Error("SOP_STEP_RESULT_REQUIRED: model ended without submitting the active node result");
+          this.protocolCorrections.add(input.sessionId);
+          input = { ...input, messages: completed.messages };
+          iterator = this.native.run(input);
+          continue;
+        }
         break;
       }
-      if (next.value.type === "turn_completed" && this.submissions.has(input.sessionId)) {
+      if (next.value.type === "tool_result" && next.value.result.type === "error"
+        && next.value.result.error.code !== "invalid_tool_input") sawToolError = true;
+      if (next.value.type === "turn_completed") {
         delayedCompletion = next.value;
         continue;
       }
@@ -200,7 +222,10 @@ export class SopAgentLoop implements AgentLoopRunner {
     }
 
     const submission = this.submissions.get(input.sessionId);
-    if (!submission) return completed;
+    if (!submission) {
+      if (delayedCompletion) yield delayedCompletion;
+      return completed;
+    }
     const finalMessage = replyMessage(submission.result, input.turnId);
     await input.onDurableMessage?.(finalMessage);
     await this.stateStore.markReplyDurable(input.sessionId, input.turnId);
@@ -225,8 +250,9 @@ export class SopAgentLoop implements AgentLoopRunner {
   private async *deliverReply(
     input: AgentLoopInput,
     delivery: StaffDeckSopReplyDelivery,
+    finishTurn = true,
   ): AsyncGenerator<AgentEvent, AgentLoopRunResult, unknown> {
-    const finalMessage = replyMessage(delivery.result, input.turnId);
+    const finalMessage = replyMessage(delivery.result, finishTurn ? input.turnId : `${input.turnId}:recovered-step`);
     if (delivery.phase === "pending" || delivery.turnId !== input.turnId) {
       await input.onDurableMessage?.(finalMessage);
       await this.stateStore.markReplyDurable(input.sessionId, delivery.turnId, input.turnId);
@@ -246,7 +272,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       completedAt: now,
       structuredOutput: { sop: delivery.result },
     };
-    yield { type: "turn_completed", sessionId: input.sessionId, turnId: input.turnId, result };
+    if (finishTurn) yield { type: "turn_completed", sessionId: input.sessionId, turnId: input.turnId, result };
     await this.stateStore.clearReplyDelivery(input.sessionId, input.turnId);
     return { result, messages: appendReplyOnce(input.messages, finalMessage) };
   }
@@ -266,7 +292,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     if (isTerminalSopStatus(persisted.state.status)) {
       return capabilities.contextPreparation.prepareForModel(input);
     }
-    const prepared = await this.client.prepare({
+    const ownerPrepared = await this.client.prepare({
       bundle: persisted.bundle,
       state: persisted.state,
       context: {
@@ -280,11 +306,20 @@ export class SopAgentLoop implements AgentLoopRunner {
       },
       signal: input.abortSignal,
     });
+    // The owner exposes a knowledge_query node without mapping its domain
+    // binding to the PilotDeck tool name. Keep that host mapping here.
+    const prepared = ownerPrepared.step.node.type === "knowledge_query"
+      ? { ...ownerPrepared, step: { ...ownerPrepared.step,
+          requiredToolNames: [...new Set([...ownerPrepared.step.requiredToolNames, "knowledge_query"])] } }
+      : ownerPrepared;
     await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state);
     this.preparedSteps.set(input.sessionId, prepared.step);
     return capabilities.contextPreparation.prepareForModel({
       ...input,
-      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, renderSopInstruction(prepared)),
+      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared),
+        this.protocolCorrections.has(input.sessionId)
+          ? "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
+          : "")),
     });
   }
 
@@ -342,7 +377,7 @@ function wrapSidecarModules(
   modules: SidecarModuleComposition,
   controlPort: ToolPort,
   prepareForModel: (input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0]) => ReturnType<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>,
-  hasActiveStep: (sessionId: string) => boolean,
+  currentStep: (sessionId: string) => StaffDeckSopPrepareResponse["step"] | undefined,
 ): SidecarModuleComposition {
   return Object.freeze({
     ...modules,
@@ -350,11 +385,11 @@ function wrapSidecarModules(
       ...modules.model,
       execution: {
         prepare: (input: Parameters<typeof modules.model.execution.prepare>[0]) => modules.model.execution.prepare({
-          ...input, request: { ...input.request, ...(hasActiveStep(input.context.sessionId) ? { toolChoice: "required" as const } : {}) },
+          ...input, request: { ...input.request, ...sopToolChoice(currentStep(input.context.sessionId)) },
         }),
         stream: (input: Parameters<typeof modules.model.execution.stream>[0]) => modules.model.execution.stream({
           ...input, prepared: { ...input.prepared, request: { ...input.prepared.request,
-            ...(hasActiveStep(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+            ...sopToolChoice(currentStep(input.context.sessionId)),
           } },
         }),
       },
@@ -469,6 +504,10 @@ class SopControlToolPort implements ToolPort {
       const successfulToolNames = Array.isArray(persisted.state.successful_tool_names)
         ? persisted.state.successful_tool_names.filter((name): name is string => typeof name === "string" && name.length > 0)
         : [];
+      if (proposal.status === "completed" && currentStep?.node.type === "knowledge_query"
+        && !successfulToolNames.includes("knowledge_query")) {
+        return controlError(call, "REQUIRED_CAPABILITY_NOT_INVOKED: the current knowledge node requires a successful knowledge_query receipt before completion.", "invalid_tool_input");
+      }
       const submitted = await this.options.client.submit({
         bundle: persisted.bundle,
         state: persisted.state,
@@ -494,8 +533,13 @@ class SopControlToolPort implements ToolPort {
         execution.turnId,
         submitted.result,
       );
-      this.options.onSubmission(execution.sessionId, submitted.result);
-      return controlSuccess(call, submitted.result);
+      // Node completion may leave the owner SOP active. In that case the
+      // result is an ordinary tool receipt, so the same native turn prepares
+      // the next node. Only an owner wait or terminal outcome ends the turn.
+      const finishTurn = submitted.state.status !== "active";
+      if (finishTurn) this.options.onSubmission(execution.sessionId, submitted.result);
+      else await this.options.stateStore.clearReplyDelivery(execution.sessionId, execution.turnId);
+      return controlSuccess(call, submitted.result, finishTurn);
     } catch (error) {
       const sopError = describeSopError(error);
       return controlError(call, `[${sopError.code}] ${sopError.message}`, sopError.toolCode, sopError.details);
@@ -553,12 +597,13 @@ function submitSopStepResultTool(): PilotDeckToolDefinition {
       properties: {
         status: { type: "string", enum: ["completed", "awaiting_user", "handoff", "failed", "blocked", "waiting_external_task"] },
         replyFragment: { type: "string" },
-        slotUpdates: { type: "object", additionalProperties: true },
+        slotUpdates: { type: "object", additionalProperties: true,
+          description: "Persist every known user field using the Required user information keys. Required even for awaiting_user: missing other fields must not discard fields already supplied. Use {} only when no new fields are known." },
         taskSummary: { type: "string" },
         structuredResult: {},
         nextStepId: { type: "string" },
       },
-      required: ["status", "replyFragment"],
+      required: ["status", "replyFragment", "slotUpdates"],
       additionalProperties: false,
     },
     isReadOnly: () => true,
@@ -584,7 +629,7 @@ function parseProposal(value: unknown): StaffDeckSopProposal | undefined {
   };
 }
 
-function controlSuccess(call: PilotDeckToolCall, result: StaffDeckSopSubmitResult): PilotDeckToolResult {
+function controlSuccess(call: PilotDeckToolCall, result: StaffDeckSopSubmitResult, finishTurn: boolean): PilotDeckToolResult {
   const now = new Date().toISOString();
   return {
     type: "success",
@@ -592,7 +637,7 @@ function controlSuccess(call: PilotDeckToolCall, result: StaffDeckSopSubmitResul
     toolName: SUBMIT_SOP_STEP_RESULT_TOOL,
     content: [{ type: "json", value: { status: result.status, nextStepId: result.nextStepId ?? null } }],
     data: result,
-    metadata: { structuredOutput: true },
+    metadata: { structuredOutput: finishTurn },
     startedAt: now,
     completedAt: now,
   };
@@ -616,6 +661,15 @@ function controlError(
   };
 }
 
+function sopToolChoice(step: StaffDeckSopPrepareResponse["step"] | undefined) {
+  if (!step) return {};
+  // Collection, approval and final response nodes have only a lifecycle
+  // submission to perform. Require that named function rather than leaving
+  // unrelated optional tools eligible to satisfy the protocol boundary.
+  return { toolChoice: step.node.type === "knowledge_query" || step.requiredToolNames.length > 0
+    ? "required" as const : { type: "tool" as const, name: SUBMIT_SOP_STEP_RESULT_TOOL } };
+}
+
 function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
   const step = prepared.step;
   const lines = [
@@ -623,6 +677,7 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
     `Current SOP: ${step.skillName} (${step.skillId}), step ${step.nodeId}.`,
     step.instruction ? `Step instruction: ${step.instruction}` : undefined,
     step.expectedUserInfo.length > 0 ? `Required user information: ${step.expectedUserInfo.join(", ")}.` : undefined,
+    `Already persisted user fields: ${JSON.stringify(step.knownSlots)}.`,
     step.requiredToolNames.length > 0 ? `Required successful tools: ${step.requiredToolNames.join(", ")}.` : undefined,
     step.allowedNextStepIds.length > 0 ? `Allowed next steps: ${step.allowedNextStepIds.join(", ")}.` : undefined,
     step.transitions && step.transitions.length > 0
@@ -639,6 +694,9 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
       : undefined,
     step.expectedUserInfo.length > 0
       ? "When required information is present in the user messages or tool results, include it in slotUpdates and submit completed to advance; use awaiting_user only when information is genuinely missing. If any required field is missing, your question MUST be the replyFragment of a submit_step_result call with status awaiting_user, known slotUpdates, and no nextStepId. Do not end with a plain-text question."
+      : undefined,
+    step.expectedUserInfo.length > 0
+      ? "Before submitting, extract each supplied value into slotUpdates under its exact required field key, including when other fields remain missing. Saying a value is recorded in replyFragment does not store it. Do not submit an empty slotUpdates when the user has supplied any required field."
       : undefined,
     step.transitions && step.transitions.length > 0
       ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."

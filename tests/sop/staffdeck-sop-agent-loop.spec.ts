@@ -155,6 +155,90 @@ test("SOP loop admits a completed step only after a PilotDeck tool result", asyn
   }
 });
 
+test("one SOP turn continues completed nodes through required evidence to the declared handoff", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-single-turn-"));
+  try {
+    const submitted: string[] = [];
+    let modelCalls = 0;
+    const model = modelFromStream(async function* (prepared) {
+      const call = modelCalls++ - 1;
+      assert.deepEqual((prepared as { request: { toolChoice: unknown } }).request.toolChoice, call === 0 || call === 3
+        || call === -1
+        ? { type: "tool", name: "submit_step_result" } : "required");
+      if (call === -1) { yield* yieldText("Approval will be requested."); return; }
+      assert.match((prepared as { request: { systemPrompt: string } }).request.systemPrompt, /SOP_STEP_RESULT_REQUIRED/);
+      if (call === 1) { yield* yieldToolCall("evidence", "lookup_account", { accountId: "ada" }); return; }
+      yield* yieldToolCall(`step-${call}`, "submit_step_result", {
+        status: call === 3 ? "handoff" : "completed", replyFragment: `Step ${call} result`,
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        const node = input.state.active_step_id ?? "collect";
+        return { ...prepared, state: { ...prepared.state, active_step_id: node },
+          step: { ...prepared.step, nodeId: node, node: { type: node === "approval" ? "handoff" : node === "collect" ? "collect" : "response" },
+            requiredToolNames: node === "evidence" ? ["lookup_account"] : [],
+            allowedNextStepIds: node === "approval" ? [] : [node === "collect" ? "evidence" : "approval"],
+            declaresHandoff: node === "approval", isTerminal: false } };
+      },
+      async submit(input) {
+        const node = input.state.active_step_id!;
+        submitted.push(node);
+        if (node === "evidence") assert.deepEqual(input.successfulToolNames, ["lookup_account"]);
+        const next = node === "collect" ? "evidence" : node === "evidence" ? "approval" : undefined;
+        return { state: { ...input.state, status: next ? "active" : "handoff",
+          active_step_id: next ?? node, successful_tool_names: [] },
+          result: { status: input.proposal.status, replyFragment: input.proposal.replyFragment,
+            slotUpdates: {}, nextStepId: next, events: [] } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "single-turn", model, client, context: new DefaultContextRuntime() });
+    const events = await collectSessionTurn(session, "Plan the project with all fields supplied", "single-turn-request");
+    assert.deepEqual(submitted, ["collect", "evidence", "approval"]);
+    assert.equal(modelCalls, 5);
+    assert.equal(events.filter(event => event.type === "turn_completed").length, 1);
+    const store = new SopStateStore(join(root, "sessions"));
+    assert.equal((await store.status("single-turn"))?.wait?.kind, "handoff");
+    assert.equal(await store.replyDelivery("single-turn"), undefined);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("text-only SOP responses get one protocol correction then fail without advancing", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-bounded-correction-"));
+  try {
+    let calls = 0;
+    const model = modelFromStream(async function* () { calls++; yield* yieldText("Please confirm."); });
+    const session = createSopSession({ root, sessionId: "text-only", model, client: acceptingClient() });
+    const events = await collectSessionTurn(session, "Start", "text-only-turn");
+    assert.equal(calls, 2);
+    assert.ok(events.some(event => event.type === "turn_failed"));
+    assert.equal(events.filter(event => event.type === "turn_completed" && event.result.type === "success").length, 0);
+    const status = await new SopStateStore(join(root, "sessions")).status("text-only");
+    assert.equal(status?.state.status, "active");
+    assert.equal(status?.wait, undefined);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("recovery of a committed intermediate node continues instead of ending the turn", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-active-recovery-"));
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    const persisted = await store.loadOrCreate("active-recovery", BUNDLE, "onboarding");
+    await store.commitSubmission("active-recovery", BUNDLE, { ...persisted.state, status: "active", active_step_id: "lookup" },
+      persisted.revision, "interrupted-turn", { status: "completed", nextStepId: "lookup",
+        replyFragment: "Previous node persisted", slotUpdates: {}, events: [] });
+    const model = scriptedModel();
+    const session = createSopSession({ root, sessionId: "active-recovery", model, client: acceptingClient(), context: new DefaultContextRuntime() });
+    const events = await collectSessionTurn(session, "Recover the interrupted request", "recovery-turn");
+    assert.equal(model.requests.length, 2);
+    assert.equal(events.filter(event => event.type === "turn_completed").length, 1);
+    assert.equal((await store.status("active-recovery"))?.state.status, "completed");
+    assert.equal(await store.replyDelivery("active-recovery"), undefined);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("SOP loop tells the model declared approval handoffs are resumable", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-handoff-prompt-"));
   try {
@@ -212,12 +296,17 @@ for (const scenario of [
   try {
     let calls = 0, submissions = 0;
     const model = modelFromStream(async function* () {
-      const status = calls++ === 0 ? (scenario.name === "undeclared handoff" ? "handoff" : "awaiting_user") : "completed";
+      const index = calls++;
+      if (scenario.type === "knowledge_query" && index === 1) {
+        yield* yieldToolCall("knowledge-evidence", "knowledge_query", { query: "Project planning" }); return;
+      }
+      const status = index === 0 ? (scenario.name === "undeclared handoff" ? "handoff" : "awaiting_user") : "completed";
       yield* yieldToolCall(`boundary-${calls}`, "submit_step_result", { status, replyFragment: "Step result", slotUpdates: scenario.slots });
     });
     const client = acceptingClient(() => { submissions++; });
     const prepare = client.prepare.bind(client);
     const session = createSopSession({ root, sessionId: "wait-boundary", model,
+      tools: { ...toolPort(lookupTool()), list: () => [lookupTool(), { ...lookupTool(), name: "knowledge_query" }] },
       client: { ...client, async prepare(input) {
         const prepared = await prepare(input);
         return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" },
@@ -226,7 +315,7 @@ for (const scenario of [
       } }, context: new DefaultContextRuntime() });
     for await (const _event of session.submit({ type: "text", text: "Plan this project." })) {}
     assert.equal(submissions, 1);
-    assert.equal(calls, scenario.reject ? 2 : 1);
+    assert.equal(calls, scenario.type === "knowledge_query" ? 3 : scenario.reject ? 2 : 1);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
