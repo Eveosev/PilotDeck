@@ -358,6 +358,8 @@ sops:
       waitId: waiting!.wait!.id,
       source: "human",
       message: "Operator approved the policy.",
+      expectedRevision: waiting!.revision,
+      slotUpdates: { approved: true },
     });
     assert.equal(duplicate.duplicate, true, JSON.stringify(duplicate));
     phase = "resumed";
