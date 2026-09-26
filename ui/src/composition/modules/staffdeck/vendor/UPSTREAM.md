@@ -1,6 +1,6 @@
 # StaffDeck business UI release
 
-This directory is the vendored `@staffdeck/business-ui` `0.1.0` shared-slice release
+This directory is the vendored `@staffdeck/business-ui` `0.1.1` shared-slice release
 used by the PilotDeck production composition. Its source package lives in the
 StaffDeck repository at `packages/staffdeck-business-ui` on the task branch
 `codex/staffdeck-shared-business-ui`.
