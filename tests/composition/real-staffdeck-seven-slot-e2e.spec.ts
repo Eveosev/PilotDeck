@@ -170,12 +170,12 @@ test("seven-slot YAML composition uses real StaffDeck Knowledge and SOP processe
   let sidecar = await startSidecar();
   const restartSidecar = async () => {
     const address = sidecar.address;
-    await closeServer(sidecar.server);
+    await closeSidecar(sidecar);
     sidecar = await startSidecar(address.host, address.port);
   };
 
   t.after(async () => {
-    await closeServer(sidecar.server);
+    await closeSidecar(sidecar);
     await closeServer(moduleServer);
     await knowledgeProxy.close();
     await knowledge.close();
@@ -1404,7 +1404,15 @@ async function startSidecar(host = "127.0.0.1", port = 0) {
   if (port === 0) port = await freePort();
   const server = new AgentLoopSidecarTcpServer(new AgentLoopSidecarServer(async (input) => createSidecarExecution(input), { moduleId: "pilotdeck-agent-loop" }));
   const address = await server.listen({ host, port });
+  testPortAudit.allocated.add(address.port);
+  testPortAudit.active.add(address.port);
   return { server, address };
+}
+
+async function closeSidecar(sidecar: Awaited<ReturnType<typeof startSidecar>>): Promise<void> {
+  await sidecar.server.close();
+  testPortAudit.active.delete(sidecar.address.port);
+  testPortAudit.closed.add(sidecar.address.port);
 }
 
 async function startKnowledgeProxy(target: string, queries: Record<string, unknown>[], state: KnowledgeProxyState): Promise<{ url: string; close(): Promise<void> }> {
