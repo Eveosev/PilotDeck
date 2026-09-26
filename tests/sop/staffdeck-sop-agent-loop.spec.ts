@@ -292,7 +292,10 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
       },
       dependencies: {
         router: {} as never,
-        ports: { model: modelFromStream(async function* () { yield* yieldText("unused"); }), tools: toolPort(lookupTool()) },
+        ports: { model: modelFromStream(async function* (prepared) {
+          assert.equal((prepared as { request: { toolChoice?: string } }).request.toolChoice, "required");
+          yield* yieldText("unused");
+        }), tools: toolPort(lookupTool()) },
         tools: { registry: { list: () => [lookupTool()] } as never, scheduler: { executeAll: async () => [] } as never },
       },
       agentLoopFactory: (input) => new SopAgentLoop(input.config, input.capabilities, input.seedState, {
@@ -321,6 +324,14 @@ test("SOP glue decorates an externally supplied AgentLoop runner through sidecar
                 messages: runInput.messages,
                 tools: [],
               } as never);
+              const modelContext = { sessionId: runInput.sessionId, turnId: runInput.turnId, runId: "external-run" };
+              const prepared = await modules.model.execution.prepare({ request: { provider: "test", model: "test-model", messages: [] }, context: modelContext });
+              assert.equal(prepared.request.toolChoice, "required");
+              // Even a runner's request remapping must preserve the active
+              // SOP's protocol boundary at the host model execution port.
+              for await (const _event of modules.model.execution.stream({
+                prepared: { ...prepared, request: { ...prepared.request, toolChoice: undefined } }, context: modelContext,
+              })) {}
               const [submitted] = await modules.capability.execution.executeAll(
                 [{ id: "external-submit", name: "submit_step_result", input: { status: "completed", replyFragment: "External loop completed." } }],
                 { sessionId: runInput.sessionId, turnId: runInput.turnId, cwd: root } as never,

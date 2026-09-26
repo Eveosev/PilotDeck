@@ -159,7 +159,8 @@ export class SopAgentLoop implements AgentLoopRunner {
           config,
           capabilities: wrappedCapabilities,
           sidecarModules: options.sidecarModules
-            ? wrapSidecarModules(options.sidecarModules, controlPort, (input) => this.prepareContext(capabilities, input))
+            ? wrapSidecarModules(options.sidecarModules, controlPort, (input) => this.prepareContext(capabilities, input),
+                (sessionId) => this.preparedSteps.has(sessionId))
             : undefined,
           seedState,
           sidecarTransportContext: options.sidecarTransportContext,
@@ -341,9 +342,23 @@ function wrapSidecarModules(
   modules: SidecarModuleComposition,
   controlPort: ToolPort,
   prepareForModel: (input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0]) => ReturnType<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>,
+  hasActiveStep: (sessionId: string) => boolean,
 ): SidecarModuleComposition {
   return Object.freeze({
     ...modules,
+    model: Object.freeze({
+      ...modules.model,
+      execution: {
+        prepare: (input: Parameters<typeof modules.model.execution.prepare>[0]) => modules.model.execution.prepare({
+          ...input, request: { ...input.request, ...(hasActiveStep(input.context.sessionId) ? { toolChoice: "required" as const } : {}) },
+        }),
+        stream: (input: Parameters<typeof modules.model.execution.stream>[0]) => modules.model.execution.stream({
+          ...input, prepared: { ...input.prepared, request: { ...input.prepared.request,
+            ...(hasActiveStep(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+          } },
+        }),
+      },
+    }),
     capability: Object.freeze({
       ...modules.capability,
       execution: controlPort,
