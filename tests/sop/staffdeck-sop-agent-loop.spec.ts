@@ -198,6 +198,13 @@ test("one SOP turn continues completed nodes through required evidence to the de
     const events = await collectSessionTurn(session, "Plan the project with all fields supplied", "single-turn-request");
     assert.deepEqual(submitted, ["collect", "evidence", "approval"]);
     assert.equal(modelCalls, 6);
+    const evidenceReceipt = events.find((event) => event.type === "tool_result"
+      && event.result.type === "success" && event.result.toolCallId === "step-3");
+    assert.ok(evidenceReceipt && evidenceReceipt.type === "tool_result" && evidenceReceipt.result.type === "success");
+    assert.deepEqual(evidenceReceipt.result.content[0], { type: "json", value: {
+      submittedStepId: "evidence", status: "completed", resultStatus: "completed", activeStepId: "approval",
+      sopStatus: "active", nextStepId: "approval", nextStepRequiresOwnSubmission: true,
+    } });
     assert.equal(events.filter(event => event.type === "turn_completed").length, 1);
     const store = new SopStateStore(join(root, "sessions"));
     assert.equal((await store.status("single-turn"))?.wait?.kind, "handoff");

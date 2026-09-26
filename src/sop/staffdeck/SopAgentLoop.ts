@@ -589,7 +589,12 @@ class SopControlToolPort implements ToolPort {
       const finishTurn = submitted.state.status !== "active";
       if (finishTurn) this.options.onSubmission(execution.sessionId, submitted.result);
       else await this.options.stateStore.clearReplyDelivery(execution.sessionId, execution.turnId);
-      return controlSuccess(call, submitted.result, finishTurn);
+      return controlSuccess(call, submitted.result, {
+        submittedStepId: persisted.state.active_step_id ?? null,
+        activeStepId: submitted.state.active_step_id ?? null,
+        sopStatus: submitted.state.status ?? null,
+        finishTurn,
+      });
     } catch (error) {
       const sopError = describeSopError(error);
       return controlError(call, `[${sopError.code}] ${sopError.message}`, sopError.toolCode, sopError.details);
@@ -696,15 +701,27 @@ function missingFieldsReply(fields: readonly string[]): string {
   return `请补充以下信息，以继续当前步骤：\n${fields.map((field) => `- ${field}`).join("\n")}`;
 }
 
-function controlSuccess(call: PilotDeckToolCall, result: StaffDeckSopSubmitResult, finishTurn: boolean): PilotDeckToolResult {
+function controlSuccess(
+  call: PilotDeckToolCall,
+  result: StaffDeckSopSubmitResult,
+  owner: { submittedStepId: string | null; activeStepId: string | null; sopStatus: string | null; finishTurn: boolean },
+): PilotDeckToolResult {
   const now = new Date().toISOString();
   return {
     type: "success",
     toolCallId: call.id,
     toolName: SUBMIT_SOP_STEP_RESULT_TOOL,
-    content: [{ type: "json", value: { status: result.status, nextStepId: result.nextStepId ?? null } }],
+    content: [{ type: "json", value: {
+      submittedStepId: owner.submittedStepId,
+      status: result.status,
+      resultStatus: result.status,
+      activeStepId: owner.activeStepId,
+      sopStatus: owner.sopStatus,
+      nextStepId: result.nextStepId ?? null,
+      ...(owner.sopStatus === "active" ? { nextStepRequiresOwnSubmission: true } : {}),
+    } }],
     data: result,
-    metadata: { structuredOutput: finishTurn },
+    metadata: { structuredOutput: owner.finishTurn },
     startedAt: now,
     completedAt: now,
   };
@@ -783,7 +800,7 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
     step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user. When the responsible person has explicitly replied with approval, persist that reply with submit_step_result status completed and advance to an allowed next step. Do not end with a plain-text approval summary." : undefined,
     step.isTerminal
       ? "This is the active final SOP node, even if the previous node already submitted completed. Put the final user-facing answer in replyFragment and call submit_step_result with status completed, slotUpdates {}, and no nextStepId. Do not emit the answer as plain assistant text or claim the SOP is complete before this tool succeeds."
-      : undefined,
+      : "A completed submission closes only this node. Its replyFragment is this node's result, not a submission or final answer for a successor node; the successor must be prepared and submitted separately.",
     !step.declaresHandoff && step.expectedUserInfo.length === 0 && step.allowedNextStepIds.length > 0
       && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")
       ? "This step has no missing user fields. After producing its required evidence or draft, submit completed and advance to an allowed next step. Approval belongs to the declared handoff step; do not pause this evidence step with awaiting_user."
