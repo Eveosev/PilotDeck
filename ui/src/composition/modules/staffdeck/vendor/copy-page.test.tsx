@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import KnowledgePage from './KnowledgePage';
 import SkillsPage from './SkillsPage';
+import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
 import { PilotDeckKnowledgePageProvider } from './knowledge-host-adapter';
 import { PilotDeckSkillsPageProvider } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
@@ -23,6 +24,53 @@ afterEach(() => {
 });
 
 describe('PilotDeck shared plaza pages', () => {
+  it('selects desktop Knowledge rows through the default shared table', async () => {
+    const onRowClick = vi.fn();
+    const copiedBase = { id: 'copied-base', name: 'Copied policy' };
+    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as never);
+    render(<MemoryRouter><PilotDeckKnowledgePageProvider>
+      <KnowledgeDataTable
+        aria-label="知识库列表"
+        columns={[{ key: 'name', title: '名称' }]}
+        data={[copiedBase]}
+        rowKey={(row: typeof copiedBase) => row.id}
+        onRowClick={onRowClick}
+      />
+    </PilotDeckKnowledgePageProvider></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('row', { name: 'Copied policy' }));
+    expect(onRowClick).toHaveBeenCalledExactlyOnceWith(copiedBase, 0);
+  });
+
+  it('loads a newly copied Knowledge document on its first desktop row click', async () => {
+    const calls: Array<{ operation: string; input: Record<string, unknown> }> = [];
+    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as never);
+    vi.spyOn(staffDeckKnowledgeClient, 'call').mockImplementation(async (operation, input = {}) => {
+      calls.push({ operation, input });
+      if (operation === 'list_bases') return [
+        { id: 'old-base', name: 'Existing guide', status: 'active' },
+        { id: 'copied-base', name: 'Copied policy', status: 'active' },
+      ] as never;
+      if (operation === 'list_documents') return [
+        { id: 'old-document', knowledge_base_id: 'old-base', filename: 'old.md', title: 'Existing guide' },
+        { id: 'copied-document', knowledge_base_id: 'copied-base', filename: 'copied.md', title: 'Copied policy' },
+      ] as never;
+      return [] as never;
+    });
+    render(<MemoryRouter><PilotDeckKnowledgePageProvider><KnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></MemoryRouter>);
+
+    const table = await screen.findByRole('table', { name: '知识库列表' });
+    fireEvent.click(await within(table).findByRole('row', { name: /Copied policy/ }));
+    await waitFor(() => expect(calls).toContainEqual({
+      operation: 'list_document_buckets',
+      input: { agentId: 'employee-real', documentId: 'copied-document', tenantId: 'tenant_demo' },
+    }));
+    expect(calls).toContainEqual({
+      operation: 'list_okf_concepts',
+      input: { agentId: 'employee-real', knowledgeBaseId: 'copied-base', tenantId: 'tenant_demo' },
+    });
+  });
+
   it('selects a real Knowledge base and submits a scoped copy request', async () => {
     const calls: Array<{ operation: string; input: Record<string, unknown> }> = [];
     vi.spyOn(staffDeckCopyClient, 'call').mockImplementation(async (operation, input = {}) => {

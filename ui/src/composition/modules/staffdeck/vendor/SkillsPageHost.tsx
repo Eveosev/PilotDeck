@@ -61,8 +61,19 @@ function DefaultButton({ children, variant: _variant, ...props }: any) { return 
 function DefaultStatusBadge({ children, tone }: any) { return <span data-tone={tone} className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{children}</span>; }
 function DefaultDetailField({ label, children }: any) { return <div className="flex flex-col gap-1"><span className="text-xs text-neutral-500">{label}</span><strong className="text-sm">{children}</strong></div>; }
 
-function DefaultDataTable({ columns = [], data = [], rowKey, emptyText = '', loading, ...props }: { columns?: DataColumn[]; data?: any[]; rowKey?: (row: any) => string; emptyText?: string; loading?: boolean; [key: string]: any }) {
-  return <div className="overflow-x-auto"><table {...props} className={joinClasses('w-full text-left text-sm', props.className)}><thead><tr>{columns.map((column) => <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs font-medium text-neutral-500">{column.title}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">加载中...</td></tr> : data.length === 0 ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">{emptyText}</td></tr> : data.map((row, index) => <tr key={rowKey?.(row) || row.id || index} className="border-t border-neutral-100 dark:border-neutral-800">{columns.map((column) => <td key={column.key} className="px-3 py-2">{column.render ? column.render(row) : row[column.key]}</td>)}</tr>)}</tbody></table></div>;
+function DefaultDataTable({ columns = [], data = [], rowKey, emptyText = '', loading, onRowClick, ...props }: { columns?: DataColumn[]; data?: any[]; rowKey?: (row: any) => string; emptyText?: string; loading?: boolean; onRowClick?: (row: any, index: number) => void; [key: string]: any }) {
+  return <div className="overflow-x-auto">
+    <table {...props} className={joinClasses('w-full text-left text-sm', props.className)}>
+      <thead><tr>{columns.map((column) => <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs font-medium text-neutral-500">{column.title}</th>)}</tr></thead>
+      <tbody>{loading ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">加载中...</td></tr>
+        : data.length === 0 ? <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-neutral-500">{emptyText}</td></tr>
+        : data.map((row, index) => <tr
+          key={rowKey?.(row) || row.id || index}
+          onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+          className={joinClasses('border-t border-neutral-100 dark:border-neutral-800', onRowClick && 'cursor-pointer')}
+        >{columns.map((column) => <td key={column.key} className="px-3 py-2">{column.render ? column.render(row) : row[column.key]}</td>)}</tr>)}</tbody>
+    </table>
+  </div>;
 }
 
 function DefaultPaginator({ page, pageCount, onChange, ...props }: any) {
