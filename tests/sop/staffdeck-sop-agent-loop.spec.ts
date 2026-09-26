@@ -300,7 +300,8 @@ for (const scenario of [
       if (scenario.type === "knowledge_query" && index === 1) {
         yield* yieldToolCall("knowledge-evidence", "knowledge_query", { query: "Project planning" }); return;
       }
-      const status = index === 0 ? (scenario.name === "undeclared handoff" ? "handoff" : "awaiting_user") : "completed";
+      const status = index === 0 ? (scenario.name === "undeclared handoff" ? "handoff" : "awaiting_user")
+        : scenario.name === "legal missing field" ? "awaiting_user" : "completed";
       yield* yieldToolCall(`boundary-${calls}`, "submit_step_result", { status, replyFragment: "Step result", slotUpdates: scenario.slots });
     });
     const client = acceptingClient(() => { submissions++; });
@@ -315,7 +316,7 @@ for (const scenario of [
       } }, context: new DefaultContextRuntime() });
     for await (const _event of session.submit({ type: "text", text: "Plan this project." })) {}
     assert.equal(submissions, 1);
-    assert.equal(calls, scenario.type === "knowledge_query" ? 3 : scenario.reject ? 2 : 1);
+    assert.equal(calls, scenario.type === "knowledge_query" ? 3 : scenario.reject || scenario.name === "legal missing field" ? 2 : 1);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -332,6 +333,83 @@ test("missing fields require a persisted waiting result rather than a text-only 
       } }, context: new DefaultContextRuntime() });
     for await (const _event of session.submit({ type: "text", text: "Help plan my project." })) {}
     assert.match(JSON.stringify(model.requests), /your question MUST be the replyFragment of a submit_step_result call with status awaiting_user/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("empty first collect proposal gets one correction before a legal missing-field wait", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-collect-correction-"));
+  try {
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`collect-${calls}`, "submit_step_result", {
+        status: "awaiting_user",
+        replyFragment: calls === 1 ? "What is the goal?" : "What is the stage?",
+        slotUpdates: calls === 1 ? {} : { project_goal: "Complete SOP validation" },
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+          node: { type: "collect_info" }, expectedUserInfo: ["project_goal", "current_stage"],
+          allowedNextStepIds: ["next"] } };
+      },
+      async submit(input) {
+        submissions++;
+        assert.deepEqual(input.proposal.slotUpdates, { project_goal: "Complete SOP validation" });
+        return { state: { ...input.state, status: "awaiting_user",
+          slots_json: { ...input.state.slots_json, ...input.proposal.slotUpdates } },
+          result: { status: "awaiting_user", replyFragment: input.proposal.replyFragment,
+            slotUpdates: input.proposal.slotUpdates ?? {}, events: [] } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "collect-correction", model, client });
+    const events = await collectSessionTurn(session, "Goal: Complete SOP validation", "collect-correction-turn");
+    assert.equal(calls, 2);
+    assert.equal(submissions, 1);
+    assert.ok(events.some(event => event.type === "tool_result" && event.result.type === "error"
+      && event.result.content[0]?.type === "text" && event.result.content[0].text.includes("COLLECT_FIELDS_CHECK")));
+    const status = await new SopStateStore(join(root, "sessions")).status("collect-correction");
+    assert.equal(status?.state.status, "awaiting_user");
+    assert.equal(status?.state.slots_json?.project_goal, "Complete SOP validation");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a collect node with no supplied fields may wait after one bounded correction", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-empty-collect-"));
+  try {
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`collect-${calls}`, "submit_step_result", {
+        status: "awaiting_user", replyFragment: "Please provide the stage.", slotUpdates: {},
+      });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" }, step: { ...prepared.step,
+          node: { type: "collect_info" }, expectedUserInfo: ["current_stage"], allowedNextStepIds: ["next"] } };
+      },
+      async submit(input) {
+        submissions++;
+        return { state: { ...input.state, status: "awaiting_user" },
+          result: { status: "awaiting_user", replyFragment: input.proposal.replyFragment,
+            slotUpdates: {}, events: [] } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "empty-collect", model, client });
+    await collectSessionTurn(session, "Hello", "empty-collect-turn");
+    assert.equal(calls, 2);
+    assert.equal(submissions, 1);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("empty-collect"))?.state.status, "awaiting_user");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

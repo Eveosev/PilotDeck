@@ -69,6 +69,8 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly native: AgentLoopRunner;
   private readonly preparedSteps = new Map<string, StaffDeckSopPrepareResponse["step"]>();
   private readonly protocolCorrections = new Set<string>();
+  private readonly collectInputs = new Map<string, string>();
+  private readonly collectCorrectionTurns = new Set<string>();
 
   constructor(
     config: AgentRuntimeConfig,
@@ -118,6 +120,13 @@ export class SopAgentLoop implements AgentLoopRunner {
       },
       onSubmission: (sessionId, result) => this.submissions.set(sessionId, { result }),
       currentStep: (sessionId) => this.preparedSteps.get(sessionId),
+      collectInput: (sessionId) => this.collectInputs.get(sessionId) ?? "",
+      shouldCorrectEmptyCollect: (sessionId, turnId) => {
+        const key = `${sessionId}:${turnId}`;
+        if (this.collectCorrectionTurns.has(key)) return false;
+        this.collectCorrectionTurns.add(key);
+        return true;
+      },
     });
     const toolExecution: ToolExecutionPort = Object.freeze({
       list: () => controlPort.list(),
@@ -180,6 +189,8 @@ export class SopAgentLoop implements AgentLoopRunner {
   async *run(input: AgentLoopInput): AsyncGenerator<AgentEvent, AgentLoopRunResult, unknown> {
     this.submissions.delete(input.sessionId);
     this.protocolCorrections.delete(input.sessionId);
+    this.collectCorrectionTurns.delete(`${input.sessionId}:${input.turnId}`);
+    this.collectInputs.set(input.sessionId, latestUserMessage(input.messages));
     const recoverableDelivery = await this.stateStore.replyDelivery(input.sessionId);
     if (recoverableDelivery) {
       const active = (await this.stateStore.status(input.sessionId))?.state.status === "active";
@@ -420,6 +431,8 @@ type SopControlToolPortOptions = Readonly<{
   defaultSopId: string;
   selectedSopId(sessionId: string): string | undefined;
   currentStep(sessionId: string): StaffDeckSopPrepareResponse["step"] | undefined;
+  collectInput(sessionId: string): string;
+  shouldCorrectEmptyCollect(sessionId: string, turnId: string): boolean;
   selectedSopForTools(): string | undefined;
   onSubmission(sessionId: string, result: StaffDeckSopSubmitResult): void;
 }>;
@@ -494,6 +507,16 @@ class SopControlToolPort implements ToolPort {
             return value == null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
           });
           const type = step.node.type;
+          if (missing && type === "collect_info" && step.expectedUserInfo.length > 0
+            && Object.keys(proposal.slotUpdates ?? {}).length === 0
+            && this.options.collectInput(execution.sessionId).trim()
+            && this.options.shouldCorrectEmptyCollect(execution.sessionId, execution.turnId)) {
+            return controlError(call,
+              `COLLECT_FIELDS_CHECK: Before asking, re-read this turn's user message: ${JSON.stringify(this.options.collectInput(execution.sessionId))}. `
+              + `Extract every supplied value into slotUpdates using these exact keys: ${step.expectedUserInfo.join(", ")}. `
+              + "Ask only for fields genuinely absent. If none of the requested fields is supplied, an empty slotUpdates is valid on your corrected submission.",
+              "invalid_tool_input");
+          }
           if (!missing && ((type === "collect_info" && step.expectedUserInfo.length > 0)
             || ((type === "response" || type === "knowledge_query")
               && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")))) {
