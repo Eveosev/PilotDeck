@@ -67,16 +67,15 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly sessionContext = new AsyncLocalStorage<string>();
   private readonly discovery: StaffDeckSopDiscoveryPort | undefined;
   private readonly native: AgentLoopRunner;
-  private readonly defaultToolChoice: AgentRuntimeConfig["toolChoice"];
+  private readonly preparedSteps = new Map<string, StaffDeckSopPrepareResponse["step"]>();
 
   constructor(
-    private readonly config: AgentRuntimeConfig,
+    config: AgentRuntimeConfig,
     capabilities: AgentTurnCapabilities,
     seedState: AgentLoopSeedState | undefined,
     private readonly options: SopAgentLoopOptions,
   ) {
     config.stopOnStructuredOutput = true;
-    this.defaultToolChoice = config.toolChoice;
     assertRequiredSopTools(options.bundle, options.profile.defaultSopId, capabilities.toolExecution.list());
     this.stateStore = options.stateStore ?? new SopStateStore(join(config.staffDeckSop!.stateRoot, "sessions"));
     this.client = options.client ?? new StaffDeckSopClient(options.profile.endpoint, {
@@ -117,6 +116,7 @@ export class SopAgentLoop implements AgentLoopRunner {
         return sessionId ? this.selectedSops.get(sessionId) : undefined;
       },
       onSubmission: (sessionId, result) => this.submissions.set(sessionId, { result }),
+      currentStep: (sessionId) => this.preparedSteps.get(sessionId),
     });
     const toolExecution: ToolExecutionPort = Object.freeze({
       list: () => controlPort.list(),
@@ -131,6 +131,17 @@ export class SopAgentLoop implements AgentLoopRunner {
     });
     const wrappedCapabilities = Object.freeze({
       ...capabilities,
+      model: Object.freeze({
+        ...capabilities.model,
+        execution: {
+          prepare: (input: Parameters<typeof capabilities.model.execution.prepare>[0]) =>
+            capabilities.model.execution.prepare({ ...input, request: {
+              ...input.request,
+              ...(this.preparedSteps.has(input.context.sessionId) ? { toolChoice: "required" as const } : {}),
+            } }),
+          stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream(input),
+        },
+      }),
       toolExecution,
       contextPreparation,
       tools: Object.freeze({
@@ -239,7 +250,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0],
   ) {
     const selectedSopId = this.selectedSops.get(input.sessionId);
-    this.config.toolChoice = this.defaultToolChoice;
+    this.preparedSteps.delete(input.sessionId);
     if (!selectedSopId) return capabilities.contextPreparation.prepareForModel(input);
     const persisted = await this.stateStore.loadOrCreate(
       input.sessionId,
@@ -249,9 +260,6 @@ export class SopAgentLoop implements AgentLoopRunner {
     if (isTerminalSopStatus(persisted.state.status)) {
       return capabilities.contextPreparation.prepareForModel(input);
     }
-    // A SOP answer is a protocol result, including a legitimate missing-field
-    // question. Require a real tool call; never synthesize a result from text.
-    this.config.toolChoice = "required";
     const prepared = await this.client.prepare({
       bundle: persisted.bundle,
       state: persisted.state,
@@ -267,6 +275,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       signal: input.abortSignal,
     });
     await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state);
+    this.preparedSteps.set(input.sessionId, prepared.step);
     return capabilities.contextPreparation.prepareForModel({
       ...input,
       appendSystemPrompt: joinPrompt(input.appendSystemPrompt, renderSopInstruction(prepared)),
@@ -355,6 +364,7 @@ type SopControlToolPortOptions = Readonly<{
   bundle: StaffDeckSopBundle;
   defaultSopId: string;
   selectedSopId(sessionId: string): string | undefined;
+  currentStep(sessionId: string): StaffDeckSopPrepareResponse["step"] | undefined;
   selectedSopForTools(): string | undefined;
   onSubmission(sessionId: string, result: StaffDeckSopSubmitResult): void;
 }>;
@@ -415,6 +425,23 @@ class SopControlToolPort implements ToolPort {
         this.options.bundle,
         this.options.selectedSopId(execution.sessionId) ?? this.options.defaultSopId,
       );
+      if (proposal.status === "awaiting_user") {
+        if (proposal.nextStepId) return controlError(call, "AWAITING_USER_CANNOT_ADVANCE: remove nextStepId and retain the current step.", "invalid_tool_input");
+        const step = this.options.currentStep(execution.sessionId);
+        if (step && step.nodeId === persisted.state.active_step_id && step.allowedNextStepIds.length > 0) {
+          const slots = { ...persisted.state.slots_json, ...proposal.slotUpdates };
+          const missing = step.expectedUserInfo.some((field) => {
+            const value = slots[field];
+            return value == null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
+          });
+          const type = step.node.type;
+          if (!missing && ((type === "collect_info" && step.expectedUserInfo.length > 0)
+            || ((type === "response" || type === "knowledge_query")
+              && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")))) {
+            return controlError(call, "STEP_MUST_ADVANCE: required fields are complete. Submit completed to an allowed next step; approval belongs to the declared handoff node.", "invalid_tool_input");
+          }
+        }
+      }
       const successfulToolNames = Array.isArray(persisted.state.successful_tool_names)
         ? persisted.state.successful_tool_names.filter((name): name is string => typeof name === "string" && name.length > 0)
         : [];

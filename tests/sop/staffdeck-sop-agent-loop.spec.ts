@@ -201,6 +201,34 @@ test("evidence step without missing fields routes approval to its declared next 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+for (const scenario of [
+  { name: "complete collect", type: "collect_info", fields: ["stage"], slots: { stage: "validation" }, actions: ["extract_slots"], reject: true },
+  { name: "evidence approval", type: "knowledge_query", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
+  { name: "legal missing field", type: "collect_info", fields: ["stage"], slots: {}, actions: ["extract_slots"], reject: false },
+  { name: "explicit question", type: "response", fields: [], slots: {}, actions: ["ask_user"], reject: false },
+]) test(`SOP awaiting boundary: ${scenario.name}`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-wait-boundary-"));
+  try {
+    let calls = 0, submissions = 0;
+    const model = modelFromStream(async function* () {
+      const status = calls++ === 0 ? "awaiting_user" : "completed";
+      yield* yieldToolCall(`boundary-${calls}`, "submit_step_result", { status, replyFragment: "Step result", slotUpdates: scenario.slots });
+    });
+    const client = acceptingClient(() => { submissions++; });
+    const prepare = client.prepare.bind(client);
+    const session = createSopSession({ root, sessionId: "wait-boundary", model,
+      client: { ...client, async prepare(input) {
+        const prepared = await prepare(input);
+        return { ...prepared, state: { ...prepared.state, active_step_id: "lookup" },
+          step: { ...prepared.step, node: { type: scenario.type }, expectedUserInfo: scenario.fields,
+            allowedNextStepIds: ["confirm"], allowedActions: scenario.actions } };
+      } }, context: new DefaultContextRuntime() });
+    for await (const _event of session.submit({ type: "text", text: "Plan this project." })) {}
+    assert.equal(submissions, 1);
+    assert.equal(calls, scenario.reject ? 2 : 1);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("missing fields require a persisted waiting result rather than a text-only question", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-missing-prompt-"));
   try {
