@@ -125,7 +125,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       onSubmission: (sessionId, result) => this.submissions.set(sessionId, { result }),
       currentStep: (sessionId) => this.preparedSteps.get(sessionId),
       collectInput: (sessionId) => this.collectInputs.get(sessionId) ?? "",
-      shouldCorrectEmptyCollect: (sessionId, turnId) => {
+      shouldReviewCollectWait: (sessionId, turnId) => {
         const key = `${sessionId}:${turnId}`;
         if (this.collectCorrectionTurns.has(key)) return false;
         this.collectCorrectionTurns.add(key);
@@ -443,7 +443,7 @@ type SopControlToolPortOptions = Readonly<{
   selectedSopId(sessionId: string): string | undefined;
   currentStep(sessionId: string): StaffDeckSopPrepareResponse["step"] | undefined;
   collectInput(sessionId: string): string;
-  shouldCorrectEmptyCollect(sessionId: string, turnId: string): boolean;
+  shouldReviewCollectWait(sessionId: string, turnId: string): boolean;
   selectedSopForTools(): string | undefined;
   currentStepForTools(): StaffDeckSopPrepareResponse["step"] | undefined;
   onSubmission(sessionId: string, result: StaffDeckSopSubmitResult): void;
@@ -532,13 +532,14 @@ class SopControlToolPort implements ToolPort {
           const missing = missingFields(currentStep.expectedUserInfo, slots);
           const type = currentStep.node.type;
           if (missing.length > 0 && type === "collect_info"
-            && Object.keys(proposal.slotUpdates ?? {}).length === 0
+            && (persisted.state.status === "awaiting_user" || Object.keys(proposal.slotUpdates ?? {}).length === 0)
             && this.options.collectInput(execution.sessionId).trim()
-            && this.options.shouldCorrectEmptyCollect(execution.sessionId, execution.turnId)) {
+            && this.options.shouldReviewCollectWait(execution.sessionId, execution.turnId)) {
             return controlError(call,
-              `COLLECT_FIELDS_CHECK: Before asking, re-read this turn's user message: ${JSON.stringify(this.options.collectInput(execution.sessionId))}. `
-              + `Extract every supplied value into slotUpdates using these exact keys: ${currentStep.expectedUserInfo.join(", ")}. `
-              + "Ask only for fields genuinely absent. If none of the requested fields is supplied, an empty slotUpdates is valid on your corrected submission.",
+              `COLLECT_FIELDS_CHECK: Before waiting, re-read this turn's user message: ${JSON.stringify(this.options.collectInput(execution.sessionId))}. `
+              + `Persisted slots: ${JSON.stringify(persisted.state.slots_json ?? {})}. Your proposal still leaves these fields missing: ${missing.join(", ")}. `
+              + `Extract every explicitly supplied value into slotUpdates using these exact keys: ${currentStep.expectedUserInfo.join(", ")}. `
+              + "If a field is genuinely absent, resubmit awaiting_user for only that field; do not invent a value or repeat fields already supplied.",
               "invalid_tool_input");
           }
           if (missing.length === 0 && ((type === "collect_info" && currentStep.expectedUserInfo.length > 0)

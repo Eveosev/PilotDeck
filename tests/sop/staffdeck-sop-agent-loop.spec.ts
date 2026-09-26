@@ -498,6 +498,54 @@ test("a collect node with no supplied fields may wait after one bounded correcti
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("follow-up collect wait reviews partial slot updates before accepting a repeated question", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-partial-fill-"));
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    await store.loadOrCreate("partial-fill", BUNDLE, "onboarding");
+    await store.replace("partial-fill", BUNDLE, { selected_skill_id: "onboarding", active_skill_id: "onboarding",
+      active_step_id: "lookup", status: "awaiting_user", slots_json: { project_goal: "SOP delivery" } });
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      calls++;
+      yield* yieldToolCall(`partial-fill-${calls}`, "submit_step_result", calls === 1
+        ? { status: "awaiting_user", replyFragment: "What are the blockers?",
+            slotUpdates: { project_goal: "SOP delivery", current_stage: "validation" } }
+        : { status: "completed", replyFragment: "Collected the project status.",
+            slotUpdates: { project_goal: "SOP delivery", current_stage: "validation", known_blockers: "none" } });
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base,
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return { ...prepared, state: { ...prepared.state, status: "awaiting_user", active_step_id: "lookup" },
+          step: { ...prepared.step, node: { type: "collect_info" },
+            expectedUserInfo: ["project_goal", "current_stage", "known_blockers"],
+            allowedNextStepIds: ["next"], requiredToolNames: [] } };
+      },
+      async submit(input) {
+        submissions++;
+        assert.equal(input.proposal.status, "completed");
+        assert.equal(input.proposal.slotUpdates?.known_blockers, "none");
+        return { state: { ...input.state, status: "completed",
+          slots_json: { ...input.state.slots_json, ...input.proposal.slotUpdates } },
+          result: { status: "completed", replyFragment: input.proposal.replyFragment,
+            slotUpdates: input.proposal.slotUpdates ?? {}, events: [] } };
+      },
+    };
+    const session = createSopSession({ root, sessionId: "partial-fill", model, client });
+    const events = await collectSessionTurn(session,
+      "Current stage: validation. Known blockers: none.", "partial-fill-turn");
+    assert.equal(calls, 2);
+    assert.equal(submissions, 1);
+    assert.ok(events.some((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.content[0]?.type === "text"
+      && event.result.content[0].text.includes("COLLECT_FIELDS_CHECK")));
+    assert.equal((await store.status("partial-fill"))?.state.slots_json?.known_blockers, "none");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("collect wait uses only missing fields and rejects malformed known arguments without rejecting extras", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-collect-question-"));
   try {
