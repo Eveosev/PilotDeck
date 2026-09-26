@@ -567,7 +567,7 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
     step.instruction ? `Step instruction: ${step.instruction}` : undefined,
     step.expectedUserInfo.length > 0 ? `Required user information: ${step.expectedUserInfo.join(", ")}.` : undefined,
     step.requiredToolNames.length > 0 ? `Required successful tools: ${step.requiredToolNames.join(", ")}.` : undefined,
-    step.allowedNextStepIds.length > 1 ? `Allowed next steps: ${step.allowedNextStepIds.join(", ")}.` : undefined,
+    step.allowedNextStepIds.length > 0 ? `Allowed next steps: ${step.allowedNextStepIds.join(", ")}.` : undefined,
     step.transitions && step.transitions.length > 0
       ? `Transition guidance:\n${step.transitions.map((transition) => {
         const target = transition.targetStep;
@@ -581,12 +581,12 @@ function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
       }).join("\n")}`
       : undefined,
     step.expectedUserInfo.length > 0
-      ? "When required information is present in the user messages or tool results, include it in slotUpdates and submit completed to advance; use awaiting_user only when information is genuinely missing."
+      ? "When required information is present in the user messages or tool results, include it in slotUpdates and submit completed to advance; use awaiting_user only when information is genuinely missing. If any required field is missing, your question MUST be the replyFragment of a submit_step_result call with status awaiting_user, known slotUpdates, and no nextStepId. Do not end with a plain-text question."
       : undefined,
     step.transitions && step.transitions.length > 0
       ? "Choose nextStepId from the transition whose condition matches the available facts. If the target is a handoff step, advance to it first and use status handoff there when approval is required."
       : undefined,
-    step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user." : undefined,
+    step.declaresHandoff ? "This step declares a human handoff. When approval is required, use status handoff to create the resumable approval wait; do not use awaiting_user. When the responsible person has explicitly replied with approval, persist that reply with submit_step_result status completed and advance to an allowed next step. Do not end with a plain-text approval summary." : undefined,
     !step.declaresHandoff && step.expectedUserInfo.length === 0 && step.allowedNextStepIds.length > 0
       && !step.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")
       ? "This step has no missing user fields. After producing its required evidence or draft, submit completed and advance to an allowed next step. Approval belongs to the declared handoff step; do not pause this evidence step with awaiting_user."

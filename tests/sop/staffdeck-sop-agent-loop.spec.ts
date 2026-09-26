@@ -195,7 +195,24 @@ test("evidence step without missing fields routes approval to its declared next 
     const request = JSON.stringify(model.requests);
     assert.match(request, /This step has no missing user fields/);
     assert.match(request, /Approval belongs to the declared handoff step/);
+    assert.match(request, /Allowed next steps: confirm/);
     assert.match(request, /persist it with awaiting_user and no nextStepId/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("missing fields require a persisted waiting result rather than a text-only question", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-missing-prompt-"));
+  try {
+    const model = scriptedModel();
+    const client = acceptingClient();
+    const prepare = client.prepare.bind(client);
+    const session = createSopSession({ root, sessionId: "missing-prompt", model,
+      client: { ...client, async prepare(input) {
+        const prepared = await prepare(input);
+        return { ...prepared, step: { ...prepared.step, expectedUserInfo: ["current_stage"] } };
+      } }, context: new DefaultContextRuntime() });
+    for await (const _event of session.submit({ type: "text", text: "Help plan my project." })) {}
+    assert.match(JSON.stringify(model.requests), /your question MUST be the replyFragment of a submit_step_result call with status awaiting_user/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
