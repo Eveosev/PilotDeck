@@ -187,4 +187,33 @@ describe('PilotDeck shared plaza pages', () => {
     expect(missing).not.toHaveBeenCalled();
     expect(nativeSave).not.toHaveBeenCalled();
   });
+
+  it('keeps unrelated published SOPs and reads the editable draft through get_draft', async () => {
+    const operations: string[] = [];
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {
+      operations.push(operation);
+      if (operation === 'list') return {
+        data: [
+          { id: 'published-a', skill_id: 'published-a', name: 'Published A', version: '1.0.0', content: { skill_id: 'published-a', name: 'Published A' } },
+          { id: 'published-b', skill_id: 'published-b', name: 'Published B', version: '1.0.0', content: { skill_id: 'published-b', name: 'Published B' } },
+        ],
+        drafts: [{ id: 'draft-a', sop_id: 'published-a', draft_version: '1.0.1', etag: 'etag-a', content: { skill_id: 'published-a', name: 'Draft A' } }],
+      } as never;
+      if (operation === 'get_draft') return { id: 'draft-a', sop_id: 'published-a', draft_version: '1.0.1', etag: 'etag-current', content: { skill_id: 'published-a', name: 'Current Draft A' } } as never;
+      throw new Error(`Unexpected management operation: ${operation}`);
+    });
+    const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
+
+    const rows = await pilotDeckSkillsPageHost.api.get<any[]>('/api/enterprise/skills?tenant_id=pilotdeck-local');
+    expect(rows.map((row) => row.skill_id)).toEqual(['published-a', 'published-b']);
+    expect(rows[0].name).toBe('Draft A');
+    expect(rows[1].name).toBe('Published B');
+    expect(rows[1].draft_id).toBeUndefined();
+
+    const editable = await pilotDeckDistillPageHost.api.get<any>('/api/enterprise/skills/published-a');
+    expect(editable.name).toBe('Current Draft A');
+    expect(editable.etag).toBe('etag-current');
+    expect(operations).toContain('get_draft');
+    expect(nativeDefinitions).not.toHaveBeenCalled();
+  });
 });

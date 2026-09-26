@@ -56,11 +56,12 @@ function toSkill(definition: SopDefinition, status = 'published') {
 function toManagedSkill(row: unknown) {
   const draft = record(row);
   const skillId = text(draft.skill_id) || text(draft.sop_id) || text(draft.id) || 'sop';
+  const isDraft = Boolean(text(draft.sop_id) || text(draft.draft_id));
   return toSkill({
     ...draft,
     id: skillId,
     skill_id: skillId,
-    draft_id: text(draft.draft_id) || text(draft.id),
+    draft_id: isDraft ? text(draft.draft_id) || text(draft.id) : undefined,
     version: text(draft.draft_version) || text(draft.version),
     content: record(draft.content),
   } as SopDefinition, text(draft.status) || 'draft');
@@ -72,13 +73,18 @@ async function management(operation: string, input: Record<string, unknown> = {}
 
 async function listDefinitions(): Promise<any[]> {
   const result = record(await management('list'));
-  // Prefer an existing draft for editing. The published row is still the
-  // source of truth for version history, but a page save must retain the
-  // draft id and etag returned by management.
-  const rows = Array.isArray(result.drafts) && result.drafts.length > 0
-    ? result.drafts
-    : Array.isArray(result.data) ? result.data : [];
-  return rows.map(toManagedSkill);
+  const rows = new Map<string, ReturnType<typeof toManagedSkill>>();
+  for (const row of Array.isArray(result.data) ? result.data : []) {
+    const skill = toManagedSkill(row);
+    rows.set(skill.skill_id, skill);
+  }
+  // A draft replaces only its own published row; unrelated published SOPs
+  // remain visible and every row still belongs to this management target.
+  for (const row of Array.isArray(result.drafts) ? result.drafts : []) {
+    const skill = toManagedSkill(row);
+    rows.set(skill.skill_id, skill);
+  }
+  return [...rows.values()];
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
@@ -125,8 +131,10 @@ function skillIdFromPath(path: string): string | undefined {
 async function readDefinition(skillId: string): Promise<any> {
   const managed = await listDefinitions();
   const managedDefinition = managed.find((item) => item.id === skillId || item.skill_id === skillId);
-  if (managedDefinition) return managedDefinition;
-  throw new Error(`SOP definition not found in the configured management owner: ${skillId}`);
+  if (!managedDefinition) throw new Error(`SOP definition not found in the configured management owner: ${skillId}`);
+  if (!text(managedDefinition.draft_id)) return managedDefinition;
+  const draft = await management('get_draft', { sopId: skillId, draftId: managedDefinition.draft_id });
+  return toManagedSkill(draft);
 }
 
 const SOP_CONTENT_FIELDS = new Set([
