@@ -177,3 +177,20 @@ test('selected SOP lifecycle preserves exact IDs, ETag precondition and original
   assert.equal(planPublicOperation(null, 'get_sop_version', { sopId: 's/op', version: '1.0.1' }).path, 'team/sops/s%2Fop/versions/1.0.1');
   await assert.rejects(client.call('create_sop_draft', { body: { content } }, { scope: { kind: 'team' } }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
 });
+
+test('fixed candidate target accepts original draft ETag and rejects explicit other scope before transport', async () => {
+  const plans = [];
+  const draft = { id: 'd1', sop_id: 's1', agent_id: 'configured-target', status: 'draft', etag: '"old"', content: { skill_id: 's1' } };
+  const client = createPublicCapabilityClient({
+    agentId: 'configured-target', fixedTargetAgentId: 'configured-target',
+    authorizedOperations: ['get_sop_draft', 'replace_sop_draft'],
+    transport: async plan => { plans.push(plan); return { status: 200, body: draft, headers: { ETag: '"old"' } }; },
+  });
+  await assert.rejects(client.call('get_sop_draft', { sopId: 's1', draftId: 'd1' }, { scope: { kind: 'agent', agentId: 'other' } }), code('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH'));
+  await assert.rejects(client.call('get_sop_draft', { sopId: 's1', draftId: 'd1' }, { scope: { kind: 'team' } }), code('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH'));
+  assert.equal(plans.length, 0);
+  await client.call('get_sop_draft', { sopId: 's1', draftId: 'd1' }, { scope: { kind: 'agent', agentId: 'configured-target' } });
+  await client.call('replace_sop_draft', { sopId: 's1', draftId: 'd1', etag: draft.etag, body: { content: draft.content } }, { scope: { kind: 'agent', agentId: 'configured-target' } });
+  assert.equal(plans[1].headers['If-Match'], '"old"');
+  assert.deepEqual(plans[1].body, { content: draft.content });
+});

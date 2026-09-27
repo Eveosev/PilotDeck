@@ -5,11 +5,11 @@ const management = { agentId: 'agent', credentialId: 'credential', apiKey: 'serv
 const owner = { tenantId: 'tenant', actorUserId: 'actor', agentId: 'agent', credentialId: 'credential' };
 afterEach(() => vi.restoreAllMocks());
 
-describe('server-only public gateway while authorization is pending', () => {
+describe('server-only public gateway with no explicit grants', () => {
   it('keeps response and event operations at zero upstream requests', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     const gateway = createStaffDeckPublicCapabilityGateway({ management, owner });
-    await expect(gateway.call('list_tools', {})).rejects.toMatchObject({ code: 'PUBLIC_OPERATION_NOT_AUTHORIZED', status: 403 });
+    await expect(gateway.call('list_tools', {}, { scope: { kind: 'agent', agentId: 'agent' } })).rejects.toMatchObject({ code: 'PUBLIC_OPERATION_NOT_AUTHORIZED', status: 403 });
     await expect(gateway.events({ jobId: 'job' })).rejects.toMatchObject({ code: 'PUBLIC_OPERATION_NOT_AUTHORIZED', status: 403 });
     expect(fetch).not.toHaveBeenCalled();
     expect(Object.keys(gateway)).toEqual(['call', 'events']);

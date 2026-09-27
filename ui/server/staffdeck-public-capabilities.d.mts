@@ -94,6 +94,7 @@ export function createPublicCapabilityClient(options: {
   agentId: string;
   transport: (plan: PublicTransportPlan) => Promise<PublicResponse>;
   authorizedOperations?: readonly PublicOperation[];
+  fixedTargetAgentId?: string;
 }): {
   call<O extends PublicOperation>(operation: O, input: PublicOperationInput[O], options?: { signal?: AbortSignal; scope?: PublicSelectedScope }): Promise<PublicResponse<PublicOperationOutput[O] | PublicRecord>>;
 };

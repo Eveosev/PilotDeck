@@ -574,6 +574,7 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
   const grants = authorizedOperations.filter(operation => PUBLIC_SDK_OPERATIONS.has(operation));
   const client = createPublicCapabilityClient({
     agentId: owner.agentId,
+    fixedTargetAgentId: owner.agentId,
     authorizedOperations: grants,
     transport: async plan => {
       const response = await fetchStaffDeckOwner(management, plan);

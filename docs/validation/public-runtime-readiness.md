@@ -1,6 +1,6 @@
 # G3–G6 公开/runtime 只读预检交付
 
-本文件是公开/runtime 执行线的第二次增量，接续 4319eadd。不是新候选、业务验收或部署配置。新增 `ui/server/staffdeck-runtime-readiness.mjs` 与聚焦测试，不修改现有 runtime/config/core/PEP/模块路由文件。
+本文件记录公开/runtime 执行线的只读预检基线，接续 4319eadd；不是新候选、业务验收或部署配置。后续公开 SDK 的逐项合同与现行范围见 `public-sdk-delivery.md`、`EMPLOYEE_TEAM_SCOPE_EXCEPTION.md`。只读 helper 不修改现有 runtime/config/core/PEP/模块路由文件。
 
 ## 现有整合状态与最小接线
 
@@ -29,7 +29,7 @@ const preparation = prepareStaffDeckRuntimeReadiness({
 1. 公共 owner 可将此 helper 作为 server-only 只读预检接入现有管理/诊断路由，输入必须为当前 owner 的配置、bundle、receipt。此接线不需白名单/取消 scope 扩展。不要把结果标成运行已生效。
 2. 新完整 cleanpair 前，整合者已有正式 publish 链可集中采单次 owner 响应、receipt 与 Gateway ack；实际 runtime 下一次 factory load、正常新 run 选中已发布版本及同 wait 旧 run 恢复需在完整候选的同 bundle/DB/HOME 中观察。web 重启和 Gateway 未 ready 失败项也在同轮测。没有完整候选时只准备命令/记录点，不独立启动业务验收。
 3. `reload_config` 仅配置重读；文件内容变化需正式 Gateway refresh/rebuild。`reloadExtensions` ack 只意味着 invalidate/mark dirty，不能替代下一 runtime bundle 和真实运行 pin 证据。若 runtime 在旧会话加载过程中不能保持 persisted bundle，报告具体核心缺口，不擅改 AgentLoop。
-4. D13/D14 的 move-to-draft、Remove、sync/promote、旧版本删除与 D15 的 dirty preview、unsaved probe、extract/model/user catalog 缺等价公开 route；按 public-runtime-integration.md 的薄契约交公共 owner 与监督。白名单扩展 pending 阻启用这些 route，取消 scope pending 阻 SOP job 成功取消；两项均不阻本只读预检/既有 publish receipt。不能用 create/archive/test/KB upload 近似替代。
+4. 此段原始预检时的“白名单/取消待批”已由 `PUBLIC_SDK_AUTHORIZATION.md` 解除：固定逐名 SDK/SD facade 与仅账户 `sops:cancel` 已在公开线隔离提交，详见 `public-sdk-delivery.md`，但公共 modules.js 逐名接线和完整候选运行仍待证据。`EMPLOYEE_TEAM_SCOPE_EXCEPTION.md` 又将非目标员工/team 扩展、团队同步/提升排除本轮，不计 PASS 或准入阻塞；固定目标 Knowledge/SOP、原 PEP、draft ETag/412、审批 wait/reload/continue 与版本仍须真实验证。不能用 create/archive/test/KB upload 近似替代原生命周期。
 5. `StaffDeckSopDiscoveryClient` 已有正式 route POST；该路由从 StaffDeck `model_for_agent` 取模型。需要真实 SD 有效模型配置与 route/modelwire，不以 PD provider 200 或 example profile 推定。当前模型实际有效配置仍 NOT RUN。
 
 聚焦自验：`/Users/a1/.nvm/versions/node/v22.23.1/bin/node --test ui/server/staffdeck-runtime-readiness.test.mjs`，4/4 PASS；无安装、网络、服务、模型 turn、独立 164xx 轮。代码仍需整合者按新增文件 diff 接入当前 canonical，不把本线旧基线整树合入。

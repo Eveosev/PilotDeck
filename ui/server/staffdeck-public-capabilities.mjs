@@ -236,7 +236,8 @@ export function planPublicOperation(agentId, operation, input = {}) {
  * It must use the host's already-authorized owner credentials and propagate HTTP
  * failures unchanged. This module neither obtains credentials nor enables routes.
  */
-export function createPublicCapabilityClient({ agentId, transport, authorizedOperations = [] }) {
+export function createPublicCapabilityClient({ agentId, transport, authorizedOperations = [], fixedTargetAgentId } = {}) {
+  if (fixedTargetAgentId !== undefined) id(fixedTargetAgentId);
   const authorized = new Set(authorizedOperations);
   return Object.freeze({
     async call(operation, input = {}, { signal, scope } = {}) {
@@ -250,6 +251,10 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
       }
       if (scope && scope.kind !== 'team' && scope.kind !== 'agent') {
         fail('PUBLIC_SELECTED_SCOPE_INVALID', 'Scope must be an agent or team selection.', 400);
+      }
+      if (!GLOBAL_JOB_OPERATIONS.has(operation) && fixedTargetAgentId !== undefined &&
+          (scope.kind !== 'agent' || scope.agentId !== fixedTargetAgentId)) {
+        fail('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH', 'This gateway is bound to a different configured target.', 403);
       }
       const selectedAgentId = scope?.kind === 'team' ? null : scope?.kind === 'agent' ? scope.agentId : agentId;
       const plan = planPublicOperation(selectedAgentId, operation, input);

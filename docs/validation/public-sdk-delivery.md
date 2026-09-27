@@ -2,6 +2,8 @@
 
 授权依据：`/Users/a1/Documents/Codex/2026-09-27/g0-g7-acceptance-preparation/PUBLIC_SDK_AUTHORIZATION.md`。本批只在公开/runtime owner 隔离树实现，供唯一整合者按固定提交接入同一 G0–G7 候选；不是生产已启用或业务验收 PASS。PD browser 继续只走现有模块网关，不 import SD backend 或持账户 key。SD `public_api/staffdeck_facade.py` 只调用原正式 owner 函数，不改业务核心。PD `ui/server/staffdeck-public-capabilities.mjs` 为逐名 server SDK/planner，`.d.mts` 提供对应输入类型，未知操作拒绝；整合者独占 `modules.js` 中真实 owner transport、固定授权列表、公开网关/SSE 转发。
 
+本轮范围按 `/Users/a1/Documents/Codex/2026-09-27/g0-g7-acceptance-preparation/EMPLOYEE_TEAM_SCOPE_EXCEPTION.md` 收紧为固定配置目标的 Knowledge/SOP。下表中已交 selected/team 能力保留，但非目标员工切换、跨员工管理、team 目录/preview/写入、团队同步/提升及其扩展矩阵是**用户明确排除**，不计 PASS，也不阻本轮准入。固定 target 的公开路径、PEP、KB/document 归属、source 保护、draft content+ID+原 ETag/412、审批 wait/reload/continue/幂等和版本仍须实证。整合者在 server client 设置 `fixedTargetAgentId=<配置目标ID>`，adapter 仍显式传同一 target scope；SDK 对其他 agent/team 请求在传输前报 `PUBLIC_FIXED_TARGET_SCOPE_MISMATCH`，绝不转向 target。
+
 ## 固定操作表
 
 相对 SD `/api/v1/`；路径参数由 SDK URI 编码，body 中 tenant/agent/actor 由 principal/path 决定，不接受调用方覆盖。下面权限列是 SD scope 的第一道门，原函数的 admin/owner/branch/resource PEP 仍执行。`202 APIJob` 会**持久化 draft**；`202 preview job` 使用原 transient stream job，**不写 APISOPDraft**。APIJob SSE 以 `id` / `Last-Event-ID` 恢复；preview 原 SSE 在 `data.seq` 中有序号，续流用 `after_seq`，不能凭空转成同一 ID 命名空间。
@@ -53,7 +55,7 @@
 
 ## 当前所选 scope 的固定合同
 
-`call(operation,input,{scope,signal})` 的 `scope` 为 `{kind:'agent',agentId:<当前所选员工ID>}` 或 `{kind:'team'}`。所有含 agent/team 路径的操作必须显式传；构造时的 `agentId` 仅留旧 Host 兼容，不得作为当前所选 scope 的默认值。无 scope 报 `PUBLIC_SELECTED_SCOPE_REQUIRED`，team 无等价 route 报 `PUBLIC_TEAM_PROTOCOL_UNAVAILABLE`，均不发请求。`get_job/get_job_result/job_events/cancel_job` 以原 job ID 为范围，不借配置 target 造 agent；SD 仍依原 job tenant/credential/agent 与 namespace scope 检查。实际选中员工可不同于配置 target，但必须由 SD public principal 的原 staff PEP 决定是否可读/可管。
+`call(operation,input,{scope,signal})` 的 `scope` 为 `{kind:'agent',agentId:<当前所选员工ID>}` 或 `{kind:'team'}`。所有含 agent/team 路径的操作必须显式传；构造时的 `agentId` 仅留旧 Host 兼容，不得作为当前所选 scope 的默认值。无 scope 报 `PUBLIC_SELECTED_SCOPE_REQUIRED`，team 无等价 route 报 `PUBLIC_TEAM_PROTOCOL_UNAVAILABLE`，均不发请求。本轮固定目标模式再由 `fixedTargetAgentId` 拒绝任何非目标/team 显式 scope。`get_job/get_job_result/job_events/cancel_job` 以原 job ID 为范围，不借配置 target 造 agent；SD 仍依原 job tenant/credential/agent 与 namespace scope 检查。通用 SDK 的其他 selected 能力仅为已交保留，不要求本轮跨员工验收。
 
 | 操作 | employee path | team path | 原 PEP |
 |---|---|---|---|
@@ -70,14 +72,14 @@
 
 ## Knowledge PEP 与范围收紧
 
-SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公开 Knowledge 路由（含两个调用对应 update 函数的 archive 入口）显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归，外部 source、团队/非目标作用域及实际 Knowledge 全操作仍需独立矩阵证据。
+SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公开 Knowledge 路由（含两个调用对应 update 函数的 archive 入口）显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归。固定目标 KB/document 归属与 source 防误写仍待完整候选实证；team/非目标扩展证据按用户例外排除。
 
-当前可审的 Knowledge 公开路径权限：selected `agents/{agent}/knowledge-bases` 列表 `knowledge:read`、创建/更新/归档 `knowledge:write`；`{base}:search`、版本列表、文档列表、概念列表 `knowledge:read`；entries upsert、文档 upload/update/archive `knowledge:write`；`{base}:rollback` `knowledge:publish`。各条在 SD 入口先按 selected agent/viewer 或 manager、KB 可见分支、必要时 document 属主检查；SDK/browser 目前仅接 `list_knowledge_bases`。原 Host 的文档详情/原文、bucket/chunk、concept 导出/编辑、版本详情及 ingest/job 读写尚无本批逐名 SDK 与完整公开 PEP/响应合同，分别保持 BLOCKED，不能因目录 GET 通过而宣称 Knowledge 全闭合；team 对这些深层操作同样 BLOCKED。需按原 Host path 与 owner method 再逐名补 route/输入/响应/权限及真实拒绝证据。
+当前可审的 Knowledge 公开路径权限：固定 `agents/{target}/knowledge-bases` 列表 `knowledge:read`、创建/更新/归档 `knowledge:write`；`{base}:search`、版本列表、文档列表、概念列表 `knowledge:read`；entries upsert、文档 upload/update/archive `knowledge:write`；`{base}:rollback` `knowledge:publish`。各条在 SD 入口先按固定目标 viewer 或 manager、KB 可见分支、必要时 document 属主检查；SDK/browser 目前仅接 `list_knowledge_bases`。若本轮固定目标核心 Knowledge 流程实际使用原 Host 的文档详情/原文、bucket/chunk、concept 导出/编辑、版本详情或 ingest/job 读写，仍须逐名补 SDK 与公开 PEP/响应合同；不能因目录 GET 通过而宣称核心全闭合。team/跨员工深层操作是用户范围排除，不再作为候选阻塞。
 
 ## 本批校验与剩余具体边界
 
 - SD 新 facade 固定方法、selected/team 与原 viewer/manager PEP、dirty preview、draft ETag 原条件写入：本批 13 个聚焦测试通过（12 个本线 facade/PEP 与 1 个既有 SOP 生命周期）；完整 G4/G5 业务未运行。
-- PD 旧真实目录/job/SSE/error 测试及新固定路由/selected scope/dirty preview/preview `data.seq`、draft `If-Match`：12/12 聚焦 node:test 通过；上一提交 `.d.mts` 单文件 typecheck 通过，本次类型增量尚未重跑。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
-- 外部 control identity source 的 handoff 用户目录仍无可供账户 key 调用的正式 reader，facade 给 `USER_DIRECTORY_UNAVAILABLE` 503。需要 deployment owner 提供保持原 actor/可见范围的公开目录 SDK 方法；不能换控制 token 或用本地 shadow 用户伪目录。
-- Knowledge 外部来源/团队/非目标可见范围尚未在真实运行验证，必要项仍 NOT RUN。`preview` 采用原 transient stream job 存储，facade 另将原 job ID 绑定创建时的 agent path；服务重启后其 in-memory job 不支持恢复，保持原语义，不将其映射到持久 APIJob。实际模型配置与 `model_for_agent` 仍需下一完整 candidate 证明。
+- PD 旧真实目录/job/SSE/error 测试及新固定路由/selected scope/固定 target 拒绝、dirty preview/preview `data.seq`、draft `If-Match`：13/13 聚焦 node:test 通过；上一提交 `.d.mts` 单文件 typecheck 通过，本次类型增量尚未重跑。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
+- 外部 control identity source 的 handoff **枚举**目录仍无可供账户 key 调用的正式 reader，facade 给 `USER_DIRECTORY_UNAVAILABLE` 503；若只服务本轮排除的员工/team 选择器，不阻固定目标候选。固定目标已有 `assignee_user_id` 的 SOP 在保存/发布时会经原 `_validate_handoff_assignees → resolve_members → require_internal_member` 校验：外部 control provider 必须提供 `resolve_members(tenant_id, ids)` 和 `member_identity_source`，否则明确 503 `MEMBER_DIRECTORY_UNAVAILABLE`/`MEMBER_DIRECTORY_INVALID`，这是正常审批路径的真实核心阻塞，不能用本地 shadow 用户或换控制 token 绕过。该 reader 的存在、配置处理人可解析及 wait/reload/continue/幂等仍需同一完整候选证据。
+- 固定目标 Knowledge 的 KB/document 归属、source 不误写尚未在完整候选运行验证，仍 NOT RUN；team/非目标扩展不再作为准入项。`preview` 采用原 transient stream job 存储，facade 另将原 job ID 绑定创建时的 agent path；服务重启后其 in-memory job 不支持恢复，保持原语义，不将其映射到持久 APIJob。实际模型配置与 `model_for_agent` 仍需下一完整 candidate 证明。
 - 整合者接入 PD modules.js 和 adapter 固定公开响应/stream，串行 build/typecheck 后统一一个 cleanpair；独立验收 G0–G7 不因本批代码自动升 PASS。无 push/merge/deploy、AgentLoop/core/PEP 策略修改。

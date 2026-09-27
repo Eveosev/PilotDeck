@@ -1,5 +1,7 @@
 # 公开能力与 runtime 接入交付（同一 G0–G7 候选）
 
+现行合同更新：下方保留原始方案及当时 pending 记录；`PUBLIC_SDK_AUTHORIZATION.md` 已批准固定逐名白名单和仅账户 `sops:cancel`，代码/方法/响应以 `public-sdk-delivery.md` 为准。`EMPLOYEE_TEAM_SCOPE_EXCEPTION.md` 将非目标员工/team 扩展排除本轮；固定目标与原 owner/PEP/ETag/审批/runtime 仍是准入要求。
+
 执行 owner：01a0e22b-681f-7213-8475-a510215540f5。整合入口：01a0e240-e9c4-76b0-991e-a2144273b08c。
 
 本线从整合者已经提交的 PD `9f49f0bee88cd739488c904398d8bc3ceeecbfe0` 创建隔离 worktree，仅新增本文和 `ui/server/staffdeck-public-capabilities{,.test}.mjs`、`ui/server/staffdeck-publish-runtime{,.test}.mjs`。没有复制或修改其他人的 dirty WIP，也没有以 fixed 0.1.12 覆盖 0.1.13。契约依据为唯一 FIXED_012_CONSOLIDATED_AUDIT / PUBLIC_PROTOCOL_READINESS；额外仅从已提交 SD `60873869ae66e84178d779fac3cb8317236c0df0` 核实 JobRead、SkillRead、draft payload 和原生成/改写入口。SkillRead.id 是 owner row ID，skill_id 才是 runtime ID；两者不能误判为必须相等。
