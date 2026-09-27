@@ -85,6 +85,8 @@ export type GatewayMode = "default" | "plan" | "bypassPermissions";
 export type GatewaySopStatusInput = {
   sessionKey: string;
   projectKey?: string;
+  /** Transient normal SD approver credential; authenticated at the host root, never persisted. */
+  approverAuthorization?: string;
 };
 
 export type GatewaySopStatusResult = StaffDeckSopStatusSnapshot | null;

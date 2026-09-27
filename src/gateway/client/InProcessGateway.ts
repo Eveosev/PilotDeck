@@ -556,7 +556,9 @@ export class InProcessGateway implements Gateway {
       const code = typeof error === "object" && error !== null && typeof (error as { code?: unknown }).code === "string"
         ? (error as { code: string }).code
         : "SOP_RESUME_FAILED";
-      throw new DialogGatewayError(code, error instanceof Error ? error.message : String(error));
+      const status = typeof error === "object" && error !== null ? (error as { status?: unknown }).status : undefined;
+      throw new DialogGatewayError(code, error instanceof Error ? error.message : String(error),
+        typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599 ? { httpStatus: status } : undefined);
     }
   }
 

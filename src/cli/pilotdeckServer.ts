@@ -1,5 +1,6 @@
 import type { ChannelAdapter, ChannelHandle } from "../adapters/index.js";
 import type { PublicHostProviderResolver } from "../composition/publicHostHttpTransport.js";
+import type { PublicApprovalBridge } from "../composition/publicApprovalBridge.js";
 import type { CronResultDelivery } from "../cron/index.js";
 import { FeishuChannel } from "../adapters/index.js";
 import { WeixinChannel } from "../adapters/index.js";
@@ -25,6 +26,7 @@ import type {
 export type StartPilotDeckServerOptions = {
   gateway: Gateway;
   publicHostCapabilities?: PublicHostProviderResolver;
+  publicApprovals?: PublicApprovalBridge;
   port?: number;
   host?: string;
   staticAssetsPath?: string;
@@ -256,6 +258,7 @@ export async function startPilotDeckServer(options: StartPilotDeckServerOptions)
 
   const gwServer = await startGatewayServer({
     publicHostCapabilities: options.publicHostCapabilities,
+    publicApprovals: options.publicApprovals,
     gateway: options.gateway,
     port: options.port,
     host: options.host,

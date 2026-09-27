@@ -118,6 +118,7 @@ import {
 import { createSkillManagementPort, isDisabledModuleBinding, isExternalModuleBinding } from "../composition/index.js";
 import { createRuntimeHostCapabilityProvider } from "../composition/publicHostRuntimeAdapter.js";
 import type { PublicHostCapabilityProvider } from "../composition/nativeHostCapabilityProvider.js";
+import { createPublicApprovalBridge, type PublicApprovalBridge, type PublicApprovalSessionResolver } from "../composition/publicApprovalBridge.js";
 import { getPilotDeckInstallCommand } from "../mcp/runtime/projectMcpSpec.js";
 import { isPathWithinRoot } from "../tool/builtin/filesystem/pathSafety.js";
 import { ExtensionWatchManager, type ExtensionWatchEvent } from "./ExtensionWatchManager.js";
@@ -155,6 +156,8 @@ export type CreateLocalGatewayOptions = {
   /** Read-only skills shipped with this PilotDeck build. Auto-discovered when omitted. */
   builtinSkillsRoot?: string;
   env?: Record<string, string | undefined>;
+  /** Original session authority must provide the verified cross-host binding; no external-ID inference. */
+  resolveStaffDeckApprovalSession?: PublicApprovalSessionResolver;
   permissionMode?: AgentRuntimeConfig["permissionMode"];
   /** Maximum time an interactive permission request may wait for a host answer. */
   permissionTimeoutMs?: number;
@@ -544,6 +547,7 @@ export type CreateLocalGatewayResult = {
    */
   updateSubsystems: (update: SubsystemUpdate) => void;
   getPublicHostCapabilities: () => PublicHostCapabilityProvider;
+  getPublicApprovals: () => PublicApprovalBridge;
 };
 
 export function createLocalGateway(options: CreateLocalGatewayOptions = {}): CreateLocalGatewayResult {
@@ -834,6 +838,24 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   const sopControl = new StaffDeckSopControlPlane(
     (requestedProjectKey) => registry.resolve(requestedProjectKey).snapshot.config.modules?.sop,
   );
+  let approvalAuthenticator: Promise<{ authenticate(input: { bearer: string; signal?: AbortSignal }): Promise<import("../composition/publicApprovalBridge.js").PublicApprovalSubject> }> | undefined;
+  const publicApprovals = createPublicApprovalBridge({
+    binding: { tenantId: env.STAFFDECK_COPY_TENANT_ID ?? "", agentId: env.STAFFDECK_COPY_TARGET_AGENT_ID ?? "",
+      pilotDeckUserId: env.STAFFDECK_COPY_PILOTDECK_USER_ID ?? "" },
+    authenticate: async (input) => {
+      if (!env.STAFFDECK_FORMAL_API_ORIGIN || !env.STAFFDECK_APPROVAL_USER_ID) {
+        throw Object.assign(new Error("APPROVAL_BINDING_UNAVAILABLE"), { status: 503, code: "APPROVAL_BINDING_UNAVAILABLE" });
+      }
+      // Load the owner's single server-only guard in source and built layouts.
+      approvalAuthenticator ??= import(new URL("../../ui/server/staffdeck-approval-authority.mjs", import.meta.url).href)
+        .then(module => module.createFixedApprovalAuthority({ origin: env.STAFFDECK_FORMAL_API_ORIGIN,
+          tenantId: env.STAFFDECK_COPY_TENANT_ID, approverUserId: env.STAFFDECK_APPROVAL_USER_ID }));
+      return (await approvalAuthenticator).authenticate(input);
+    },
+    resolveSession: options.resolveStaffDeckApprovalSession,
+    status: (input) => sopControl.status(input),
+    resume: (input) => sopControl.resume(input),
+  });
   const restoringSessionKeys = new Set<string>();
   let boundServer: { broadcastNotification(name: string, payload?: unknown): void } | undefined;
   const gateway = new InProcessGateway(router, {
@@ -866,8 +888,17 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     turnReplayStore,
     turnTelemetryContextResolver,
     manualCompactionCoordinator,
-    sopStatus: (input) => sopControl.status(input).then((status) => status ?? null),
-    resumeSop: (input) => sopControl.resume(input),
+    sopStatus: (input) => publicApprovals.status(input),
+    resumeSop: (input) => {
+      if (Object.hasOwn(input, "authority") || Object.hasOwn(input, "subject")) {
+        throw Object.assign(new Error("APPROVAL_AUTHORITY_OVERRIDE"), { status: 400, code: "APPROVAL_AUTHORITY_OVERRIDE" });
+      }
+      return input.source === "human" ? publicApprovals.resume(input) : sopControl.resume({
+        sessionKey: input.sessionKey, projectKey: input.projectKey, source: input.source,
+        requestId: input.requestId, waitId: input.waitId, message: input.message,
+        expectedRevision: input.expectedRevision, slotUpdates: input.slotUpdates,
+      });
+    },
     cron: options.cron,
     skillManager,
     commandsList: (input) => commandCatalog.commandsList(input),
@@ -1144,6 +1175,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       runtimeRefresh.bindServer(server);
     },
     isProjectBusy: (projectKey: string) => router!.hasActiveUserTurn(projectKey),
+    getPublicApprovals: () => publicApprovals,
     getPublicHostCapabilities: () => {
       const runtime = registry.resolve();
       return createRuntimeHostCapabilityProvider({

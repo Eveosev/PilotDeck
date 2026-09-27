@@ -48,6 +48,7 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
     STAFFDECK_SOP_MANAGEMENT_ENDPOINT: endpoint,
     STAFFDECK_SOP_MANAGEMENT_API_KEY: credentialCreated.api_key,
     STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID: credential.id,
+    STAFFDECK_APPROVAL_USER_ID: approverMe.id,
   };
   return {
     env,

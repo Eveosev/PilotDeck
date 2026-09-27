@@ -18,6 +18,7 @@ function fixture() {
 test('actual response IDs bind copy, management and discovery without claiming readiness', () => {
   const result = prepareStaffDeckBindings(fixture());
   assert.equal(result.env.STAFFDECK_COPY_PILOTDECK_USER_ID, '17');
+  assert.equal(result.env.STAFFDECK_APPROVAL_USER_ID, result.identity.approverUserId);
   assert.equal(result.configPatch.modules.sop.discoveryAgentId, result.identity.targetAgentId);
   assert.equal(result.configPatch.modules.sop.discoveryEndpoint, result.env.STAFFDECK_SOP_MANAGEMENT_ENDPOINT);
   assert.equal(result.readiness.effectiveProfile, false);

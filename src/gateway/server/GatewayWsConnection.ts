@@ -200,6 +200,9 @@ export class GatewayWsConnection {
         return;
       }
       if (error instanceof DialogGatewayError || hasStructuredErrorCode(error)) {
+        const status = "status" in error ? error.status : undefined;
+        const sopHttpStatus = (frame.method === "sop_status" || frame.method === "sop_resume")
+          && typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
         this.ws.sendText(
           JSON.stringify({
             type: "response",
@@ -209,6 +212,10 @@ export class GatewayWsConnection {
               code: error.code,
               message: error instanceof Error ? error.message : String(error),
               ...("details" in error && error.details !== undefined ? { details: error.details } : {}),
+              ...(sopHttpStatus === undefined ? {} : { details: {
+                ...("details" in error && typeof error.details === "object" && error.details !== null ? error.details : {}),
+                httpStatus: sopHttpStatus,
+              } }),
             },
           }),
         );

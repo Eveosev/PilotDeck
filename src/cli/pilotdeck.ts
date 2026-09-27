@@ -103,7 +103,7 @@ async function main(argv = process.argv.slice(2)): Promise<void> {
 
     const {
       gateway, configStore, dispose: disposeGateway,
-      bindServer, isProjectBusy, updateSubsystems, getPublicHostCapabilities,
+      bindServer, isProjectBusy, updateSubsystems, getPublicHostCapabilities, getPublicApprovals,
     } = createLocalGateway({
       projectRoot,
       pilotHome,
@@ -213,6 +213,7 @@ async function main(argv = process.argv.slice(2)): Promise<void> {
       const startupChannels = await channelAdapters.createStartupAdapters(snapshot.config);
       const nextServer = await startPilotDeckServer({
         publicHostCapabilities: () => getPublicHostCapabilities(),
+        publicApprovals: getPublicApprovals(),
         gateway,
         port: readPort(argv) ?? (Number.isFinite(envPort) ? envPort : 18789),
         staticAssetsPath: resolve(projectRoot, "ui/dist"),
