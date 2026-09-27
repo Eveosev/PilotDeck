@@ -279,3 +279,42 @@ it('an excluded non-target publish makes no publication, bundle write or refresh
     expect(publications).toBe(0); expect(refreshes).toBe(0); expect(await readFile(path, 'utf8')).toBe(original);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+it('dispatches fixed-target Knowledge contracts with original conflict and accepted-job responses', async () => {
+  const calls = [];
+  const f = await fixture((req, res) => {
+    calls.push({ method: req.method, url: req.url, body: req.body, idempotency: req.get('Idempotency-Key') });
+    if (req.body?.expected_updated_at === 'stale') return res.status(409).type('json').end('{"detail":"original conflict"}');
+    if (req.url.endsWith('/entries')) return res.status(202).json({ id: 'job', status: 'queued' });
+    res.json({ data: [], id: 'original' });
+  }, { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write', 'knowledge:publish'] });
+  const scope = { kind: 'agent', agentId: 'target' };
+  const root = '/agents/target/knowledge-bases';
+  for (const [operation, input, method, path] of [
+    ['create_knowledge_base', { body: { name: 'Base' } }, 'POST', root],
+    ['update_knowledge_base', { knowledgeBaseId: 'kb/id', body: { name: 'Changed' } }, 'PATCH', root + '/kb%2Fid'],
+    ['archive_knowledge_base', { knowledgeBaseId: 'kb/id' }, 'POST', root + '/kb%2Fid:archive'],
+    ['search_knowledge_base', { knowledgeBaseId: 'kb/id', body: { query: 'source' } }, 'POST', root + '/kb%2Fid:search'],
+    ['upsert_knowledge_entries', { knowledgeBaseId: 'kb/id', body: { entries: [{ content: 'source' }] }, idempotencyKey: 'original-key' }, 'POST', root + '/kb%2Fid/entries'],
+    ['list_knowledge_versions', { knowledgeBaseId: 'kb/id' }, 'GET', root + '/kb%2Fid/versions'],
+    ['rollback_knowledge_base', { knowledgeBaseId: 'kb/id', version: '1.0.0' }, 'POST', root + '/kb%2Fid:rollback'],
+    ['list_knowledge_documents', { knowledgeBaseId: 'kb/id' }, 'GET', root + '/kb%2Fid/documents'],
+    ['update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id', body: { content_md: 'draft', expected_updated_at: 'original' } }, 'PATCH', root + '/kb%2Fid/documents/doc%2Fid'],
+    ['archive_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id' }, 'POST', root + '/kb%2Fid/documents/doc%2Fid:archive'],
+    ['list_knowledge_concepts', { knowledgeBaseId: 'kb/id' }, 'GET', root + '/kb%2Fid/concepts'],
+  ]) {
+    const response = await f.call(operation, input, scope);
+    expect(response.status).toBe(operation === 'upsert_knowledge_entries' ? 202 : 200);
+    if (operation === 'upsert_knowledge_entries') expect(await response.json()).toEqual({ id: 'job', status: 'queued' });
+    expect(calls.at(-1)).toMatchObject({ method, url: path });
+    if (input.body) expect(calls.at(-1).body).toEqual(input.body);
+  }
+  expect(calls[4].idempotency).toBe('original-key');
+  expect(calls[6].body).toEqual({ version: '1.0.0' });
+  const conflict = await f.call('update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id',
+    body: { content_md: 'draft', expected_updated_at: 'stale' } }, scope);
+  expect(conflict.status).toBe(409); expect(await conflict.text()).toBe('{"detail":"original conflict"}');
+  const denied = await f.call('update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id', body: {} }, { kind: 'agent', agentId: 'other' });
+  expect(denied.status).toBe(403);
+  expect(calls).toHaveLength(12);
+});

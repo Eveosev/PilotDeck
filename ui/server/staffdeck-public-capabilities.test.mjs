@@ -100,7 +100,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 40);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 51);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }
@@ -193,4 +193,36 @@ test('fixed candidate target accepts original draft ETag and rejects explicit ot
   await client.call('replace_sop_draft', { sopId: 's1', draftId: 'd1', etag: draft.etag, body: { content: draft.content } }, { scope: { kind: 'agent', agentId: 'configured-target' } });
   assert.equal(plans[1].headers['If-Match'], '"old"');
   assert.deepEqual(plans[1].body, { content: draft.content });
+});
+
+test('fixed Knowledge routes retain base and document IDs, conflict timestamp and ingest idempotency', () => {
+  const target = 'target/1';
+  const cases = [
+    ['create_knowledge_base', { body: { name: 'Base' } }, 'POST', 'agents/target%2F1/knowledge-bases'],
+    ['update_knowledge_base', { knowledgeBaseId: 'kb/1', body: { name: 'New' } }, 'PATCH', 'agents/target%2F1/knowledge-bases/kb%2F1'],
+    ['archive_knowledge_base', { knowledgeBaseId: 'kb/1' }, 'POST', 'agents/target%2F1/knowledge-bases/kb%2F1:archive'],
+    ['search_knowledge_base', { knowledgeBaseId: 'kb/1', body: { query: 'policy' } }, 'POST', 'agents/target%2F1/knowledge-bases/kb%2F1:search'],
+    ['list_knowledge_versions', { knowledgeBaseId: 'kb/1' }, 'GET', 'agents/target%2F1/knowledge-bases/kb%2F1/versions'],
+    ['rollback_knowledge_base', { knowledgeBaseId: 'kb/1', version: '1.0.0' }, 'POST', 'agents/target%2F1/knowledge-bases/kb%2F1:rollback'],
+    ['list_knowledge_documents', { knowledgeBaseId: 'kb/1' }, 'GET', 'agents/target%2F1/knowledge-bases/kb%2F1/documents'],
+    ['archive_knowledge_document', { knowledgeBaseId: 'kb/1', documentId: 'doc/1' }, 'POST', 'agents/target%2F1/knowledge-bases/kb%2F1/documents/doc%2F1:archive'],
+    ['list_knowledge_concepts', { knowledgeBaseId: 'kb/1' }, 'GET', 'agents/target%2F1/knowledge-bases/kb%2F1/concepts'],
+  ];
+  for (const [op, input, method, path] of cases) {
+    const plan = planPublicOperation(target, op, input);
+    assert.equal(plan.method, method, op);
+    assert.equal(plan.path, path, op);
+  }
+  const changed = planPublicOperation(target, 'update_knowledge_document', {
+    knowledgeBaseId: 'kb/1', documentId: 'doc/1', body: { content_md: 'draft', expected_updated_at: 'original' },
+  });
+  assert.equal(changed.method, 'PATCH');
+  assert.equal(changed.path, 'agents/target%2F1/knowledge-bases/kb%2F1/documents/doc%2F1');
+  assert.equal(changed.body.expected_updated_at, 'original');
+  const ingest = planPublicOperation(target, 'upsert_knowledge_entries', {
+    knowledgeBaseId: 'kb/1', body: { entries: [{ external_id: 'x', content: 'source' }] }, idempotencyKey: 'source-v1',
+  });
+  assert.equal(ingest.headers['Idempotency-Key'], 'source-v1');
+  assert.equal(ingest.shape, 'accepted-job');
+  assert.throws(() => planPublicOperation(null, 'update_knowledge_document', { knowledgeBaseId: 'kb', documentId: 'd', body: {} }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
 });

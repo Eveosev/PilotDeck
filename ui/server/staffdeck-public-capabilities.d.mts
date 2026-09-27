@@ -3,6 +3,17 @@ export type PublicOperationInput = {
   list_tools: {};
   list_general_skills: {};
   list_knowledge_bases: {};
+  create_knowledge_base: { body: { name: string; description?: string | null; capability_scope?: string; metadata?: PublicRecord } };
+  update_knowledge_base: { knowledgeBaseId: string; body: { name?: string; description?: string | null; status?: 'active' | 'archived'; capability_scope?: string; metadata?: PublicRecord } };
+  archive_knowledge_base: { knowledgeBaseId: string };
+  search_knowledge_base: { knowledgeBaseId: string; body: { query: string; query_type?: 'answer' | 'policy_check' | 'tool_discovery' | 'skill_discovery'; document_ids?: string[]; [key: string]: unknown } };
+  upsert_knowledge_entries: { knowledgeBaseId: string; body: { entries: PublicRecord[] }; idempotencyKey?: string };
+  list_knowledge_versions: { knowledgeBaseId: string };
+  rollback_knowledge_base: { knowledgeBaseId: string; version: string };
+  list_knowledge_documents: { knowledgeBaseId: string };
+  update_knowledge_document: { knowledgeBaseId: string; documentId: string; body: { title?: string; status?: 'ready' | 'processing' | 'failed' | 'archived'; metadata?: PublicRecord; content_md?: string; expected_updated_at?: string } };
+  archive_knowledge_document: { knowledgeBaseId: string; documentId: string };
+  list_knowledge_concepts: { knowledgeBaseId: string };
   list_sops: {};
   get_sop_draft: { sopId: string; draftId: string };
   list_sop_versions: { sopId: string };
@@ -60,6 +71,10 @@ export type PublicJobResult = { job: PublicJob; result: PublicRecord; error: Pub
 export type PublicSopDraft = PublicRecord & { id: string; agent_id: string; sop_id: string; content: PublicRecord; etag: string; status: string };
 export type PublicOperationOutput = {
   list_tools: PublicCollection; list_general_skills: PublicCollection; list_knowledge_bases: PublicCollection;
+  create_knowledge_base: PublicRecord; update_knowledge_base: PublicRecord; archive_knowledge_base: PublicRecord;
+  search_knowledge_base: PublicRecord; upsert_knowledge_entries: PublicJob; list_knowledge_versions: PublicCollection;
+  rollback_knowledge_base: PublicRecord; list_knowledge_documents: PublicCollection;
+  update_knowledge_document: PublicRecord; archive_knowledge_document: PublicRecord; list_knowledge_concepts: PublicCollection;
   list_sops: PublicCollection & { drafts: PublicRecord[] };
   get_sop_draft: PublicSopDraft; list_sop_versions: PublicCollection; get_sop_version: PublicRecord;
   create_sop_draft: PublicSopDraft; replace_sop_draft: PublicSopDraft;
@@ -81,7 +96,7 @@ export type PublicOperationOutput = {
 };
 export type PublicResponse<T = unknown> = { status: number; body: T; headers?: Headers | Record<string, string> };
 export type PublicTransportPlan = {
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'; path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; path: string;
   headers: Record<string, string>; body?: Record<string, unknown>;
   shape?: string; responseType?: 'event-stream'; signal?: AbortSignal;
 };

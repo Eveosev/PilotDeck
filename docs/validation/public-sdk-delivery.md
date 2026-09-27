@@ -68,13 +68,29 @@
 | `get_preview_job` / `preview_job_events` / `cancel_preview_job` | `agents/{selected}/sop-preview-jobs/...` | `team/sop-preview-jobs/...` | 原 tenant+actor job owner，facade 再校验 job 创建时的 selected/team 绑定；cancel 仅账户 `sops:cancel` |
 | 其他 agent 路径操作 | `agents/{selected}/...` | **BLOCKED** | 按表中原资源 PEP；team 没有已审等价公开 route，不能落回配置 target |
 
-`list_knowledge_bases` 与 `list_sops` 是第 31、32 项，随后增加上表 8 项管理原语，共 40 项固定 operation。team 仅覆盖四类读目录、SOP 版本读与 transient preview；team API draft/写入仍逐项 BLOCKED。`.d.mts` 的 `PublicOperationOutput` 对目录、draft、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。`replace_sop_draft` 必须拿当前选中 draft 的原 etag 作精确 `If-Match`；其他管理操作沿原路由的条件语义，不能用新 ETag 覆盖旧编辑内容。
+`list_knowledge_bases` 与 `list_sops` 是第 31、32 项，随后增加上表 8 项管理原语和下文 11 项固定目标 Knowledge 原语，共 51 项固定 operation。team 仅覆盖四类读目录、SOP 版本读与 transient preview；team API draft/写入仍逐项 BLOCKED。`.d.mts` 的 `PublicOperationOutput` 对目录、draft、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。`replace_sop_draft` 必须拿当前选中 draft 的原 etag 作精确 `If-Match`；其他管理操作沿原路由的条件语义，不能用新 ETag 覆盖旧编辑内容。
 
 ## Knowledge PEP 与范围收紧
 
 SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公开 Knowledge 路由（含两个调用对应 update 函数的 archive 入口）显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归。固定目标 KB/document 归属与 source 防误写仍待完整候选实证；team/非目标扩展证据按用户例外排除。
 
-当前可审的 Knowledge 公开路径权限：固定 `agents/{target}/knowledge-bases` 列表 `knowledge:read`、创建/更新/归档 `knowledge:write`；`{base}:search`、版本列表、文档列表、概念列表 `knowledge:read`；entries upsert、文档 upload/update/archive `knowledge:write`；`{base}:rollback` `knowledge:publish`。各条在 SD 入口先按固定目标 viewer 或 manager、KB 可见分支、必要时 document 属主检查；SDK/browser 目前仅接 `list_knowledge_bases`。若本轮固定目标核心 Knowledge 流程实际使用原 Host 的文档详情/原文、bucket/chunk、concept 导出/编辑、版本详情或 ingest/job 读写，仍须逐名补 SDK 与公开 PEP/响应合同；不能因目录 GET 通过而宣称核心全闭合。team/跨员工深层操作是用户范围排除，不再作为候选阻塞。
+固定目标 Knowledge 公共 route 除目录外新增以下 **server SDK 规划合同**；默认授权仍空，公共 modules.js/adapter 的真实分派尚未接通。路径均以 `agents/{target}/knowledge-bases` 为根，body 只含原 owner 字段，tenant/agent/actor 从 principal/path 取得。SD 入口先执行固定目标 viewer/manager、KB 可见 branch，文档更新另校验 document 属于路径 KB；本批修正了该更新对原 owner 的 `agent_id` 传参，避免误走 overall source。SDK 仍未将上传文件转成 entries 或把 archive 当 Remove。
+
+| SDK operation | Method + suffix | 输入 → 原响应 | scope / 条件 |
+|---|---|---|---|
+| `create_knowledge_base` | POST 根 | `{body:{name,description?,capability_scope?,metadata?}}` → KnowledgeBaseRead | `knowledge:write` + manager |
+| `update_knowledge_base` | PATCH `/{base}` | `{knowledgeBaseId,body}` → KnowledgeBaseRead | `knowledge:write` + manager + KB branch |
+| `archive_knowledge_base` | POST `/{base}:archive` | `{knowledgeBaseId}` → KnowledgeBaseRead | `knowledge:write` + manager + 原 archive |
+| `search_knowledge_base` | POST `/{base}:search` | `{knowledgeBaseId,body:{query,...}}` → 原 search/evidence | `knowledge:read` + viewer，path base 唯一授权集合 |
+| `upsert_knowledge_entries` | POST `/{base}/entries` | `{knowledgeBaseId,body:{entries},idempotencyKey?}` → 202 APIJob | `knowledge:write` + manager；原 Idempotency-Key、job result/事件仍走全局 APIJob |
+| `list_knowledge_versions` | GET `/{base}/versions` | `{knowledgeBaseId}` → `{data:[]}` | `knowledge:read` + viewer/可见 branch |
+| `rollback_knowledge_base` | POST `/{base}:rollback` | `{knowledgeBaseId,version}` → 原 rollback result | `knowledge:publish` + manager/原 version 规则 |
+| `list_knowledge_documents` | GET `/{base}/documents` | `{knowledgeBaseId}` → `{data:[],next_cursor:null}` | `knowledge:read` + viewer/当前可见 version |
+| `update_knowledge_document` | PATCH `/{base}/documents/{document}` | `{knowledgeBaseId,documentId,body:{content_md?,expected_updated_at?,...}}` → KnowledgeDocumentRead | `knowledge:write` + manager/KB/document 归属；原 `expected_updated_at` 如提供，冲突原 409，不改写为 SOP 412 |
+| `archive_knowledge_document` | POST `/{base}/documents/{document}:archive` | 两 ID → KnowledgeDocumentRead | `knowledge:write` + manager/KB/document 归属及原 archive |
+| `list_knowledge_concepts` | GET `/{base}/concepts` | `{knowledgeBaseId}` → `{data:[]}` | `knowledge:read` + viewer/KB branch |
+
+原 multipart 文档上传虽有公开 route，JSON module gateway 目前没有等价文件传输合同，**BLOCKED**；不能改用 entries upsert 假装同一文件。原 Host 的单文档详情/原文、bucket/chunk、concept 详情/导出/编辑、版本详情及 discovery/job 专用视图仍无本批逐名公开 SDK 与 PEP/响应合同，若是固定目标核心流程必需则逐项 BLOCKED。团队/跨员工深层操作是用户明确范围排除。目录或这 11 项 planner 测试不能代真实 Knowledge 全操作、source 防误写和拒绝证据。
 
 ## 本批校验与剩余具体边界
 

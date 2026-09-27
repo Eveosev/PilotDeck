@@ -21,6 +21,17 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   list_tools: ['GET', 'agents/{agent}/tools', 'tools:read', 'data[]'],
   list_general_skills: ['GET', 'agents/{agent}/general-skills', 'skills:read', 'data[]'],
   list_knowledge_bases: ['GET', 'agents/{agent}/knowledge-bases', 'knowledge:read', 'data[]'],
+  create_knowledge_base: ['POST', 'agents/{agent}/knowledge-bases', 'knowledge:write', 'base'],
+  update_knowledge_base: ['PATCH', 'agents/{agent}/knowledge-bases/{base}', 'knowledge:write', 'base'],
+  archive_knowledge_base: ['POST', 'agents/{agent}/knowledge-bases/{base}:archive', 'knowledge:write', 'base'],
+  search_knowledge_base: ['POST', 'agents/{agent}/knowledge-bases/{base}:search', 'knowledge:read', 'search-result'],
+  upsert_knowledge_entries: ['POST', 'agents/{agent}/knowledge-bases/{base}/entries', 'knowledge:write', '202 APIJob'],
+  list_knowledge_versions: ['GET', 'agents/{agent}/knowledge-bases/{base}/versions', 'knowledge:read', 'data[]'],
+  rollback_knowledge_base: ['POST', 'agents/{agent}/knowledge-bases/{base}:rollback', 'knowledge:publish', 'rollback-result'],
+  list_knowledge_documents: ['GET', 'agents/{agent}/knowledge-bases/{base}/documents', 'knowledge:read', 'data[]'],
+  update_knowledge_document: ['PATCH', 'agents/{agent}/knowledge-bases/{base}/documents/{document}', 'knowledge:write', 'document'],
+  archive_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents/{document}:archive', 'knowledge:write', 'document'],
+  list_knowledge_concepts: ['GET', 'agents/{agent}/knowledge-bases/{base}/concepts', 'knowledge:read', 'data[]'],
   list_sops: ['GET', 'agents/{agent}/sops', 'sops:read', 'data[]/drafts[]'],
   get_sop_draft: ['GET', 'agents/{agent}/sops/{sop}/drafts/{draft}', 'sops:read', 'draft/ETag'],
   list_sop_versions: ['GET', 'sops/{sop}/versions?agent_id={agent}', 'sops:read', 'data[]'],
@@ -110,6 +121,39 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'list_tools': plan.path = `${agent}/tools`; plan.shape = 'collection'; break;
     case 'list_general_skills': plan.path = `${agent}/general-skills`; plan.shape = 'collection'; break;
     case 'list_knowledge_bases': plan.path = `${agent}/knowledge-bases`; plan.shape = 'collection'; break;
+    case 'create_knowledge_base':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases`; plan.body = publicBody(input); break;
+    case 'update_knowledge_base':
+      plan.method = 'PATCH'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}`;
+      plan.body = publicBody(input); break;
+    case 'archive_knowledge_base':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}:archive`; break;
+    case 'search_knowledge_base':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}:search`;
+      plan.body = publicBody(input); break;
+    case 'upsert_knowledge_entries':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/entries`;
+      plan.body = publicBody(input);
+      if (!Array.isArray(plan.body.entries)) fail('PUBLIC_INPUT_INVALID', 'Knowledge entries must be an array.', 400);
+      if (input.idempotencyKey !== undefined) {
+        if (typeof input.idempotencyKey !== 'string' || !input.idempotencyKey.trim()) fail('PUBLIC_INPUT_INVALID', 'Idempotency key must be non-empty.', 400);
+        plan.headers['Idempotency-Key'] = input.idempotencyKey;
+      }
+      plan.shape = 'accepted-job'; break;
+    case 'list_knowledge_versions':
+      plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/versions`; plan.shape = 'collection'; break;
+    case 'rollback_knowledge_base':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}:rollback`;
+      id(input.version); plan.body = { version: input.version }; break;
+    case 'list_knowledge_documents':
+      plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents`; plan.shape = 'collection'; break;
+    case 'update_knowledge_document':
+      plan.method = 'PATCH'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents/${id(input.documentId)}`;
+      plan.body = publicBody(input); break;
+    case 'archive_knowledge_document':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents/${id(input.documentId)}:archive`; break;
+    case 'list_knowledge_concepts':
+      plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts`; plan.shape = 'collection'; break;
     case 'list_sops': plan.path = `${agent}/sops`; plan.shape = 'sop-collection'; break;
     case 'get_sop_draft':
       plan.path = `${agent}/sops/${id(input.sopId)}/drafts/${id(input.draftId)}`;
