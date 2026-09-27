@@ -16,10 +16,10 @@ test('directories preserve data envelopes and encoded scope; malformed response 
   const response = { status: 200, body: { data: [{ id: 'tool', auth: { token: '********' } }], next_cursor: null } };
   let request;
   const client = createPublicCapabilityClient({ agentId: 'a/b', authorizedOperations: ['list_tools'], transport: async value => { request = value; return response; } });
-  assert.equal(await client.call('list_tools'), response);
+  assert.equal(await client.call('list_tools', {}, { scope: { kind: 'agent', agentId: 'a/b' } }), response);
   assert.equal(request.path, 'agents/a%2Fb/tools');
   response.body = {};
-  await assert.rejects(client.call('list_tools'), code('PUBLIC_RESPONSE_INVALID'));
+  await assert.rejects(client.call('list_tools', {}, { scope: { kind: 'agent', agentId: 'a/b' } }), code('PUBLIC_RESPONSE_INVALID'));
 });
 
 test('tool write rejects masked credentials and scope override without modifying input', () => {
@@ -37,7 +37,7 @@ test('rewrite refuses dirty/current skill/conversation rather than discard them 
     { dirty: true }, { current_skill: { version: '1' } }, { conversation: [] },
     { body: { instruction: 'change', current_skill: {} } },
   ]) {
-    await assert.rejects(client.call('rewrite_saved_sop', { sopId: 's', body: { instruction: 'change' }, ...input }), code('PUBLIC_PREVIEW_REQUIRED'));
+    await assert.rejects(client.call('rewrite_saved_sop', { sopId: 's', body: { instruction: 'change' }, ...input }, { scope: { kind: 'agent', agentId: 'a' } }), code('PUBLIC_PREVIEW_REQUIRED'));
   }
   assert.equal(calls, 0);
 });
@@ -47,7 +47,7 @@ test('generation and results preserve server-assigned draft/etag; never create a
   const accepted = { status: 202, body: { id: 'job', status: 'queued' } };
   const result = { status: 200, body: { job: { id: 'job', status: 'succeeded' }, result: { draft: { id: 'd', content: { nodes: [{ extra: true }] }, etag: 'original', version: '1.0.1' } }, error: {} } };
   const client = createPublicCapabilityClient({ agentId: 'a', authorizedOperations: ['generate_sop', 'get_job_result'], transport: async request => { requests.push(request); return requests.length === 1 ? accepted : result; } });
-  assert.equal(await client.call('generate_sop', { body: { title: 'title', raw_content: 'source' } }), accepted);
+  assert.equal(await client.call('generate_sop', { body: { title: 'title', raw_content: 'source' } }, { scope: { kind: 'agent', agentId: 'a' } }), accepted);
   assert.equal(await client.call('get_job_result', { jobId: 'job' }), result);
   assert.deepEqual(requests.map(value => value.path), ['agents/a/sops:generate', 'jobs/job/result']);
 });
@@ -100,7 +100,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 30);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 32);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }
@@ -112,10 +112,10 @@ test('preview keeps dirty current skill and conversation, while saved rewrite st
   const current_skill = { skill_id: 's', version: '1', nodes: [{ id: 'dirty' }] };
   const conversation = [{ role: 'user', content: 'keep this' }];
   const input = { sopId: 's', body: { current_skill, instruction: 'rewrite', conversation } };
-  assert.deepEqual((await client.call('preview_rewrite_sop', input)).body, { job_id: 'preview' });
+  assert.deepEqual((await client.call('preview_rewrite_sop', input, { scope: { kind: 'agent', agentId: 'a' } })).body, { job_id: 'preview' });
   assert.deepEqual(request.body.current_skill, current_skill);
   assert.deepEqual(request.body.conversation, conversation);
-  await assert.rejects(client.call('rewrite_saved_sop', input), code('PUBLIC_PREVIEW_REQUIRED'));
+  await assert.rejects(client.call('rewrite_saved_sop', input, { scope: { kind: 'agent', agentId: 'a' } }), code('PUBLIC_PREVIEW_REQUIRED'));
 });
 
 test('preview SSE exposes only the native data.seq cursor and preserves token event text', async () => {
@@ -130,4 +130,24 @@ test('preview SSE exposes only the native data.seq cursor and preserves token ev
     { event: 'job_complete', data: '{"job_id":"j","status":"succeeded"}' },
   ]);
   assert.equal(events[0].id, undefined);
+});
+
+test('selected agent never falls back to configured target; team uses bounded routes', async () => {
+  const paths = [];
+  const client = createPublicCapabilityClient({
+    agentId: 'configured-target',
+    authorizedOperations: ['list_tools', 'list_general_skills', 'list_knowledge_bases', 'list_sops', 'preview_rewrite_sop', 'remove_sop'],
+    transport: async plan => { paths.push(plan.path); return { status: 200, body: { data: [], drafts: [] } }; },
+  });
+  await assert.rejects(client.call('list_tools'), code('PUBLIC_SELECTED_SCOPE_REQUIRED'));
+  await client.call('list_tools', {}, { scope: { kind: 'agent', agentId: 'selected' } });
+  await client.call('list_general_skills', {}, { scope: { kind: 'team' } });
+  await client.call('list_knowledge_bases', {}, { scope: { kind: 'team' } });
+  await client.call('list_sops', {}, { scope: { kind: 'team' } });
+  assert.deepEqual(paths, ['agents/selected/tools', 'team/general-skills', 'team/knowledge-bases', 'team/sops']);
+  assert.equal(planPublicOperation(null, 'preview_rewrite_sop', {
+    sopId: 's', body: { current_skill: { skill_id: 's' }, instruction: 'dirty', conversation: [{ role: 'user', content: 'latest' }] },
+  }).path, 'team/sops/s:preview-rewrite');
+  await assert.rejects(client.call('remove_sop', { sopId: 's' }, { scope: { kind: 'team' } }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
+  assert.equal(planPublicOperation(undefined, 'get_job', { jobId: 'j' }).path, 'jobs/j');
 });

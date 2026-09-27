@@ -20,6 +20,8 @@ const own = (value, key) => Object.hasOwn(value, key);
 export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   list_tools: ['GET', 'agents/{agent}/tools', 'tools:read', 'data[]'],
   list_general_skills: ['GET', 'agents/{agent}/general-skills', 'skills:read', 'data[]'],
+  list_knowledge_bases: ['GET', 'agents/{agent}/knowledge-bases', 'knowledge:read', 'data[]'],
+  list_sops: ['GET', 'agents/{agent}/sops', 'sops:read', 'data[]/drafts[]'],
   create_tool: ['POST', 'agents/{agent}/tools', 'tools:write', 'tool'],
   update_tool: ['PUT', 'agents/{agent}/tools/{tool}', 'tools:write', 'tool'],
   test_tool: ['POST', 'agents/{agent}/tools/{tool}:test', 'tools:test', 'test-result'],
@@ -50,6 +52,12 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   list_handoff_users: ['GET', 'agents/{agent}/handoff-users', 'agents:read', 'data[] users'],
 });
 export const PUBLIC_APPROVED_OPERATIONS = Object.freeze(Object.keys(PUBLIC_OPERATION_CONTRACTS));
+const GLOBAL_JOB_OPERATIONS = new Set(['get_job', 'get_job_result', 'job_events', 'cancel_job']);
+const TEAM_OPERATIONS = new Set([
+  'list_tools', 'list_general_skills', 'list_knowledge_bases', 'list_sops',
+  'preview_generate_sop', 'preview_rewrite_sop',
+  'get_preview_job', 'preview_job_events', 'cancel_preview_job',
+]);
 
 export const PUBLIC_PROTOCOL_BLOCKERS = Object.freeze({
   rewrite_preview: 'Use the explicit preview_rewrite_sop operation with current_skill; saved rewrite is a different lifecycle.',
@@ -83,12 +91,17 @@ function rejectMaskedCredentials(body) {
 
 /** Explicit route map, never an arbitrary URL proxy. IDs are encoded once by this layer. */
 export function planPublicOperation(agentId, operation, input = {}) {
-  const agent = `agents/${id(agentId)}`;
+  if (agentId === null && !TEAM_OPERATIONS.has(operation)) {
+    fail('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE', `No equivalent team public route for ${operation}.`, 409);
+  }
+  const agent = GLOBAL_JOB_OPERATIONS.has(operation) ? '' : agentId === null ? 'team' : `agents/${id(agentId)}`;
   const plan = { method: 'GET', headers: { accept: 'application/json' } };
   if (own(PUBLIC_PROTOCOL_BLOCKERS, operation)) fail('PUBLIC_PROTOCOL_UNAVAILABLE', PUBLIC_PROTOCOL_BLOCKERS[operation]);
   switch (operation) {
     case 'list_tools': plan.path = `${agent}/tools`; plan.shape = 'collection'; break;
     case 'list_general_skills': plan.path = `${agent}/general-skills`; plan.shape = 'collection'; break;
+    case 'list_knowledge_bases': plan.path = `${agent}/knowledge-bases`; plan.shape = 'collection'; break;
+    case 'list_sops': plan.path = `${agent}/sops`; plan.shape = 'sop-collection'; break;
     case 'create_tool':
     case 'update_tool':
       plan.method = operation === 'create_tool' ? 'POST' : 'PUT';
@@ -185,10 +198,20 @@ export function planPublicOperation(agentId, operation, input = {}) {
 export function createPublicCapabilityClient({ agentId, transport, authorizedOperations = [] }) {
   const authorized = new Set(authorizedOperations);
   return Object.freeze({
-    async call(operation, input = {}, { signal } = {}) {
+    async call(operation, input = {}, { signal, scope } = {}) {
       if (!authorized.has(operation)) fail('PUBLIC_OPERATION_NOT_AUTHORIZED', 'This operation has not been authorized by the host.', 403);
       signal?.throwIfAborted();
-      const plan = planPublicOperation(agentId, operation, input);
+      // agentId is kept for older host construction, but never supplies a
+      // selected editor scope. The caller must provide the current selection.
+      void agentId;
+      if (!GLOBAL_JOB_OPERATIONS.has(operation) && !scope) {
+        fail('PUBLIC_SELECTED_SCOPE_REQUIRED', 'The current agent or team selection is required.', 400);
+      }
+      if (scope && scope.kind !== 'team' && scope.kind !== 'agent') {
+        fail('PUBLIC_SELECTED_SCOPE_INVALID', 'Scope must be an agent or team selection.', 400);
+      }
+      const selectedAgentId = scope?.kind === 'team' ? null : scope?.kind === 'agent' ? scope.agentId : agentId;
+      const plan = planPublicOperation(selectedAgentId, operation, input);
       const response = await transport({ ...plan, signal });
       // A raw HTTP failure remains a failure with its original body/status.
       if (!response || !Number.isInteger(response.status)) fail('PUBLIC_RESPONSE_INVALID', 'Public transport did not return an HTTP response.', 502);
@@ -196,8 +219,11 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
       if (plan.responseType === 'event-stream') return response;
       const value = response.body;
       if (!record(value)) fail('PUBLIC_RESPONSE_INVALID', 'Public response must be an object.', 502);
-      if (plan.shape === 'collection' && (!Array.isArray(value.data) || value.data.some(item => !record(item)))) {
+      if (['collection', 'sop-collection'].includes(plan.shape) && (!Array.isArray(value.data) || value.data.some(item => !record(item)))) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public collection is missing its data array.', 502);
+      }
+      if (plan.shape === 'sop-collection' && (!Array.isArray(value.drafts) || value.drafts.some(item => !record(item)))) {
+        fail('PUBLIC_RESPONSE_INVALID', 'Public SOP collection is missing its drafts array.', 502);
       }
       if (plan.shape === 'accepted-job' && response.status !== 202) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 job acceptance.', 502);
       if (plan.shape === 'preview-accepted' && (response.status !== 202 || typeof value.job_id !== 'string')) {

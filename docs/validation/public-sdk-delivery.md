@@ -10,6 +10,8 @@
 |---|---|---|---|
 | `list_tools` | GET `agents/{agent}/tools` | 无 → `data[]` 掩码 | `tools:read`，scoped目录 |
 | `list_general_skills` | GET `agents/{agent}/general-skills` | 无 → `data[]` | `skills:read`，scoped目录 |
+| `list_knowledge_bases` | GET `agents/{agent}/knowledge-bases` | 无 → `data[]` | `knowledge:read`，员工 viewer PEP/可见 branch |
+| `list_sops` | GET `agents/{agent}/sops` | 无 → `data[]/drafts[]` | `sops:read`，员工 viewer PEP/可见 branch 与已存 draft |
 | `create_tool` | POST `agents/{agent}/tools` | 原 ToolCreate body → 掩码 tool | `tools:write`，原 owner/agent PEP |
 | `update_tool` | PUT `agents/{agent}/tools/{tool}` | 原 ToolUpdate body → 掩码 tool | `tools:write`；拒绝 `********` 回写 |
 | `test_tool` | POST `agents/{agent}/tools/{tool}:test` | 已存 tool ID+test body → 原结果 | `tools:test`；不代 unsaved probe |
@@ -41,14 +43,30 @@
 
 `PUBLIC_OPERATION_CONTRACTS` / `PUBLIC_APPROVED_OPERATIONS` 是这张表的机器可读固定集合；默认客户端授权仍 `[]`。整合者以已验证 owner 给 server gateway `authorizedOperations` 赋**此集合的明确需要子集**，并为每个 operation 写固定 dispatch 与响应封套；不可把浏览器 operation、path、URL 作为任意代理透传。浏览器 adapter owner 仅消费经模块网关允许的方法与状态，不 import server-only helper。
 
+## 当前所选 scope 的固定合同
+
+`call(operation,input,{scope,signal})` 的 `scope` 为 `{kind:'agent',agentId:<当前所选员工ID>}` 或 `{kind:'team'}`。所有含 agent/team 路径的操作必须显式传；构造时的 `agentId` 仅留旧 Host 兼容，不得作为当前所选 scope 的默认值。无 scope 报 `PUBLIC_SELECTED_SCOPE_REQUIRED`，team 无等价 route 报 `PUBLIC_TEAM_PROTOCOL_UNAVAILABLE`，均不发请求。`get_job/get_job_result/job_events/cancel_job` 以原 job ID 为范围，不借配置 target 造 agent；SD 仍依原 job tenant/credential/agent 与 namespace scope 检查。实际选中员工可不同于配置 target，但必须由 SD public principal 的原 staff PEP 决定是否可读/可管。
+
+| 操作 | employee path | team path | 原 PEP |
+|---|---|---|---|
+| `list_tools` | `agents/{selected}/tools` | `team/tools` | 原 `list_tools(tenant,None,agent_id)` 可见资源；team 用 `agent_id=None`，只允许账户 key；工具凭据仍掩码 |
+| `list_general_skills` | `agents/{selected}/general-skills` | `team/general-skills` | 原 `list_general_skills(tenant,db,agent_id)` 分支/团队可见集合；team 只允许账户 key |
+| `list_knowledge_bases` | `agents/{selected}/knowledge-bases` | `team/knowledge-bases` | 原 `list_knowledge_bases(tenant,agent_id,db)`；员工入口还经过公开 Knowledge viewer PEP；team 只允许账户 key |
+| `list_sops` | `agents/{selected}/sops` | `team/sops` | 原 `list_skills(tenant,db,agent_id)`；员工入口返回对应 API drafts 且显式 viewer PEP；team 的原语义无 API drafts，返回 `drafts:[]`，只允许账户 key |
+| `preview_generate_sop` / `preview_rewrite_sop` | `agents/{selected}/...` | `team/...` | 原 SkillDistill/RewriteRequest 的 `agent_id` 为 selected 或 `None`；原 owner manager/模型上下文/tenant、path SOP ID 校验不变，current_skill/conversation/target_path(s)/label 原样送 transient job |
+| `get_preview_job` / `preview_job_events` / `cancel_preview_job` | `agents/{selected}/sop-preview-jobs/...` | `team/sop-preview-jobs/...` | 原 tenant+actor job owner，facade 再校验 job 创建时的 selected/team 绑定；cancel 仅账户 `sops:cancel` |
+| 其他 agent 路径操作 | `agents/{selected}/...` | **BLOCKED** | 按表中原资源 PEP；team 没有已审等价公开 route，不能落回配置 target |
+
+`list_knowledge_bases` 与 `list_sops` 新增为第 31、32 项固定 operation；其余 30 项路由及生命周期不变。上述 team 路由只覆盖明确列出的读目录与 transient preview，不扩写入/管理 team 能力。`.d.mts` 的 `PublicOperationOutput` 对目录、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。SDK 不构造 `If-Match`，条件写入 Host 动作仍 BLOCKED，不能遗失原 ETag 后启用。
+
 ## Knowledge PEP 与范围收紧
 
 SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 11 个公开 Knowledge 路由显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。archive 复用对应 update 路由，因此同一检查适用。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归，外部 source、团队/非目标作用域及实际 Knowledge 全操作仍需独立矩阵证据。
 
 ## 本批校验与剩余具体边界
 
-- SD 新 facade OpenAPI 固定方法、仅账户 scope、dirty preview 输入不丢、无 create/save、preview job path 绑定、原 Remove 函数传 actor/tenant/agent、知识非 owner 403/owner 200：10 个聚焦测试通过。既有 public resource/account key 3 个测试通过；完整 G4/G5 业务未运行。
-- PD 旧真实目录/job/SSE/error 测试及新固定路由/dirty preview/preview `data.seq`：10/10 聚焦 node:test 通过；`.d.mts` 单文件 typecheck 通过。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
+- SD 新 facade OpenAPI 固定方法、仅账户 scope、dirty preview 输入不丢、无 create/save、preview job path 绑定、team `agent_id=None`、原 Remove 函数传 actor/tenant/agent、知识非 owner 403/owner 200：11 个聚焦测试通过。既有 public resource/account key 3 个测试通过；完整 G4/G5 业务未运行。
+- PD 旧真实目录/job/SSE/error 测试及新固定路由/selected scope/dirty preview/preview `data.seq`：11/11 聚焦 node:test 通过；上一提交 `.d.mts` 单文件 typecheck 通过，本次类型增量尚未重跑。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
 - 外部 control identity source 的 handoff 用户目录仍无可供账户 key 调用的正式 reader，facade 给 `USER_DIRECTORY_UNAVAILABLE` 503。需要 deployment owner 提供保持原 actor/可见范围的公开目录 SDK 方法；不能换控制 token 或用本地 shadow 用户伪目录。
 - Knowledge 外部来源/团队/非目标可见范围尚未在真实运行验证，必要项仍 NOT RUN。`preview` 采用原 transient stream job 存储，facade 另将原 job ID 绑定创建时的 agent path；服务重启后其 in-memory job 不支持恢复，保持原语义，不将其映射到持久 APIJob。实际模型配置与 `model_for_agent` 仍需下一完整 candidate 证明。
 - 整合者接入 PD modules.js 和 adapter 固定公开响应/stream，串行 build/typecheck 后统一一个 cleanpair；独立验收 G0–G7 不因本批代码自动升 PASS。无 push/merge/deploy、AgentLoop/core/PEP 策略修改。

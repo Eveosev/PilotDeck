@@ -2,6 +2,8 @@
 export type PublicOperationInput = {
   list_tools: {};
   list_general_skills: {};
+  list_knowledge_bases: {};
+  list_sops: {};
   create_tool: { body: Record<string, unknown> };
   update_tool: { toolId: string; body: Record<string, unknown> };
   test_tool: { toolId: string; body: Record<string, unknown> };
@@ -41,6 +43,29 @@ export type PublicOperationInput = {
   list_handoff_users: {};
 };
 export type PublicOperation = keyof PublicOperationInput;
+export type PublicSelectedScope = { kind: 'agent'; agentId: string } | { kind: 'team' };
+export type PublicRecord = Record<string, unknown>;
+export type PublicCollection = { data: PublicRecord[]; next_cursor?: string | null };
+export type PublicJob = PublicRecord & { id: string; status: string };
+export type PublicPreviewJob = PublicRecord & { job_id: string; status: string; last_seq: number };
+export type PublicJobResult = { job: PublicJob; result: PublicRecord; error: PublicRecord };
+export type PublicOperationOutput = {
+  list_tools: PublicCollection; list_general_skills: PublicCollection; list_knowledge_bases: PublicCollection;
+  list_sops: PublicCollection & { drafts: PublicRecord[] };
+  create_tool: PublicRecord; update_tool: PublicRecord; test_tool: PublicRecord;
+  import_general_skill: PublicRecord; publish_general_skill: PublicRecord;
+  archive_general_skill: PublicRecord; test_general_skill: PublicRecord;
+  generate_sop: PublicJob; rewrite_saved_sop: PublicJob;
+  get_job: PublicJob; get_job_result: PublicJobResult; job_events: unknown; cancel_job: PublicJob;
+  preview_generate_sop: { job_id: string }; preview_rewrite_sop: { job_id: string };
+  get_preview_job: PublicPreviewJob; preview_job_events: unknown;
+  cancel_preview_job: { status: 'cancel_requested'; job_id: string };
+  move_to_draft_sop: PublicRecord; remove_sop: PublicRecord;
+  sync_sop_from_overall: PublicRecord; promote_sop_to_overall: PublicRecord;
+  delete_sop_version: PublicRecord; probe_unsaved_tool: PublicRecord;
+  remove_tool: PublicRecord; extract_sop_text: { filename: string; text: string };
+  list_model_catalog: PublicCollection; list_handoff_users: PublicCollection;
+};
 export type PublicResponse<T = unknown> = { status: number; body: T; headers?: Headers | Record<string, string> };
 export type PublicTransportPlan = {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'; path: string;
@@ -51,13 +76,13 @@ export class PublicCapabilityError extends Error { code: string; status: number;
 export const PUBLIC_OPERATION_CONTRACTS: Readonly<Record<PublicOperation, readonly [string, string, string, string]>>;
 export const PUBLIC_APPROVED_OPERATIONS: readonly PublicOperation[];
 export const PUBLIC_PROTOCOL_BLOCKERS: Readonly<Record<string, string>>;
-export function planPublicOperation<O extends PublicOperation>(agentId: string, operation: O, input: PublicOperationInput[O]): PublicTransportPlan;
+export function planPublicOperation<O extends PublicOperation>(agentId: string | null, operation: O, input: PublicOperationInput[O]): PublicTransportPlan;
 export function createPublicCapabilityClient(options: {
   agentId: string;
   transport: (plan: PublicTransportPlan) => Promise<PublicResponse>;
   authorizedOperations?: readonly PublicOperation[];
 }): {
-  call<O extends PublicOperation>(operation: O, input: PublicOperationInput[O], options?: { signal?: AbortSignal }): Promise<PublicResponse>;
+  call<O extends PublicOperation>(operation: O, input: PublicOperationInput[O], options?: { signal?: AbortSignal; scope?: PublicSelectedScope }): Promise<PublicResponse<PublicOperationOutput[O] | PublicRecord>>;
 };
 export type PublicSseEvent = { id?: string; event: string; data: string };
 export type PreviewSseEvent = PublicSseEvent & { sequence?: number };

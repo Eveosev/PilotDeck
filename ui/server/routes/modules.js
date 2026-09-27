@@ -30,6 +30,7 @@ const KNOWLEDGE_READ_OPERATIONS = new Set([
 ]);
 const PUBLIC_SDK_OPERATIONS = new Set(PUBLIC_APPROVED_OPERATIONS);
 const PUBLIC_SDK_STREAM_OPERATIONS = new Set(['job_events', 'preview_job_events']);
+const PUBLIC_SDK_GLOBAL_OPERATIONS = new Set(['get_job', 'get_job_result', 'job_events', 'cancel_job']);
 const SOP_MANAGEMENT_OPERATIONS = new Set([
   'list', 'create', 'get_draft', 'replace_draft', 'validate',
   'publish', 'archive', 'list_versions', 'get_version', 'rollback',
@@ -265,7 +266,6 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       }
       const input = streamOnly ? {
         jobId: req.query.jobId,
-        ...(req.query.agentId !== undefined ? { agentId: req.query.agentId } : {}),
         ...(operation === 'job_events' && (req.get('Last-Event-ID') !== undefined || req.query.lastEventId !== undefined)
           ? { lastEventId: req.get('Last-Event-ID') ?? req.query.lastEventId } : {}),
         ...(operation === 'preview_job_events' && req.query.afterSeq !== undefined ? { afterSeq: req.query.afterSeq } : {}),
@@ -274,13 +274,28 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (['tenantId', 'tenant_id', 'actorUserId', 'actor_user_id', 'credentialId'].some(field => Object.hasOwn(input, field))) {
         throw managementError(400, 'PUBLIC_SCOPE_OVERRIDE', 'SDK identity comes from the verified owner.');
       }
+      if (req.get('If-Match') !== undefined || ['etag', 'ifMatch', 'if_match'].some(field => Object.hasOwn(input, field))) {
+        throw managementError(409, 'PUBLIC_CONDITIONAL_WRITE_UNAVAILABLE', 'Conditional SDK writes require an implemented If-Match contract.');
+      }
+      const scope = streamOnly
+        ? req.query.scope === 'team' ? { kind: 'team' }
+          : req.query.scope === 'agent' ? { kind: 'agent', agentId: req.query.agentId }
+            : req.query.scope === undefined ? undefined : { kind: req.query.scope }
+        : req.body?.scope;
+      validatePublicSdkScope(operation, scope);
+      if (streamOnly && req.query.agentId !== undefined && scope?.kind !== 'agent') {
+        throw managementError(400, 'PUBLIC_SELECTED_SCOPE_INVALID', 'GET agentId is valid only with explicit scope=agent.');
+      }
+      if (Object.hasOwn(input, 'agentId') || Object.hasOwn(input, 'scope')) {
+        throw managementError(400, 'PUBLIC_SELECTED_SCOPE_INVALID', 'Selection belongs in the explicit scope field.');
+      }
       const config = readConfig();
       const management = readSopManagement(config);
       const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal,
         PUBLIC_OPERATION_CONTRACTS[operation][2]);
       const gateway = createStaffDeckPublicCapabilityGateway({ management, owner, signal: req.moduleRequestSignal,
         authorizedOperations: PUBLIC_APPROVED_OPERATIONS });
-      const result = await gateway.call(operation, input);
+      const result = await gateway.call(operation, input, { scope });
       res.status(result.status);
       for (const header of ['content-type', 'etag', 'retry-after', 'x-request-id']) {
         const value = result.headers?.get(header);
@@ -547,8 +562,8 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
     throw managementError(409, 'SOP_MANAGEMENT_TARGET_MISMATCH', 'Public capability transport requires the verified management owner.');
   }
   const grants = authorizedOperations.filter(operation => PUBLIC_SDK_OPERATIONS.has(operation));
-  const clientFor = agentId => createPublicCapabilityClient({
-    agentId,
+  const client = createPublicCapabilityClient({
+    agentId: owner.agentId,
     authorizedOperations: grants,
     transport: async plan => {
       const response = await fetchStaffDeckOwner(management, plan);
@@ -563,14 +578,8 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
   });
   const call = (operation, input = {}, options = {}) => {
     if (!isRecord(input)) throw managementError(400, 'PUBLIC_INPUT_INVALID', 'SDK input must be an object.');
-    const agentId = input.agentId === undefined ? owner.agentId : input.agentId;
-    if (typeof agentId !== 'string' || !agentId.trim()) {
-      throw managementError(400, 'PUBLIC_INPUT_INVALID', 'Selected agentId must be a non-empty string.');
-    }
-    // Resource selection is separate from credential ownership. SD enforces the
-    // original viewer/manager PEP for the selected agent, including non-targets.
-    const { agentId: _selectedAgent, ...sdkInput } = input;
-    return clientFor(agentId).call(operation, sdkInput, { signal: options.signal ?? signal });
+    validatePublicSdkScope(operation, options.scope);
+    return client.call(operation, input, { signal: options.signal ?? signal, scope: options.scope });
   };
   return Object.freeze({
     call,
@@ -580,6 +589,19 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
       return { ...response, body: decodePublicJobEvents(response.body, { signal: options.signal ?? signal }) };
     },
   });
+}
+
+function validatePublicSdkScope(operation, scope) {
+  if (PUBLIC_SDK_GLOBAL_OPERATIONS.has(operation)) {
+    if (scope !== undefined) throw managementError(400, 'PUBLIC_SELECTED_SCOPE_INVALID', 'Global jobs are selected by job ID, without agent/team scope.');
+    return;
+  }
+  if (scope === undefined) throw managementError(400, 'PUBLIC_SELECTED_SCOPE_REQUIRED', 'The current agent or team selection is required.');
+  if (!isRecord(scope) || !['agent', 'team'].includes(scope.kind)
+    || Object.keys(scope).some(key => !['kind', ...(scope.kind === 'agent' ? ['agentId'] : [])].includes(key))
+    || (scope.kind === 'agent' && (typeof scope.agentId !== 'string' || !scope.agentId.trim()))) {
+    throw managementError(400, 'PUBLIC_SELECTED_SCOPE_INVALID', 'Scope must explicitly select an agent ID or team.');
+  }
 }
 
 function required(value, field) {
