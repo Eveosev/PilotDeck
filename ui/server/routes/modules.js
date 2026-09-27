@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
+import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -41,6 +42,10 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try { return parseYaml(readFileSync(path, 'utf8')) ?? {}; } catch { return {}; }
   });
   const route = express.Router();
+  route.use((req, res, next) => {
+    req.moduleRequestSignal = bindModuleRequestAbort(req, res);
+    next();
+  });
   route.use('/staffdeck-copy', createStaffDeckCopyRouter({ loadConfig: readConfig }));
   // A definition write is visible immediately on disk, but the active AgentLoop
   // keeps its previous snapshot until the process is restarted. Keep that
@@ -86,7 +91,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
       }
       const requestId = `knowledge-ui-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body);
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body, req.moduleRequestSignal);
       const messageId = `module-http-${requestId}`;
       const input = withTrustedKnowledgeIdentity(binding, req.body);
       if (!input.baseId && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) {
@@ -101,7 +106,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const response = await fetch(new URL(binding.callPath || '/v2/module/call', binding.endpoint), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        signal: AbortSignal.timeout(Number(binding.timeoutMs) || 10_000),
+        signal: moduleUpstreamSignal(req.moduleRequestSignal, Number(binding.timeoutMs) || 10_000),
         body: JSON.stringify({
           kind: 'request', messageId, method: 'module_call', runId: 'knowledge-ui', operationId: 'knowledge-ui', requestId,
           module: 'knowledge', payload: { operation: 'query', input },
@@ -129,13 +134,13 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
       }
       const requestId = `knowledge-ui-citation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body);
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body, req.moduleRequestSignal);
       const messageId = `module-http-${requestId}`;
       const input = withTrustedKnowledgeIdentity(binding, req.body);
       const response = await fetch(new URL(binding.callPath || '/v2/module/call', binding.endpoint), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        signal: AbortSignal.timeout(Number(binding.timeoutMs) || 10_000),
+        signal: moduleUpstreamSignal(req.moduleRequestSignal, Number(binding.timeoutMs) || 10_000),
         body: JSON.stringify({
           kind: 'request', messageId, method: 'module_call', runId: 'knowledge-ui', operationId: 'knowledge-ui-citation', requestId,
           module: 'knowledge', payload: { operation: 'resolve_citation', input },
@@ -170,8 +175,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(409).json({ error: { code: 'MODULE_CAPABILITY_UNAVAILABLE', message: `Knowledge module does not advertise ${operation}.` } });
       }
       const input = withKnowledgeDefaults(binding, req.body?.input);
-      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body?.input);
-      const response = await callKnowledgeModule(binding, operation, input);
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body?.input, req.moduleRequestSignal);
+      const response = await callKnowledgeModule(binding, operation, input, req.moduleRequestSignal);
       if (!response.response.ok || !response.body || response.body.kind !== 'response' || response.body.inReplyTo !== response.messageId || response.body.ok !== true) {
         return res.status(response.response.status === 200 ? 502 : response.response.status).json({ error: { code: response.body?.code || 'MODULE_CALL_FAILED', message: response.body?.error?.message || 'Knowledge module call failed.' } });
       }
@@ -213,7 +218,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try {
       const config = readConfig();
       const management = readSopManagement(config);
-      await verifySopManagementIdentity(config, management, req.user);
+      await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
       return res.json({ enabled: true, methods: management.methods, agentId: management.agentId });
     } catch (error) {
       return res.status(Number.isInteger(error?.status) ? error.status : 502).json({ error: { code: error?.code || 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
@@ -230,8 +235,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!management.methods.includes(operation)) {
         return res.status(409).json({ error: { code: 'SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE', message: `SOP management does not advertise ${operation}.` } });
       }
-      await verifySopManagementIdentity(config, management, req.user);
-      const result = await callSopManagement(management, operation, req.body?.input);
+      await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
+      const result = await callSopManagement(management, operation, req.body?.input, req.moduleRequestSignal);
       return res.status(result.status).json({ result: result.body });
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 502;
@@ -257,13 +262,13 @@ async function readGatewayCapabilities(getGateway) {
   }
 }
 
-async function callKnowledgeModule(binding, operation, input) {
+async function callKnowledgeModule(binding, operation, input, signal) {
   const requestId = `knowledge-ui-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const messageId = `module-http-${requestId}`;
   const response = await fetch(new URL(binding.callPath || '/v2/module/call', binding.endpoint), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    signal: AbortSignal.timeout(Number(binding.timeoutMs) || 10_000),
+    signal: moduleUpstreamSignal(signal, Number(binding.timeoutMs) || 10_000),
     body: JSON.stringify({
       kind: 'request', messageId, method: 'module_call', runId: 'knowledge-ui', operationId: `knowledge-ui-${operation}`, requestId,
       module: 'knowledge', payload: { operation, input },
@@ -350,7 +355,7 @@ function readSopManagement(config) {
   return { endpoint: endpoint.endsWith('/') ? endpoint : `${endpoint}/`, apiKey, credentialId, agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
 }
 
-async function verifySopManagementIdentity(config, management, user) {
+async function verifySopManagementIdentity(config, management, user, signal) {
   const copy = config?.webui?.staffdeckCopy;
   if (copy?.enabled !== true || copy?.contract !== 'staffdeck.enterprise-copy/v1') {
     throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck copy identity is not enabled for SOP management.');
@@ -381,7 +386,7 @@ async function verifySopManagementIdentity(config, management, user) {
   const officialGet = async (path) => {
     const response = await fetch(new URL(path, origin), {
       headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
-      redirect: 'error', signal: AbortSignal.timeout(management.timeoutMs),
+      redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs),
     });
     if (!response.ok) throw managementError(response.status, 'SOP_MANAGEMENT_IDENTITY_REJECTED', `StaffDeck rejected the configured user credential (${response.status}).`);
     return response.json();
@@ -404,7 +409,7 @@ async function verifySopManagementIdentity(config, management, user) {
   }
 }
 
-async function callSopManagement(management, operation, value) {
+async function callSopManagement(management, operation, value, signal) {
   const input = isRecord(value) ? value : {};
   const sopId = text(input.sopId);
   const version = text(input.version);
@@ -416,7 +421,13 @@ async function callSopManagement(management, operation, value) {
   switch (operation) {
     case 'list': target = `agents/${path(management.agentId)}/sops`; break;
     case 'create':
-      method = 'POST'; target = `agents/${path(management.agentId)}/sops`; body = { content: input.content }; break;
+      method = 'POST'; target = `agents/${path(management.agentId)}/sops`;
+      if (!isRecord(input.content)) throw managementError(400, 'SOP_CONTENT_REQUIRED', 'SOP creation requires the selected content.');
+      if (sopId && input.content.skill_id !== undefined && input.content.skill_id !== sopId) {
+        throw managementError(400, 'SOP_ID_MISMATCH', 'SOP content must match the selected SOP.');
+      }
+      body = { content: sopId ? { ...input.content, skill_id: sopId } : input.content };
+      break;
     case 'get_draft':
       required(sopId, 'sopId'); required(draftId, 'draftId'); target = `agents/${path(management.agentId)}/sops/${path(sopId)}/drafts/${path(draftId)}`; break;
     case 'replace_draft':
@@ -441,12 +452,12 @@ async function callSopManagement(management, operation, value) {
     required(text(input.etag), 'etag');
     headers['if-match'] = text(input.etag);
   }
-  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(management.timeoutMs) });
+  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs) });
   const payload = await response.json().catch(() => undefined);
   if (!response.ok) {
     throw Object.assign(new Error(payload?.error?.message || payload?.detail || `StaffDeck SOP management request failed (${response.status}).`), { code: payload?.error?.code || 'SOP_MANAGEMENT_UPSTREAM_FAILED', status: response.status });
   }
-  if (isRecord(payload) && !payload.etag && ['get_draft', 'replace_draft'].includes(operation) && response.headers.get('etag')) payload.etag = response.headers.get('etag');
+  if (isRecord(payload) && !payload.etag && ['create', 'get_draft', 'replace_draft', 'rollback'].includes(operation) && response.headers.get('etag')) payload.etag = response.headers.get('etag');
   return { status: response.status, body: payload };
 }
 

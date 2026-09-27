@@ -1,3 +1,4 @@
+import { moduleUpstreamSignal } from '../module-request-abort.js';
 import express from 'express';
 
 const CONTRACT = 'staffdeck.enterprise-copy/v1';
@@ -65,7 +66,7 @@ async function officialRequest(binding, method, path, body) {
     redirect: 'error',
     headers: { authorization: `Bearer ${binding.token}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(binding.timeoutMs),
+    signal: moduleUpstreamSignal(binding.signal, binding.timeoutMs),
   });
   const payload = await response.json().catch(() => undefined);
   if (!response.ok) {
@@ -102,8 +103,8 @@ async function verifyFormalUser(binding) {
 
 // The module transport is a different protocol, but must not lend the copy
 // actor to another local user or another selected owner.
-export async function verifyStaffDeckKnowledgeBinding(config, user, moduleBinding, input) {
-  const binding = bindingFor(config, user, 'list_agents');
+export async function verifyStaffDeckKnowledgeBinding(config, user, moduleBinding, input, signal) {
+  const binding = { ...bindingFor(config, user, 'list_agents'), signal };
   if (moduleBinding?.tenantId !== binding.tenantId || moduleBinding?.actorUserId !== binding.actorUserId
     || moduleBinding?.agentId !== binding.targetAgentId) {
     throw new CopyError(409, 'KNOWLEDGE_IDENTITY_MISMATCH', 'Knowledge tenant, actor and target must match the formal copy binding.');
