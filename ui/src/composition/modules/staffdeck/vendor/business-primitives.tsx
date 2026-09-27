@@ -1,6 +1,6 @@
 import {
   BusinessDataTable, BusinessResourceImportDialog, defaultResourceImportPrimitives,
-  type DataTablePrimitives, type ResourceImportDialogProps,
+  type DataTablePrimitives, type ResourceImportDialogProps, type ResourceImportPrimitives,
 } from './SkillsPageHost';
 
 function classNames(base: string, extra?: string) { return `${base} ${extra || ''}`; }
@@ -18,6 +18,13 @@ export function PilotDeckDataTable(props: any) {
   return <BusinessDataTable {...props} primitives={tablePrimitives} />;
 }
 
+// The extracted formal layout uses a light palette for its labels and controls.
+// Keep its surface consistent even when the surrounding PilotDeck page is dark.
+const resourceImportPrimitives: ResourceImportPrimitives = {
+  ...defaultResourceImportPrimitives,
+  DialogContent: ({ children, className }: any) => <section className={classNames('max-h-[calc(100dvh-2rem)] w-[min(960px,100%)] overflow-auto rounded-lg bg-white p-5 text-[#18181a] shadow-xl', className)}>{children}</section>,
+};
+
 export function PilotDeckResourceImportDialog(props: ResourceImportDialogProps) {
-  return <BusinessResourceImportDialog {...props} primitives={defaultResourceImportPrimitives} />;
+  return <BusinessResourceImportDialog {...props} primitives={resourceImportPrimitives} />;
 }
