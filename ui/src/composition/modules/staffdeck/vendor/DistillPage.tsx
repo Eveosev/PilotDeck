@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 import {
   ApiOutlined, ArrowLeftOutlined, BranchesOutlined, CheckCircleOutlined,
   CheckOutlined, CodeOutlined, CloseOutlined, CloseCircleOutlined,
@@ -2309,7 +2310,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                               <FileTextOutlined />
                             </span>
                             <span className={CHAT_ATTACHMENT_MAIN_CLASS}>
-                              <span className={CHAT_ATTACHMENT_NAME_CLASS}>{attachment.name}</span>
+                              <span {...USER_CONTENT_ATTRIBUTES} className={CHAT_ATTACHMENT_NAME_CLASS}>{attachment.name}</span>
                               <span className={CHAT_ATTACHMENT_TYPE_CLASS}>{attachment.type}</span>
                             </span>
                           </div>
@@ -2347,6 +2348,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                       <>
                         {item.content ? (
                           <div
+                            {...(item.id !== 'welcome' && item.id !== 'loaded' ? USER_CONTENT_ATTRIBUTES : {})}
                             className={cn(
                               CHAT_CONTENT_CLASS,
                               item.role === 'user' && item.attachments?.length ? CHAT_CONTENT_USER_ATTACHMENTS_CLASS : undefined,
@@ -2410,12 +2412,12 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                                     {toolSuggestionStatusText(suggestion)}
                                   </span>
                                 </div>
-                                <div className={TOOL_SUGGESTION_DESC_CLASS}>
+                                <div {...USER_CONTENT_ATTRIBUTES} className={TOOL_SUGGESTION_DESC_CLASS}>
                                   {suggestion.reason || suggestion.description || suggestion.name}
                                 </div>
                                 <div className={TOOL_SUGGESTION_META_CLASS}>
                                   <span className={TOOL_METHOD_CLASS}>{suggestion.method || 'POST'}</span>
-                                  <span>{suggestion.url || '-'}</span>
+                                  <span {...USER_CONTENT_ATTRIBUTES}>{suggestion.url || '-'}</span>
                                 </div>
                               </div>
                               <div className={TOOL_SUGGESTION_ACTIONS_CLASS}>
@@ -2485,7 +2487,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                   {attachments.map((attachment) => (
                     <div className={uploadItemClass(attachment.status)} key={attachment.id}>
                       <FileTextOutlined />
-                      <span className={UPLOAD_NAME_CLASS}>{attachment.name}</span>
+                      <span {...USER_CONTENT_ATTRIBUTES} className={UPLOAD_NAME_CLASS}>{attachment.name}</span>
                       <span className={UPLOAD_STATUS_CLASS}>
                         {attachment.status === 'uploading' && '读取中'}
                         {attachment.status === 'ready' && '已读取'}
@@ -4471,7 +4473,7 @@ function SkillFlow({
             <div className={FLOW_VIEWER_TITLE_CLASS}>
               <span className={FLOW_VIEWER_TITLE_MARK_CLASS}><BranchesOutlined /></span>
               <span className="grid min-w-0 gap-[2px]">
-                <strong className="truncate text-[14px] font-medium text-[#18181a]">{skill.name || 'SOP 流程图'}</strong>
+                <strong {...(skill.name ? USER_CONTENT_ATTRIBUTES : {})} className="truncate text-[14px] font-medium text-[#18181a]">{skill.name || 'SOP 流程图'}</strong>
                 <span className={FLOW_VIEWER_TITLE_META_CLASS}>
                   {nodes.length} 个节点 · {graphLayout.edges.length} 条连线 · {armedConnectionSourceId ? '点击目标节点完成连接' : '拖动节点调整排版，选择连线可删除'}
                 </span>
@@ -4712,12 +4714,12 @@ function SkillFlow({
               >
                 {selectedPaths.includes('basic') && <span className={SELECTION_MARK_CLASS}><CheckOutlined /></span>}
                 <span>基础信息</span>
-                <strong><InlineDiffText path="basic" field="name" value={skill.name} diffs={textDiffs} /></strong>
-                <small>{skill.skill_id}</small>
-                <p><InlineDiffText path="basic" field="description" value={skill.description || '暂无描述'} diffs={textDiffs} /></p>
+                <strong {...USER_CONTENT_ATTRIBUTES}><InlineDiffText path="basic" field="name" value={skill.name} diffs={textDiffs} /></strong>
+                <small {...USER_CONTENT_ATTRIBUTES}>{skill.skill_id}</small>
+                <p {...(skill.description ? USER_CONTENT_ATTRIBUTES : {})}><InlineDiffText path="basic" field="description" value={skill.description || '暂无描述'} diffs={textDiffs} /></p>
                 <div className={FLOW_META_CLASS}>
                   <FlowMetaRow label="业务域">
-                    <span className={FLOW_CHIP_CLASS}>{skill.business_domain || '-'}</span>
+                    <span {...USER_CONTENT_ATTRIBUTES} className={FLOW_CHIP_CLASS}>{skill.business_domain || '-'}</span>
                   </FlowMetaRow>
                   <FlowMetaRow label="单步上限">
                     <span className={FLOW_CHIP_CLASS}>
@@ -5120,8 +5122,8 @@ function SkillFlowNodeCard({
       >
         {selectedPaths.includes(path) && <span className={SELECTION_MARK_CLASS}><CheckOutlined /></span>}
         <span>节点 {index + 1}</span>
-        <strong><InlineDiffText path={path} field="name" value={String(step.name || nodeId)} diffs={textDiffs} /></strong>
-        <small>{nodeId}</small>
+        <strong {...USER_CONTENT_ATTRIBUTES}><InlineDiffText path={path} field="name" value={String(step.name || nodeId)} diffs={textDiffs} /></strong>
+        <small {...USER_CONTENT_ATTRIBUTES}>{nodeId}</small>
         <div className={FLOW_NODE_BADGES_CLASS}>
           <span className={FLOW_CHIP_CLASS}>{nodeTypeLabel(String(step.type || 'collect_info'))}</span>
           {Boolean(step.optional) && <span className={FLOW_CHIP_CLASS}>可选</span>}
@@ -5130,7 +5132,7 @@ function SkillFlowNodeCard({
         {isSubflow ? (
           <NestedSopPreview childSop={childSop} subSopId={String(step.sub_sop_id || '')} />
         ) : (
-          <p className={FLOW_NODE_SUMMARY_CLASS} title={instruction}>
+          <p {...(step.instruction ? USER_CONTENT_ATTRIBUTES : {})} className={FLOW_NODE_SUMMARY_CLASS} title={instruction}>
             <InlineDiffText path={path} field="instruction" value={instruction} diffs={textDiffs} />
           </p>
         )}
@@ -5214,7 +5216,7 @@ function PlainChipList({ values }: { values: unknown }) {
   return (
     <div className={FLOW_CHIP_LIST_CLASS}>
       {items.map((item, index) => (
-        <span className={FLOW_CHIP_CLASS} key={`${item}_${index}`}>
+        <span {...USER_CONTENT_ATTRIBUTES} className={FLOW_CHIP_CLASS} key={`${item}_${index}`}>
           {item}
         </span>
       ))}
@@ -6173,7 +6175,7 @@ function EditableSourceTextLine({
                 className={SOURCE_COLLAPSIBLE_HEAD_CLASS}
                 onClick={() => setCollapsed((current) => !current)}
               >
-                <span className={cn(SOURCE_COLLAPSIBLE_PREVIEW_CLASS, !collapsed && SOURCE_COLLAPSIBLE_PREVIEW_MUTED_CLASS)}>
+                <span {...(collapsed && value.trim() ? USER_CONTENT_ATTRIBUTES : {})} className={cn(SOURCE_COLLAPSIBLE_PREVIEW_CLASS, !collapsed && SOURCE_COLLAPSIBLE_PREVIEW_MUTED_CLASS)}>
                   {collapsed ? previewSourceText(value) : '正在编辑节点说明'}
                 </span>
                 <span className={SOURCE_COLLAPSIBLE_TOGGLE_CLASS}>
@@ -6377,7 +6379,7 @@ function SourceReadonlyLine({ label, value }: { label: string; value: string }) 
   return (
     <div className={cn(SOURCE_LINE_CLASS, "readonly")}>
       <span className={SOURCE_KEY_CLASS}>{label}</span>
-      <span className={cn(SOURCE_VALUE_CLASS, SOURCE_READONLY_VALUE_CLASS)}>{value || '-'}</span>
+      <span {...USER_CONTENT_ATTRIBUTES} className={cn(SOURCE_VALUE_CLASS, SOURCE_READONLY_VALUE_CLASS)}>{value || '-'}</span>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Ban, CircleCheck, Copy, Eye, RotateCcw, Upload, Users } from 'lucide-react';
@@ -223,7 +224,7 @@ export default function SkillsPage({
       width: 170,
       className: 'text-[#18181a]',
       render: (row) => (
-        <span className="block truncate" title={row.name}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate" title={row.name}>
           {row.name}
         </span>
       ),
@@ -233,7 +234,7 @@ export default function SkillsPage({
       title: 'SOP ID',
       width: 170,
       render: (row) => (
-        <span className="block truncate" title={row.skill_id}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate" title={row.skill_id}>
           {row.skill_id}
         </span>
       ),
@@ -242,7 +243,7 @@ export default function SkillsPage({
       key: 'business_domain',
       title: '业务域',
       width: 120,
-      render: (row) => <span className="block truncate">{row.business_domain || '-'}</span>,
+      render: (row) => <span {...USER_CONTENT_ATTRIBUTES} className="block truncate">{row.business_domain || '-'}</span>,
     },
     { key: 'version', title: '版本', width: 80, render: (row) => row.version },
     {
@@ -256,7 +257,7 @@ export default function SkillsPage({
       title: '创建者',
       width: 120,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
           {resourceCreatorName(row) || '-'}
         </span>
       ),
@@ -368,16 +369,16 @@ export default function SkillsPage({
       <article className={MOBILE_CARD_CLASS} key={row.id}>
         <div className="flex min-w-0 items-start justify-between gap-[10px]">
           <div className="min-w-0">
-            <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{row.name}</strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.skill_id}</span>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：{resourceCreatorName(row) || '-'}</span>
+            <strong {...USER_CONTENT_ATTRIBUTES} className="block truncate text-[14px] font-semibold text-[#18181a]">{row.name}</strong>
+            <span {...USER_CONTENT_ATTRIBUTES} className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.skill_id}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：<span {...USER_CONTENT_ATTRIBUTES}>{resourceCreatorName(row) || '-'}</span></span>
           </div>
           {renderActions(row)}
         </div>
         <div className="mt-[10px] flex flex-wrap items-center gap-[4px]">
           <StatusBadge tone={preset.tone}>{preset.text}</StatusBadge>
           {renderBranchBadge(row, isOverallAgent)}
-          {row.business_domain && <StatusBadge tone="gray">{row.business_domain}</StatusBadge>}
+          {row.business_domain && <StatusBadge tone="gray"><span {...USER_CONTENT_ATTRIBUTES}>{row.business_domain}</span></StatusBadge>}
         </div>
         <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
           <span>调用 {row.call_count || 0} 次</span>
@@ -786,8 +787,8 @@ export default function SkillsPage({
           id: item.id,
           label: (
             <>
-              {item.name}
-              <span className="text-[#858b9c]"> · {item.skill_id}</span>
+              <span {...USER_CONTENT_ATTRIBUTES}>{item.name}</span>
+              <span {...USER_CONTENT_ATTRIBUTES} className="text-[#858b9c]"> · {item.skill_id}</span>
             </>
           ),
         }))}
@@ -964,7 +965,7 @@ function RankingCard({
                 {row.rank}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] text-[#18181a]" title={row.name}>
+                <div {...USER_CONTENT_ATTRIBUTES} className="truncate text-[12px] text-[#18181a]" title={row.name}>
                   {row.name}
                 </div>
                 {version && <div className="text-[11px] text-[#858b9c]">{version(row)}</div>}
@@ -1005,7 +1006,7 @@ function RankingDialog({
       width: 180,
       className: 'text-[#18181a]',
       render: (row) => (
-        <span className="block min-[180px]" title={row.name}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block min-[180px]" title={row.name}>
           {row.name}
         </span>
       ),
@@ -1015,7 +1016,7 @@ function RankingDialog({
       width: 80,
       title: 'SOP ID',
       render: (row) => (
-        <span className="block truncate" title={row.skill_id}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate" title={row.skill_id}>
           {row.skill_id}
         </span>
       ),
@@ -1025,7 +1026,7 @@ function RankingDialog({
       key: 'domain',
       title: '业务域',
       width: 120,
-      render: (row) => <span className="block truncate">{row.business_domain || '-'}</span>,
+      render: (row) => <span {...USER_CONTENT_ATTRIBUTES} className="block truncate">{row.business_domain || '-'}</span>,
     },
     { key: 'metric', title: rankingMetricTitle(mode, scope), width: 120, render: (row) => rankingMetricValue(row, mode, scope) },
     { key: 'calls', title: '调用次数', render: (row) => `${rankingCalls(row, scope)} 次` },
@@ -1089,7 +1090,7 @@ function VersionsDialog({
       key: 'name',
       title: 'SOP 名称',
       render: (row) => (
-        <span className="block truncate" title={row.name}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate" title={row.name}>
           {row.name}
         </span>
       ),
@@ -1098,7 +1099,7 @@ function VersionsDialog({
       key: 'domain',
       title: '业务域',
       width: 130,
-      render: (row) => <span className="block truncate">{row.business_domain || '-'}</span>,
+      render: (row) => <span {...USER_CONTENT_ATTRIBUTES} className="block truncate">{row.business_domain || '-'}</span>,
     },
     { key: 'calls', title: '调用次数', width: 100, render: (row) => `${row.call_count || 0} 次` },
     { key: 'pos', title: '好评率', width: 90, render: (row) => percent(row.positive_rate) },

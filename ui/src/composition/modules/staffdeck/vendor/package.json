@@ -39,6 +39,7 @@
     "./FormalKnowledgeGraphVisualization": "./src/FormalKnowledgeGraphVisualization.tsx",
     "./FormalKnowledgeGraphModel": "./src/FormalKnowledgeGraphModel.ts",
     "./FormalHandoff": "./src/FormalHandoff.ts",
-    "./FormalApiError": "./src/FormalApiError.ts"
+    "./FormalApiError": "./src/FormalApiError.ts",
+    "./FormalUserContent": "./src/FormalUserContent.ts"
   }
 }

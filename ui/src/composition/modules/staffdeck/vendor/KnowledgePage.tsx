@@ -1,5 +1,6 @@
 // @ts-nocheck
 import './FormalKnowledgeLayout.css';
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -970,9 +971,9 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
       title: '名称',
       render: (row) => (
         <div className="min-w-0">
-          <strong className="block truncate text-[13px] font-medium text-[#18181a]">{row.name}</strong>
+          <strong {...USER_CONTENT_ATTRIBUTES} className="block truncate text-[13px] font-medium text-[#18181a]">{row.name}</strong>
           {row.description ? (
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.description}</span>
+            <span {...USER_CONTENT_ATTRIBUTES} className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.description}</span>
           ) : null}
         </div>
       ),
@@ -994,7 +995,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
       title: '创建者',
       width: 120,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
+        <span {...USER_CONTENT_ATTRIBUTES} className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
           {resourceCreatorName(row) || '-'}
         </span>
       ),
@@ -1034,9 +1035,9 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
     >
       <div className="flex min-w-0 items-start justify-between gap-[10px]">
         <div className="min-w-0">
-          <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{item.name}</strong>
-          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{item.description || '未填写描述'}</span>
-          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：{resourceCreatorName(item) || '-'}</span>
+          <strong {...USER_CONTENT_ATTRIBUTES} className="block truncate text-[14px] font-semibold text-[#18181a]">{item.name}</strong>
+          <span {...(item.description ? USER_CONTENT_ATTRIBUTES : {})} className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{item.description || '未填写描述'}</span>
+          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：<span {...USER_CONTENT_ATTRIBUTES}>{resourceCreatorName(item) || '-'}</span></span>
         </div>
         <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
           {renderKnowledgeBaseActions(item)}
@@ -1262,7 +1263,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
           id: item.id,
           label: (
             <>
-              {item.name}
+              <span {...USER_CONTENT_ATTRIBUTES}>{item.name}</span>
               <span className="text-[#858b9c]"> · {item.version || '1.0.0'}</span>
             </>
           ),
@@ -1353,7 +1354,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
           editingConcept ? (
             <div className="flex min-w-0 flex-col gap-[4px]">
               <span className="text-[13px] font-semibold text-[#858b9c]">编辑知识图谱</span>
-              <strong className="line-clamp-2 text-[20px] font-semibold leading-[1.35] text-[#18181a]">
+              <strong {...USER_CONTENT_ATTRIBUTES} className="line-clamp-2 text-[20px] font-semibold leading-[1.35] text-[#18181a]">
                 {conceptEditorTitle || editingConcept.concept_id}
               </strong>
             </div>
@@ -1501,7 +1502,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
           emptyText="暂无版本记录"
           columns={[
             { key: 'version', title: '版本', render: (row) => row.version },
-            { key: 'name', title: '名称', render: (row) => row.name },
+            { key: 'name', title: '名称', render: (row) => <span {...USER_CONTENT_ATTRIBUTES}>{row.name}</span> },
             { key: 'status', title: '状态', render: (row) => statusTag(String(row.status)) },
             { key: 'is_head', title: 'Head', render: (row) => (row.is_head ? <KTag color="green">当前</KTag> : null) },
             { key: 'updated_at', title: '更新时间', render: (row) => String(row.updated_at).slice(0, 10) },
@@ -1933,7 +1934,7 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
                 key={item.id}
                 className="knowledge-base-target"
               >
-                <span>{item.name}</span>
+                <span {...USER_CONTENT_ATTRIBUTES}>{item.name}</span>
                 <small>
                   {item.document_count} 文档 / {item.bucket_count} 目录 / {item.chunk_count} 引用
                 </small>
@@ -2536,7 +2537,7 @@ function 目录索引Overview({
                   <div className="knowledge-index-page-list">
                     {group.concepts.slice(0, 8).map((concept) => (
                       <button type="button" key={concept.id} onClick={() => onViewConcept(concept)}>
-                        <span>{concept.title || concept.concept_id}</span>
+                        <span {...USER_CONTENT_ATTRIBUTES}>{concept.title || concept.concept_id}</span>
                         <small>{conceptTypeLabel(concept.concept_type)} · {concept.description || concept.concept_id}</small>
                       </button>
                     ))}
@@ -2581,7 +2582,7 @@ function 目录索引Overview({
                       </UIButton>
                     </div>
                     {bucket.summary ? (
-                      <p className="my-[6px] text-[13px] leading-[1.65] text-[#858b9c]">{bucket.summary}</p>
+                      <p {...USER_CONTENT_ATTRIBUTES} className="my-[6px] text-[13px] leading-[1.65] text-[#858b9c]">{bucket.summary}</p>
                     ) : null}
                     <KnowledgeBucketLinks bucket={bucket} evidenceOnly />
                     <section className="mt-[12px] rounded-[14px] border border-[#eceef1] bg-white p-[14px]">
@@ -2640,7 +2641,7 @@ function 目录索引Overview({
                             <KTag color={conceptTypeColor(concept.concept_type)}>{conceptTypeLabel(concept.concept_type)}</KTag>
                             {statusTag(concept.status)}
                           </div>
-                          <h5 className="mt-[6px] mb-0 text-[15px] font-semibold text-foreground">{concept.title || concept.concept_id}</h5>
+                          <h5 {...USER_CONTENT_ATTRIBUTES} className="mt-[6px] mb-0 text-[15px] font-semibold text-foreground">{concept.title || concept.concept_id}</h5>
                         </div>
                         <UIButton
                           variant="outline"
@@ -2654,7 +2655,7 @@ function 目录索引Overview({
                           编辑
                         </UIButton>
                       </div>
-                      <p className="my-[6px] text-[13px] text-[#858b9c]">{concept.description || conceptSummary(concept)}</p>
+                      <p {...(concept.description ? USER_CONTENT_ATTRIBUTES : {})} className="my-[6px] text-[13px] text-[#858b9c]">{concept.description || conceptSummary(concept)}</p>
                       <div className="flex flex-wrap items-center gap-[6px]">
                         <KTag>{concept.concept_id}</KTag>
                         <KTag>{concept.links.length} 个链接</KTag>
@@ -2678,10 +2679,10 @@ function WikiViewerTitle({ concept }: { concept: KnowledgeConceptRead }) {
   return (
     <div className="flex min-w-0 flex-col gap-[4px]">
       <span className="text-[13px] font-semibold text-[#1a71ff]">{conceptTypeLabel(concept.concept_type)}</span>
-      <strong className="line-clamp-2 text-[20px] font-semibold leading-[1.35] text-[#18181a]">
+      <strong {...USER_CONTENT_ATTRIBUTES} className="line-clamp-2 text-[20px] font-semibold leading-[1.35] text-[#18181a]">
         {concept.title || concept.concept_id}
       </strong>
-      <small className="font-mono text-[12px] wrap-break-word text-[#858b9c]">{concept.concept_id}</small>
+      <small {...USER_CONTENT_ATTRIBUTES} className="font-mono text-[12px] wrap-break-word text-[#858b9c]">{concept.concept_id}</small>
     </div>
   );
 }
@@ -2702,8 +2703,8 @@ function WikiConceptViewer({ concept }: { concept: KnowledgeConceptRead }) {
             <KTag key={String(tag)}>{String(tag)}</KTag>
           ))}
         </div>
-        <h3 className="text-[20px] font-semibold text-[#18181a]">{concept.title || concept.concept_id}</h3>
-        <p className="text-[14px] leading-[1.65] text-[#18181a]">{concept.description || conceptSummary(concept)}</p>
+        <h3 {...USER_CONTENT_ATTRIBUTES} className="text-[20px] font-semibold text-[#18181a]">{concept.title || concept.concept_id}</h3>
+        <p {...(concept.description ? USER_CONTENT_ATTRIBUTES : {})} className="text-[14px] leading-[1.65] text-[#18181a]">{concept.description || conceptSummary(concept)}</p>
       </section>
 
       <section className="grid min-w-0 gap-[10px] grid-cols-[repeat(auto-fit,minmax(160px,1fr))]" aria-label="知识图谱元信息">
@@ -2768,7 +2769,7 @@ function WikiConceptViewer({ concept }: { concept: KnowledgeConceptRead }) {
 function MarkdownPreview({ markdown }: { markdown: string }) {
   const normalized = normalizeMarkdownForDisplay(markdown);
   return (
-    <div className="knowledge-markdown-preview">
+    <div {...(normalized ? USER_CONTENT_ATTRIBUTES : {})} className="knowledge-markdown-preview">
       {renderMarkdownBlocks(normalized || '暂无内容')}
     </div>
   );
@@ -2970,9 +2971,9 @@ function KnowledgeSearchDebug({
             <div className="knowledge-evidence-list">
               {result.evidence_pack.map((item) => (
                 <div className="knowledge-evidence-item" key={item.chunk_id}>
-                  <strong className="text-[13px] font-semibold text-foreground">{item.section_path || item.source_path || item.chunk_id}</strong>
-                  <p className="m-0 text-[13px] text-foreground">{item.excerpt}</p>
-                  <span className="text-[13px] text-[#858b9c]">{item.confidence_reason}</span>
+                  <strong {...USER_CONTENT_ATTRIBUTES} className="text-[13px] font-semibold text-foreground">{item.section_path || item.source_path || item.chunk_id}</strong>
+                  <p {...USER_CONTENT_ATTRIBUTES} className="m-0 text-[13px] text-foreground">{item.excerpt}</p>
+                  <span {...USER_CONTENT_ATTRIBUTES} className="text-[13px] text-[#858b9c]">{item.confidence_reason}</span>
                 </div>
               ))}
             </div>
@@ -3015,7 +3016,7 @@ function DiscoveryColumn({
             <div className={`knowledge-discovery ${item.suggestion_type}`} key={item.id}>
               <div className="knowledge-discovery-header">
                 <div className="flex flex-wrap items-center gap-[8px]">
-                  <strong className="text-[14px] font-semibold text-foreground">{item.title}</strong>
+                  <strong {...USER_CONTENT_ATTRIBUTES} className="text-[14px] font-semibold text-foreground">{item.title}</strong>
                   <KTag>{typeLabel(item.suggestion_type)}</KTag>
                   {statusTag(item.status)}
                 </div>
@@ -3030,7 +3031,7 @@ function DiscoveryColumn({
                   </div>
                 )}
               </div>
-              {item.reason && <p className="my-[6px] text-[13px] text-[#858b9c]">{item.reason}</p>}
+              {item.reason && <p {...USER_CONTENT_ATTRIBUTES} className="my-[6px] text-[13px] text-[#858b9c]">{item.reason}</p>}
               <Accordion type="single" collapsible>
                 <AccordionItem value="payload" className="border-b-0">
                   <AccordionTrigger className="py-[6px]">查看详情</AccordionTrigger>
