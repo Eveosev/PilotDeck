@@ -12,7 +12,7 @@ describe('server-only public gateway with no explicit grants', () => {
     await expect(gateway.call('list_tools', {}, { scope: { kind: 'agent', agentId: 'agent' } })).rejects.toMatchObject({ code: 'PUBLIC_OPERATION_NOT_AUTHORIZED', status: 403 });
     await expect(gateway.events({ jobId: 'job' })).rejects.toMatchObject({ code: 'PUBLIC_OPERATION_NOT_AUTHORIZED', status: 403 });
     expect(fetch).not.toHaveBeenCalled();
-    expect(Object.keys(gateway)).toEqual(['call', 'events']);
+    expect(Object.keys(gateway)).toEqual(['call', 'file', 'events']);
   });
 
   it('refuses a mismatched owner before constructing any transport call', () => {

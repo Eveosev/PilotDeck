@@ -1,3 +1,4 @@
+import { PILOTDECK_HOST_OPERATIONS, type PilotDeckHostCapabilityPort } from './pilotdeck-host-capabilities';
 import { authenticatedFetch } from '../../../utils/api';
 import { moduleApiError } from './clients';
 import { createPublicModuleClient, type PublicSelectedScope } from './public-module-client';
@@ -55,8 +56,15 @@ export function planPublicHost(path: string, method: string, body?: unknown): Ho
     if (parts.length === 6 && action === 'versions' && method === 'delete') return plan('delete_sop_version', { sopId: id, version: parts[5] });
   }
 }
-export async function callPublicHost(plan: HostPlan, scope: PublicSelectedScope, signal?: AbortSignal) {
-  const response = await publicModuleClient.call(plan.operation, plan.input, { scope: globals.has(plan.operation) ? undefined : scope, signal });
+export async function callPublicHost(plan: HostPlan, scope: PublicSelectedScope, signal?: AbortSignal, hostCapabilities?: PilotDeckHostCapabilityPort) {
+  signal?.throwIfAborted();
+  const isHostCapability = PILOTDECK_HOST_OPERATIONS.has(plan.operation);
+  if (isHostCapability && !hostCapabilities) throw Object.assign(new Error('PilotDeck host capability binding is unavailable.'), { code: 'PILOTDECK_HOST_CAPABILITY_UNAVAILABLE' });
+  const response = isHostCapability
+    ? await hostCapabilities!.call(plan.operation, plan.input, { signal })
+    : await publicModuleClient.call(plan.operation, plan.input, { scope: globals.has(plan.operation) ? undefined : scope, signal });
+  if (response.status < 200 || response.status >= 300) throw moduleApiError(response.status, typeof response.body === 'string' ? response.body : JSON.stringify(response.body), `HTTP ${response.status}`);
+  signal?.throwIfAborted();
   if (plan.collection) {
     const body = response.body as { data?: unknown };
     if (!Array.isArray(body?.data)) throw new Error('Public collection response has no data array.');

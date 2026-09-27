@@ -100,7 +100,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 51);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 67);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }

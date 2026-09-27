@@ -68,7 +68,7 @@
 | `get_preview_job` / `preview_job_events` / `cancel_preview_job` | `agents/{selected}/sop-preview-jobs/...` | `team/sop-preview-jobs/...` | 原 tenant+actor job owner，facade 再校验 job 创建时的 selected/team 绑定；cancel 仅账户 `sops:cancel` |
 | 其他 agent 路径操作 | `agents/{selected}/...` | **BLOCKED** | 按表中原资源 PEP；team 没有已审等价公开 route，不能落回配置 target |
 
-`list_knowledge_bases` 与 `list_sops` 是第 31、32 项，随后增加上表 8 项管理原语和下文 11 项固定目标 Knowledge 原语，共 51 项固定 operation。team 仅覆盖四类读目录、SOP 版本读与 transient preview；team API draft/写入仍逐项 BLOCKED。`.d.mts` 的 `PublicOperationOutput` 对目录、draft、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。`replace_sop_draft` 必须拿当前选中 draft 的原 etag 作精确 `If-Match`；其他管理操作沿原路由的条件语义，不能用新 ETag 覆盖旧编辑内容。
+`list_knowledge_bases` 与 `list_sops` 是第 31、32 项，随后增加上表 8 项管理原语和下文 11 项固定目标 Knowledge 原语，再补 16 项全文、bucket/chunk、concept、export、discovery/job 原语，共 67 项固定 operation。team 仅覆盖四类读目录、SOP 版本读与 transient preview；team API draft/写入仍逐项 BLOCKED。`.d.mts` 的 `PublicOperationOutput` 对目录、draft、job、preview acceptance/status/cancel、Knowledge job/discovery/export 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。`replace_sop_draft` 必须拿当前选中 draft 的原 etag 作精确 `If-Match`；其他管理操作沿原路由的条件语义，不能用新 ETag 覆盖旧编辑内容。
 
 ## Knowledge PEP 与范围收紧
 
@@ -90,7 +90,13 @@ SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公
 | `archive_knowledge_document` | POST `/{base}/documents/{document}:archive` | 两 ID → KnowledgeDocumentRead | `knowledge:write` + manager/KB/document 归属及原 archive |
 | `list_knowledge_concepts` | GET `/{base}/concepts` | `{knowledgeBaseId}` → `{data:[]}` | `knowledge:read` + viewer/KB branch |
 
-原 multipart 文档上传虽有公开 route，JSON module gateway 目前没有等价文件传输合同，**BLOCKED**；不能改用 entries upsert 假装同一文件。原 Host 的单文档详情/原文、bucket/chunk、concept 详情/导出/编辑、版本详情及 discovery/job 专用视图仍无本批逐名公开 SDK 与 PEP/响应合同，若是固定目标核心流程必需则逐项 BLOCKED。团队/跨员工深层操作是用户明确范围排除。目录或这 11 项 planner 测试不能代真实 Knowledge 全操作、source 防误写和拒绝证据。
+multipart 文档上传、OKF import、单文档详情、bucket/chunk、concept 详情/编辑/export、discovery/job 视图现已有固定 target facade 与 SDK planner；JSON gateway 仍须由 modules.js owner 接入，不能把 upload 改成 entries。真实 source 防误写、原文归属、job/discovery PEP 与拒绝证据仍需完整候选验证。团队/跨员工深层操作是用户范围排除；67 项 planner 测试/类型不代真实业务结果。
+
+## PilotDeck 宿主 Port/provider 边界
+
+按 `PILOTDECK_HOST_CAPABILITY_DECISION.md`，工具/通用技能目录、模型配置与调用、文件解析、任务提交和事件流的通用执行入口归 PilotDeck 公共 Port/provider；modules.js 只注入这些既有 provider，并把固定 operation 的请求、响应、headers、AbortSignal 和真实事件流交给 adapter。SD facade 不创建第二套工具/模型/解析目录，也不 import PilotDeck 私有 backend、数据库或 AgentLoop 类。`list_tools`、`list_general_skills`、`list_model_catalog` 等 SDK 条目只描述已授权的领域公开读取；模型元数据不能证明实际生效配置。
+
+Knowledge/SOP 的领域状态、版本、owner、权限、ETag、审批和 job/discovery 语义仍由 SD 原 owner 与公开 route 负责。`BackgroundTaskPort` 只表示宿主后台执行能力，不等价于 Knowledge ingest、APIJob 或 transient preview；缺少同语义 provider 时保留准确阻塞码，不把后台 task 或近似 operation 当成成功。文件解析和事件流接线沿既有 Port 合同完成，不能在 facade 层反向双写、伪造 token/sequence 或改变 draft/source 生命周期。
 
 ## 本批校验与剩余具体边界
 

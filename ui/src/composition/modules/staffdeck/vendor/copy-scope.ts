@@ -1,3 +1,4 @@
+import type { PilotDeckHostCapabilityPort } from '../pilotdeck-host-capabilities';
 import { staffDeckCopyClient, type ModuleRequestOptions } from '../clients';
 import { isTeamScope, ENTERPRISE_AGENT_STORAGE_KEY } from '../host-contract-helpers';
 
@@ -6,7 +7,7 @@ const AGENT_SCOPE_KEY = ENTERPRISE_AGENT_STORAGE_KEY;
 
 // Each mounted provider owns its directory target. The persisted scope key is
 // retained so this adaptation cannot disconnect existing editor lifecycles.
-export function createCopyContext(configuration: { fixedTarget?: boolean } = {}) {
+export function createCopyContext(configuration: { fixedTarget?: boolean; hostCapabilities?: PilotDeckHostCapabilityPort } = {}) {
   let targetAgentId = '';
   let targetTenantId = '';
   let visibleAgentIds: Set<string> | undefined;
@@ -19,6 +20,7 @@ export function createCopyContext(configuration: { fixedTarget?: boolean } = {})
   };
   return {
     readScope,
+    hostCapabilities: configuration.hostCapabilities,
     assertSelectedScope(scope: { kind: 'agent'; agentId: string } | { kind: 'team' }) {
       if (configuration.fixedTarget && (scope.kind !== 'agent' || !targetAgentId || scope.agentId !== targetAgentId)) {
         throw new Error('PUBLIC_SCOPE_EXCLUDED: this delivery uses only the authenticated configured target.');
@@ -58,4 +60,4 @@ export const loadCopyDirectory = defaultContext.loadDirectory;
 export const isCopyTarget = defaultContext.isTarget;
 export const readCopyTenant = defaultContext.readTenant;
 
-export const createFixedTargetContext = () => createCopyContext({ fixedTarget: true });
+export const createFixedTargetContext = (hostCapabilities?: PilotDeckHostCapabilityPort) => createCopyContext({ fixedTarget: true, hostCapabilities });

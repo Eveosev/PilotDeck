@@ -5,18 +5,19 @@ import { ProfileTextSetting } from './shared';
 import SharedKnowledgePage, { KnowledgeAddPage as SharedKnowledgeAddPage } from './staffdeck/vendor/KnowledgePage';
 import { PilotDeckKnowledgePageProvider } from './staffdeck/vendor/knowledge-host-adapter';
 import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
+import { StaffDeckHostBinding } from './staffdeck-host-binding';
 
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
 function KnowledgePage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary>;
+  return <StaffDeckHostBinding><StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary></StaffDeckHostBinding>;
 }
 function KnowledgeAddPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary>;
+  return <StaffDeckHostBinding><StaffDeckLocaleBoundary><PilotDeckKnowledgePageProvider><SharedKnowledgeAddPage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></StaffDeckLocaleBoundary></StaffDeckHostBinding>;
 }
 
 function KnowledgeArtifactRenderer(props: SurfaceProps) {

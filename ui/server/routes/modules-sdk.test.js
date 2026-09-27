@@ -1,5 +1,7 @@
+// @vitest-environment node
 import express from 'express';
 import http from 'node:http';
+import multer from 'multer';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -56,6 +58,7 @@ async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publ
     call: (operation, input = {}, scope, signal) => fetch(local + '/api/modules/staffdeck-sdk/call', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation, input, scope }), signal,
     }),
+    file: form => fetch(local + '/api/modules/staffdeck-sdk/file', { method: 'POST', body: form }),
     events: (query, headers = {}, signal) => fetch(local + '/api/modules/staffdeck-sdk/events?' + query, { headers, signal }),
   };
 }
@@ -71,7 +74,7 @@ it('preserves real target 202/JSON/ETag and rejects excluded scopes before busin
   expect(response.status).toBe(202);
   expect(response.headers.get('etag')).toBe('owner-etag');
   expect(await response.text()).toBe('{ "job_id": "preview" }');
-  const denied = await f.call('list_tools', {}, { kind: 'agent', agentId: 'non-target' });
+  const denied = await f.call('list_knowledge_bases', {}, { kind: 'agent', agentId: 'non-target' });
   expect(denied.status).toBe(403);
   expect(denied.headers.get('etag')).not.toBe('owner-etag');
   expect(await denied.json()).toMatchObject({ error: { code: 'PUBLIC_FIXED_TARGET_SCOPE_MISMATCH' } });
@@ -85,7 +88,7 @@ it('rejects unknown operations, scope overrides and missing cancel scope before 
   let businessCalls = 0;
   const f = await fixture((_req, res) => { businessCalls++; res.json({}); }, { scopes: ['sops:read', 'sops:write', 'sops:publish'] });
   expect((await f.call('arbitrary_proxy', { url: 'https://example.invalid' })).status).toBe(400);
-  expect((await f.call('list_tools', { tenantId: 'other' })).status).toBe(400);
+  expect((await f.call('list_knowledge_bases', { tenantId: 'other' })).status).toBe(400);
   const denied = await f.call('cancel_job', { jobId: 'job' });
   expect(denied.status).toBe(403);
   expect(await denied.json()).toMatchObject({ error: { code: 'PUBLIC_SCOPE_FORBIDDEN' } });
@@ -153,11 +156,11 @@ it('browser stream abort closes upstream without issuing cancel', async () => {
 it('requires explicit scope, rejects legacy target fallback and leaves global jobs unscoped', async () => {
   const calls = [];
   const f = await fixture((req, res) => { calls.push(req.url); res.json({ id: 'job', status: 'running' }); });
-  const missing = await f.call('list_tools');
+  const missing = await f.call('list_knowledge_bases');
   expect(missing.status).toBe(400);
   expect(await missing.json()).toMatchObject({ error: { code: 'PUBLIC_SELECTED_SCOPE_REQUIRED' } });
-  expect((await f.call('list_tools', { agentId: 'target' })).status).toBe(400);
-  expect((await f.call('list_tools', {}, { kind: 'agent' })).status).toBe(400);
+  expect((await f.call('list_knowledge_bases', { agentId: 'target' })).status).toBe(400);
+  expect((await f.call('list_knowledge_bases', {}, { kind: 'agent' })).status).toBe(400);
   expect((await f.events('operation=preview_job_events&jobId=preview&scope=team&agentId=target')).status).toBe(400);
   expect(f.checks()).toBe(0);
   expect((await f.call('get_job', { jobId: 'job' })).status).toBe(200);
@@ -169,7 +172,7 @@ it('requires explicit scope, rejects legacy target fallback and leaves global jo
 it('rejects excluded team catalogs and preview calls and streams before business transport', async () => {
   const calls = [];
   const f = await fixture((req, res) => { calls.push(req.url); res.json({}); });
-  for (const operation of ['list_tools', 'list_general_skills', 'list_knowledge_bases', 'list_sops',
+  for (const operation of ['list_knowledge_bases', 'list_sops',
     'preview_generate_sop', 'preview_rewrite_sop', 'get_preview_job', 'cancel_preview_job', 'remove_sop']) {
     const response = await f.call(operation, { jobId: 'preview', sopId: 'sop', body: {} }, { kind: 'team' });
     expect(response.status).toBe(403);
@@ -317,4 +320,64 @@ it('dispatches fixed-target Knowledge contracts with original conflict and accep
   const denied = await f.call('update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id', body: {} }, { kind: 'agent', agentId: 'other' });
   expect(denied.status).toBe(403);
   expect(calls).toHaveLength(12);
+});
+
+it('forwards real Knowledge multipart bytes and original ingest status without JSON/APIJob substitution', async () => {
+  const uploads = [];
+  const parser = multer({ storage: multer.memoryStorage() }).single('file');
+  const f = await fixture((req, res) => parser(req, res, error => {
+    if (error) return res.status(400).json({ detail: error.message });
+    uploads.push({ url: req.url, bytes: [...req.file.buffer], title: req.body.title, name: req.file.originalname });
+    res.status(200).set('x-request-id', 'original-ingest').json({ id: 'native-ingest', status: 'pending', stage: 'queued' });
+  }), { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write'] });
+  const form = () => {
+    const value = new FormData();
+    value.set('operation', 'upload_knowledge_document');
+    value.set('knowledgeBaseId', 'kb/id');
+    value.set('scope', JSON.stringify({ kind: 'agent', agentId: 'target' }));
+    value.set('title', 'original title');
+    value.set('file', new Blob([new Uint8Array([0, 255, 10, 13])], { type: 'application/pdf' }), 'original.pdf');
+    return value;
+  };
+  const response = await f.file(form());
+  expect(response.status).toBe(200);
+  expect(response.headers.get('x-request-id')).toBe('original-ingest');
+  expect(await response.json()).toEqual({ id: 'native-ingest', status: 'pending', stage: 'queued' });
+  expect(uploads).toEqual([{ url: '/agents/target/knowledge-bases/kb%2Fid/documents', bytes: [0, 255, 10, 13], title: 'original title', name: 'original.pdf' }]);
+  const other = form(); other.set('scope', JSON.stringify({ kind: 'team' }));
+  expect((await f.file(other)).status).toBe(403);
+  expect(uploads).toHaveLength(1);
+  expect((await f.call('upload_knowledge_document', { knowledgeBaseId: 'kb', body: { filename: 'x', content_base64: '' } }, { kind: 'agent', agentId: 'target' })).status).toBe(409);
+});
+
+it('dispatches deep Knowledge IDs and raw export/domain-job envelopes without APIJob conversion', async () => {
+  const calls = [];
+  const f = await fixture((req, res) => {
+    calls.push({ method: req.method, url: req.url, body: req.body });
+    if (req.url.endsWith('/okf/export')) return res.json({ content_base64: 'UEs=', media_type: 'application/zip', filename: 'original.zip' });
+    if (req.url.endsWith('/knowledge-jobs/job%2Fid')) return res.json({ id: 'job/id', stage: 'parse', status: 'processing', source_document_id: 'doc/id' });
+    return res.json({ data: [], id: 'original' });
+  }, { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write'] });
+  const scope = { kind: 'agent', agentId: 'target' };
+  for (const [operation, input, method, path] of [
+    ['get_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id' }, 'GET', '/agents/target/knowledge-bases/kb%2Fid/documents/doc%2Fid'],
+    ['list_document_buckets', { documentId: 'doc/id' }, 'GET', '/agents/target/knowledge-documents/doc%2Fid/buckets'],
+    ['list_bucket_chunks', { bucketId: 'bucket/id' }, 'GET', '/agents/target/knowledge-buckets/bucket%2Fid/chunks'],
+    ['update_knowledge_bucket', { bucketId: 'bucket/id', body: { title: 'original' } }, 'PUT', '/agents/target/knowledge-buckets/bucket%2Fid'],
+    ['update_knowledge_chunk', { chunkId: 'chunk/id', body: { content_md: 'source' } }, 'PUT', '/agents/target/knowledge-chunks/chunk%2Fid'],
+    ['get_knowledge_concept', { knowledgeBaseId: 'kb/id', conceptId: 'a/b' }, 'GET', '/agents/target/knowledge-bases/kb%2Fid/concepts/a%2Fb'],
+    ['update_knowledge_concept', { knowledgeBaseId: 'kb/id', conceptId: 'a/b', body: { content_md: 'graph edit' } }, 'PUT', '/agents/target/knowledge-bases/kb%2Fid/concepts/a%2Fb'],
+    ['list_knowledge_jobs', { status: 'running' }, 'GET', '/agents/target/knowledge-jobs?status=running'],
+    ['cancel_knowledge_job', { jobId: 'job/id' }, 'POST', '/agents/target/knowledge-jobs/job%2Fid:cancel'],
+    ['list_knowledge_discoveries', {}, 'GET', '/agents/target/knowledge-discoveries'],
+    ['confirm_knowledge_discovery', { suggestionId: 'suggestion/id' }, 'POST', '/agents/target/knowledge-discoveries/suggestion%2Fid:confirm'],
+    ['reject_knowledge_discovery', { suggestionId: 'suggestion/id' }, 'POST', '/agents/target/knowledge-discoveries/suggestion%2Fid:reject'],
+  ]) {
+    const response = await f.call(operation, input, scope);
+    expect(response.status).toBe(200);
+    expect(calls.at(-1)).toMatchObject({ method, url: path });
+    if (input.body) expect(calls.at(-1).body).toEqual(input.body);
+  }
+  expect(await (await f.call('export_knowledge_okf', { knowledgeBaseId: 'kb/id' }, scope)).json()).toEqual({ content_base64: 'UEs=', media_type: 'application/zip', filename: 'original.zip' });
+  expect(await (await f.call('get_knowledge_job', { jobId: 'job/id' }, scope)).json()).toEqual({ id: 'job/id', stage: 'parse', status: 'processing', source_document_id: 'doc/id' });
 });

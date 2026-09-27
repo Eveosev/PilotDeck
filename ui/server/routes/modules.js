@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -9,7 +10,8 @@ import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
 import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
-import { createPublicCapabilityClient, decodePublicJobEvents, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from '../staffdeck-public-capabilities.mjs';
+import { createPublicCapabilityClient, decodePublicJobEvents, planPublicOperation, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from '../staffdeck-public-capabilities.mjs';
+import { createPilotDeckHostCapabilityGateway, PILOTDECK_HOST_UI_OPERATIONS } from '../pilotdeck-host-capability-gateway.mjs';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -31,6 +33,7 @@ const KNOWLEDGE_READ_OPERATIONS = new Set([
 const PUBLIC_SDK_OPERATIONS = new Set(PUBLIC_APPROVED_OPERATIONS);
 const PUBLIC_SDK_STREAM_OPERATIONS = new Set(['job_events', 'preview_job_events']);
 const PUBLIC_SDK_GLOBAL_OPERATIONS = new Set(['get_job', 'get_job_result', 'job_events', 'cancel_job']);
+const PUBLIC_FILE_OPERATIONS = new Set(['upload_knowledge_document', 'import_knowledge_okf']);
 const SOP_MANAGEMENT_OPERATIONS = new Set([
   'list', 'create', 'get_draft', 'replace_draft', 'validate',
   'publish', 'archive', 'list_versions', 'get_version', 'rollback',
@@ -43,7 +46,7 @@ const SOP_MANAGEMENT_OPERATIONS = new Set([
  * Gateway capabilities are supplemental and must not prevent module pages from
  * mounting while the chat runtime is starting or temporarily unavailable.
  */
-export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDeckGateway } = {}) {
+export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDeckGateway, getHostCapabilities } = {}) {
   const readConfig = loadConfig ?? (() => {
     const path = process.env.PILOTDECK_CONFIG_PATH || join(process.env.PILOT_HOME || join(homedir(), '.pilotdeck'), 'pilotdeck.yaml');
     if (!existsSync(path)) return {};
@@ -55,6 +58,47 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     next();
   });
   route.use('/staffdeck-copy', createStaffDeckCopyRouter({ loadConfig: readConfig }));
+  const hostCapabilityCall = async (req, res, callback = false) => {
+    try {
+      const config = readConfig();
+      const copy = config?.webui?.staffdeckCopy;
+      if (copy?.enabled !== true || copy?.contract !== 'staffdeck.enterprise-copy/v1'
+        || !['pilotDeckUserId', 'tenantId', 'actorUserId', 'targetAgentId'].every(name => configuredValue(copy, name))
+        || String(req.user?.id ?? '') !== configuredValue(copy, 'pilotDeckUserId')) {
+        throw managementError(403, 'PILOTDECK_HOST_USER_FORBIDDEN', 'This user is not bound to the configured module host.');
+      }
+      if (typeof req.body?.operation === 'string' && req.body.operation.includes('general_skill') && config.modules?.skills?.enabled === false) {
+        throw managementError(501, 'MODULE_DISABLED', 'The configured skills module is disabled.');
+      }
+      const gateway = await getGateway();
+      const principal = { pilotDeckUserId: String(req.user.id), tenantId: configuredValue(copy, 'tenantId'),
+        actorUserId: configuredValue(copy, 'actorUserId'), agentId: configuredValue(copy, 'targetAgentId') };
+      const port = getHostCapabilities ? await getHostCapabilities({ gateway, principal }) : gateway?.moduleHostCapabilities;
+      if (getHostCapabilities && !port) throw managementError(501, 'PILOTDECK_HOST_CAPABILITY_UNAVAILABLE', 'The selected host binding is unavailable.');
+      const result = await createPilotDeckHostCapabilityGateway({ gateway, port, principal }).call(req.body?.operation, req.body?.input ?? {}, {
+        signal: req.moduleRequestSignal, callback,
+      });
+      res.status(result.status);
+      const headers = new Headers(result.headers);
+      for (const name of ['content-type', 'etag', 'retry-after', 'x-request-id']) {
+        if (headers.has(name)) res.setHeader(name, headers.get(name));
+      }
+      if (headers.get('content-type')?.startsWith('text/event-stream') || headers.get('content-type')?.startsWith('application/x-ndjson')) {
+        if (!result.body) throw managementError(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host stream body is missing.');
+        res.flushHeaders();
+        const body = typeof result.body.getReader === 'function' ? Readable.fromWeb(result.body) : Readable.from(result.body);
+        await pipeline(body, res, { signal: req.moduleRequestSignal });
+        return;
+      }
+      if (result.rawBody !== undefined) return res.end(result.rawBody);
+      return res.json(result.body);
+    } catch (error) {
+      if (res.headersSent || res.destroyed || req.moduleRequestSignal.aborted) { if (!res.destroyed) res.destroy(); return; }
+      return res.status(error?.status || 502).json({ error: { code: error?.code || 'PILOTDECK_HOST_CALL_FAILED', message: error.message } });
+    }
+  };
+  route.post('/host-capabilities/call', (req, res) => hostCapabilityCall(req, res));
+  route.post('/host-capabilities/callback', (req, res) => hostCapabilityCall(req, res, true));
   // A definition write is visible immediately on disk, but the active AgentLoop
   // keeps its previous snapshot until the process is restarted. Keep that
   // distinction explicit in the runtime contract so the UI can disable only
@@ -257,7 +301,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
   });
-  const publicSdkCall = async (req, res, streamOnly = false) => {
+  const publicSdkCall = async (req, res, streamOnly = false, fileCall = false) => {
     try {
       const operation = streamOnly ? req.query.operation : req.body?.operation;
       if (typeof operation !== 'string' || !PUBLIC_SDK_OPERATIONS.has(operation)
@@ -284,6 +328,9 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
             : req.query.scope === undefined ? undefined : { kind: req.query.scope }
         : req.body?.scope;
       validatePublicSdkScope(operation, scope);
+      if (PILOTDECK_HOST_UI_OPERATIONS.includes(operation)) {
+        throw managementError(409, 'PILOTDECK_HOST_ROUTE_REQUIRED', 'This capability uses the selected PilotDeck host binding.');
+      }
       if (streamOnly && req.query.agentId !== undefined && scope?.kind !== 'agent') {
         throw managementError(400, 'PUBLIC_SELECTED_SCOPE_INVALID', 'GET agentId is valid only with explicit scope=agent.');
       }
@@ -295,8 +342,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal,
         PUBLIC_OPERATION_CONTRACTS[operation][2]);
       const gateway = createStaffDeckPublicCapabilityGateway({ management, owner, signal: req.moduleRequestSignal,
-        authorizedOperations: PUBLIC_APPROVED_OPERATIONS });
-      const call = () => gateway.call(operation, input, { scope });
+        authorizedOperations: PUBLIC_APPROVED_OPERATIONS.filter(name => !PILOTDECK_HOST_UI_OPERATIONS.includes(name)) });
+      const call = () => fileCall ? gateway.file(operation, input, { scope }) : gateway.call(operation, input, { scope });
       const result = operation === 'publish_sop'
         ? await publishRuntime.publish({ binding: config.modules?.sop,
           management: { ...management, agentId: scope.kind === 'agent' ? scope.agentId : management.agentId },
@@ -332,6 +379,22 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
   };
   route.post('/staffdeck-sdk/call', (req, res) => publicSdkCall(req, res));
   route.get('/staffdeck-sdk/events', (req, res) => publicSdkCall(req, res, true));
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 4 } }).single('file');
+  route.post('/staffdeck-sdk/file', (req, res) => upload(req, res, error => {
+    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: { code: error.code, message: error.message } });
+    try {
+      const fields = req.body ?? {};
+      if (!req.file || !PUBLIC_FILE_OPERATIONS.has(fields.operation)
+        || Object.keys(fields).some(name => !['operation', 'scope', 'knowledgeBaseId', 'title'].includes(name))) {
+        throw managementError(400, 'PUBLIC_FILE_INPUT_INVALID', 'A named Knowledge file operation and one file are required.');
+      }
+      const scope = JSON.parse(fields.scope);
+      req.body = { operation: fields.operation, scope, input: { knowledgeBaseId: fields.knowledgeBaseId,
+        body: { filename: req.file.originalname, content_base64: req.file.buffer.toString('base64'),
+          ...(fields.title !== undefined ? { title: fields.title } : {}), media_type: req.file.mimetype } } };
+      return publicSdkCall(req, res, false, true);
+    } catch (error) { return res.status(error.status || 400).json({ error: { code: error.code || 'PUBLIC_FILE_INPUT_INVALID', message: error.message } }); }
+  }));
   return route;
 }
 
@@ -556,10 +619,10 @@ async function callSopManagement(management, operation, value, signal) {
 // public protocol client. Paths are planned locally, never supplied by a browser.
 function fetchStaffDeckOwner(management, { method, path, headers, body, signal }) {
   const ownerHeaders = { ...headers, authorization: `Bearer ${management.apiKey}` };
-  if (body !== undefined) ownerHeaders['content-type'] = 'application/json';
+  if (body !== undefined && !(body instanceof FormData)) ownerHeaders['content-type'] = 'application/json';
   return fetch(new URL(path, management.endpoint), {
     method, headers: ownerHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs),
   });
 }
@@ -590,10 +653,32 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
   const call = (operation, input = {}, options = {}) => {
     if (!isRecord(input)) throw managementError(400, 'PUBLIC_INPUT_INVALID', 'SDK input must be an object.');
     validatePublicSdkScope(operation, options.scope);
+    if (PUBLIC_FILE_OPERATIONS.has(operation)) throw managementError(409, 'PUBLIC_FILE_TRANSPORT_REQUIRED', 'Use the named multipart file gateway for this operation.');
     return client.call(operation, input, { signal: options.signal ?? signal, scope: options.scope });
   };
   return Object.freeze({
     call,
+    async file(operation, input, options = {}) {
+      if (!PUBLIC_FILE_OPERATIONS.has(operation) || !grants.includes(operation)) throw managementError(403, 'PUBLIC_OPERATION_NOT_AUTHORIZED', 'A granted file operation is required.');
+      validatePublicSdkScope(operation, options.scope);
+      if (options.scope.kind !== 'agent' || options.scope.agentId !== owner.agentId) throw managementError(403, 'PUBLIC_FIXED_TARGET_SCOPE_MISMATCH', 'File scope must match the configured target.');
+      const plan = planPublicOperation(owner.agentId, operation, input);
+      const { filename, content_base64, title, media_type } = plan.body ?? {};
+      if (typeof filename !== 'string' || !filename || typeof content_base64 !== 'string'
+        || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(content_base64)) {
+        throw managementError(400, 'PUBLIC_FILE_INPUT_INVALID', 'A filename and original file bytes are required.');
+      }
+      const bytes = Buffer.from(content_base64, 'base64');
+      if (bytes.length > 20 * 1024 * 1024) throw managementError(413, 'DOCUMENT_TOO_LARGE', 'Documents are limited to 20 MB.');
+      const form = new FormData();
+      form.append('file', new Blob([bytes], { type: typeof media_type === 'string' ? media_type : 'application/octet-stream' }), filename);
+      if (title !== undefined) form.append('title', title);
+      const response = await fetchStaffDeckOwner(management, { ...plan, body: form, signal: options.signal ?? signal });
+      const rawBody = await response.text();
+      let body = rawBody; try { body = JSON.parse(rawBody); } catch {}
+      // Ingest is the original Knowledge task, not the SDK's 202 APIJob.
+      return { status: response.status, body, rawBody, headers: response.headers };
+    },
     async events(input, options = {}) {
       const response = await call('job_events', input, options);
       if (response.status < 200 || response.status >= 300) return response;

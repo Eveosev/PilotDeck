@@ -1,3 +1,4 @@
+import { usePilotDeckHostCapabilities } from '../pilotdeck-host-capabilities';
 import { planPublicHost, callPublicHost, selectedPublicScope, publicModuleClient, previewEvents } from '../public-host-mapping';
 import type { SkillsPageHost } from './SkillsPageHost';
 import { SkillsPageHostProvider } from './SkillsPageHost';
@@ -135,7 +136,7 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
   options?.signal?.throwIfAborted();
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
-  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal, context?.hostCapabilities) as T;
   const url = new URL(path, 'http://staffdeck.local');
   const match = path.split('?')[0].match(/^\/api\/enterprise\/skills\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?(?:\/([^/]+))?$/);
   const importMatch = path.match(/^\/api\/enterprise\/agents\/([^/?]+)\/resources\/import$/);
@@ -234,7 +235,7 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
   options?.signal?.throwIfAborted();
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
-  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal, context?.hostCapabilities) as T;
   if (path.startsWith('/api/enterprise/tools')) throw new Error('PilotDeck tools capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/general-skills')) throw new Error('PilotDeck general-skills capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/model-configs')) throw new Error('PilotDeck model-configs capability is unavailable in this host.');
@@ -244,7 +245,7 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
     const input: Record<string, unknown> = {};
     if (query.get('agent_id')) input.agentId = query.get('agent_id');
     if (query.get('tenant_id')) input.tenantId = query.get('tenant_id');
-    if (context || query.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
+    if (context || query.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope), options?.signal, context?.hostCapabilities) as T;
     return await staffDeckKnowledgeClient.call<T>('list_bases', input, options);
   }
   if (path.split('?')[0] === '/api/enterprise/skills') {
@@ -354,7 +355,8 @@ export function pilotDeckSopDestination(path: string): string {
 
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const context = React.useMemo(createFixedTargetContext, []);
+  const hostCapabilities = usePilotDeckHostCapabilities();
+  const context = React.useMemo(() => createFixedTargetContext(hostCapabilities), [hostCapabilities]);
   const observer = usePublishRuntimeObserver();
   const host = React.useMemo(() => createPilotDeckSkillsPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);
@@ -425,7 +427,8 @@ export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const context = React.useMemo(createFixedTargetContext, []);
+  const hostCapabilities = usePilotDeckHostCapabilities();
+  const context = React.useMemo(() => createFixedTargetContext(hostCapabilities), [hostCapabilities]);
   const observer = usePublishRuntimeObserver();
   const host = React.useMemo(() => createPilotDeckDistillPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);

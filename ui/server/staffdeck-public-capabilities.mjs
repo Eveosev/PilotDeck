@@ -32,6 +32,22 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   update_knowledge_document: ['PATCH', 'agents/{agent}/knowledge-bases/{base}/documents/{document}', 'knowledge:write', 'document'],
   archive_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents/{document}:archive', 'knowledge:write', 'document'],
   list_knowledge_concepts: ['GET', 'agents/{agent}/knowledge-bases/{base}/concepts', 'knowledge:read', 'data[]'],
+  get_knowledge_document: ['GET', 'agents/{agent}/knowledge-bases/{base}/documents/{document}', 'knowledge:read', 'document'],
+  upload_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents', 'knowledge:write', '202 ingest job'],
+  import_knowledge_okf: ['POST', 'agents/{agent}/knowledge-bases/{base}/okf:import', 'knowledge:write', 'import result'],
+  list_document_buckets: ['GET', 'agents/{agent}/knowledge-documents/{document}/buckets', 'knowledge:read', 'data[]'],
+  list_bucket_chunks: ['GET', 'agents/{agent}/knowledge-buckets/{bucket}/chunks', 'knowledge:read', 'data[]'],
+  update_knowledge_bucket: ['PUT', 'agents/{agent}/knowledge-buckets/{bucket}', 'knowledge:write', 'bucket'],
+  update_knowledge_chunk: ['PUT', 'agents/{agent}/knowledge-chunks/{chunk}', 'knowledge:write', 'chunk'],
+  get_knowledge_concept: ['GET', 'agents/{agent}/knowledge-bases/{base}/concepts/{concept}', 'knowledge:read', 'concept'],
+  update_knowledge_concept: ['PUT', 'agents/{agent}/knowledge-bases/{base}/concepts/{concept}', 'knowledge:write', 'concept'],
+  export_knowledge_okf: ['GET', 'agents/{agent}/knowledge-bases/{base}/okf/export', 'knowledge:read', 'base64 zip'],
+  list_knowledge_jobs: ['GET', 'agents/{agent}/knowledge-jobs', 'knowledge:read', 'data[]'],
+  get_knowledge_job: ['GET', 'agents/{agent}/knowledge-jobs/{job}', 'knowledge:read', 'ingest job'],
+  cancel_knowledge_job: ['POST', 'agents/{agent}/knowledge-jobs/{job}:cancel', 'knowledge:write', 'ingest job'],
+  list_knowledge_discoveries: ['GET', 'agents/{agent}/knowledge-discoveries', 'knowledge:read', 'data[]'],
+  confirm_knowledge_discovery: ['POST', 'agents/{agent}/knowledge-discoveries/{suggestion}:confirm', 'knowledge:write', 'discovery'],
+  reject_knowledge_discovery: ['POST', 'agents/{agent}/knowledge-discoveries/{suggestion}:reject', 'knowledge:write', 'discovery'],
   list_sops: ['GET', 'agents/{agent}/sops', 'sops:read', 'data[]/drafts[]'],
   get_sop_draft: ['GET', 'agents/{agent}/sops/{sop}/drafts/{draft}', 'sops:read', 'draft/ETag'],
   list_sop_versions: ['GET', 'sops/{sop}/versions?agent_id={agent}', 'sops:read', 'data[]'],
@@ -154,6 +170,27 @@ export function planPublicOperation(agentId, operation, input = {}) {
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents/${id(input.documentId)}:archive`; break;
     case 'list_knowledge_concepts':
       plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts`; plan.shape = 'collection'; break;
+    case 'get_knowledge_document':
+      plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents/${id(input.documentId)}`; break;
+    case 'upload_knowledge_document':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents`;
+      plan.body = publicBody(input); plan.shape = 'accepted-job'; break;
+    case 'import_knowledge_okf':
+      plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/okf:import`;
+      plan.body = publicBody(input); break;
+    case 'list_document_buckets': plan.path = `${agent}/knowledge-documents/${id(input.documentId)}/buckets`; plan.shape = 'collection'; break;
+    case 'list_bucket_chunks': plan.path = `${agent}/knowledge-buckets/${id(input.bucketId)}/chunks`; plan.shape = 'collection'; break;
+    case 'update_knowledge_bucket': plan.method = 'PUT'; plan.path = `${agent}/knowledge-buckets/${id(input.bucketId)}`; plan.body = publicBody(input); break;
+    case 'update_knowledge_chunk': plan.method = 'PUT'; plan.path = `${agent}/knowledge-chunks/${id(input.chunkId)}`; plan.body = publicBody(input); break;
+    case 'get_knowledge_concept': plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts/${id(input.conceptId)}`; break;
+    case 'update_knowledge_concept': plan.method = 'PUT'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts/${id(input.conceptId)}`; plan.body = publicBody(input); break;
+    case 'export_knowledge_okf': plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/okf/export`; break;
+    case 'list_knowledge_jobs': plan.path = `${agent}/knowledge-jobs`; if (input.status) plan.path += `?status=${encodeURIComponent(input.status)}`; plan.shape = 'collection'; break;
+    case 'get_knowledge_job': plan.path = `${agent}/knowledge-jobs/${id(input.jobId)}`; break;
+    case 'cancel_knowledge_job': plan.method = 'POST'; plan.path = `${agent}/knowledge-jobs/${id(input.jobId)}:cancel`; break;
+    case 'list_knowledge_discoveries': plan.path = `${agent}/knowledge-discoveries`; plan.shape = 'collection'; break;
+    case 'confirm_knowledge_discovery': plan.method = 'POST'; plan.path = `${agent}/knowledge-discoveries/${id(input.suggestionId)}:confirm`; break;
+    case 'reject_knowledge_discovery': plan.method = 'POST'; plan.path = `${agent}/knowledge-discoveries/${id(input.suggestionId)}:reject`; break;
     case 'list_sops': plan.path = `${agent}/sops`; plan.shape = 'sop-collection'; break;
     case 'get_sop_draft':
       plan.path = `${agent}/sops/${id(input.sopId)}/drafts/${id(input.draftId)}`;
