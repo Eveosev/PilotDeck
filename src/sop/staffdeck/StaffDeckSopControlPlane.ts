@@ -36,6 +36,7 @@ export class StaffDeckSopControlPlane {
       message: input.message,
       ...(input.expectedRevision === undefined ? {} : { expectedRevision: input.expectedRevision }),
       ...(input.slotUpdates ? { slotUpdates: input.slotUpdates } : {}),
+      ...(input.authority ? { authority: input.authority } : {}),
     });
   }
 

@@ -21,11 +21,16 @@ test('different actor, tenant, disabled or nonnative subject cannot approve', as
     await assert.rejects(authority(async () => Response.json({ ...user, ...difference })).authorize(input), error => error.status === 403);
   }
 });
-test('stale revision and external task are rejected before authentication', async () => {
+test('invalid command and external task are rejected before authentication', async () => {
   const guard = authority(async () => { throw new Error('must not authenticate'); });
-  await assert.rejects(guard.authorize({ ...input, expectedRevision: 6 }), error => error.status === 409);
-  await assert.rejects(guard.authorize({ ...input, wait: { ...wait, wait: { id: 'wait', kind: 'external_task' } } }), error => error.status === 409);
+  await assert.rejects(guard.authorize({ ...input, expectedRevision: -1 }), error => error.status === 400);
+  await assert.rejects(guard.authorize({ ...input, wait: { ...wait, wait: { id: 'wait', kind: 'external_task' } } }), error => error.status === 400);
 });
 test('original authentication failure status is preserved', async () => {
   await assert.rejects(authority(async () => new Response('', { status: 401 })).authorize(input), error => error.status === 401);
+});
+
+test('identity authentication does not require pending wait for receipt replay', async () => {
+  const result = await authority(async () => Response.json(user)).authorize({ bearer: 'approver-token', sessionKey: 'session', waitId: 'original', requestId: 'reply-1', message: 'Reviewed', expectedRevision: 7 });
+  assert.equal(result.command.waitId, 'original');
 });

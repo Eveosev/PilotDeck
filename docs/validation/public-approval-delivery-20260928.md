@@ -1,27 +1,43 @@
-# 固定审批主体：本线集中输入（尚未闭合）
+# 固定审批主体集中交付（生产入口尚待整合）
 
-基线 PD fb3c3b77bf452c973939852d95146bdcd9750e4a / SD 2da6f276d4834aa3bd8b51aa6288453ca9d91624；不替换完整候选，不启动业务轮。本文件吸收 PRE_CANDIDATE_INPUTS_20260928.md。
+PD 本线 parent 974c4ee7（3文件已整合至6ce7937a），共享domain文件与固定fb3c3b77一致；SD本线parent2da6f276，新提交56c6fb60d9042fbfa3ca86c79ad6ea576f0725da。两树按APPROVAL_OWNER_HANDOFF_20260928.md分配修改，未写整合root/HTTP/RPC/adapter/native chat.py。只交窄diff，不旧parent整文件覆盖。
 
-## 本批实装
+## 实装及DTO
 
-`ui/server/staffdeck-approval-authority.mjs` 的 createFixedApprovalAuthority 使用审批人自己的正常 Bearer 调用 SD `/api/auth/me`。私密服务配置绑定原 tenant/approver ID，核 native web、admin/member、未 disabled；响应 ID 不来自 username、目录、请求 body、账户 API key。保原认证 HTTP failure status 与 AbortSignal。
+- `StaffDeckApprovalAuthority`: `{tenantId,sessionId,subject:{tenantId,userId,source:'web',role:'admin'|'member',disabled}}`。它是认证root核原session访问后创建的内部值，**不得把浏览器/RPC body.authority直接透传**。domain只能验证内部值的一致性，无法凭类型认证请求来源。
+- `StaffDeckPinnedApproval`: `{waitId,revision,skillId,version,nodeId,assigneeUserId}`。从原session持久bundle解析同active skill/step；不读取最新definition，不用default SOP或部署审批人覆盖node。原status附`approval`；缺pin/assignee附`approvalError`，原status/state/wait仍可读取，resume精确拒绝。
+- human resume在原session lock内重新解析pin、核subject/session/tenant与原wait/revision；保SD原规则：admin可回复，member须等于node assignee。不推断缺assignee规则；缺失返回SOP_APPROVAL_ASSIGNEE_REQUIRED。
+- 授权事实只附原`resumeRequests[requestId].authorization`（authority、pinned approval、原expectedRevision），没有第二store。duplicate仍每次重新认证；锁内核原主体、revision、wait/source/message/slotUpdates，返回原receipt/revision。旧无授权事实记录返回SOP_APPROVAL_LEGACY_RECEIPT，不补造证明。external_task不能冒充human，原external_task链不改。
+- 原control.resume传内部authority给store，不修改transition/AgentLoop。subject字段不是新的客户端审批参数。
 
-输出是 subject 与原 session/wait/revision/request/message 的 command，**不是已经提交的 resume、审批 receipt 或授权闭环**。尚须原入口核 session access 与运行中 pinned SOP 节点的 assignee。不会自动 continue，不写 SD HandoffRequest 或 PD wait，不产生影子审批 state。
+## 正常认证与重放输入
 
-本轮部署选择明确为 SD native identity（DEMO_SEED_ENABLED=true，HARNESS_CONTROL_AUTH_PROVIDER 空）；该选择不能作为外部故障 fallback。生产 IDs/secret 只能来自完整候选正常 bootstrap 响应，本文件没有占位 profile 或有效模型声明。
+`createFixedApprovalAuthority(...).authenticate({bearer,signal})`调用审批人的正常SD `/api/auth/me`，返回带disabled的subject。固定native部署核实际tenant/approver/source/role/disabled；body/目录/APIkey不提供身份。
 
-## 固定源码的最小接线缺口
+`authorize`现在可接原`{sessionKey,waitId,requestId,message,expectedRevision}`及审批Bearer，**不再GET当前pending wait或先核当前revision**。根入口仍必须认证session mapping，然后提交原command与内部authority到control.resume。首次和重放走同认证链；是否duplicate只由原resumeRequests决定。
 
-1. PD `StaffDeckSopStatusSnapshot` 只返回 state/wait，wait 无 assignee；`SopStateStore` 持有同 session 的 pinned bundle，但原公开 status 不提供该 bundle 的节点授权投影。须在现有 store/control 边界读取 pinned bundle 中 active skill/step 对应的 assignee，并绑定原 wait ID/revision。不能用最新 bundle 或配置默认 ID覆盖运行中旧版本的审批人。
-2. 原 resume 在 session lock 内核 wait/source/revision 与 request 幂等，没有 subject。正常入口须将服务认证得到的 subject 与 pinned assignee核验接到同一权威 wait；旧 resume RPC/HTTP 入口不能继续绕过该守卫。该处不需要改变原审批规则，但需要原公共协议/控制文件 owner 应用窄 hunk。
-3. SD `chat.py:list_human_handoffs` 过滤 PD-origin sessions；`reply_human_handoff` 写原 SD handoff/回复服务。不能移除过滤后把 PD wait 当 SD HandoffRequest。SD 页面需单独呈现 PD权威 wait 的公开投影并调用共用已认证审批桥；原 SD-native handoff 列表/reply保持原 PEP。纯 UI hunk由 UI owner处理，HTTP桥由整合处理。
-4. 两 Host 共用入口认证：PD 同源入口首先核 PDuser/session，审批 Bearer再经本守卫核 SD固定审批主体；SD入口使用当前 SD登录审批人 Bearer，同样读取 PD权威 wait 并核其跨Host session映射。两者只向 PD原resume提交同wait/revision/request。不是两次回复、不是反向双写。
-5. profile/provider/领域DI尚未闭合。固定 root 的 getPublicHostCapabilities仅装 model.catalog与skills.list，tools为空、context抛错；之前91cffab2只接受caller方法，不是现有ModelInvoker/Tool/Task实际适配，不能称已完成。file/task/模型执行与领域Python DI仍必须补实际绑定，禁止将此批审批守卫当替代产物。
+## SD公共router/真实HTTP client
 
-## ownership
+新增`backend/app/public_api/pilotdeck_approvals.py`，public app include router：
 
-本批只新增两份本线server文件与本DELIVERY。在固定基线新隔离树修改；保主仓旧WIP，不再改旧root。共享窄hunk路径已集中请求裁定：PD `src/sop/staffdeck/{types.ts,SopStateStore.ts,StaffDeckSopControlPlane.ts}` 与原 resume HTTP/RPC入口；SD `backend/app/api/chat.py` 的PD-origin收件箱呈现分支。未修改任何这些文件；整合保持modules/gateway/root唯一owner。
+- `GET /api/v1/pilotdeck/approvals/{session_key}`，正常SD用户Bearer；只取显式mapped session，不扫描全局wait。
+- `POST /api/v1/pilotdeck/approvals/reply`，`{session_key,request_id,wait_id,expected_revision,message}`；extra字段（subject/tenant/assignee等）拒绝。无pending preflight，因此可重放已提交request。
+- `PilotDeckApprovalClient(origin,bridge_token,tenant_id,agent_id)`由SD服务root绑定至`public_app.state.pilotdeck_approval_client`。这是实际httpx transport，不是空接口；每请求固定tenant/target。根认证与原session mapping仍由PD owner处理。
+- client向PD `POST /api/module-host/approvals/{status,resume}`发原camelCase command；`Authorization: Bearer <service token>`仅认证SD服务，`X-StaffDeck-Approver-Authorization: Bearer <审批人的正常SD token>`分开输送并由PD再核current-user。原HTTP失败status/body保留，不跟redirect、不写SD handoff，不自动continue。
 
-## 聚焦自验
+这些**PD bridge路径是本批交整合实现的具体消费合同，目前未装配，不能称已存在生产route**。bridge service token只能由正常部署凭据取得，不造token；若根现有认证不支持服务主体，应集中反馈准确auth差异，不能关闭认证。
 
-Node22.23.1（进程级移除NODE_OPTIONS）4/4测试通过：正常主体/同wait绑定、错误actor/tenant/disabled/source拒绝、旧revision/external_task零认证请求拒绝、401保持。测试使用可控正式HTTP响应，不是实际身份登录证据。无真实模型/审批/resume业务运行；profile/effective/pin/wait两Host入口全链路均未标PASS。
+## 整合唯一owner须消费的窄hunk
+
+1. 现有`/api/sop/resume`与`sop_resume`RPC所有human入口均先验证正常PDuser/session访问与SD审批Bearer，再创建内部authority；旧入口不能透传caller authority绕过。原external_task权限独立，不能拿external source绕human wait。
+2. 同session权威mapping须核PD原session归属、固定SDtenant/target；SD端`ExternalSessionBinding.external_session_id`是原外部关联值，不能在未证明它是PD sessionKey时直接推导或借目录补ACL。本批未假定缺失mapping存在。
+3. public app root注入上述HTTP client；PD root新增两条service桥，认证service及原审批Bearer，同wait/pin/revision请求交control。GET也须主体与session核验后才投影；不通过只核tenant扫全局状态。
+4. 两Host UI只注入同public status/reply consumer，不改SD native handoff inbox/filter/reply；原continue是独立用户动作。
+
+共享路径已按授权裁定实现domain本线，无需重新批权限。服务桥、root、RPC与UI仍原owner消费；若原session没有足够跨Host绑定，此缺失是准确接线依赖，不新造影子session/state或扩审批权限。
+
+## 验证及剩余范围
+
+PD Node22.23.1聚焦7/7通过：pinned node、清wait后duplicate原receipt、错误subject/session/tenant/source与冲突拒绝、正常current-user认证、原401、无pending重放。SD正常venv pytest4/4：实HTTP client header隔离、原owner403、extra主体拒绝、router错tenant零transport。两树diff --check通过。均为聚焦自验，不是完整候选业务PASS。
+
+19项实际provider、领域模型/文件/任务Python DI、有效七槽profile仍是原集中任务未完成项；本批router仅approval DI，不冒称全部领域DI。旧91cffab2通用caller-method wrapper不算实际provider。未运行模型/审批业务、pin/new-old/wait continue；没有占位有效profile，无push/merge/部署或新轮。

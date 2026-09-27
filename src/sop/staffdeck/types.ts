@@ -128,11 +128,29 @@ export type StaffDeckSopWait = Readonly<{
   createdAt: string;
 }>;
 
+/** Created by the authenticated host root, never deserialized from browser input. */
+export type StaffDeckApprovalAuthority = Readonly<{
+  tenantId: string;
+  sessionId: string;
+  subject: Readonly<{ tenantId: string; userId: string; source: "web"; role: "admin" | "member"; disabled: boolean }>;
+}>;
+
+export type StaffDeckPinnedApproval = Readonly<{
+  waitId: string;
+  revision: number;
+  skillId: string;
+  version: string;
+  nodeId: string;
+  assigneeUserId: string;
+}>;
+
 export type StaffDeckSopStatusSnapshot = Readonly<{
   sessionId: string;
   revision: number;
   state: StaffDeckSopState;
   wait?: StaffDeckSopWait;
+  approval?: StaffDeckPinnedApproval;
+  approvalError?: Readonly<{ code: string; message: string }>;
 }>;
 
 export type StaffDeckSopResumeInput = Readonly<{
@@ -143,6 +161,7 @@ export type StaffDeckSopResumeInput = Readonly<{
   message: string;
   expectedRevision?: number;
   slotUpdates?: Record<string, unknown>;
+  authority?: StaffDeckApprovalAuthority;
 }>;
 
 export type StaffDeckSopResumeResult = Readonly<{

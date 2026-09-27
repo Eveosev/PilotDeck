@@ -5,6 +5,8 @@ import { isDeepStrictEqual } from "node:util";
 
 import type {
   StaffDeckSopBundle,
+  StaffDeckApprovalAuthority,
+  StaffDeckPinnedApproval,
   StaffDeckSopResumeInput,
   StaffDeckSopResumeResult,
   StaffDeckSopReplyDelivery,
@@ -30,6 +32,7 @@ type PersistedResumeResult = StaffDeckSopResumeResult & Readonly<{
   waitId?: string;
   source?: StaffDeckSopResumeInput["source"];
   slotUpdates?: Record<string, unknown>;
+  authorization?: { authority: StaffDeckApprovalAuthority; approval: StaffDeckPinnedApproval; expectedRevision: number };
 }>;
 
 /** Host-owned, per-session SOP state and definition snapshot store. */
@@ -149,6 +152,14 @@ export class SopStateStore {
       if (!current) throw sopStateError("SOP_SESSION_NOT_FOUND", `No StaffDeck SOP state exists for '${input.sessionId}'.`);
       const duplicate = current.resumeRequests[input.requestId];
       if (duplicate) {
+        if (input.source === "human") {
+          if (!duplicate.authorization) throw sopStateError("SOP_APPROVAL_LEGACY_RECEIPT", "Old receipt has no authenticated approval facts.");
+          validateAuthority(input.authority, input.sessionId, duplicate.authorization.approval);
+          if (!isDeepStrictEqual(duplicate.authorization.authority, input.authority)
+            || input.expectedRevision !== duplicate.authorization.expectedRevision) {
+            throw sopStateError("SOP_RESUME_REQUEST_CONFLICT", "Approval request belongs to a different subject or original revision.");
+          }
+        }
         if (duplicate.message !== input.message
           || (duplicate.waitId !== undefined && duplicate.waitId !== input.waitId)
           || (duplicate.source !== undefined && duplicate.source !== input.source)
@@ -164,6 +175,13 @@ export class SopStateStore {
       if (input.source !== expectedSource) throw sopStateError("SOP_RESUME_SOURCE_INVALID", `This wait requires source '${expectedSource}'.`);
       if (input.expectedRevision !== undefined && input.expectedRevision !== current.revision) {
         throw sopStateError("SOP_REVISION_CONFLICT", `Expected SOP revision ${input.expectedRevision}, found ${current.revision}.`);
+      }
+      let authorization: PersistedResumeResult["authorization"];
+      if (current.wait.kind === "handoff") {
+        const approval = pinnedApproval(current);
+        validateAuthority(input.authority, input.sessionId, approval);
+        if (input.expectedRevision === undefined) throw sopStateError("SOP_REVISION_REQUIRED", "Approval requires the original revision.");
+        authorization = { authority: structuredClone(input.authority!), approval, expectedRevision: input.expectedRevision };
       }
       const revision = current.revision + 1;
       const result: StaffDeckSopResumeResult = {
@@ -189,6 +207,7 @@ export class SopStateStore {
         wait: undefined,
         resumeRequests: { ...current.resumeRequests, [input.requestId]: {
           ...result, waitId: input.waitId, source: input.source, slotUpdates: input.slotUpdates ?? {},
+          ...(authorization ? { authorization } : {}),
         } },
         updatedAt: new Date().toISOString(),
       });
@@ -376,12 +395,54 @@ function waitForState(state: StaffDeckSopState, existing?: StaffDeckSopWait): St
 }
 
 function toStatusSnapshot(value: PersistedSopState): StaffDeckSopStatusSnapshot {
+  let projection: Pick<StaffDeckSopStatusSnapshot, "approval" | "approvalError"> = {};
+  if (value.wait?.kind === "handoff") {
+    try { projection = { approval: pinnedApproval(value) }; }
+    catch (error) {
+      const failure = error as Error & { code: string };
+      projection = { approvalError: { code: failure.code, message: failure.message } };
+    }
+  }
   return {
     sessionId: value.sessionId,
     revision: value.revision,
     state: structuredClone(value.state),
     ...(value.wait ? { wait: structuredClone(value.wait) } : {}),
+    ...projection,
   };
+}
+
+function pinnedApproval(value: PersistedSopState): StaffDeckPinnedApproval {
+  const wait = value.wait;
+  if (!wait || wait.kind !== "handoff" || wait.skillId !== value.state.active_skill_id || wait.stepId !== value.state.active_step_id) {
+    throw sopStateError("SOP_APPROVAL_PIN_INVALID", "Wait does not match the pinned active node.");
+  }
+  const matches = value.bundle.sops.filter(sop => sop.skill_id === wait.skillId || sop.id === wait.skillId);
+  if (matches.length !== 1) throw sopStateError("SOP_APPROVAL_PIN_INVALID", "Pinned SOP is missing or ambiguous.");
+  const sop = matches[0]!;
+  const content = isRecord(sop.content) ? sop.content : sop;
+  const nodes = Array.isArray(content.nodes) ? content.nodes.filter(isRecord).filter(node => node.node_id === wait.stepId) : [];
+  if (nodes.length !== 1 || typeof sop.version !== "string" || !sop.version) {
+    throw sopStateError("SOP_APPROVAL_PIN_INVALID", "Pinned version or node is missing or ambiguous.");
+  }
+  const assignee = nodes[0]!.assignee_user_id;
+  if (typeof assignee !== "string" || !assignee.trim()) {
+    throw sopStateError("SOP_APPROVAL_ASSIGNEE_REQUIRED", "Unassigned handoff requires its original owner policy; no default approver is inferred.");
+  }
+  return { waitId: wait.id, revision: value.revision, skillId: wait.skillId!, version: sop.version, nodeId: wait.stepId!, assigneeUserId: assignee };
+}
+
+function validateAuthority(authority: StaffDeckApprovalAuthority | undefined, sessionId: string, approval: StaffDeckPinnedApproval): void {
+  if (!authority || authority.sessionId !== sessionId || !authority.tenantId
+    || authority.subject.tenantId !== authority.tenantId || authority.subject.source !== "web"
+    || authority.subject.disabled || !authority.subject.userId
+    || !["admin", "member"].includes(authority.subject.role)) {
+    throw sopStateError("SOP_APPROVAL_AUTH_REQUIRED", "Authenticated native subject and original session access are required.");
+  }
+  // Preserve SD handoff policy: admins may reply; members must be the assignee.
+  if (authority.subject.role !== "admin" && authority.subject.userId !== approval.assigneeUserId) {
+    throw sopStateError("SOP_APPROVAL_FORBIDDEN", "Handoff is not assigned to this member.");
+  }
 }
 
 function isWait(value: unknown): value is StaffDeckSopWait {
