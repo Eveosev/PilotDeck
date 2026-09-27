@@ -100,6 +100,25 @@ async function verifyFormalUser(binding) {
   }
 }
 
+// The module transport is a different protocol, but must not lend the copy
+// actor to another local user or another selected owner.
+export async function verifyStaffDeckKnowledgeBinding(config, user, moduleBinding, input) {
+  const binding = bindingFor(config, user, 'list_agents');
+  if (moduleBinding?.tenantId !== binding.tenantId || moduleBinding?.actorUserId !== binding.actorUserId
+    || moduleBinding?.agentId !== binding.targetAgentId) {
+    throw new CopyError(409, 'KNOWLEDGE_IDENTITY_MISMATCH', 'Knowledge tenant, actor and target must match the formal copy binding.');
+  }
+  for (const [keys, expected] of [[['tenantId', 'tenant_id'], binding.tenantId], [['agentId', 'agent_id'], binding.targetAgentId], [['actorUserId', 'actor_user_id'], binding.actorUserId]]) {
+    for (const key of keys) {
+      if (input?.[key] !== undefined && input[key] !== expected) {
+        throw new CopyError(403, 'KNOWLEDGE_SCOPE_FORBIDDEN', 'The requested Knowledge identity or owner is outside the configured binding.');
+      }
+    }
+  }
+  await verifyFormalUser(binding);
+  await visibleDirectory(binding);
+}
+
 function sourceFrom(directory, value) {
   const sourceId = requiredText(value);
   const source = directory.find((row) => row.id === sourceId);
@@ -119,7 +138,7 @@ export function createStaffDeckCopyRouter({ loadConfig }) {
       const directory = await visibleDirectory(binding);
       if (operation === 'list_agents') {
         return res.json({ result: directory.map((row) => ({
-          id: row.id, name: row.name, is_overall: row.is_overall === true, active: row.status === 'active',
+          id: row.id, tenant_id: row.tenant_id, name: row.name, is_overall: row.is_overall === true, active: row.status === 'active',
           copy_target: row.id === binding.targetAgentId,
           can_manage: row.metadata?.directory_access?.can_manage === true,
         })) });

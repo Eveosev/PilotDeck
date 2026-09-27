@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
-import { createStaffDeckCopyRouter } from './staffdeck-copy.js';
+import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
 const SLOTS = ['agentLoop', 'skills', 'tools', 'context', 'modelProvider', 'sop', 'knowledge'];
@@ -86,6 +86,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
       }
       const requestId = `knowledge-ui-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body);
       const messageId = `module-http-${requestId}`;
       const input = withTrustedKnowledgeIdentity(binding, req.body);
       if (!input.baseId && typeof binding.defaultBaseId === 'string' && binding.defaultBaseId.trim()) {
@@ -112,7 +113,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       }
       return res.json({ result: body.payload?.result ?? body.payload });
     } catch (error) {
-      return res.status(502).json({ error: { code: 'MODULE_QUERY_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
+      return res.status(error?.status || 502).json({ error: { code: error?.code || 'MODULE_QUERY_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }
   });
   route.post('/knowledge/citation', async (req, res) => {
@@ -128,6 +129,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(501).json({ error: { code: 'MODULE_IDENTITY_UNAVAILABLE', message: 'Knowledge module requires a server-configured tenantId and actorUserId.' } });
       }
       const requestId = `knowledge-ui-citation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body);
       const messageId = `module-http-${requestId}`;
       const input = withTrustedKnowledgeIdentity(binding, req.body);
       const response = await fetch(new URL(binding.callPath || '/v2/module/call', binding.endpoint), {
@@ -145,7 +147,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       }
       return res.json({ result: body.payload?.result ?? body.payload });
     } catch (error) {
-      return res.status(502).json({ error: { code: 'MODULE_CITATION_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
+      return res.status(error?.status || 502).json({ error: { code: error?.code || 'MODULE_CITATION_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }
   });
   route.post('/knowledge/call', async (req, res) => {
@@ -168,13 +170,14 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         return res.status(409).json({ error: { code: 'MODULE_CAPABILITY_UNAVAILABLE', message: `Knowledge module does not advertise ${operation}.` } });
       }
       const input = withKnowledgeDefaults(binding, req.body?.input);
+      await verifyStaffDeckKnowledgeBinding(readConfig(), req.user, binding, req.body?.input);
       const response = await callKnowledgeModule(binding, operation, input);
       if (!response.response.ok || !response.body || response.body.kind !== 'response' || response.body.inReplyTo !== response.messageId || response.body.ok !== true) {
         return res.status(response.response.status === 200 ? 502 : response.response.status).json({ error: { code: response.body?.code || 'MODULE_CALL_FAILED', message: response.body?.error?.message || 'Knowledge module call failed.' } });
       }
       return res.json({ result: response.body.payload?.result ?? response.body.payload });
     } catch (error) {
-      return res.status(502).json({ error: { code: 'MODULE_CALL_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
+      return res.status(error?.status || 502).json({ error: { code: error?.code || 'MODULE_CALL_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }
   });
   route.get('/sop/definitions', (_req, res) => {
