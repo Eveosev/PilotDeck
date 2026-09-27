@@ -14,7 +14,8 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
   required(text(tenant) && text(actorId) && actorMe.disabled !== true, 'ACTOR_REQUIRED');
   required(text(actorLogin?.token) && actorLogin.user?.id === actorId && actorLogin.user?.tenant_id === tenant, 'ACTOR_LOGIN_MISMATCH');
   required(pilotDeckLogin?.success === true && text(pilotDeckLogin.token)
-    && pilotDeckLogin.user?.id !== undefined && pilotDeckLogin.user.id === pilotDeckMe?.user?.id, 'PILOTDECK_LOGIN_MISMATCH');
+    && (text(pilotDeckLogin.user?.id) || Number.isSafeInteger(pilotDeckLogin.user?.id))
+    && pilotDeckLogin.user.id === pilotDeckMe?.user?.id, 'PILOTDECK_LOGIN_MISMATCH');
   const pdUserId = String(pilotDeckMe.user.id);
   required(text(pdUserId) && target?.tenant_id === tenant && text(target.id)
     && target.status === 'active' && target.is_overall === false, 'TARGET_MISMATCH');

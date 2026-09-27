@@ -28,7 +28,8 @@ test('actual response IDs bind copy, management and discovery without claiming r
 test('foreign target and inconsistent current identities are rejected', () => {
   for (const mutate of [input => { input.target.tenant_id = 'foreign'; },
     input => { input.actorLogin.user = { ...input.actorMe, id: 'another' }; },
-    input => { input.pilotDeckMe.user.id = 18; }]) {
+    input => { input.pilotDeckMe.user.id = 18; },
+    input => { input.pilotDeckLogin.user.id = input.pilotDeckMe.user.id = null; }]) {
     const input = fixture(); mutate(input); assert.throws(() => prepareStaffDeckBindings(input));
   }
 });
