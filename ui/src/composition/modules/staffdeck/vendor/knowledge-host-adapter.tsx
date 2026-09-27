@@ -51,10 +51,15 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'post') return await knowledge<T>('create_base', body || {});
   if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'get') return await knowledge<T>('list_documents', optionalQueryInput(url));
   if (url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') return await knowledge<T>('import_document', { ...body, ...optionalQueryInput(url) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && segments[5] === 'buckets' && method === 'get') return await knowledge<T>('list_document_buckets', { documentId: segments[4], ...optionalQueryInput(url) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'get') return await knowledge<T>('get_document', { documentId: segments[4] });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'put') return await knowledge<T>('update_document', { documentId: segments[4], ...(body || {}) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && method === 'delete') return await knowledge<T>('delete_document', { documentId: segments[4] });
+  if (segments[0] === 'api' && segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4]) {
+    const documentId = decodePathSegment(segments[4]);
+    const scope = optionalQueryInput(url);
+    if (segments.length === 6 && segments[5] === 'buckets' && method === 'get') return await knowledge<T>('list_document_buckets', { ...scope, documentId });
+    if (segments.length === 5 && method === 'get') return await knowledge<T>('get_document', { ...scope, documentId });
+    if (segments.length === 5 && method === 'put') return await knowledge<T>('update_document', { ...(body || {}), ...scope, documentId });
+    if (segments.length === 5 && method === 'delete') return await knowledge<T>('delete_document', { ...scope, documentId });
+    throw new Error(`Unsupported StaffDeck Knowledge document operation: ${method} ${path}`);
+  }
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'knowledge-bases') return await knowledge<T>('list_bases');
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'versions' && method === 'get') return await knowledge<T>('list_versions', { knowledgeBaseId: segments[3], ...optionalQueryInput(url) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'sync-from-overall' && method === 'post') return await knowledge<T>('sync_base', { knowledgeBaseId: segments[3], agentId: url.searchParams.get('agent_id') || '' });

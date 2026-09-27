@@ -4,6 +4,32 @@ import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 
 describe('PilotDeck Knowledge host authorization boundary', () => {
+  it('preserves document query scope and body for scoped branch writes and adjacent reads', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    const calls: any[] = [];
+    const document = { id: 'branch-document', knowledge_base_version_id: 'branch-version', content_md: 'unique fact' };
+    staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return document as any; };
+    const path = '/api/enterprise/knowledge/documents/doc%2F%E4%B8%AD%E6%96%87?agent_id=sales&tenant_id=actual&knowledge_base_id=base';
+    const scope = { agentId: 'sales', tenantId: 'actual', knowledgeBaseId: 'base', documentId: 'doc/中文' };
+    const body = { tenant_id: 'actual', title: 'Title', content_md: 'unique fact', expected_updated_at: 'original-read', metadata: { preserved: true }, documentId: 'body-must-not-replace-path', agentId: 'body-must-not-replace-query' };
+    try {
+      expect(await pilotDeckKnowledgePageHost.api.put(path, body)).toBe(document);
+      expect(await pilotDeckKnowledgePageHost.api.get(path)).toBe(document);
+      expect(await pilotDeckKnowledgePageHost.api.delete!(path)).toBe(document);
+      expect(await pilotDeckKnowledgePageHost.api.get(path.replace('?', '/buckets?'))).toBe(document);
+      expect(calls).toEqual([
+        { operation: 'update_document', input: { ...body, ...scope } },
+        { operation: 'get_document', input: scope },
+        { operation: 'delete_document', input: scope },
+        { operation: 'list_document_buckets', input: scope },
+      ]);
+      for (const method of ['get', 'put', 'delete'] as const) {
+        const unknownPath = path.replace('?', '/unknown?');
+        await expect(method === 'put' ? pilotDeckKnowledgePageHost.api.put(unknownPath, {}) : pilotDeckKnowledgePageHost.api[method](unknownPath)).rejects.toThrow('Unsupported');
+      }
+      expect(calls).toHaveLength(4);
+    } finally { staffDeckKnowledgeClient.call = original; }
+  });
   it('dispatches a complete scoped concept ID and exact body/response without updating the base', async () => {
     const original = staffDeckKnowledgeClient.call;
     const calls: any[] = [];
