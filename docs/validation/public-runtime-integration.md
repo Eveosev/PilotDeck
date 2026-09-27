@@ -131,3 +131,9 @@ adapter 接线须保留 response 同级 runtime，不能只读取 result 而丢�
 GET management bootstrap 同时返回正式核实的 tenantId、actorUserId、agentId；不公开 credentialId，不改 adapter 旧 cache namespace。Knowledge query/citation/call 与 SOP management GET/call 每次显式核实身份，不依赖 native read 自动执行 FastAPI dependencies。新增两项真实 HTTP 聚焦测试在首次合法请求后撤销/改变正式身份，后续 read/write 均拒绝且不触发业务上游；连同原 route 测试共 5 PASS。
 
 整合者新增 `ui/server/staffdeck-publish-route.js` 与聚焦测试；原 13 项 helper 测试加 3 项持久 receipt 测试共 16 PASS，公共实际 HTTP route 3 PASS（create/ETag、abort、一次 publish→快照→Gateway port→receipt metadata）。这些使用正式协议替身与自有 166xx 端口，不是独立真实模型或 ownerDB 验收。
+
+## Pure protocol placement correction (adapter8e8d5cdf integration)
+
+The capability client/planner/SSE decoder from4319eadd has no Node or authentication imports. Its canonical implementation now lives in ui/shared/staffdeck-public-capabilities.mjs, byte-for-byte unchanged; ui/server/staffdeck-public-capabilities.mjs is a compatibility re-export. Browser consumers may inject it from that neutral shared path and an existing explicitly authorized gateway transport, with no server imports or SD credentials. The publish/runtime coordinator alone uses Node and remains server-only. Earlier statements calling both helpers server-only are superseded by this correction.
+
+Adapter8e8d5cdf supplies response/error/job/event consumption and request-local cursors only. No production initialization or route/operation advertisement is introduced. Existing management/call supports only its original declared operations; it cannot carry new protocol operations until the explicit route whitelist decision and matching transport contract are resolved. Therefore no new path-based browser proxy or approximate mapping to an existing management operation is installed. authorizedOperations remains empty while pending; dirty/current_skill/conversation cannot become saved public jobs; cancel remains blocked.

@@ -5,7 +5,7 @@ import { ApiError } from './vendor/DistillPageHost';
 export type ModuleRequestOptions = { signal?: AbortSignal };
 
 // Preserve the original error payload contract and shared UI class identity.
-function moduleApiError(status: number, body: string, statusText: string): ApiError {
+export function moduleApiError(status: number, body: string, statusText: string): ApiError {
   const stableCode = (value: unknown) => typeof value === 'string' && /^[A-Z][A-Z0-9_]+$/.test(value) ? value : undefined;
   let message = body;
   let code: string | undefined;
