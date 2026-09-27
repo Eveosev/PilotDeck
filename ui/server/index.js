@@ -83,6 +83,7 @@ import {
     getRouterSessionStats,
     getRouterStatsSummary,
     getPilotDeckGateway,
+    getPilotDeckHostCapabilities,
     isGatewayUnavailableError,
     registerAlwaysOnNotificationForwarding,
     registerSessionInputNotificationForwarding,
@@ -637,7 +638,7 @@ app.put('/api/sessions/model', authenticateToken, sessionModelHandlers.set);
 app.delete('/api/sessions/model', authenticateToken, sessionModelHandlers.clear);
 app.use('/api/sessions', authenticateToken, messagesRoutes);
 app.use('/api/sop', authenticateToken, sopRoutes);
-app.use('/api/modules', authenticateToken, createModuleRuntimeRouter());
+app.use('/api/modules', authenticateToken, createModuleRuntimeRouter({ getHostCapabilities: getPilotDeckHostCapabilities }));
 
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);

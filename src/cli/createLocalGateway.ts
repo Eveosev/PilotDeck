@@ -116,6 +116,8 @@ import {
   type SkillManagementPort,
 } from "../extension/skills/index.js";
 import { createSkillManagementPort, isDisabledModuleBinding, isExternalModuleBinding } from "../composition/index.js";
+import { createRuntimeHostCapabilityProvider } from "../composition/publicHostRuntimeAdapter.js";
+import type { PublicHostCapabilityProvider } from "../composition/nativeHostCapabilityProvider.js";
 import { getPilotDeckInstallCommand } from "../mcp/runtime/projectMcpSpec.js";
 import { isPathWithinRoot } from "../tool/builtin/filesystem/pathSafety.js";
 import { ExtensionWatchManager, type ExtensionWatchEvent } from "./ExtensionWatchManager.js";
@@ -541,6 +543,7 @@ export type CreateLocalGatewayResult = {
    * AlwaysOnManager / CronManager in response to a config change.
    */
   updateSubsystems: (update: SubsystemUpdate) => void;
+  getPublicHostCapabilities: () => PublicHostCapabilityProvider;
 };
 
 export function createLocalGateway(options: CreateLocalGatewayOptions = {}): CreateLocalGatewayResult {
@@ -1141,6 +1144,26 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       runtimeRefresh.bindServer(server);
     },
     isProjectBusy: (projectKey: string) => router!.hasActiveUserTurn(projectKey),
+    getPublicHostCapabilities: () => {
+      const runtime = registry.resolve();
+      return createRuntimeHostCapabilityProvider({
+        profile: { id: runtime.projectRoot },
+        tools: {},
+        model: { catalog: async () => {
+          const result = await sessionModels.modelCatalogList({ includeAuto: false });
+          return { ...result, items: result.items.map(item => ({ ...item,
+            name: item.displayName, enabled: item.available,
+            is_default: result.defaultSelection?.provider === item.provider && result.defaultSelection.model === item.model,
+          })) };
+        } },
+        skills: isDisabledModuleBinding(runtime.snapshot.config.modules?.skills) ? {} : { list: async () => {
+          const result = await skillManager.list({ projectKey: runtime.projectRoot });
+          return { ...result, items: result.items.map(item => ({ ...item, id: item.slug })) };
+        } },
+        // No tool method is advertised without the original bound execution/context Port.
+        context: { forTool: () => { throw new Error('PUBLIC_HOST_TOOL_CONTEXT_UNAVAILABLE'); } },
+      });
+    },
     updateSubsystems: (update: SubsystemUpdate) => {
       registry.updateSubsystems({
         extraTools: update.extraTools,

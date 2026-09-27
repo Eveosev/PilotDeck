@@ -567,6 +567,11 @@ export async function getPilotDeckGateway() {
     return ensureGateway();
 }
 
+export async function getPilotDeckHostCapabilities({ principal, signal }) {
+    const { createRemoteHostCapabilities } = await import('./pilotdeck-host-remote-transport.mjs');
+    return createRemoteHostCapabilities({ url: GATEWAY_URL, token: await readGatewayToken(), principal, signal });
+}
+
 /**
  * Retry a read-only Gateway operation once when the shared WebSocket drops.
  * Mutating operations deliberately do not use this helper: replaying an

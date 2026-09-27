@@ -11,7 +11,7 @@ import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-
 import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
 import { createPublicCapabilityClient, decodePublicJobEvents, planPublicOperation, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from '../staffdeck-public-capabilities.mjs';
-import { createPilotDeckHostCapabilityGateway, encodeHostCapabilityStream, PILOTDECK_HOST_UI_OPERATIONS } from '../pilotdeck-host-capability-gateway.mjs';
+import { createPilotDeckHostCapabilityGateway, encodeHostCapabilityStream, isHostCapabilityStreamBody, PILOTDECK_HOST_UI_OPERATIONS } from '../pilotdeck-host-capability-gateway.mjs';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -73,13 +73,16 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const gateway = await getGateway();
       const principal = { pilotDeckUserId: String(req.user.id), tenantId: configuredValue(copy, 'tenantId'),
         actorUserId: configuredValue(copy, 'actorUserId'), agentId: configuredValue(copy, 'targetAgentId') };
-      const port = getHostCapabilities ? await getHostCapabilities({ gateway, principal }) : gateway?.moduleHostCapabilities;
+      const port = getHostCapabilities ? await getHostCapabilities({ gateway, principal, signal: req.moduleRequestSignal }) : gateway?.moduleHostCapabilities;
       if (getHostCapabilities && !port) throw managementError(501, 'PILOTDECK_HOST_CAPABILITY_UNAVAILABLE', 'The selected host binding is unavailable.');
       const result = await createPilotDeckHostCapabilityGateway({ gateway, port, principal }).call(req.body?.operation, req.body?.input ?? {}, {
         signal: req.moduleRequestSignal, callback,
       });
       res.status(result.status);
       const headers = new Headers(result.headers);
+      if (isHostCapabilityStreamBody(result.body) && !headers.get('content-type')?.startsWith('text/event-stream') && !headers.get('content-type')?.startsWith('application/x-ndjson')) {
+        throw managementError(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host stream content-type is required.');
+      }
       for (const name of ['content-type', 'etag', 'retry-after', 'x-request-id', 'x-pilotdeck-model-id', 'x-pilotdeck-provider-id']) {
         if (headers.has(name)) res.setHeader(name, headers.get(name));
       }
