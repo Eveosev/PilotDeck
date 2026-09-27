@@ -225,6 +225,12 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   },
 };
 
+// Translate only the formal SOP routes; retain query/hash verbatim and leave
+// unrelated destinations to the router. Both mounted hosts use this boundary.
+export function pilotDeckSopDestination(path: string): string {
+  return path.replace(/^\/enterprise\/skills(?=\/|\?|#|$)/, '/sop');
+}
+
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [ready, setReady] = React.useState(false);
@@ -239,11 +245,7 @@ export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode 
   }, []);
   if (error) return <div role="alert">{error}</div>;
   if (!ready) return null;
-  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => {
-    if (!path.startsWith('/enterprise/skills')) return navigate(path);
-    const queryIndex = path.indexOf('?');
-    navigate(path.includes('/distill') ? `/sop/distill${queryIndex >= 0 ? path.slice(queryIndex) : ''}` : `/sop${queryIndex >= 0 ? path.slice(queryIndex) : ''}`);
-  } }}>{children}</SkillsPageHostProvider>;
+  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => navigate(pilotDeckSopDestination(path)) }}>{children}</SkillsPageHostProvider>;
 }
 
 export function createPilotDeckDistillPageHost(): DistillPageHost {
@@ -281,5 +283,5 @@ export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const host = React.useMemo(createPilotDeckDistillPageHost, []);
-  return <DistillPageHostProvider value={{ ...host, navigate: (path, options) => navigate(path, options) }}>{children}</DistillPageHostProvider>;
+  return <DistillPageHostProvider value={{ ...host, navigate: (path, options) => navigate(pilotDeckSopDestination(path), options) }}>{children}</DistillPageHostProvider>;
 }

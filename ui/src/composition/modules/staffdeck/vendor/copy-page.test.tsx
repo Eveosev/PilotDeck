@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import KnowledgePage from './KnowledgePage';
@@ -10,7 +10,8 @@ import SkillsPage from './SkillsPage';
 import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { PilotDeckKnowledgePageProvider, pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
-import { PilotDeckSkillsPageProvider, createPilotDeckDistillPageHost, pilotDeckDistillPageHost, pilotDeckSkillsPageHost } from './skills-host-adapter';
+import { PilotDeckSkillsPageProvider, PilotDeckDistillPageProvider, pilotDeckSopDestination, createPilotDeckDistillPageHost, pilotDeckDistillPageHost, pilotDeckSkillsPageHost } from './skills-host-adapter';
+import { useDistillPageHost } from './DistillPageHost';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
 
 const agents = [
@@ -26,6 +27,29 @@ afterEach(() => {
 });
 
 describe('PilotDeck shared plaza pages', () => {
+  it('maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope', () => {
+    window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
+    function NavigationProbe() {
+      const host = useDistillPageHost();
+      const location = useLocation();
+      const navigate = useNavigate();
+      return <><output>{location.pathname}{location.search}{location.hash}</output>
+        <button onClick={() => host.navigate('/enterprise/skills?agent_id=employee-real#list', { replace: true })}>Editor Back</button>
+        <button onClick={() => navigate(-1)}>History Back</button></>;
+    }
+    render(<MemoryRouter initialEntries={['/previous', '/sop/distill?skill_id=real']} initialIndex={1}>
+      <PilotDeckDistillPageProvider><NavigationProbe /></PilotDeckDistillPageProvider>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Editor Back' }));
+    expect(screen.getByRole('status').textContent).toBe('/sop?agent_id=employee-real#list');
+    expect(window.localStorage.getItem('ultrarag_enterprise_agent_scope')).toBe('employee-real');
+    fireEvent.click(screen.getByRole('button', { name: 'History Back' }));
+    expect(screen.getByRole('status').textContent).toBe('/previous');
+    expect(pilotDeckSopDestination('/enterprise/skills/distill?skill_id=x&agent_id=y#source')).toBe('/sop/distill?skill_id=x&agent_id=y#source');
+    expect(pilotDeckSopDestination('/enterprise/skills')).toBe('/sop');
+    expect(pilotDeckSopDestination('/enterprise/skills-other?x=1')).toBe('/enterprise/skills-other?x=1');
+    expect(pilotDeckSopDestination('/knowledge?x=1')).toBe('/knowledge?x=1');
+  });
   it('injects the same complete business primitives into Knowledge and Skills', () => {
     for (const host of [pilotDeckKnowledgePageHost, pilotDeckSkillsPageHost]) {
       expect(host.components?.DataTable).toBe(PilotDeckDataTable);
