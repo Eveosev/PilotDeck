@@ -185,10 +185,29 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'get_knowledge_concept': plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts/${id(input.conceptId)}`; break;
     case 'update_knowledge_concept': plan.method = 'PUT'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/concepts/${id(input.conceptId)}`; plan.body = publicBody(input); break;
     case 'export_knowledge_okf': plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/okf/export`; break;
-    case 'list_knowledge_jobs': plan.path = `${agent}/knowledge-jobs`; if (input.status) plan.path += `?status=${encodeURIComponent(input.status)}`; plan.shape = 'collection'; break;
+    case 'list_knowledge_jobs': {
+      plan.path = `${agent}/knowledge-jobs`;
+      const query = new URLSearchParams();
+      if (input.status) query.set('status', input.status);
+      if (input.limit !== undefined) {
+        if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 50) fail('PUBLIC_INPUT_INVALID', 'Knowledge job limit must be an integer between 1 and 50.', 400);
+        query.set('limit', String(input.limit));
+      }
+      const suffix = query.toString();
+      if (suffix) plan.path += `?${suffix}`;
+      plan.shape = 'collection'; break;
+    }
     case 'get_knowledge_job': plan.path = `${agent}/knowledge-jobs/${id(input.jobId)}`; break;
     case 'cancel_knowledge_job': plan.method = 'POST'; plan.path = `${agent}/knowledge-jobs/${id(input.jobId)}:cancel`; break;
-    case 'list_knowledge_discoveries': plan.path = `${agent}/knowledge-discoveries`; plan.shape = 'collection'; break;
+    case 'list_knowledge_discoveries': {
+      plan.path = `${agent}/knowledge-discoveries`;
+      const query = new URLSearchParams();
+      if (input.knowledgeBaseId) query.set('knowledge_base_id', input.knowledgeBaseId);
+      if (input.status) query.set('status', input.status);
+      const suffix = query.toString();
+      if (suffix) plan.path += `?${suffix}`;
+      plan.shape = 'collection'; break;
+    }
     case 'confirm_knowledge_discovery': plan.method = 'POST'; plan.path = `${agent}/knowledge-discoveries/${id(input.suggestionId)}:confirm`; break;
     case 'reject_knowledge_discovery': plan.method = 'POST'; plan.path = `${agent}/knowledge-discoveries/${id(input.suggestionId)}:reject`; break;
     case 'list_sops': plan.path = `${agent}/sops`; plan.shape = 'sop-collection'; break;

@@ -3,6 +3,7 @@ import express from 'express';
 import http from 'node:http';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createModuleRuntimeRouter } from './modules.js';
+import { encodeHostCapabilityStream } from '../pilotdeck-host-capability-gateway.mjs';
 
 const servers = [];
 let nextPort = 16600;
@@ -74,3 +75,29 @@ it('forwards real model callback event bytes and aborts iterator without task ca
   controller.abort(); await closedPromise;
   expect(calls).toEqual([{ operation: 'model_stream', input: { request: { model: 'pd-model-id' } } }]);
 }, 10000);
+
+it('frames actual canonical NDJSON events and preserves existing bytes without double encoding', async () => {
+  const events = [{ type: 'text.delta', text: '真实\n内容' }, { type: 'completed', finishReason: 'stop', usage: { inputTokens: 7, outputTokens: 2 } }];
+  let disposed = false;
+  const call = await fixture({ moduleHostCapabilities: {
+    operations: ['model_stream'],
+    call: async () => ({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'x-pilotdeck-model-id': 'configured-model', 'x-pilotdeck-provider-id': 'configured-provider' }, body: (async function* () {
+      try { yield events[0]; yield new TextEncoder().encode(JSON.stringify(events[1]) + '\n'); } finally { disposed = true; }
+    })() }),
+  } });
+  const response = await call('model_stream', { request: {} }, { callback: true });
+  expect(response.status).toBe(200);
+  expect(response.headers.get('content-type')).toContain('application/x-ndjson');
+  expect(response.headers.get('x-pilotdeck-model-id')).toBe('configured-model');
+  expect(response.headers.get('x-pilotdeck-provider-id')).toBe('configured-provider');
+  expect(await response.text()).toBe(events.map(event => JSON.stringify(event) + '\n').join(''));
+  expect(disposed).toBe(true);
+});
+
+it('does not invent SSE framing for objects and releases invalid stream iterators', async () => {
+  let disposed = false;
+  async function* events() { try { yield { type: 'text.delta', text: 'unframed' }; } finally { disposed = true; } }
+  const consume = async () => { for await (const chunk of encodeHostCapabilityStream(events(), 'text/event-stream')) void chunk; };
+  await expect(consume()).rejects.toMatchObject({ status: 502, code: 'PILOTDECK_HOST_RESPONSE_INVALID' });
+  expect(disposed).toBe(true);
+});

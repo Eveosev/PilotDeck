@@ -228,5 +228,9 @@ test('fixed Knowledge routes retain base and document IDs, conflict timestamp an
     knowledgeBaseId: 'kb/1', body: { filename: 'source.md', content_base64: 'YQ==', title: 'Source' },
   });
   assert.equal(multipart.shape, 'knowledge-ingest-job');
+  const jobs = planPublicOperation(target, 'list_knowledge_jobs', { status: 'running', limit: 12 });
+  assert.equal(jobs.path, 'agents/target%2F1/knowledge-jobs?status=running&limit=12');
+  const discoveries = planPublicOperation(target, 'list_knowledge_discoveries', { knowledgeBaseId: 'kb/1', status: 'pending' });
+  assert.equal(discoveries.path, 'agents/target%2F1/knowledge-discoveries?knowledge_base_id=kb%2F1&status=pending');
   assert.throws(() => planPublicOperation(null, 'update_knowledge_document', { knowledgeBaseId: 'kb', documentId: 'd', body: {} }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
 });

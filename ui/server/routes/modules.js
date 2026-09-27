@@ -11,7 +11,7 @@ import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-
 import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
 import { createPublicCapabilityClient, decodePublicJobEvents, planPublicOperation, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from '../staffdeck-public-capabilities.mjs';
-import { createPilotDeckHostCapabilityGateway, PILOTDECK_HOST_UI_OPERATIONS } from '../pilotdeck-host-capability-gateway.mjs';
+import { createPilotDeckHostCapabilityGateway, encodeHostCapabilityStream, PILOTDECK_HOST_UI_OPERATIONS } from '../pilotdeck-host-capability-gateway.mjs';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -80,14 +80,14 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       });
       res.status(result.status);
       const headers = new Headers(result.headers);
-      for (const name of ['content-type', 'etag', 'retry-after', 'x-request-id']) {
+      for (const name of ['content-type', 'etag', 'retry-after', 'x-request-id', 'x-pilotdeck-model-id', 'x-pilotdeck-provider-id']) {
         if (headers.has(name)) res.setHeader(name, headers.get(name));
       }
       if (headers.get('content-type')?.startsWith('text/event-stream') || headers.get('content-type')?.startsWith('application/x-ndjson')) {
         if (!result.body) throw managementError(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host stream body is missing.');
         res.flushHeaders();
-        const body = typeof result.body.getReader === 'function' ? Readable.fromWeb(result.body) : Readable.from(result.body);
-        await pipeline(body, res, { signal: req.moduleRequestSignal });
+        const chunks = typeof result.body.getReader === 'function' ? Readable.fromWeb(result.body) : result.body;
+        await pipeline(Readable.from(encodeHostCapabilityStream(chunks, headers.get('content-type'))), res, { signal: req.moduleRequestSignal });
         return;
       }
       if (result.rawBody !== undefined) return res.end(result.rawBody);

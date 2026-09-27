@@ -367,9 +367,9 @@ it('dispatches deep Knowledge IDs and raw export/domain-job envelopes without AP
     ['update_knowledge_chunk', { chunkId: 'chunk/id', body: { content_md: 'source' } }, 'PUT', '/agents/target/knowledge-chunks/chunk%2Fid'],
     ['get_knowledge_concept', { knowledgeBaseId: 'kb/id', conceptId: 'a/b' }, 'GET', '/agents/target/knowledge-bases/kb%2Fid/concepts/a%2Fb'],
     ['update_knowledge_concept', { knowledgeBaseId: 'kb/id', conceptId: 'a/b', body: { content_md: 'graph edit' } }, 'PUT', '/agents/target/knowledge-bases/kb%2Fid/concepts/a%2Fb'],
-    ['list_knowledge_jobs', { status: 'running' }, 'GET', '/agents/target/knowledge-jobs?status=running'],
+    ['list_knowledge_jobs', { status: 'running', limit: 12 }, 'GET', '/agents/target/knowledge-jobs?status=running&limit=12'],
     ['cancel_knowledge_job', { jobId: 'job/id' }, 'POST', '/agents/target/knowledge-jobs/job%2Fid:cancel'],
-    ['list_knowledge_discoveries', {}, 'GET', '/agents/target/knowledge-discoveries'],
+    ['list_knowledge_discoveries', { knowledgeBaseId: 'kb/id', status: 'pending' }, 'GET', '/agents/target/knowledge-discoveries?knowledge_base_id=kb%2Fid&status=pending'],
     ['confirm_knowledge_discovery', { suggestionId: 'suggestion/id' }, 'POST', '/agents/target/knowledge-discoveries/suggestion%2Fid:confirm'],
     ['reject_knowledge_discovery', { suggestionId: 'suggestion/id' }, 'POST', '/agents/target/knowledge-discoveries/suggestion%2Fid:reject'],
   ]) {
@@ -380,4 +380,8 @@ it('dispatches deep Knowledge IDs and raw export/domain-job envelopes without AP
   }
   expect(await (await f.call('export_knowledge_okf', { knowledgeBaseId: 'kb/id' }, scope)).json()).toEqual({ content_base64: 'UEs=', media_type: 'application/zip', filename: 'original.zip' });
   expect(await (await f.call('get_knowledge_job', { jobId: 'job/id' }, scope)).json()).toEqual({ id: 'job/id', stage: 'parse', status: 'processing', source_document_id: 'doc/id' });
+  const beforeInvalidLimit = calls.length;
+  expect((await f.call('list_knowledge_jobs', { limit: 0 }, scope)).status).toBe(400);
+  expect((await f.call('list_knowledge_jobs', { limit: 51 }, scope)).status).toBe(400);
+  expect(calls).toHaveLength(beforeInvalidLimit);
 });

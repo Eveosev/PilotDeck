@@ -9,6 +9,25 @@ export const PILOTDECK_HOST_CALLBACK_OPERATIONS = Object.freeze([
 ]);
 const failure = (status, code, message) => Object.assign(new Error(message), { status, code });
 
+// Byte/string streams already carry their wire framing. Canonical event objects
+// need framing only when the selected provider explicitly declares NDJSON.
+export async function* encodeHostCapabilityStream(chunks, contentType) {
+  for await (const chunk of chunks) {
+    if (typeof chunk === 'string' || chunk instanceof Uint8Array) {
+      yield chunk;
+    } else if (contentType?.startsWith('application/x-ndjson') && chunk !== null && typeof chunk === 'object' && !Array.isArray(chunk)) {
+      let json;
+      try { json = JSON.stringify(chunk); } catch {
+        throw failure(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host event must be JSON serializable.');
+      }
+      if (typeof json !== 'string') throw failure(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host event must be JSON serializable.');
+      yield `${json}\n`;
+    } else {
+      throw failure(502, 'PILOTDECK_HOST_RESPONSE_INVALID', 'Host stream requires bytes, strings, or declared NDJSON events.');
+    }
+  }
+}
+
 /** Provider contract: call(operation,input,{signal,principal}) -> HTTP envelope.
  * moduleHostCapabilities must be composed from the same runtime Port instances.
  * It is not a second model/catalog registry or a domain job store.
