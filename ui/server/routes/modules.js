@@ -7,6 +7,7 @@ import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
 import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
+import { createPublicCapabilityClient, decodePublicJobEvents } from '../staffdeck-public-capabilities.mjs';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -455,18 +456,61 @@ async function callSopManagement(management, operation, value, signal) {
       required(sopId, 'sopId'); required(version, 'version'); method = 'POST'; target = `sops/${path(sopId)}/versions/${path(version)}:rollback?agent_id=${encodeURIComponent(management.agentId)}`; break;
     default: throw Object.assign(new Error('Unsupported SOP management operation.'), { code: 'SOP_MANAGEMENT_OPERATION_UNSUPPORTED', status: 400 });
   }
-  const headers = { accept: 'application/json', authorization: `Bearer ${management.apiKey}` };
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  const headers = { accept: 'application/json' };
   if (operation === 'replace_draft') {
     required(text(input.etag), 'etag');
     headers['if-match'] = text(input.etag);
   }
-  const response = await fetch(new URL(target, management.endpoint), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs) });
+  const response = await fetchStaffDeckOwner(management, { method, path: target, headers, body, signal });
   const payload = await response.json().catch(() => undefined);
   if (!response.ok) {
     throw Object.assign(new Error(payload?.error?.message || payload?.detail || `StaffDeck SOP management request failed (${response.status}).`), { code: payload?.error?.code || 'SOP_MANAGEMENT_UPSTREAM_FAILED', status: response.status });
   }
   return { status: response.status, body: staffDeckDraftResponse(payload, response, operation) };
+}
+
+// Server-only transport shared by the existing management calls and the gated
+// public protocol client. Paths are planned locally, never supplied by a browser.
+function fetchStaffDeckOwner(management, { method, path, headers, body, signal }) {
+  const ownerHeaders = { ...headers, authorization: `Bearer ${management.apiKey}` };
+  if (body !== undefined) ownerHeaders['content-type'] = 'application/json';
+  return fetch(new URL(path, management.endpoint), {
+    method, headers: ownerHeaders,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs),
+  });
+}
+
+/** Prepare only after the normal per-request owner verification. No route or
+ * advertised operation uses this gateway while the whitelist is pending. */
+export function createStaffDeckPublicCapabilityGateway({ management, owner, signal }) {
+  if (!owner?.tenantId || !owner?.actorUserId || !owner?.credentialId
+    || owner.agentId !== management?.agentId || owner.credentialId !== management?.credentialId) {
+    throw managementError(409, 'SOP_MANAGEMENT_TARGET_MISMATCH', 'Public capability transport requires the verified management owner.');
+  }
+  const client = createPublicCapabilityClient({
+    agentId: owner.agentId,
+    authorizedOperations: [], // Pending whitelist is never read from browser input.
+    transport: async plan => {
+      const response = await fetchStaffDeckOwner(management, plan);
+      if (plan.responseType === 'event-stream' && response.ok) {
+        return { status: response.status, body: response.body, headers: response.headers };
+      }
+      const raw = await response.text();
+      let body = raw;
+      if (response.ok) { try { body = JSON.parse(raw); } catch {} }
+      return { status: response.status, body, headers: response.headers };
+    },
+  });
+  const call = (operation, input, options = {}) => client.call(operation, input, { signal: options.signal ?? signal });
+  return Object.freeze({
+    call,
+    async events(input, options = {}) {
+      const response = await call('job_events', input, options);
+      if (response.status < 200 || response.status >= 300) return response;
+      return { ...response, body: decodePublicJobEvents(response.body, { signal: options.signal ?? signal }) };
+    },
+  });
 }
 
 function required(value, field) {

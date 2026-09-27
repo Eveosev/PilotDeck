@@ -87,24 +87,25 @@ The integrator also guards the direct toSkill published-version projection again
 
 ## Accepted pure protocol boundary correction
 
-`createPublicCapabilityClient({agentId,transport,authorizedOperations: []})` is a pure protocol interface without Node imports: the public-route owner supplies the existing verified principal/target/owned credential transport and an explicitly approved operation list. It can consume an existing authorized gateway transport on either side; its `ui/server` physical location does not make it intrinsically Node-only. No direct browser-to-SD request or browser credential acquisition is introduced. Only the publish/runtime helper requires Node and stays server-side. Its raw failure status/body must pass through the existing shared ApiError boundary. On later approved directory wiring, only the real `data[]` envelope can become the UI's expected collection; never default malformed data to empty. Its 202/job/result and actual SSE events cannot become original temporary preview/token events, or trigger a second create. The original dirty/current_skill/conversation path remains blocked until a real preview contract exists; saved rewrite must not silently save dirty input. Cancel and unavailable equivalent operations remain blocked. The helper's 13 passing tests are separate from this line's tests and are not adapter or G gate acceptance.
+`createPublicCapabilityClient({agentId,transport,authorizedOperations: []})` is a server-only protocol interface by the capability owner's explicit placement contract: the public-route owner supplies the existing verified principal/target/owned credential transport and an explicitly approved operation list. Both delivered helpers remain server-only even though the public capability helper has no Node imports. No browser import/injection of `ui/server/*`, direct browser-to-SD request or browser SD credential acquisition is permitted. Browser code consumes only the existing `/api/modules/sop/management/call` or another explicitly approved formal module contract. Its raw failure status/body must pass through the existing shared ApiError boundary. On later approved directory wiring, only the real `data[]` envelope can become the UI's expected collection; never default malformed data to empty. Its 202/job/result and actual SSE events cannot become original temporary preview/token events, or trigger a second create. The original dirty/current_skill/conversation path remains blocked until a real preview contract exists; saved rewrite must not silently save dirty input. Cancel and unavailable equivalent operations remain blocked. The helper's 13 passing tests are separate from this line's tests and are not adapter or G gate acceptance.
 
 ## Gateway-facing public adapter consumption interface
 
-Following the capability owner confirmation (no overlapping adapter WIP), this line adds `ui/src/composition/modules/staffdeck/public-capability-adapter.ts` and 8 focused tests. It accepts an injected `{client, decodeEvents}` with the exact committed helper contract, allowing the integrator to choose the physical shared location without importing privileged server transport code into the browser.
+Following the capability owner confirmation (no overlapping adapter WIP), this line adds `ui/src/composition/modules/staffdeck/public-capability-adapter.ts` and 8 focused tests. It accepts `{client, decodeEvents}` as a browser facade over the authorized module gateway response/event contract. These arguments must not be the server helper objects: the public module route invokes the server-only capability client/SD SSE decoder, while browser code receives only the approved gateway response/stream. No physical server helper relocation or import into the frontend is allowed.
 
 ```ts
+// Browser: facade over the existing/explicitly approved module contract only.
 const adapter = createPublicCapabilityAdapter({
-  client: createPublicCapabilityClient({
-    agentId: verifiedAgentId,
-    transport: existingAuthorizedGatewayTransport,
-    authorizedOperations: [], // unchanged while approval is pending
-  }),
-  decodeEvents: decodePublicJobEvents,
+  client: existingAuthorizedModuleGatewayFacade,
+  decodeEvents: existingModuleGatewayEventDecoder,
 });
+// Server route owner only (not a frontend import):
+// createPublicCapabilityClient({ agentId: verifiedAgentId,
+//   transport: existingAuthorizedStaffDeckTransport,
+//   authorizedOperations: [] }); // unchanged while approval is pending
 ```
 
-This module does not initialize the helper in production, advertise operations, add routes or populate authorization. It is ready for the explicitly approved connection only. Existing native temporary-generation/dirty-rewrite paths remain semantically blocked; those paths must not call `acceptedJob` as a substitute.
+This browser module does not initialize or import the server helper in production, advertise operations, add routes or populate authorization. It is ready for the explicitly approved connection only. Existing native temporary-generation/dirty-rewrite paths remain semantically blocked; those paths must not call `acceptedJob` as a substitute.
 
 - `collection(op,input,signal)` projects only a formal data array; malformed shape is an error. Returned rows/extensions are untouched.
 - `response(op,input,signal)` preserves actual successful status/body/headers, including ETag. `operation` is a body-only convenience when the consuming UI specifically expects that shape. Raw non-2xx status/body/code and typed local protocol errors enter the same shared ApiError boundary; AbortError passes through without retry or silent cancellation.
@@ -113,10 +114,26 @@ This module does not initialize the helper in production, advertise operations, 
 
 Host notifications remain the existing `staffDeckNotify` tone contract; consumers show actual failure/completion states, not success on 202 acceptance. Public route owner still owns transport/whitelist and runtime-publish integration. New frontend focused total: 53/53 (6 files); server helper remains 4/4. No production enablement or real protocol/identity/model acceptance is claimed.
 
-## Integration receipt for public adapter8e8d5cdf
+
+## Final helper placement correction
+
+The capability owner explicitly confirmed that **both** helpers in `4319eadd` are server-only. This supersedes the earlier inference that absence of Node imports made the protocol helper eligible for browser injection. No implementation ever imported `ui/server/*` into the frontend; the correction narrows the documented injection contract and source comments. `public-capability-adapter.ts` accepts only a facade over an authorized public module/gateway contract and that gateway's event decoder. The server route invokes `createPublicCapabilityClient` and `decodePublicJobEvents`; its HTTP status/body and actual events cross the formal module boundary. Server `runtimeError`, credentials, configuration objects and direct SD transport do not cross it. No pending operation/route was enabled.
+
+
+## Integration receipt for public adapter8e8d5cdf (historical placement superseded below)
 
 Accepted immutable8e8d5cdf4fbdeca70b581f94dc5dc381445ade28, parent1524821d. Adopted its new adapter and eight tests, and exported moduleApiError from the existing preserved clients implementation. Prior integration receipts and their test counts are historical and remain intact; owner53/53 is source-line evidence, not the count of this focused integration run. The document conflict was resolved by preserving previous receipts and appending the exact new protocol/consumption contract. Laterd29e9a34 was not imported.
 
 The pure capability protocol implementation is now single-source in ui/shared/staffdeck-public-capabilities.mjs; its bytes match the accepted4319eadd implementation. Its former server path is a narrow re-export. The Node publish/runtime helper and credential/identity transports remain service-side. No shared UI vendor, lock, core, route, authorization list or production client initialization changed. New operations still require an approved exact gateway contract; the original management whitelist is unchanged.
 
 Focused integration: delivered adapter8 plus three actual helper-to-adapter consumer tests plus existing clients5 =16 PASS; original protocol tests through the server compatibility entry7/7 PASS. Logs: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/adapter-wip-handoff/adapter-8e8d5cdf-integrated-tests.log and public-protocol-relocation-tests.tap. Consumers exercise default empty authorization/zero transport, dirty rewrite zero transport, original202/result/ETag and real byte-split UTF-8 SSE accepted-before-cursor/empty-ID resume. No actual gateway/job/identity/model/runtime acceptance is claimed. Pending whitelist/cancel, non-equivalent preview, runtime sibling/UI, full builds and gates remain unchanged.
+
+## d29e9a34 final server-only placement receipt
+
+Accepted immutable d29e9a345708b45925141f6276320cd6acdb9611 (parent8e8d5cdf), applying its exact frontend comment and final gateway-only documentation contract. The capability owner's explicit SERVER-ONLY placement takes precedence over the previous inference from missing Node imports. Both4319eadd helpers stay under ui/server; no capability helper object/SD decoder is imported or injected into the browser. Frontend public-capability-adapter accepts only the authorized module gateway facade and that gateway's public stream decoder.
+
+The integrator's ui/shared capability relocation and frontend helper-injection test from4505a24a are removed. Original server protocol implementation is restored byte-for-byte; its old path is again the implementation rather than a shared re-export. Earlier relocation test evidence remains historical and is not current-placement or gate evidence.
+
+modules.js now provides a server-only createStaffDeckPublicCapabilityGateway after verified management owner context, binding createPublicCapabilityClient/decodePublicJobEvents to the same server credential transport as the original management calls. authorizedOperations is fixed at []; it does not take authorization from browser input. The prepared factory is not attached to a new operation dispatcher. Existing original-ten-operation management whitelist/advertisement is unchanged; no new route or SSE proxy is enabled pending approval. runtimeError/config/keys and direct StaffDeck transport remain server-side.
+
+Focused checks justified by the transport extraction: six existing actual HTTP public-bridge cases plus two server gateway owner/default-denial cases =8/8 PASS. Raw: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/adapter-wip-handoff/adapter-server-placement-tests.log. Owner53 frontend+4 helper were not rerun for comment/doc changes. No dirty preview->saved job, cancel enablement, second publish or effective claim. Same integration, no new candidate/round or gate promotion.

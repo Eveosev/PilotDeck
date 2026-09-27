@@ -132,8 +132,18 @@ GET management bootstrap 同时返回正式核实的 tenantId、actorUserId、ag
 
 整合者新增 `ui/server/staffdeck-publish-route.js` 与聚焦测试；原 13 项 helper 测试加 3 项持久 receipt 测试共 16 PASS，公共实际 HTTP route 3 PASS（create/ETag、abort、一次 publish→快照→Gateway port→receipt metadata）。这些使用正式协议替身与自有 166xx 端口，不是独立真实模型或 ownerDB 验收。
 
-## Pure protocol placement correction (adapter8e8d5cdf integration)
+## Historical pure protocol placement inference (superseded by final SERVER-ONLY contract)
 
 The capability client/planner/SSE decoder from4319eadd has no Node or authentication imports. Its canonical implementation now lives in ui/shared/staffdeck-public-capabilities.mjs, byte-for-byte unchanged; ui/server/staffdeck-public-capabilities.mjs is a compatibility re-export. Browser consumers may inject it from that neutral shared path and an existing explicitly authorized gateway transport, with no server imports or SD credentials. The publish/runtime coordinator alone uses Node and remains server-only. Earlier statements calling both helpers server-only are superseded by this correction.
 
 Adapter8e8d5cdf supplies response/error/job/event consumption and request-local cursors only. No production initialization or route/operation advertisement is introduced. Existing management/call supports only its original declared operations; it cannot carry new protocol operations until the explicit route whitelist decision and matching transport contract are resolved. Therefore no new path-based browser proxy or approximate mapping to an existing management operation is installed. authorizedOperations remains empty while pending; dirty/current_skill/conversation cannot become saved public jobs; cancel remains blocked.
+
+## d29e9a34 final server-only placement receipt
+
+Accepted immutable d29e9a345708b45925141f6276320cd6acdb9611 (parent8e8d5cdf), applying its exact frontend comment and final gateway-only documentation contract. The capability owner's explicit SERVER-ONLY placement takes precedence over the previous inference from missing Node imports. Both4319eadd helpers stay under ui/server; no capability helper object/SD decoder is imported or injected into the browser. Frontend public-capability-adapter accepts only the authorized module gateway facade and that gateway's public stream decoder.
+
+The integrator's ui/shared capability relocation and frontend helper-injection test from4505a24a are removed. Original server protocol implementation is restored byte-for-byte; its old path is again the implementation rather than a shared re-export. Earlier relocation test evidence remains historical and is not current-placement or gate evidence.
+
+modules.js now provides a server-only createStaffDeckPublicCapabilityGateway after verified management owner context, binding createPublicCapabilityClient/decodePublicJobEvents to the same server credential transport as the original management calls. authorizedOperations is fixed at []; it does not take authorization from browser input. The prepared factory is not attached to a new operation dispatcher. Existing original-ten-operation management whitelist/advertisement is unchanged; no new route or SSE proxy is enabled pending approval. runtimeError/config/keys and direct StaffDeck transport remain server-side.
+
+Focused checks justified by the transport extraction: six existing actual HTTP public-bridge cases plus two server gateway owner/default-denial cases =8/8 PASS. Raw: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/adapter-wip-handoff/adapter-server-placement-tests.log. Owner53 frontend+4 helper were not rerun for comment/doc changes. No dirty preview->saved job, cancel enablement, second publish or effective claim. Same integration, no new candidate/round or gate promotion.

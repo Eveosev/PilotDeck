@@ -1,7 +1,10 @@
 import { moduleApiError } from './clients';
 
-// The integration owner injects the committed pure protocol helper and the
-// already-authorized gateway transport. This module never obtains credentials,
+// The integration owner supplies a facade over the already-authorized module
+// gateway contract. Both ui/server helpers remain server-only: no browser
+// import/injection of those helpers or direct StaffDeck transport is allowed.
+// The event decoder consumes the gateway's public stream, not SD transport.
+// This module never obtains credentials,
 // registers a route, advertises a method or grants an operation.
 export type PublicCapabilityResponse = { status: number; body: unknown; headers?: unknown };
 export type PublicCapabilityClient = {
