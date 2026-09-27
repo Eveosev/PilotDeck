@@ -84,7 +84,7 @@ function localizeText(node: Text, locale: Locale): void {
 }
 
 function localizeAttribute(element: Element, name: string, locale: Locale): void {
-  if (ignored(element)) return;
+  if (ignored(element) || (name === 'title' && element.hasAttribute('data-i18n-ignore-title'))) return;
   const current = element.getAttribute(name);
   if (current == null) return;
   let sources = attributeSources.get(element);

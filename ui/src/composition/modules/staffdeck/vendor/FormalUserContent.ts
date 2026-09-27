@@ -9,3 +9,8 @@ export const USER_CONTENT_ATTRIBUTES = {
   'data-i18n-ignore': true,
   translate: 'no',
 } as const;
+
+/** Protect a user title on a mixed control without suppressing its product labels. */
+export const USER_CONTENT_TITLE_ATTRIBUTES = {
+  'data-i18n-ignore-title': true,
+} as const;

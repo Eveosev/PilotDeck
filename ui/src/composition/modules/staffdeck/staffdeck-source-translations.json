@@ -2927,6 +2927,7 @@
   "拖到另一个节点以新增流转规则": "Drag to another node to add a transition rule",
   "强制": "Required",
   "取消选择": "Deselect",
+  "取消选择 {1}": "Deselect {1}",
   "可选执行": "Optional execution",
   "强制执行": "Required execution",
   "通用能力始终可由模型自主选择；仅限 SOP 的能力需在当前节点选择。标记为强制执行后，成功调用才允许推进节点。": "The model may always choose general capabilities autonomously. SOP-only capabilities must be selected on the current node. When marked as required, the node can advance only after a successful call.",

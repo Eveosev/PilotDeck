@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
+import { USER_CONTENT_ATTRIBUTES, USER_CONTENT_TITLE_ATTRIBUTES } from './FormalUserContent';
 import {
   ApiOutlined, ArrowLeftOutlined, BranchesOutlined, CheckCircleOutlined,
   CheckOutlined, CodeOutlined, CloseOutlined, CloseCircleOutlined,
@@ -2305,7 +2305,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                     {item.role === 'user' && item.attachments && item.attachments.length > 0 && (
                       <div className={cn(CHAT_ATTACHMENTS_CLASS, CHAT_ATTACHMENTS_USER_CLASS)}>
                         {item.attachments.map((attachment) => (
-                          <div className={cn(CHAT_ATTACHMENT_CLASS, CHAT_ATTACHMENT_USER_CLASS)} key={attachment.id} title={attachment.name}>
+                          <div {...USER_CONTENT_ATTRIBUTES} className={cn(CHAT_ATTACHMENT_CLASS, CHAT_ATTACHMENT_USER_CLASS)} key={attachment.id} title={attachment.name}>
                             <span className={CHAT_ATTACHMENT_ICON_CLASS}>
                               <FileTextOutlined />
                             </span>
@@ -3067,7 +3067,7 @@ function SourceNumberInput({
  * a filterable input backed by a popover list. Committing an empty value removes
  * the action, matching the previous `allowClear` behaviour.
  */
-function ActionCombobox({
+export function ActionCombobox({
   value,
   options,
   placeholder = '选择一个动作',
@@ -3098,6 +3098,7 @@ function ActionCombobox({
     >
       <PopoverTrigger asChild>
         <input
+          type="text"
           autoComplete="off"
           data-1p-ignore="true"
           data-lpignore="true"
@@ -6599,15 +6600,16 @@ export function EditableCapabilityReferencesLine({
                       return (
                         <span
                           key={value}
+                          {...USER_CONTENT_TITLE_ATTRIBUTES}
+                          title={option?.label || value}
                           className={cn(
                             'inline-flex max-w-[200px] items-center gap-[5px] rounded-full px-[8px] py-[3px] text-[11px]',
                             required.has(value)
                               ? 'bg-[#fff1dc] text-[#9a5a00]'
                               : 'bg-[#eef3fb] text-[#464c5e]',
                           )}
-                          title={option?.label || value}
                         >
-                          <span className="truncate">{option?.label || value}</span>
+                          <span {...USER_CONTENT_ATTRIBUTES} className="truncate">{option?.label || value}</span>
                           <span className="shrink-0 text-[9px] opacity-75">
                             {required.has(value) ? '强制' : '可选'}
                           </span>
@@ -6650,17 +6652,17 @@ export function EditableCapabilityReferencesLine({
                           disabled={disabled}
                           className="mt-[2px]"
                           onCheckedChange={(next) => toggle(option.value, next === true)}
-                          aria-label={`${checked ? '取消选择' : '选择'}${option.label}`}
+                          aria-label={`${checked ? '取消选择' : '选择'} ${option.label}`}
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 flex-wrap items-center gap-[6px]">
-                            <strong className="truncate text-[12px] font-medium text-[#18181a]">{option.label}</strong>
+                            <strong {...USER_CONTENT_ATTRIBUTES} className="truncate text-[12px] font-medium text-[#18181a]">{option.label}</strong>
                             <CapabilityScopeBadge value={option.capabilityScope} />
                             {option.unavailableReason && (
                               <span className="text-[10px] text-[#d20b0b]">{option.unavailableReason}</span>
                             )}
                           </span>
-                          <span className="mt-[2px] block truncate text-[11px] text-[#858b9c]">
+                          <span {...USER_CONTENT_ATTRIBUTES} className="mt-[2px] block truncate text-[11px] text-[#858b9c]">
                             {option.description || option.value}
                           </span>
                         </span>
@@ -7088,6 +7090,7 @@ function ActionChip({
   return (
     <span
       className={cn(actionChipClass({ toolName: toolName || undefined, status, variant }), editable && 'pr-[26px]')}
+      {...(toolName && toolDescriptions[toolName] ? USER_CONTENT_TITLE_ATTRIBUTES : {})}
       title={description || undefined}
     >
       {actionLabel(action)}

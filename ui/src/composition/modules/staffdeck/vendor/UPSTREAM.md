@@ -1,7 +1,7 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 0de673e5f3e0cce2821843e3af4d6250f84ba82b.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 4950956ef8b0a91126b80493b7a99a439ef1b0bd.
 Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
@@ -35,3 +35,10 @@ canonical. Both public/runtime protocol helpers remain SERVER-ONLY.
 UI e53589cb host-owned Input/Textarea forwardRef and primitive tests are
 integrated; Progress was already identical. These host ports are outside the
 40 canonical sources and do not change the canonical StaffDeck ref.
+
+UI dynamic/overlay batch SD7bbdbdb6 and PD904d132d is integrated.
+Canonical title-only user metadata, model/capability boundaries and action
+input type=text are distributed from the canonical ref above; both host
+localizers consume the title-only metadata. Adapter/context contracts remain
+unchanged. Detailed behavior evidence stays in the UI owner's
+DELIVERY_DYNAMIC_OVERLAYS.md; this snapshot is not G gate approval.

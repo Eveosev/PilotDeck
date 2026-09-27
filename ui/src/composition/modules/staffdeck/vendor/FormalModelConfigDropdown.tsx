@@ -1,3 +1,4 @@
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 import { CheckOutlined } from './FormalHostPrimitives';
 import { IconChevronDown } from './FormalHostPrimitives';
 type ModelConfigRead = Record<string, any> & { id: string };
@@ -37,6 +38,7 @@ export function ModelConfigDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <UIButton
+          {...(selected?.name || selected?.model ? USER_CONTENT_ATTRIBUTES : {})}
           variant="outline"
           disabled={disabled || models.length === 0}
           className={cn(DEFAULT_MODEL_BUTTON_CLASS, buttonClassName)}
@@ -59,9 +61,9 @@ export function ModelConfigDropdown({
               onSelect={() => onChange(model.id)}
             >
               <span className="flex min-w-0 flex-1 flex-col">
-                <strong className="truncate text-[13px] text-foreground">{model.name || model.model}</strong>
+                <strong {...USER_CONTENT_ATTRIBUTES} className="truncate text-[13px] text-foreground">{model.name || model.model}</strong>
                 <em className="truncate text-[11px] not-italic text-[#858b9c]">
-                  {model.is_default ? `${model.model} · 默认` : model.model}
+                  <span {...USER_CONTENT_ATTRIBUTES}>{model.model}</span>{model.is_default && <> · <span>默认</span></>}
                 </em>
               </span>
               {value === model.id && <CheckOutlined />}
