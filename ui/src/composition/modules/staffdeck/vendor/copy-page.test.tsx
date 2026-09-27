@@ -27,6 +27,16 @@ afterEach(() => {
 });
 
 describe('PilotDeck shared plaza pages', () => {
+  it('reads the explicitly selected rollback draft rather than the prior published editor snapshot', async () => {
+    const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ id: 'rollback-new', sop_id: 'same-sop', draft_version: '1.0.1', status: 'draft', etag: 'rollback-etag', content: { skill_id: 'same-sop', name: 'Rollback content', version: '1.0.1' } } as any);
+    const query = pilotDeckSkillsPageHost.editorQuery!({ skill_id: 'same-sop', draft_id: 'rollback-new', version: '1.0.1' } as any);
+    expect(query).toEqual({ editor_context: 'draft:rollback-new', draft_id: 'rollback-new' });
+    const host = createPilotDeckDistillPageHost();
+    const selected: any = await host.api.get('/api/enterprise/skills/same-sop?draft_id=rollback-new');
+    expect(call).toHaveBeenCalledExactlyOnceWith('get_draft', { sopId: 'same-sop', draftId: 'rollback-new' });
+    expect(selected).toMatchObject({ name: 'Rollback content', draft_id: 'rollback-new', etag: 'rollback-etag' });
+    expect(pilotDeckSkillsPageHost.editorQuery!({ version: '1.2.0' } as any)).toEqual({ editor_context: 'published:1.2.0', published_version: '1.2.0' });
+  });
   it('dispatches exact version list/detail/rollback paths with their selected version and formal response', async () => {
     const published = { id: 'version-row', skill_id: 'sop/encoded', version: '1.1.0', name: 'Published', updated_at: '2026-09-27T04:00:00Z', content: { skill_id: 'sop/encoded', name: 'Published', version: '1.1.0', nodes: [] } };
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {

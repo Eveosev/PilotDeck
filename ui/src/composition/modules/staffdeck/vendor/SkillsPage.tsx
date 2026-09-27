@@ -97,6 +97,7 @@ export default function SkillsPage({
   currentUser?: EnterpriseAuthUser;
   onLogout?: () => void;
 } = {}) {
+  const { editorQuery } = useSkillsPageHost();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<SkillRead[]>([]);
   const [versionRows, setVersionRows] = useState<SkillVersionRead[]>([]);
@@ -475,8 +476,10 @@ export default function SkillsPage({
   }
 
   function openEdit(row: SkillRead) {
-    const suffix = agentId ? `&agent_id=${encodeURIComponent(agentId)}` : '';
-    navigate(`/enterprise/skills/distill?skill_id=${encodeURIComponent(row.skill_id)}${suffix}`);
+    const params = new URLSearchParams({ skill_id: row.skill_id });
+    if (agentId) params.set('agent_id', agentId);
+    for (const [key, value] of Object.entries(editorQuery?.(row) || {})) params.set(key, value);
+    navigate(`/enterprise/skills/distill?${params.toString()}`);
   }
 
   async function publish(row: SkillRead) {

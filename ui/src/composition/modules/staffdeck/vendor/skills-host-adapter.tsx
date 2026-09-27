@@ -141,7 +141,9 @@ function skillIdFromPath(path: string): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
-async function readDefinition(skillId: string): Promise<any> {
+async function readDefinition(skillId: string, draftId?: string, publishedVersion?: string): Promise<any> {
+  if (draftId) return toManagedSkill(await management('get_draft', { sopId: skillId, draftId }));
+  if (publishedVersion) return toSkill(await management('get_version', { sopId: skillId, version: publishedVersion }));
   const managed = await listDefinitions();
   const managedDefinition = managed.find((item) => item.id === skillId || item.skill_id === skillId);
   if (!managedDefinition) throw new Error(`SOP definition not found in the configured management owner: ${skillId}`);
@@ -178,7 +180,8 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
   }
   const skillId = skillIdFromPath(path);
   if (skillId && method === 'get' && !path.includes('/versions')) {
-    const loaded = await readDefinition(skillId);
+    const query = new URLSearchParams(path.split('?')[1] || '');
+    const loaded = await readDefinition(skillId, text(query.get('draft_id')), text(query.get('published_version')));
     snapshots.set(skillId, structuredClone(loaded));
     return loaded as T;
   }
@@ -210,6 +213,9 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
 }
 
 export const pilotDeckSkillsPageHost: SkillsPageHost = {
+  editorQuery: (row): Record<string, string> => text(row.draft_id)
+    ? { editor_context: `draft:${row.draft_id}`, draft_id: row.draft_id }
+    : { editor_context: `published:${row.version}`, published_version: row.version },
   components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
   api: {
     get: (path) => callSkillApi(path, 'get'),

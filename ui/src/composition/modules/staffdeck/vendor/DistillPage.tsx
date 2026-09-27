@@ -561,13 +561,17 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
   const skillId = searchParams.get('skill_id');
   const mode = searchParams.get('mode') || '';
   const workspaceId = searchParams.get('workspace_id') || '';
+  const editorContext = searchParams.get('editor_context') || '';
+  const draftId = searchParams.get('draft_id') || '';
+  const publishedVersion = searchParams.get('published_version') || '';
+  const editorReadQuery = draftId ? `&draft_id=${encodeURIComponent(draftId)}` : publishedVersion ? `&published_version=${encodeURIComponent(publishedVersion)}` : '';
   const [selectedAgentId, setSelectedAgentId] = useState(readEmployeeScope);
   const activeAgentId = searchParams.get('agent_id') || selectedAgentId;
   const agentQuery = activeAgentId ? `&agent_id=${encodeURIComponent(activeAgentId)}` : '';
   const agentSearchParam = activeAgentId ? `agent_id=${encodeURIComponent(activeAgentId)}` : '';
   const agentOnlyQuery = agentSearchParam ? `?${agentSearchParam}` : '';
   const cacheIdentity = skillId || (mode === 'create' ? `create:${workspaceId || 'pending'}` : mode || 'new');
-  const cacheKey = `skill-distill:${TENANT_ID}:${activeAgentId || 'default'}:${cacheIdentity}`;
+  const cacheKey = `skill-distill:${TENANT_ID}:${activeAgentId || 'default'}:${cacheIdentity}${editorContext ? `:context:${encodeURIComponent(editorContext)}` : ''}`;
   const [draft, setDraft] = useState<SkillCard | null>(null);
   const [loadedSkill, setLoadedSkill] = useState<SkillRead | null>(null);
   const [lastSavedDraft, setLastSavedDraft] = useState<SkillCard | null>(null);
@@ -703,7 +707,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
     }
 
     api
-      .get<SkillRead>(`/api/enterprise/skills/${encodeURIComponent(skillId)}?tenant_id=${TENANT_ID}${agentQuery}`)
+      .get<SkillRead>(`/api/enterprise/skills/${encodeURIComponent(skillId)}?tenant_id=${TENANT_ID}${agentQuery}${editorReadQuery}`)
       .then((result) => {
         const nextContent = lockSkillIdForDraft(result.content, result.skill_id || skillId || '');
         const nextResult = nextContent === result.content ? result : { ...result, content: nextContent };
@@ -734,7 +738,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
         setHydratedCacheKey(cacheKey);
         setCacheReady(true);
       });
-  }, [agentQuery, cacheKey, mode, skillId, workspaceId]);
+  }, [agentQuery, cacheKey, mode, skillId, workspaceId, editorReadQuery]);
 
   useEffect(() => {
     if (!cacheReady || hydratedCacheKey !== cacheKey) return;

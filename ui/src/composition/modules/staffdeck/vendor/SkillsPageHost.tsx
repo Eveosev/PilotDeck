@@ -29,6 +29,7 @@ type DataColumn = { key: string; title: ReactNode; render?: (row: any, index: nu
 type HostComponent = ComponentType<any>;
 
 export type SkillsPageHost = {
+  editorQuery?(row: SkillRead): Record<string, string>;
   api: Api;
   navigate(path: string): void;
   tenantId: string;
