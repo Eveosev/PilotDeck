@@ -473,7 +473,7 @@ export default function SkillsPage({
 
   async function publish(row: SkillRead) {
     try {
-      await api.post(`/api/enterprise/skills/${row.skill_id}/publish?tenant_id=${TENANT_ID}${agentQuery()}`);
+      await api.post(`/api/enterprise/skills/${row.skill_id}/publish?tenant_id=${TENANT_ID}${agentQuery()}${row.draft_id ? `&draft_id=${encodeURIComponent(row.draft_id)}` : ''}`);
       notify.success('已启用');
       await load();
     } catch (error) {

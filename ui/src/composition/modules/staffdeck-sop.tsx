@@ -7,19 +7,21 @@ import SharedSkillsPage from './staffdeck/vendor/SkillsPage';
 import SharedDistillPage from './staffdeck/vendor/DistillPage';
 import { PilotDeckDistillPageProvider, PilotDeckSkillsPageProvider } from './staffdeck/vendor/skills-host-adapter';
 import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
+import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
+import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 
 function FormalSopPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <StaffDeckLocaleBoundary><PilotDeckSkillsPageProvider><SharedSkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></StaffDeckLocaleBoundary>;
+  return <StaffDeckLocaleBoundary><PublishRuntimeProvider><PublishRuntimeStatus /><PilotDeckSkillsPageProvider><SharedSkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></PublishRuntimeProvider></StaffDeckLocaleBoundary>;
 }
 
 function FormalSopDistillPage() {
   const { user } = useAuth();
   const currentUser = user ? { id: String(user.id ?? ''), username: user.username, is_admin: user.is_admin === true } : undefined;
-  return <StaffDeckLocaleBoundary><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></StaffDeckLocaleBoundary>;
+  return <StaffDeckLocaleBoundary><PublishRuntimeProvider><PublishRuntimeStatus /><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></PublishRuntimeProvider></StaffDeckLocaleBoundary>;
 }
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {

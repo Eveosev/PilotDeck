@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './vendor/DistillPageHost';
-import { staffDeckKnowledgeClient, staffDeckSopManagementClient } from './clients';
+import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient } from './clients';
 import { staffDeckNotify } from './host-notify';
 vi.mock('../../../utils/api', () => ({ authenticatedFetch: (...args: any[]) => fetch(...args as [string, RequestInit]) }));
 afterEach(() => vi.unstubAllGlobals());
@@ -26,6 +26,16 @@ describe('module transport contract', () => {
     const fetch = vi.fn((_path, init) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))));
     vi.stubGlobal('fetch', fetch);
     const pending = staffDeckKnowledgeClient.call('list_bases', { agentId: 'target' }, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetch.mock.calls[0][1].signal).toBe(controller.signal);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('forwards directory bootstrap cancellation through the actual copy request', async () => {
+    const controller = new AbortController();
+    const fetch = vi.fn((_path, init) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))));
+    vi.stubGlobal('fetch', fetch);
+    const pending = staffDeckCopyClient.call('list_agents', {}, { signal: controller.signal });
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetch.mock.calls[0][1].signal).toBe(controller.signal);

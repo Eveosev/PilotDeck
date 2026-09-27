@@ -1,3 +1,4 @@
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 import cytoscape, { type Core, type EdgeSingular, type ElementDefinition, type EventObject, type LayoutOptions, type NodeSingular } from 'cytoscape';
 import {
   ArrowDownLeft,
@@ -217,7 +218,7 @@ export function KnowledgeGraphVisualization({
                     onClick={() => handleSelectNode(node.id)}
                   >
                     <span style={{ background: typeColor(node.concept.concept_type) }} />
-                    <strong>{node.concept.title || node.id}</strong>
+                    <strong {...USER_CONTENT_ATTRIBUTES}>{node.concept.title || node.id}</strong>
                     <small>{node.id}</small>
                   </button>
                 ))}
@@ -637,13 +638,13 @@ function NodeDetail({
           </span>
           {node.concept.status === 'archived' && <span className="kgv-status-badge">已归档</span>}
         </div>
-        <h4>{node.concept.title || node.id}</h4>
+        <h4 {...USER_CONTENT_ATTRIBUTES}>{node.concept.title || node.id}</h4>
         <code>{node.id}</code>
       </div>
       <KnowledgeMarkdownSummary node={node} model={model} onSelectNode={onSelectNode} />
       {tags.length > 0 && (
         <div className="kgv-tags">
-          {tags.slice(0, 8).map((tag) => <span key={String(tag)}>{String(tag)}</span>)}
+          {tags.slice(0, 8).map((tag) => <span {...USER_CONTENT_ATTRIBUTES} key={String(tag)}>{String(tag)}</span>)}
         </div>
       )}
       <div className="kgv-relation-summary">
@@ -668,7 +669,7 @@ function NodeDetail({
           <ul>
             {node.unresolvedLinks.slice(0, 8).map((link, index) => (
               <li key={`${link.target}-${index}`}>
-                <span>{link.label || link.target}</span>
+                <span {...USER_CONTENT_ATTRIBUTES}>{link.label || link.target}</span>
                 <code>{link.target}</code>
               </li>
             ))}
@@ -718,6 +719,7 @@ function KnowledgeMarkdownSummary({
     <section className="kgv-markdown-summary" aria-label="知识摘要">
       <div
         ref={previewRef}
+        {...USER_CONTENT_ATTRIBUTES}
         className={cn('kgv-markdown-preview', !expanded && 'is-collapsed', overflowing && !expanded && 'has-overflow')}
       >
         {renderMarkdownBlocks(markdown, false, {
@@ -773,7 +775,7 @@ function RelationList({
       <strong>{title}</strong>
       <div>
         {ids.slice(0, 12).map((id) => (
-          <button type="button" key={id} onClick={() => onSelectNode(id)}>
+          <button {...USER_CONTENT_ATTRIBUTES} type="button" key={id} onClick={() => onSelectNode(id)}>
             <span style={{ background: typeColor(model.nodeById.get(id)?.concept.concept_type || '') }} />
             {model.nodeById.get(id)?.concept.title || id}
           </button>

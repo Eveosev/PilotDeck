@@ -197,9 +197,11 @@ describe('Knowledge exact root and query projection', () => {
     staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return [] as any; };
     try {
       await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/documents?tenant_id=tenant&include_all_versions=false');
+      await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/knowledge-bases?tenant_id=tenant&agent_id=target');
       await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge-bases/base/okf/concepts?concept_type=SourceSection');
       expect(calls).toEqual([
         { operation: 'list_documents', input: { tenantId: 'tenant', includeAllVersions: false } },
+        { operation: 'list_bases', input: { tenantId: 'tenant', agentId: 'target' } },
         { operation: 'list_okf_concepts', input: { knowledgeBaseId: 'base', conceptType: 'SourceSection' } },
       ]);
       await expect(pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/documents?include_all_versions=unknown')).rejects.toThrow('Invalid');

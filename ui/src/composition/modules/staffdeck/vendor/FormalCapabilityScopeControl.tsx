@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './Form
 import { cn } from './FormalHostPrimitives';
 import { normalizeCapabilityScope } from './FormalHostContractHelpers';
 export { normalizeCapabilityScope } from './FormalHostContractHelpers';
+type CapabilityScope = ReturnType<typeof normalizeCapabilityScope>;
 
 export type CapabilityScopeResourceType = 'tool' | 'skill' | 'sop' | 'knowledge_base';
 

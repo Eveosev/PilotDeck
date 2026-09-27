@@ -13,7 +13,7 @@ import {
 import { ChevronDown, Clipboard, Edit3, Eye, FilePlus2, FileText, History, MoreHorizontal, RefreshCw, Search, Trash2 } from 'lucide-react';
 import SopVersionDetailDialog from './SopVersionDetailDialog';
 
-export type EnterpriseAuthUser = { id?: string; username?: string; tenant_id?: string; is_admin?: boolean };
+export type EnterpriseAuthUser = { id?: string; username?: string; tenant_id?: string; role?: string; is_admin?: boolean };
 export type AgentProfileRead = Record<string, any> & { id: string; name?: string; is_overall?: boolean; active?: boolean };
 export type SkillRead = Record<string, any> & { id: string; skill_id: string; name: string; version: string; status: 'draft' | 'published' | 'archived'; updated_at: string };
 export type SkillVersionRead = Record<string, any> & { id: string; skill_id?: string; name: string; version: string; updated_at: string; content?: any };
@@ -27,7 +27,7 @@ type Api = {
   blob?(path: string): Promise<Blob>;
 };
 
-type DataColumn = { key: string; title: ReactNode; render?: (row: any, index: number) => ReactNode; dataIndex?: string; width?: number | string; align?: 'left' | 'center' | 'right'; className?: string; headClassName?: string; sticky?: 'left' | 'right' };
+type DataColumn = { key: string; title: ReactNode; render?: (row: any, index: number) => ReactNode; dataIndex?: PropertyKey; width?: number | string; align?: 'left' | 'center' | 'right'; className?: string; headClassName?: string; sticky?: 'left' | 'right' };
 type HostComponent = ComponentType<any>;
 
 export type SkillsPageHost = {

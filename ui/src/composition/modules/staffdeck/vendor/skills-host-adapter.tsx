@@ -10,6 +10,8 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient, type SopDefinition, type ModuleRequestOptions } from '../clients';
 import { staffDeckNotify } from '../host-notify';
+import { usePublishRuntimeObserver } from '../publish-runtime-context';
+import type { PublishRuntimeObserver } from '../publish-runtime-observer';
 import { isTeamScope } from '../host-contract-helpers';
 import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 
@@ -72,7 +74,7 @@ function toManagedSkill(row: unknown) {
     draft_id: isDraft ? text(draft.draft_id) || text(draft.id) : undefined,
     version: text(draft.draft_version) || text(draft.version),
     content: record(draft.content),
-  } as SopDefinition, text(draft.status) || 'draft');
+  } as SopDefinition, text(draft.status) || (isDraft ? 'draft' : 'published'));
 }
 
 function selectedDraft(row: unknown, sopId: string, draftId?: string) {
@@ -90,31 +92,35 @@ async function management(operation: string, input: Record<string, unknown> = {}
 async function listDefinitions(options?: ModuleRequestOptions): Promise<any[]> {
   const result = record(await management('list', {}, options));
   if (!Array.isArray(result.data) || !Array.isArray(result.drafts)) throw new Error('SOP list response must include data and drafts arrays.');
-  const rows = new Map<string, ReturnType<typeof toManagedSkill>>();
-  for (const row of Array.isArray(result.data) ? result.data : []) {
-    const skill = toManagedSkill(row);
-    rows.set(skill.skill_id, skill);
-  }
-  // A draft replaces only its own published row; unrelated published SOPs
-  // remain visible and every row still belongs to this management target.
-  const selectedDrafts = new Map<string, ReturnType<typeof toManagedSkill>>();
+  const published = result.data.map(toManagedSkill);
+  const drafts: ReturnType<typeof toManagedSkill>[] = [];
   for (const row of result.drafts) {
     if (record(row).status !== 'draft') continue;
-    const skill = toManagedSkill(row);
-    const previous = selectedDrafts.get(skill.skill_id);
-    if (previous) {
-      const timestamp = (item: typeof skill) => Date.parse(item.updated_at || item.created_at || '');
-      const currentTime = timestamp(skill);
-      const previousTime = timestamp(previous);
-      if (!Number.isFinite(currentTime) || !Number.isFinite(previousTime) || (currentTime === previousTime && skill.draft_id !== previous.draft_id)) {
-        throw new Error('Multiple SOP drafts require distinct formal timestamps to select an editor lifecycle.');
-      }
-      if (currentTime <= previousTime) continue;
-    }
-    selectedDrafts.set(skill.skill_id, skill);
+    drafts.push(toManagedSkill(row));
   }
-  for (const [id, draft] of selectedDrafts) rows.set(id, draft);
-  return [...rows.values()];
+  const ids = new Set<string>();
+  for (const row of [...published, ...drafts]) {
+    if (ids.has(row.id)) throw new Error('SOP list returned duplicate formal row IDs.');
+    ids.add(row.id);
+  }
+  // Each draft has a distinct owner row ID and editor_context. Preserve every
+  // choice; no response ordering or timestamp is used to pick an unseen draft.
+  const draftsBySop = new Map<string, typeof drafts>();
+  for (const draft of drafts) {
+    const group = draftsBySop.get(draft.skill_id) || [];
+    group.push(draft);
+    draftsBySop.set(draft.skill_id, group);
+  }
+  const rows: typeof drafts = [];
+  for (const row of published) {
+    const choices = draftsBySop.get(row.skill_id);
+    if (choices) {
+      rows.push(...choices);
+      draftsBySop.delete(row.skill_id);
+    } else rows.push(row);
+  }
+  for (const choices of draftsBySop.values()) rows.push(...choices);
+  return rows;
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
@@ -158,7 +164,10 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
     return result.data as T;
   }
   if (method === 'post' && suffix === 'publish') {
-    const current = await readDefinition(sopId, undefined, undefined, options);
+    const query = new URLSearchParams(path.split('?')[1] || '');
+    const draftId = text(query.get('draft_id'));
+    const current = await readDefinition(sopId, draftId, undefined, options?.signal ? { signal: options.signal } : undefined);
+    if (!text(current.draft_id)) throw new Error('SOP publish requires a selected draft.');
     return await management('publish', { sopId, draftId: current.draft_id }, options) as T;
   }
   if (method === 'post' && suffix === 'archive') return await management('archive', { sopId }, options) as T;
@@ -177,7 +186,9 @@ async function readDefinition(skillId: string, draftId?: string, publishedVersio
   if (draftId) return selectedDraft(await management('get_draft', { sopId: skillId, draftId }, options), skillId, draftId);
   if (publishedVersion) return toSkill(await management('get_version', { sopId: skillId, version: publishedVersion }, options));
   const managed = await listDefinitions(options);
-  const managedDefinition = managed.find((item) => item.id === skillId || item.skill_id === skillId);
+  const matching = managed.filter((item) => item.skill_id === skillId);
+  if (matching.length > 1) throw new Error('Multiple SOP drafts require an explicit draft_id selection.');
+  const managedDefinition = matching[0];
   if (!managedDefinition) throw new Error(`SOP definition not found in the configured management owner: ${skillId}`);
   if (!text(managedDefinition.draft_id)) return managedDefinition;
   const draft = await management('get_draft', { sopId: skillId, draftId: managedDefinition.draft_id }, options);
@@ -294,12 +305,18 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   },
 };
 
-function createPilotDeckSkillsPageHost(context: CopyContext): SkillsPageHost {
+function runtimePublishOptions(path: string, observer?: PublishRuntimeObserver, options?: ModuleRequestOptions): ModuleRequestOptions | undefined {
+  const match = path.match(/^\/api\/enterprise\/skills\/([^/]+)\/publish(?:\?|$)/);
+  if (!observer || !match) return options;
+  return { ...options, onManagementEnvelope: observer.capturePublish(decodeURIComponent(match[1])) };
+}
+
+function createPilotDeckSkillsPageHost(context: CopyContext, observer?: PublishRuntimeObserver): SkillsPageHost {
   return {
     ...pilotDeckSkillsPageHost,
     api: {
       get: (path) => callSkillApi(path, 'get', undefined, undefined, context),
-      post: (path, body) => callSkillApi(path, 'post', body, undefined, context),
+      post: (path, body) => callSkillApi(path, 'post', body, runtimePublishOptions(path, observer), context),
       put: (path, body) => callSkillApi(path, 'put', body, undefined, context),
       delete: (path) => callSkillApi(path, 'delete', undefined, undefined, context),
     },
@@ -317,7 +334,8 @@ export function pilotDeckSopDestination(path: string): string {
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const context = React.useMemo(createCopyContext, []);
-  const host = React.useMemo(() => createPilotDeckSkillsPageHost(context), [context]);
+  const observer = usePublishRuntimeObserver();
+  const host = React.useMemo(() => createPilotDeckSkillsPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);
   const [error, setError] = React.useState('');
   React.useEffect(() => {
@@ -334,7 +352,7 @@ export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode 
   return <SkillsPageHostProvider value={{ ...host, tenantId: context.readTenant(), navigate: (path) => navigate(pilotDeckSopDestination(path)) }}>{children}</SkillsPageHostProvider>;
 }
 
-export function createPilotDeckDistillPageHost(context?: CopyContext): DistillPageHost {
+export function createPilotDeckDistillPageHost(context?: CopyContext, observer?: PublishRuntimeObserver): DistillPageHost {
   // One store per mounted editor, never shared across windows or instances.
   const snapshots = new Map<string, any>();
   return {
@@ -349,8 +367,8 @@ export function createPilotDeckDistillPageHost(context?: CopyContext): DistillPa
   },
   api: {
     get: (path, options) => callDistillApi(snapshots, path, 'get', undefined, options),
-    post: (path, body) => callDistillApi(snapshots, path, 'post', body),
-    postWithSignal: (path, body, signal) => callDistillApi(snapshots, path, 'post', body, { signal }),
+    post: (path, body) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer)),
+    postWithSignal: (path, body, signal) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer, { signal })),
     put: (path, body) => callDistillApi(snapshots, path, 'put', body),
     delete: (path) => callDistillApi(snapshots, path, 'delete'),
   },
@@ -369,7 +387,8 @@ export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const context = React.useMemo(createCopyContext, []);
-  const host = React.useMemo(() => createPilotDeckDistillPageHost(context), [context]);
+  const observer = usePublishRuntimeObserver();
+  const host = React.useMemo(() => createPilotDeckDistillPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);
   const [error, setError] = React.useState('');
   React.useEffect(() => {

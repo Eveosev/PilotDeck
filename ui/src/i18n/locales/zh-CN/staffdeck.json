@@ -1,5 +1,8 @@
 {
-  "nav": { "workflow": "工作流", "knowledge": "知识库" },
+  "nav": {
+    "workflow": "工作流",
+    "knowledge": "知识库"
+  },
   "settings": {
     "defaultWorkflow": "默认工作流",
     "defaultWorkflowDescription": "用于新的工作流运行。",
@@ -166,5 +169,19 @@
       "confirm": "确认",
       "reject": "拒绝"
     }
+  },
+  "publishRuntime": {
+    "title": "发布与运行状态",
+    "published": "发布成功",
+    "publishUnconfirmed": "发布结果未确认",
+    "failed": "运行更新失败",
+    "awaiting": "已请求刷新，尚未验证运行时使用",
+    "notRefreshed": "尚未刷新运行时",
+    "receiptFailed": "未能保存状态，下次访问可能无法回读",
+    "metadataUnavailable": "暂时无法读取运行状态",
+    "snapshotWritten": "部署快照已写入",
+    "snapshotMissing": "部署快照未写入",
+    "refreshRequested": "已请求运行刷新",
+    "refreshMissing": "尚未请求运行刷新"
   }
 }

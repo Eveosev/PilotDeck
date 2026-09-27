@@ -11,7 +11,7 @@ import {
   StatusBadge as DefaultStatusBadge, UIButton as DefaultUIButton,
 } from './SkillsPageHost';
 
-export type EnterpriseAuthUser = { id?: string; username?: string; tenant_id?: string; is_admin?: boolean };
+export type EnterpriseAuthUser = { id?: string; username?: string; tenant_id?: string; role?: string; is_admin?: boolean };
 export type AgentProfileRead = Record<string, any> & { id: string; name?: string; is_overall?: boolean; active?: boolean };
 export type CapabilityScope = Record<string, any> & { id?: string; name?: string };
 export type KnowledgeBaseRead = Record<string, any> & { id: string; name?: string; description?: string; status?: string };

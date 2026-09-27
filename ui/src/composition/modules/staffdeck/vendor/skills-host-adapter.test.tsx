@@ -17,16 +17,24 @@ describe('PilotDeck SOP editor lifecycle', () => {
     expect(call.mock.calls.map(([op]) => op)).toEqual(['create', 'replace_draft']);
     expect(call.mock.calls[1][1]).toEqual({ sopId: 'sop', draftId: 'new-draft', etag: '"new-draft"', content: { ...content, name: 'Changed' } });
   });
-  it('selects the latest actual draft independent of response ordering and preserves its date', async () => {
+  it('preserves every actual draft row for explicit selection, independent of response order or dates', async () => {
     const latest = draft('latest', '2026-09-27T02:00:00Z');
     const earlier = draft('earlier', '2026-09-26T02:00:00Z');
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [], drafts: [latest, earlier] });
-    const first: any = await pilotDeckSkillsPageHost.api.get('/api/enterprise/skills?tenant_id=tenant');
+    const rows: any = await pilotDeckSkillsPageHost.api.get('/api/enterprise/skills?tenant_id=tenant');
+    expect(rows.map((row: any) => ({ id: row.id, draft_id: row.draft_id, date: row.updated_at }))).toEqual([
+      { id: 'latest', draft_id: 'latest', date: latest.updated_at },
+      { id: 'earlier', draft_id: 'earlier', date: earlier.updated_at },
+    ]);
+    expect(pilotDeckSkillsPageHost.editorQuery!(rows[1])).toMatchObject({ draft_id: 'earlier' });
+    await expect(pilotDeckSkillsPageHost.api.post('/api/enterprise/skills/sop/publish')).rejects.toThrow('explicit draft_id');
+    expect(call.mock.calls.map(([op]) => op)).toEqual(['list', 'list']);
+    call.mockResolvedValueOnce(earlier).mockResolvedValueOnce({ sop: { id: 'sop' } });
+    await pilotDeckSkillsPageHost.api.post('/api/enterprise/skills/sop/publish?draft_id=earlier');
+    expect(call.mock.calls.at(-1)?.slice(0, 2)).toEqual(['publish', { sopId: 'sop', draftId: 'earlier' }]);
     call.mockResolvedValue({ data: [], drafts: [earlier, latest] });
-    expect(await pilotDeckSkillsPageHost.api.get('/api/enterprise/skills?tenant_id=tenant')).toEqual(first);
-    expect(first[0]).toMatchObject({ draft_id: 'latest', updated_at: latest.updated_at, version: '1.2.3' });
-    call.mockResolvedValue({ data: [], drafts: [{ ...latest, updated_at: undefined }, earlier] });
-    await expect(pilotDeckSkillsPageHost.api.get('/api/enterprise/skills')).rejects.toThrow('formal timestamps');
+    const reversed: any = await pilotDeckSkillsPageHost.api.get('/api/enterprise/skills');
+    expect(reversed.map((row: any) => row.draft_id)).toEqual(['earlier', 'latest']);
     call.mockResolvedValue({ data: [] });
     await expect(pilotDeckSkillsPageHost.api.get('/api/enterprise/skills')).rejects.toThrow('data and drafts');
   });

@@ -2,7 +2,7 @@ import { authenticatedFetch } from '../../../utils/api';
 
 import { ApiError } from './vendor/DistillPageHost';
 
-export type ModuleRequestOptions = { signal?: AbortSignal };
+export type ModuleRequestOptions = { signal?: AbortSignal; onManagementEnvelope?: (envelope: { result: unknown; runtime?: unknown }) => void };
 
 // Preserve the original error payload contract and shared UI class identity.
 export function moduleApiError(status: number, body: string, statusText: string): ApiError {
@@ -92,21 +92,25 @@ export type StaffDeckSopClient = {
   status(sessionKey: string, projectKey?: string): Promise<Record<string, unknown> | null>;
 };
 
-export type SopManagementStatus = { enabled: true; methods: string[]; agentId: string };
+export type SopManagementStatus = { enabled: true; methods: string[]; agentId: string; tenantId?: string; actorUserId?: string; runtime?: { receipts: unknown[] } };
 export type StaffDeckSopManagementClient = {
-  status(): Promise<SopManagementStatus>;
+  status(options?: ModuleRequestOptions): Promise<SopManagementStatus>;
   call<T>(operation: string, input?: Record<string, unknown>, options?: ModuleRequestOptions): Promise<T>;
 };
 
 export const staffDeckSopManagementClient: StaffDeckSopManagementClient = {
-  status: () => request('/api/modules/sop/management'),
+  status: (options) => request('/api/modules/sop/management', { signal: options?.signal }),
   async call<T>(operation: string, input: Record<string, unknown> = {}, options: ModuleRequestOptions = {}) {
-    const body = await request<{ result: T }>('/api/modules/sop/management/call', {
+    const body = await request<{ result: T; runtime?: unknown }>('/api/modules/sop/management/call', {
       method: 'POST',
       signal: options.signal,
       body: JSON.stringify({ operation, input }),
     });
-    return moduleResult(body);
+    const result = moduleResult(body);
+    // Runtime rendering is a separate observation. It cannot turn a successful
+    // owner publication into a failed call or cause a second publish.
+    try { options.onManagementEnvelope?.(body); } catch {}
+    return result;
   },
 };
 

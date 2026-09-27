@@ -1,7 +1,7 @@
 # StaffDeck business UI snapshot
 
-Version: 0.1.13 (integration in progress; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 06a8c9e7ad72190fe2fceea1f98b41ea513bc2ae.
+Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 0de673e5f3e0cce2821843e3af4d6250f84ba82b.
 Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
@@ -24,3 +24,10 @@ UI674821da presentation increment adds the canonical TooltipProvider port and
 installs it within Scope Control. The existing PD primitive barrel/factory supplies
 that port. The UI-owned PD Progress mechanical port also receives exactly the
 source one-line value={value} fix; adapter scope semantics remain unchanged.
+
+Final concentrated delivery preserves UI be3b7a41/33238719 graph resource
+content and exact selected draft action, plus real canonical consumer typing.
+Manifest peers include both installed host lucide versions. All 40 canonical
+source files match the committed StaffDeck ref above; the manifest is identical.
+Runtime browser context/status files are PilotDeck integration glue outside
+canonical. Both public/runtime protocol helpers remain SERVER-ONLY.

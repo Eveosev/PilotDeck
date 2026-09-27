@@ -1,5 +1,8 @@
 {
-  "nav": { "workflow": "Workflow", "knowledge": "Knowledge" },
+  "nav": {
+    "workflow": "Workflow",
+    "knowledge": "Knowledge"
+  },
   "settings": {
     "defaultWorkflow": "Default workflow",
     "defaultWorkflowDescription": "The workflow selected for new runs.",
@@ -166,5 +169,19 @@
       "confirm": "Confirm",
       "reject": "Reject"
     }
+  },
+  "publishRuntime": {
+    "title": "Publish and runtime status",
+    "published": "Published successfully",
+    "publishUnconfirmed": "Publication is not confirmed",
+    "failed": "Runtime update failed",
+    "awaiting": "Refresh requested; runtime use is not yet verified",
+    "notRefreshed": "Runtime has not been refreshed",
+    "receiptFailed": "Status could not be saved for the next visit",
+    "metadataUnavailable": "Runtime status is unavailable",
+    "snapshotWritten": "Deployment snapshot written",
+    "snapshotMissing": "Deployment snapshot not written",
+    "refreshRequested": "Runtime refresh requested",
+    "refreshMissing": "Runtime refresh not requested"
   }
 }
