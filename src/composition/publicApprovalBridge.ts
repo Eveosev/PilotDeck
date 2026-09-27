@@ -31,7 +31,7 @@ export function createPublicApprovalBridge(options: {
     if (Object.hasOwn(input, 'authority') || Object.hasOwn(input, 'subject')) throw failure(400, 'APPROVAL_AUTHORITY_OVERRIDE');
     if (![binding.tenantId, binding.agentId, binding.pilotDeckUserId].every(nonempty)) throw failure(503, 'APPROVAL_BINDING_UNAVAILABLE');
     const authorization = input.approverAuthorization;
-    if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ') || !nonempty(authorization.slice(7))) {
+    if (typeof authorization !== 'string' || authorization.slice(0, 7).toLowerCase() !== 'bearer ' || !nonempty(authorization.slice(7))) {
       throw failure(401, 'APPROVAL_AUTH_REQUIRED');
     }
     const subject = await options.authenticate({ bearer: authorization.slice(7), signal });

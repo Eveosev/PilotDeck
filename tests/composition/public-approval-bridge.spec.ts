@@ -86,7 +86,7 @@ test('existing sop_resume RPC cannot supply authority or omit authentication and
       (error: { code?: string }) => error.code === 'APPROVAL_AUTHORITY_OVERRIDE');
     await assert.rejects(client.request('sop_resume', { ...f.command, approverAuthorization: 'Bearer fixture-forbidden' }),
       (error: { code?: string; details?: { httpStatus?: number } }) => error.code === 'APPROVAL_AUTH_REJECTED' && error.details?.httpStatus === 403);
-    const input = { ...f.command, approverAuthorization: 'Bearer fixture-approver' };
+    const input = { ...f.command, approverAuthorization: 'bearer fixture-approver' };
     const receipt = await client.request('sop_resume', input) as { duplicate: boolean; revision: number };
     const replay = await client.request('sop_resume', input) as { duplicate: boolean; revision: number };
     assert.equal(receipt.duplicate, false); assert.equal(replay.duplicate, true); assert.equal(replay.revision, receipt.revision);
