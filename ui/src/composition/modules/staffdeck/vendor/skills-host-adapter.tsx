@@ -14,7 +14,7 @@ import { staffDeckNotify } from '../host-notify';
 import { usePublishRuntimeObserver } from '../publish-runtime-context';
 import type { PublishRuntimeObserver } from '../publish-runtime-observer';
 import { isTeamScope } from '../host-contract-helpers';
-import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
+import { createFixedTargetContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 
 // PilotDeck is a single-user host. The SOP management identity is supplied by
 // the server-side StaffDeck API-key/agent binding; this value is only the
@@ -133,6 +133,7 @@ async function requireManagementScope(path: string, body: unknown, context?: Cop
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
   const url = new URL(path, 'http://staffdeck.local');
@@ -231,6 +232,7 @@ function queryPathIsSkill(path: string): boolean {
 
 async function callDistillApi<T>(snapshots: Map<string, any>, path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
   if (path.startsWith('/api/enterprise/tools')) throw new Error('PilotDeck tools capability is unavailable in this host.');
@@ -352,7 +354,7 @@ export function pilotDeckSopDestination(path: string): string {
 
 export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const context = React.useMemo(createCopyContext, []);
+  const context = React.useMemo(createFixedTargetContext, []);
   const observer = usePublishRuntimeObserver();
   const host = React.useMemo(() => createPilotDeckSkillsPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);
@@ -395,13 +397,16 @@ export function createPilotDeckDistillPageHost(context?: CopyContext, observer?:
     const url = new URL(path, 'http://host.local');
     const match = url.pathname.match(/^\/api\/enterprise\/skills\/jobs\/([^/]+)\/stream$/);
     if (!match) throw new Error('Unsupported preview stream path.');
-    await previewEvents(decodeURIComponent(match[1]), selectedPublicScope(path, undefined, context?.readScope), url.searchParams.get('after_seq') ?? undefined, onEvent, signal);
+    const scope = selectedPublicScope(path, undefined, context?.readScope);
+    context?.assertSelectedScope(scope);
+    await previewEvents(decodeURIComponent(match[1]), scope, url.searchParams.get('after_seq') ?? undefined, onEvent, signal);
   },
   streamPost: async (path, body, onEvent, signal) => {
     const url = new URL(path, 'http://host.local');
     const rewrite = url.pathname.match(/^\/api\/enterprise\/skills\/([^/]+)\/rewrite\/stream$/);
     if (!rewrite && url.pathname !== '/api/enterprise/skills/distill/stream') throw new Error('Unsupported preview request path.');
     const scope = selectedPublicScope(path, body, context?.readScope);
+    context?.assertSelectedScope(scope);
     const inputBody = { ...body }; delete inputBody.tenant_id; delete inputBody.agent_id;
     const response = await publicModuleClient.call(rewrite ? 'preview_rewrite_sop' : 'preview_generate_sop', { ...(rewrite ? { sopId: decodeURIComponent(rewrite[1]) } : {}), body: inputBody }, { scope, signal });
     const job = response.body as { job_id?: string };
@@ -420,7 +425,7 @@ export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const context = React.useMemo(createCopyContext, []);
+  const context = React.useMemo(createFixedTargetContext, []);
   const observer = usePublishRuntimeObserver();
   const host = React.useMemo(() => createPilotDeckDistillPageHost(context, observer), [context, observer]);
   const [ready, setReady] = React.useState(false);

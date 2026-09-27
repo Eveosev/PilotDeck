@@ -8,7 +8,7 @@ export function selectedPublicScope(path: string, body?: Record<string, unknown>
   const url = new URL(path, 'http://host.local');
   const pathAgent = url.pathname.match(/^\/api\/enterprise\/agents\/([^/]+)\//)?.[1];
   const selected = pathAgent ? decodeURIComponent(pathAgent) : url.searchParams.has('agent_id')
-    ? url.searchParams.get('agent_id') || '' : Object.prototype.hasOwnProperty.call(body ?? {}, 'agent_id')
+    ? url.searchParams.get('agent_id') || '' : body?.agent_id !== undefined
       ? String(body?.agent_id ?? '') : readScope?.();
   if (selected === undefined) throw new Error('PUBLIC_SELECTED_SCOPE_REQUIRED');
   return selected && !selected.startsWith('team:') ? { kind: 'agent', agentId: selected } : { kind: 'team' };

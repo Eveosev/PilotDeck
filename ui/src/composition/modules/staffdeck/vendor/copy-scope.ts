@@ -6,18 +6,24 @@ const AGENT_SCOPE_KEY = ENTERPRISE_AGENT_STORAGE_KEY;
 
 // Each mounted provider owns its directory target. The persisted scope key is
 // retained so this adaptation cannot disconnect existing editor lifecycles.
-export function createCopyContext() {
+export function createCopyContext(configuration: { fixedTarget?: boolean } = {}) {
   let targetAgentId = '';
   let targetTenantId = '';
   let visibleAgentIds: Set<string> | undefined;
   const storedScope = () => { try { return window.localStorage.getItem(AGENT_SCOPE_KEY) || ''; } catch { return ''; } };
   const readScope = (): string => {
+    if (configuration.fixedTarget) return targetAgentId;
     const stored = storedScope();
     if (isTeamScope(stored)) return '';
     return stored && (!visibleAgentIds || visibleAgentIds.has(stored)) ? stored : targetAgentId;
   };
   return {
     readScope,
+    assertSelectedScope(scope: { kind: 'agent'; agentId: string } | { kind: 'team' }) {
+      if (configuration.fixedTarget && (scope.kind !== 'agent' || !targetAgentId || scope.agentId !== targetAgentId)) {
+        throw new Error('PUBLIC_SCOPE_EXCLUDED: this delivery uses only the authenticated configured target.');
+      }
+    },
     readTenant: () => {
       if (!targetTenantId) throw new Error('The StaffDeck target tenant has not been authenticated.');
       return targetTenantId;
@@ -36,7 +42,7 @@ export function createCopyContext() {
       targetTenantId = target.tenant_id;
       visibleAgentIds = new Set(agents.filter(agent => !agent.is_overall).map(agent => agent.id));
       const current = storedScope();
-      if (!isTeamScope(current) && !agents.some((agent) => agent.id === current && !agent.is_overall)) {
+      if (!configuration.fixedTarget && !isTeamScope(current) && !agents.some((agent) => agent.id === current && !agent.is_overall)) {
         try { window.localStorage.setItem(AGENT_SCOPE_KEY, target.id); } catch {}
       }
       return agents;
@@ -51,3 +57,5 @@ export const readCopyAgentScope = defaultContext.readScope;
 export const loadCopyDirectory = defaultContext.loadDirectory;
 export const isCopyTarget = defaultContext.isTarget;
 export const readCopyTenant = defaultContext.readTenant;
+
+export const createFixedTargetContext = () => createCopyContext({ fixedTarget: true });

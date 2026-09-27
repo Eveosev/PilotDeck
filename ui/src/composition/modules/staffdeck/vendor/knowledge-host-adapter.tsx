@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 import { staffDeckNotify } from '../host-notify';
 import { persistSharedAgentScope, clearSharedAgentScope, emitAgentScopeChange } from '../host-contract-helpers';
-import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
+import { createFixedTargetContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 import './knowledge-host-theme.css';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
 import { pilotDeckFormalComponents, pilotDeckFormalIcons } from './host-components';
@@ -45,6 +45,7 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
 }
 
 async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext): Promise<T> {
+  context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope)) as T;
   const url = query(path);
@@ -157,7 +158,7 @@ function mapKnowledgePath(path: string): string {
 export function PilotDeckKnowledgePageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
-  const context = useMemo(createCopyContext, []);
+  const context = useMemo(createFixedTargetContext, []);
   const host = useMemo<Host>(() => ({
     ...pilotDeckKnowledgePageHost,
     api: { ...pilotDeckKnowledgePageHost.api,

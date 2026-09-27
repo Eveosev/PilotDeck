@@ -52,3 +52,24 @@ it('rejects selected non-target/team draft management instead of writing to the 
   await expect(host.api.post('/api/enterprise/skills?agent_id=', { content: { skill_id: 'sop' } })).rejects.toThrow('PUBLIC_SCOPED_MANAGEMENT_UNAVAILABLE');
   expect(call).not.toHaveBeenCalled();
 });
+it('uses the authenticated fixed target without clearing old selected scope and rejects explicit excluded scope', async () => {
+  const { createFixedTargetContext } = await import('./vendor/copy-scope');
+  const { staffDeckCopyClient } = await import('./clients');
+  window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'team:previous');
+  vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue([
+    { id: 'target', tenant_id: 'tenant', copy_target: true, is_overall: false },
+    { id: 'other', tenant_id: 'tenant', copy_target: false, is_overall: false },
+  ]);
+  const context = createFixedTargetContext();
+  await context.loadDirectory();
+  expect(context.readScope()).toBe('target');
+  expect(context.readTenant()).toBe('tenant');
+  expect(window.localStorage.getItem('ultrarag_enterprise_agent_scope')).toBe('team:previous');
+  const host = createPilotDeckDistillPageHost(context);
+  const fetch = vi.mocked(authenticatedFetch); fetch.mockClear();
+  await expect(host.api.get('/api/enterprise/tools?agent_id=other')).rejects.toThrow('PUBLIC_SCOPE_EXCLUDED');
+  await expect(host.api.get('/api/enterprise/tools?agent_id=')).rejects.toThrow('PUBLIC_SCOPE_EXCLUDED');
+  expect(fetch).not.toHaveBeenCalled();
+  expect(selectedPublicScope('/api/enterprise/tools', { agent_id: undefined }, context.readScope)).toEqual({ kind: 'agent', agentId: 'target' });
+  window.localStorage.removeItem('ultrarag_enterprise_agent_scope');
+});
