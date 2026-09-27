@@ -1,7 +1,7 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (integration in progress; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 1bb6a3e7369bf9948f99259145832d1471b1aa76.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 0fa53ce38bef3e4547cd85b88142a7cc1528ec52.
 Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
@@ -15,3 +15,7 @@ this snapshot from the same canonical shared source, through the integration own
 Adapter3fa7b145 host helpers are canonical FormalHostContractHelpers.ts;
 PD host-contract-helpers.ts is a re-export leaf. Legacy Formal helper paths
 also re-export the common source. No shared source imports PD-private modules.
+
+UI32b87446 actual native input refs and version-detail user content boundary
+were integrated incrementally as SD0fa53ce3. Shared pages retain prior public
+mounted/context/helper repairs. PDd77691af adds only a real Portal locale test.

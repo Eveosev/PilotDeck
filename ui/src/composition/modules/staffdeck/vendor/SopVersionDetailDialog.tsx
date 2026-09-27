@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogTitle, DetailField, IconSkill } from './SkillsPageHost';
+import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
 
 export type StaffDeckSopVersion = {
   id: string;
@@ -53,19 +54,21 @@ export function SopVersionDetailDialog({ detail, onClose, labels = DEFAULT_LABEL
     <DialogContent aria-describedby={undefined} className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[900px]">
       <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
         <IconSkill className="size-[14px] shrink-0" />
-        <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">{detail ? `${labels.title}：${detail.name} / ${detail.version}` : labels.emptyTitle}</DialogTitle>
+        <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">
+          {detail ? <>{labels.title}：<span {...USER_CONTENT_ATTRIBUTES}>{detail.name}</span> / <span {...USER_CONTENT_ATTRIBUTES}>{detail.version}</span></> : labels.emptyTitle}
+        </DialogTitle>
       </div>
       {detail && <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto px-[12px]">
         <div className="grid grid-cols-2 gap-[10px] max-[520px]:grid-cols-1">
-          <DetailField label={labels.version}>{detail.version}</DetailField>
-          <DetailField label={labels.domain}>{detail.business_domain || labels.unknown}</DetailField>
-          <DetailField label={labels.status}>{status}</DetailField>
+          <DetailField label={labels.version}><span {...USER_CONTENT_ATTRIBUTES}>{detail.version}</span></DetailField>
+          <DetailField label={labels.domain}>{detail.business_domain ? <span {...USER_CONTENT_ATTRIBUTES}>{detail.business_domain}</span> : labels.unknown}</DetailField>
+          <DetailField label={labels.status}>{detail.status === 'published' || detail.status === 'draft' || detail.status === 'archived' ? status : <span {...USER_CONTENT_ATTRIBUTES}>{status}</span>}</DetailField>
           <DetailField label={labels.calls}>{detail.call_count || 0} 次</DetailField>
           <DetailField label={labels.positive}>{`${Math.round((detail.positive_rate || 0) * 100)}%`}</DetailField>
           <DetailField label={labels.negative}>{`${Math.round((detail.negative_rate || 0) * 100)}%`}</DetailField>
           <DetailField label={labels.updated}>{detail.updated_at.slice(0, 10)}</DetailField>
         </div>
-        <pre className="overflow-x-auto rounded-[12px] bg-[#f6f6f6] p-[14px] text-[12px] leading-[1.7] text-[#464c5e] wrap-anywhere whitespace-pre-wrap" data-i18n-ignore="true">{skillSourceText(detail)}</pre>
+        <pre {...USER_CONTENT_ATTRIBUTES} className="overflow-x-auto rounded-[12px] bg-[#f6f6f6] p-[14px] text-[12px] leading-[1.7] text-[#464c5e] wrap-anywhere whitespace-pre-wrap">{skillSourceText(detail)}</pre>
       </div>}
     </DialogContent>
   </Dialog>;

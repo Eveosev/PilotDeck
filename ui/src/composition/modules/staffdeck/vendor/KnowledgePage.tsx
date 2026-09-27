@@ -1,6 +1,6 @@
 // @ts-nocheck
-import './FormalKnowledgeLayout.css';
 import { USER_CONTENT_ATTRIBUTES } from './FormalUserContent';
+import './FormalKnowledgeLayout.css';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
