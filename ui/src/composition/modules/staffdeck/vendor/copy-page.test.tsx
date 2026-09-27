@@ -15,10 +15,16 @@ import { useDistillPageHost } from './DistillPageHost';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
 
 const agents = [
-  { id: 'employee-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
+  { id: 'employee-real', tenant_id: 'tenant_demo', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
   { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false, can_manage: false },
 ];
 const currentUser = { id: 'pd-user', username: 'operator', is_admin: false };
+
+// Radix Select uses browser scrolling/pointer APIs absent from jsdom.
+Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = () => false;
+Element.prototype.setPointerCapture = () => {};
+Element.prototype.releasePointerCapture = () => {};
 
 afterEach(() => {
   cleanup();
@@ -57,7 +63,9 @@ describe('PilotDeck shared plaza pages', () => {
     call.mockResolvedValue({ data: [published] } as any);
     await expect(pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x`)).rejects.toThrow('updated_at');
   });
-  it('maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope', () => {
+  it('maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope', async () => {
+    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as any);
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue([] as any);
     window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
     function NavigationProbe() {
       const host = useDistillPageHost();
@@ -70,7 +78,7 @@ describe('PilotDeck shared plaza pages', () => {
     render(<MemoryRouter initialEntries={['/previous', '/sop/distill?skill_id=real']} initialIndex={1}>
       <PilotDeckDistillPageProvider><NavigationProbe /></PilotDeckDistillPageProvider>
     </MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Editor Back' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Editor Back' }));
     expect(screen.getByRole('status').textContent).toBe('/sop?agent_id=employee-real#list');
     expect(window.localStorage.getItem('ultrarag_enterprise_agent_scope')).toBe('employee-real');
     fireEvent.click(screen.getByRole('button', { name: 'History Back' }));
@@ -109,7 +117,7 @@ describe('PilotDeck shared plaza pages', () => {
     view.rerender(dialog);
 
     expect(onSourceChange).toHaveBeenCalledWith('plaza-real');
-    fireEvent.click(screen.getByRole('combobox', { name: '复制到' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '复制到' }), { key: 'Enter' });
     fireEvent.click(screen.getByRole('option', { name: 'Employee' }));
     expect(onTargetChange).toHaveBeenCalledWith('employee-real');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Policy' }));
@@ -178,7 +186,7 @@ describe('PilotDeck shared plaza pages', () => {
     vi.spyOn(staffDeckKnowledgeClient, 'call').mockResolvedValue([] as never);
     render(<MemoryRouter><PilotDeckKnowledgePageProvider><KnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></MemoryRouter>);
 
-    fireEvent.click(await screen.findByRole('button', { name: /新增/ }));
+    fireEvent.keyDown(await screen.findByRole('button', { name: /新增/ }), { key: 'Enter' });
     fireEvent.click(await screen.findByText('从广场复制'));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(await within(dialog).findByText('Policy'));
@@ -202,7 +210,7 @@ describe('PilotDeck shared plaza pages', () => {
     const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
     render(<MemoryRouter><PilotDeckSkillsPageProvider><SkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></MemoryRouter>);
 
-    fireEvent.click(await screen.findByRole('button', { name: /新增/ }));
+    fireEvent.keyDown(await screen.findByRole('button', { name: /新增/ }), { key: 'Enter' });
     fireEvent.click(await screen.findByText('从广场复制'));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(await within(dialog).findByText('Review'));

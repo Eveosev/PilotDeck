@@ -1,14 +1,20 @@
 import { authenticatedFetch } from '../../../utils/api';
 
-type ModuleError = { error?: { message?: string } };
+type ModuleError = { error?: { message?: string; code?: string } };
+
+export class StaffDeckModuleError extends Error {
+  constructor(readonly status: number, readonly body: unknown, readonly code: string | undefined, message: string) {
+    super(message);
+    this.name = 'StaffDeckModuleError';
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authenticatedFetch(path, init);
   const body = await response.json().catch(() => ({})) as T & ModuleError;
   if (!response.ok) {
-    const error = new Error(body.error?.message || `Module request failed (${response.status}).`);
-    (error as Error & { status?: number }).status = response.status;
-    throw error;
+    throw new StaffDeckModuleError(response.status, body, body.error?.code,
+      body.error?.message || `Module request failed (${response.status}).`);
   }
   return body;
 }

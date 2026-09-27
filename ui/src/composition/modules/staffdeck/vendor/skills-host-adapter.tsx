@@ -2,13 +2,14 @@ import type { SkillsPageHost } from './SkillsPageHost';
 import { SkillsPageHostProvider } from './SkillsPageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
+import { pilotDeckFormalComponents, pilotDeckFormalIcons, pilotDeckNotify } from './host-components';
 import type { DistillPageHost } from './DistillPageHost';
 import { DistillPageHostProvider } from './DistillPageHost';
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient, type SopDefinition } from '../clients';
-import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
+import { isCopyTarget, loadCopyDirectory, readCopyAgentScope, readCopyTenant } from './copy-scope';
 
 // PilotDeck is a single-user host. The SOP management identity is supplied by
 // the server-side StaffDeck API-key/agent binding; this value is only the
@@ -33,7 +34,7 @@ function toSkill(definition: SopDefinition, status = 'published') {
     description: text(content.description) || text(definition.description) || '',
     business_domain: text(content.business_domain) || text(definition.business_domain) || '',
     status: text(definition.status) || status,
-    updated_at: text(definition.updated_at) || new Date().toISOString(),
+    updated_at: text(definition.updated_at),
     content,
     call_count: Number(definition.call_count) || 0,
     positive_rate: Number(definition.positive_rate) || 0,
@@ -41,7 +42,7 @@ function toSkill(definition: SopDefinition, status = 'published') {
     total_call_count: Number(definition.total_call_count) || Number(definition.call_count) || 0,
     total_positive_rate: Number(definition.total_positive_rate) || Number(definition.positive_rate) || 0,
     total_negative_rate: Number(definition.total_negative_rate) || Number(definition.negative_rate) || 0,
-    branch_status: text(definition.branch_status) || 'synced',
+    branch_status: text(definition.branch_status),
     draft_id: text(definition.draft_id),
     etag: text(definition.etag),
     trigger_intents: list(content.trigger_intents),
@@ -74,6 +75,7 @@ async function management(operation: string, input: Record<string, unknown> = {}
 
 async function listDefinitions(): Promise<any[]> {
   const result = record(await management('list'));
+  if (!Array.isArray(result.data) || !Array.isArray(result.drafts)) throw new Error('Formal SOP list did not return its data and drafts collections.');
   const rows = new Map<string, ReturnType<typeof toManagedSkill>>();
   for (const row of Array.isArray(result.data) ? result.data : []) {
     const skill = toManagedSkill(row);
@@ -84,24 +86,28 @@ async function listDefinitions(): Promise<any[]> {
   for (const row of Array.isArray(result.drafts) ? result.drafts : []) {
     if (record(row).status !== 'draft') continue;
     const skill = toManagedSkill(row);
+    // Public list orders drafts newest first. Keep that explicit lifecycle;
+    // later/older rows cannot silently replace it or its original read ETag.
+    if (rows.get(skill.skill_id)?.draft_id) continue;
     rows.set(skill.skill_id, skill);
   }
   return [...rows.values()];
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
+  const url = new URL(path, 'http://staffdeck.local');
   const match = path.split('?')[0].match(/^\/api\/enterprise\/skills\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?(?:\/([^/]+))?$/);
   const importMatch = path.match(/^\/api\/enterprise\/agents\/([^/?]+)\/resources\/import$/);
   if (importMatch && method === 'post') return await staffDeckCopyClient.call<T>('import_resources', {
     targetAgentId: decodeURIComponent(importMatch[1]), sourceAgentId: body?.source_agent_id,
     resourceType: body?.resource_type, resourceIds: body?.resource_ids,
   });
-  if (path.startsWith('/api/enterprise/skills?')) {
+  if (url.pathname === '/api/enterprise/skills') {
     if (method === 'get') return await listDefinitions() as T;
-    if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
+    if (method === 'post') return toManagedSkill(await management('create', { content: body?.content || {} })) as T;
   }
-  if (path.startsWith('/api/enterprise/agents?')) return await loadCopyDirectory() as T;
-  if (path.startsWith('/api/enterprise/agents/') && /\/skills\?tenant_id=[^&]+$/.test(path)) {
+  if (url.pathname === '/api/enterprise/agents' && method === 'get') return await loadCopyDirectory() as T;
+  if (/^\/api\/enterprise\/agents\/[^/]+\/skills$/.test(url.pathname)) {
     if (method !== 'get') throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
     const sourceAgentId = decodeURIComponent(path.split('/')[4]);
     return await staffDeckCopyClient.call<T>('list_skills', { sourceAgentId });
@@ -131,14 +137,17 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
     return await management('publish', { sopId, draftId: current.draft_id }) as T;
   }
   if (method === 'post' && suffix === 'archive') return await management('archive', { sopId }) as T;
-  if (method === 'post' && suffix === 'draft') return await management('create', { sopId, content: body?.content || {} }) as T;
+  if (method === 'post' && suffix === 'draft') {
+    const selected = await readDefinition(sopId);
+    return toManagedSkill(await management('create', { sopId, content: body?.content || selected.content })) as T;
+  }
   if (method === 'post' && suffix === 'rollback') return await management('rollback', { sopId, version: body?.version }) as T;
   if (method === 'delete' && !suffix) return await management('archive', { sopId }) as T;
   throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
 }
 
 function skillIdFromPath(path: string): string | undefined {
-  const match = path.match(/^\/api\/enterprise\/skills\/([^/?]+)/);
+  const match = new URL(path, 'http://staffdeck.local').pathname.match(/^\/api\/enterprise\/skills\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
@@ -174,10 +183,18 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
   if (path.startsWith('/api/enterprise/general-skills')) throw new Error('PilotDeck general-skills capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/model-configs')) throw new Error('PilotDeck model-configs capability is unavailable in this host.');
   if (path.startsWith('/api/auth/users')) throw new Error('PilotDeck user-directory capability is unavailable in this host.');
-  if (path.startsWith('/api/enterprise/knowledge-bases')) return await staffDeckKnowledgeClient.call<T>('list_bases');
-  if (path.startsWith('/api/enterprise/skills?')) {
+  const url = new URL(path, 'http://staffdeck.local');
+  if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') return await staffDeckKnowledgeClient.call<T>('list_bases', {
+    ...(url.searchParams.get('agent_id') ? { agentId: url.searchParams.get('agent_id') } : {}),
+    ...(url.searchParams.get('tenant_id') ? { tenantId: url.searchParams.get('tenant_id') } : {}),
+  });
+  if (url.pathname === '/api/enterprise/skills') {
     if (method === 'get') return await listDefinitions() as T;
-    if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
+    if (method === 'post') {
+      const created = toManagedSkill(await management('create', { content: body?.content || {} }));
+      snapshots.set(created.skill_id, structuredClone(created));
+      return created as T;
+    }
   }
   const skillId = skillIdFromPath(path);
   if (skillId && method === 'get' && !path.includes('/versions')) {
@@ -214,10 +231,11 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
 }
 
 export const pilotDeckSkillsPageHost: SkillsPageHost = {
+  icons: pilotDeckFormalIcons,
   editorQuery: (row): Record<string, string> => text(row.draft_id)
     ? { editor_context: `draft:${row.draft_id}`, draft_id: row.draft_id }
     : { editor_context: `published:${row.version}`, published_version: row.version },
-  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog, Dialog: PilotDeckDialog, DialogContent: PilotDeckDialogContent, DialogTitle: PilotDeckDialogTitle },
+  components: { ...pilotDeckFormalComponents, DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
   api: {
     get: (path) => callSkillApi(path, 'get'),
     post: (path, body) => callSkillApi(path, 'post', body),
@@ -226,7 +244,7 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   },
   navigate: (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
   tenantId: PILOTDECK_SOP_TENANT_ID,
-  notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message) },
+  notify: pilotDeckNotify,
   isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
   canManageEmployeeAgent: (agent) => Boolean(isCopyTarget(agent) && agent.can_manage === true),
   openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '',
@@ -264,13 +282,15 @@ export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode 
   }, []);
   if (error) return <div role="alert">{error}</div>;
   if (!ready) return null;
-  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, navigate: (path) => navigate(pilotDeckSopDestination(path)) }}>{children}</SkillsPageHostProvider>;
+  return <SkillsPageHostProvider value={{ ...pilotDeckSkillsPageHost, tenantId: readCopyTenant(), navigate: (path) => navigate(pilotDeckSopDestination(path)) }}>{children}</SkillsPageHostProvider>;
 }
 
 export function createPilotDeckDistillPageHost(): DistillPageHost {
   // One store per mounted editor, never shared across windows or instances.
   const snapshots = new Map<string, any>();
   return {
+  components: pilotDeckFormalComponents,
+  icons: pilotDeckFormalIcons,
   saveVersionPolicy: (snapshot) => !text(snapshot.draft_id)
     ? { serviceAssigned: true, label: 'Assigned by the service when creating the draft' }
     : undefined,
@@ -289,13 +309,8 @@ export function createPilotDeckDistillPageHost(): DistillPageHost {
   streamPost: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
   navigate: (path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
   tenantId: PILOTDECK_SOP_TENANT_ID,
-  notify: {
-    success: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'success', message } })),
-    warning: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'error', message } })),
-    error: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'error', message } })),
-    info: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'success', message } })),
-  },
-  readEmployeeScope: () => '',
+  notify: pilotDeckNotify,
+  readEmployeeScope: readCopyAgentScope,
   isTeamScope: (value) => value.startsWith('team:'),
   };
 }
@@ -305,5 +320,15 @@ export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const host = React.useMemo(createPilotDeckDistillPageHost, []);
-  return <DistillPageHostProvider value={{ ...host, navigate: (path, options) => navigate(pilotDeckSopDestination(path), options) }}>{children}</DistillPageHostProvider>;
+  const [ready, setReady] = React.useState(false);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => {
+    let mounted = true;
+    void loadCopyDirectory().then(() => management('list')).then(() => { if (mounted) setReady(true); })
+      .catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { mounted = false; };
+  }, []);
+  if (error) return <div role="alert">{error}</div>;
+  if (!ready) return null;
+  return <DistillPageHostProvider value={{ ...host, tenantId: readCopyTenant(), navigate: (path, options) => navigate(pilotDeckSopDestination(path), options) }}>{children}</DistillPageHostProvider>;
 }

@@ -59,7 +59,7 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
   it('loads actual overall and target identities from the formal copy directory', async () => {
     const originalCall = staffDeckCopyClient.call;
     staffDeckCopyClient.call = async () => [
-      { id: 'employee-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
+      { id: 'employee-real', tenant_id: 'tenant_demo', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
       { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false },
     ] as any;
     try {
