@@ -100,7 +100,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 32);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 40);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }
@@ -150,4 +150,30 @@ test('selected agent never falls back to configured target; team uses bounded ro
   }).path, 'team/sops/s:preview-rewrite');
   await assert.rejects(client.call('remove_sop', { sopId: 's' }, { scope: { kind: 'team' } }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
   assert.equal(planPublicOperation(undefined, 'get_job', { jobId: 'j' }).path, 'jobs/j');
+});
+
+test('selected SOP lifecycle preserves exact IDs, ETag precondition and original response', async () => {
+  const scope = { kind: 'agent', agentId: 'selected/employee' };
+  const content = { skill_id: 's/op', version: '1.0.2', nodes: [{ node_id: 'dirty' }] };
+  const draft = { id: 'd/1', agent_id: 'selected/employee', sop_id: 's/op', content, etag: '"original"', status: 'draft' };
+  const paths = [];
+  const client = createPublicCapabilityClient({
+    agentId: 'configured-target',
+    authorizedOperations: ['get_sop_draft', 'list_sop_versions', 'get_sop_version', 'create_sop_draft', 'replace_sop_draft', 'publish_sop', 'archive_sop', 'rollback_sop_version'],
+    transport: async plan => { paths.push(plan); return { status: plan.shape === 'created-draft' ? 201 : 200, body: draft, headers: { ETag: '"original"' } }; },
+  });
+  assert.deepEqual((await client.call('get_sop_draft', { sopId: 's/op', draftId: 'd/1' }, { scope })).body, draft);
+  assert.equal(paths[0].path, 'agents/selected%2Femployee/sops/s%2Fop/drafts/d%2F1');
+  await assert.rejects(client.call('replace_sop_draft', { sopId: 's/op', draftId: 'd/1', etag: '', body: { content } }, { scope }), code('IF_MATCH_REQUIRED'));
+  assert.equal(paths.length, 1);
+  assert.deepEqual((await client.call('replace_sop_draft', { sopId: 's/op', draftId: 'd/1', etag: '"original"', body: { content } }, { scope })).headers, { ETag: '"original"' });
+  assert.equal(paths[1].headers['If-Match'], '"original"');
+  assert.equal(paths[1].path, 'agents/selected%2Femployee/sops/s%2Fop?draft_id=d%2F1');
+  assert.deepEqual(paths[1].body, { content });
+  await client.call('publish_sop', { sopId: 's/op', draftId: 'd/1' }, { scope });
+  assert.equal(paths[2].path, 'sops/s%2Fop:publish?agent_id=selected%2Femployee');
+  assert.deepEqual(paths[2].body, { draft_id: 'd/1' });
+  assert.equal(planPublicOperation(null, 'list_sop_versions', { sopId: 's/op' }).path, 'team/sops/s%2Fop/versions');
+  assert.equal(planPublicOperation(null, 'get_sop_version', { sopId: 's/op', version: '1.0.1' }).path, 'team/sops/s%2Fop/versions/1.0.1');
+  await assert.rejects(client.call('create_sop_draft', { body: { content } }, { scope: { kind: 'team' } }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
 });

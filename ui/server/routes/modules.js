@@ -274,7 +274,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (['tenantId', 'tenant_id', 'actorUserId', 'actor_user_id', 'credentialId'].some(field => Object.hasOwn(input, field))) {
         throw managementError(400, 'PUBLIC_SCOPE_OVERRIDE', 'SDK identity comes from the verified owner.');
       }
-      if (req.get('If-Match') !== undefined || ['etag', 'ifMatch', 'if_match'].some(field => Object.hasOwn(input, field))) {
+      if (req.get('If-Match') !== undefined || ['ifMatch', 'if_match'].some(field => Object.hasOwn(input, field))
+        || (operation !== 'replace_sop_draft' && Object.hasOwn(input, 'etag'))) {
         throw managementError(409, 'PUBLIC_CONDITIONAL_WRITE_UNAVAILABLE', 'Conditional SDK writes require an implemented If-Match contract.');
       }
       const scope = streamOnly
@@ -295,7 +296,16 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         PUBLIC_OPERATION_CONTRACTS[operation][2]);
       const gateway = createStaffDeckPublicCapabilityGateway({ management, owner, signal: req.moduleRequestSignal,
         authorizedOperations: PUBLIC_APPROVED_OPERATIONS });
-      const result = await gateway.call(operation, input, { scope });
+      const call = () => gateway.call(operation, input, { scope });
+      const result = operation === 'publish_sop'
+        ? await publishRuntime.publish({ binding: config.modules?.sop,
+          management: { ...management, agentId: scope.kind === 'agent' ? scope.agentId : management.agentId },
+          owner: { ...owner, agentId: scope.kind === 'agent' ? scope.agentId : owner.agentId },
+          sopId: text(input.sopId), publish: call })
+        : await call();
+      // Keep the SDK owner's body unchanged. This separate, sanitized status
+      // is consumed by the browser runtime observer, never an effective ack.
+      if (result.runtime) res.setHeader('X-StaffDeck-Runtime', JSON.stringify(result.runtime));
       res.status(result.status);
       for (const header of ['content-type', 'etag', 'retry-after', 'x-request-id']) {
         const value = result.headers?.get(header);

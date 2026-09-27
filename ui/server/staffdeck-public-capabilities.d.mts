@@ -4,6 +4,14 @@ export type PublicOperationInput = {
   list_general_skills: {};
   list_knowledge_bases: {};
   list_sops: {};
+  get_sop_draft: { sopId: string; draftId: string };
+  list_sop_versions: { sopId: string };
+  get_sop_version: { sopId: string; version: string };
+  create_sop_draft: { body: { content: PublicRecord } };
+  replace_sop_draft: { sopId: string; draftId: string; etag: string; body: { content: PublicRecord } };
+  publish_sop: { sopId: string; draftId: string };
+  archive_sop: { sopId: string };
+  rollback_sop_version: { sopId: string; version: string };
   create_tool: { body: Record<string, unknown> };
   update_tool: { toolId: string; body: Record<string, unknown> };
   test_tool: { toolId: string; body: Record<string, unknown> };
@@ -49,9 +57,14 @@ export type PublicCollection = { data: PublicRecord[]; next_cursor?: string | nu
 export type PublicJob = PublicRecord & { id: string; status: string };
 export type PublicPreviewJob = PublicRecord & { job_id: string; status: string; last_seq: number };
 export type PublicJobResult = { job: PublicJob; result: PublicRecord; error: PublicRecord };
+export type PublicSopDraft = PublicRecord & { id: string; agent_id: string; sop_id: string; content: PublicRecord; etag: string; status: string };
 export type PublicOperationOutput = {
   list_tools: PublicCollection; list_general_skills: PublicCollection; list_knowledge_bases: PublicCollection;
   list_sops: PublicCollection & { drafts: PublicRecord[] };
+  get_sop_draft: PublicSopDraft; list_sop_versions: PublicCollection; get_sop_version: PublicRecord;
+  create_sop_draft: PublicSopDraft; replace_sop_draft: PublicSopDraft;
+  publish_sop: { sop: PublicRecord; draft: PublicSopDraft };
+  archive_sop: PublicRecord; rollback_sop_version: PublicSopDraft;
   create_tool: PublicRecord; update_tool: PublicRecord; test_tool: PublicRecord;
   import_general_skill: PublicRecord; publish_general_skill: PublicRecord;
   archive_general_skill: PublicRecord; test_general_skill: PublicRecord;

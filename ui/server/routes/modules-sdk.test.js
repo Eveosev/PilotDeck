@@ -1,5 +1,8 @@
 import express from 'express';
 import http from 'node:http';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { afterEach, expect, it } from 'vitest';
 import { createModuleRuntimeRouter } from './modules.js';
 
@@ -22,7 +25,7 @@ async function listen(app) {
   servers.push(server);
   return `http://127.0.0.1:${server.address().port}`;
 }
-async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publish', 'sops:cancel', 'tools:read', 'skills:read', 'knowledge:read'], identity } = {}) {
+async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publish', 'sops:cancel', 'tools:read', 'skills:read', 'knowledge:read'], identity, binding, getGateway } = {}) {
   const key = 'sdak_sdk_owned_account_123456789';
   const native = express();
   native.disable('etag');
@@ -40,15 +43,16 @@ async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publ
   const config = {
     webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin,
       tenantId: 'tenant', actorUserId: 'actor', targetAgentId: 'target', pilotDeckUserId: 'local', userTokenEnv: 'SDK_TEST_LOGIN' } },
-    modules: { sop: { enabled: true, management: { enabled: true, endpoint: origin + '/api/v1/',
+    modules: { sop: { enabled: true, ...binding, ...(binding ? { discoveryEndpoint: origin + '/api/v1/' } : {}), management: { enabled: true, endpoint: origin + '/api/v1/',
       apiKeyEnv: 'SDK_TEST_KEY', credentialId: 'owned', agentId: 'target', methods: ['list'] } } },
   };
   const app = express(); app.use(express.json());
   app.use((req, _res, next) => { req.user = { id: 'local' }; next(); });
-  app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => config }));
+  app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => config, ...(getGateway ? { getGateway } : {}) }));
   const local = await listen(app);
   return {
     checks: () => checks,
+    management: () => fetch(local + '/api/modules/sop/management'),
     call: (operation, input = {}, scope, signal) => fetch(local + '/api/modules/staffdeck-sdk/call', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation, input, scope }), signal,
     }),
@@ -194,4 +198,101 @@ it('uses bounded team paths for four catalogs and transient preview, rejecting t
   ]);
   expect(calls[4].body).toEqual(generate);
   expect(calls[5].body).toEqual(rewrite);
+});
+
+
+it('routes selected draft/version management precisely and preserves same-response ETags and precondition errors', async () => {
+  const calls = [];
+  const draft = { id: 'draft/id', sop_id: 'sop/id', content: { skill_id: 'sop/id' }, etag: '"original etag"' };
+  const f = await fixture((req, res) => {
+    calls.push({ method: req.method, url: req.url, body: req.body, etag: req.get('If-Match') });
+    if (req.method === 'PUT' && req.get('If-Match') !== draft.etag) return res.status(412).type('json').end('{"error":{"code":"ETAG_MISMATCH"}}');
+    if (req.url.includes('/versions/v%2F1:rollback')) return res.status(201).json(draft);
+    if (req.url.includes('/versions/v%2F1')) return res.json({ version: 'v/1', content: draft.content });
+    if (req.url.includes('/versions')) return res.json({ data: [{ version: 'v/1' }] });
+    if (req.url.includes(':archive')) return res.json({ skill_id: 'sop/id', status: 'archived' });
+    return res.status(req.method === 'POST' ? 201 : 200).set('ETag', draft.etag).json(draft);
+  });
+  const scope = { kind: 'agent', agentId: 'non-target' };
+  for (const [operation, input, status] of [
+    ['get_sop_draft', { sopId: 'sop/id', draftId: 'draft/id' }, 200],
+    ['create_sop_draft', { body: { content: draft.content } }, 201],
+    ['replace_sop_draft', { sopId: 'sop/id', draftId: 'draft/id', etag: draft.etag, body: { content: draft.content } }, 200],
+  ]) {
+    const response = await f.call(operation, input, scope);
+    expect(response.status).toBe(status);
+    expect(response.headers.get('etag')).toBe(draft.etag);
+    expect(await response.json()).toEqual(draft);
+  }
+  const input = { sopId: 'sop/id', draftId: 'draft/id', body: { content: draft.content } };
+  expect((await f.call('replace_sop_draft', input, scope)).status).toBe(428);
+  const stale = await f.call('replace_sop_draft', { ...input, etag: '"stale"' }, scope);
+  expect(stale.status).toBe(412); expect(await stale.text()).toBe('{"error":{"code":"ETAG_MISMATCH"}}');
+  expect((await f.call('list_sop_versions', { sopId: 'sop/id' }, scope)).status).toBe(200);
+  expect((await f.call('get_sop_version', { sopId: 'sop/id', version: 'v/1' }, scope)).status).toBe(200);
+  const rolled = await f.call('rollback_sop_version', { sopId: 'sop/id', version: 'v/1' }, scope);
+  expect(rolled.status).toBe(201); expect(await rolled.json()).toEqual(draft);
+  expect((await f.call('archive_sop', { sopId: 'sop/id' }, scope)).status).toBe(200);
+  expect(calls.map(c => c.url)).toEqual([
+    '/agents/non-target/sops/sop%2Fid/drafts/draft%2Fid', '/agents/non-target/sops',
+    '/agents/non-target/sops/sop%2Fid?draft_id=draft%2Fid', '/agents/non-target/sops/sop%2Fid?draft_id=draft%2Fid',
+    '/sops/sop%2Fid/versions?agent_id=non-target', '/sops/sop%2Fid/versions/v%2F1?agent_id=non-target',
+    '/sops/sop%2Fid/versions/v%2F1:rollback?agent_id=non-target', '/sops/sop%2Fid:archive?agent_id=non-target',
+  ]);
+  expect(calls[2].etag).toBe(draft.etag); expect(calls[3].etag).toBe('"stale"');
+});
+
+it('allows exact team version reads and blocks team drafts and writes without business transport', async () => {
+  const calls = [];
+  const f = await fixture((req, res) => { calls.push(req.url); res.json(req.url.endsWith('/versions') ? { data: [] } : { version: '1' }); });
+  const scope = { kind: 'team' };
+  expect((await f.call('list_sop_versions', { sopId: 'sop' }, scope)).status).toBe(200);
+  expect((await f.call('get_sop_version', { sopId: 'sop', version: '1' }, scope)).status).toBe(200);
+  for (const operation of ['get_sop_draft', 'create_sop_draft', 'replace_sop_draft', 'publish_sop', 'archive_sop', 'rollback_sop_version']) {
+    expect((await f.call(operation, { sopId: 'sop', draftId: 'draft', version: '1', ...(operation === 'replace_sop_draft' ? { etag: 'original' } : {}) }, scope)).status).toBe(409);
+  }
+  expect(calls).toEqual(['/team/sops/sop/versions', '/team/sops/sop/versions/1']);
+});
+
+it('SDK publish reuses the once-publish coordinator and retains original body with separate runtime status', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-publish-'));
+  const path = join(dir, 'definitions.yaml');
+  await writeFile(path, JSON.stringify({ sops: [{ id: 'sop', version: '1', content: { skill_id: 'sop', version: '1' } }] }));
+  let publications = 0;
+  const refreshes = [];
+  const publication = { sop: { id: 'row', skill_id: 'sop', status: 'published', version: '2', content: { skill_id: 'sop', version: '2' } }, draft: { id: 'draft' } };
+  const f = await fixture((req, res) => {
+    publications++;
+    expect(req.url).toBe('/sops/sop:publish?agent_id=target');
+    expect(req.body).toEqual({ draft_id: 'draft' });
+    expect(req.get('If-Match')).toBeUndefined();
+    res.json(publication);
+  }, { binding: { definitionsPath: path, defaultSopId: 'sop', discoveryAgentId: 'target' },
+    getGateway: async () => ({ reloadExtensions: async input => { refreshes.push(input); return { reloaded: true }; } }) });
+  try {
+    const response = await f.call('publish_sop', { sopId: 'sop', draftId: 'draft' }, { kind: 'agent', agentId: 'target' });
+    expect(response.status).toBe(200); expect(await response.json()).toEqual(publication);
+    expect(JSON.parse(response.headers.get('X-StaffDeck-Runtime'))).toMatchObject({ ownerPublished: true, snapshotWritten: true, refreshRequested: true, receiptPersisted: true, effective: false });
+    expect(publications).toBe(1); expect(refreshes).toEqual([{ changedPaths: [path] }]);
+    expect(JSON.parse(await readFile(path, 'utf8')).sops[0].version).toBe('2');
+    expect((await (await f.management()).json()).runtime.receipts).toEqual([expect.objectContaining({ sopId: 'sop', effective: false })]);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+it('a selected non-target publish never writes the configured target bundle or refreshes it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-publish-scope-'));
+  const path = join(dir, 'definitions.yaml');
+  const original = JSON.stringify({ sops: [{ id: 'sop', version: '1' }] });
+  await writeFile(path, original);
+  let publications = 0, refreshes = 0;
+  const f = await fixture((req, res) => {
+    publications++; expect(req.url).toBe('/sops/sop:publish?agent_id=other');
+    res.json({ sop: { id: 'row', skill_id: 'sop', status: 'published', version: '2', content: { skill_id: 'sop', version: '2' } } });
+  }, { binding: { definitionsPath: path, defaultSopId: 'sop', discoveryAgentId: 'target' }, getGateway: async () => ({ reloadExtensions: async () => { refreshes++; return { reloaded: true }; } }) });
+  try {
+    const response = await f.call('publish_sop', { sopId: 'sop', draftId: 'draft' }, { kind: 'agent', agentId: 'other' });
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.headers.get('X-StaffDeck-Runtime'))).toMatchObject({ ownerPublished: true, snapshotWritten: false, refreshRequested: false, effective: false, failure: { code: 'SOP_RUNTIME_OWNER_MISMATCH' } });
+    expect(publications).toBe(1); expect(refreshes).toBe(0); expect(await readFile(path, 'utf8')).toBe(original);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

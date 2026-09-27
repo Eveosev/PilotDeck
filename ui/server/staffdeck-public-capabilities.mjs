@@ -22,6 +22,14 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   list_general_skills: ['GET', 'agents/{agent}/general-skills', 'skills:read', 'data[]'],
   list_knowledge_bases: ['GET', 'agents/{agent}/knowledge-bases', 'knowledge:read', 'data[]'],
   list_sops: ['GET', 'agents/{agent}/sops', 'sops:read', 'data[]/drafts[]'],
+  get_sop_draft: ['GET', 'agents/{agent}/sops/{sop}/drafts/{draft}', 'sops:read', 'draft/ETag'],
+  list_sop_versions: ['GET', 'sops/{sop}/versions?agent_id={agent}', 'sops:read', 'data[]'],
+  get_sop_version: ['GET', 'sops/{sop}/versions/{version}?agent_id={agent}', 'sops:read', 'version'],
+  create_sop_draft: ['POST', 'agents/{agent}/sops', 'sops:write', '201 draft/ETag'],
+  replace_sop_draft: ['PUT', 'agents/{agent}/sops/{sop}?draft_id={draft}', 'sops:write', 'draft/ETag/If-Match'],
+  publish_sop: ['POST', 'sops/{sop}:publish?agent_id={agent}', 'sops:publish', 'sop/draft'],
+  archive_sop: ['POST', 'sops/{sop}:archive?agent_id={agent}', 'sops:publish', 'archived SOP'],
+  rollback_sop_version: ['POST', 'sops/{sop}/versions/{version}:rollback?agent_id={agent}', 'sops:write', '201 draft'],
   create_tool: ['POST', 'agents/{agent}/tools', 'tools:write', 'tool'],
   update_tool: ['PUT', 'agents/{agent}/tools/{tool}', 'tools:write', 'tool'],
   test_tool: ['POST', 'agents/{agent}/tools/{tool}:test', 'tools:test', 'test-result'],
@@ -55,6 +63,7 @@ export const PUBLIC_APPROVED_OPERATIONS = Object.freeze(Object.keys(PUBLIC_OPERA
 const GLOBAL_JOB_OPERATIONS = new Set(['get_job', 'get_job_result', 'job_events', 'cancel_job']);
 const TEAM_OPERATIONS = new Set([
   'list_tools', 'list_general_skills', 'list_knowledge_bases', 'list_sops',
+  'list_sop_versions', 'get_sop_version',
   'preview_generate_sop', 'preview_rewrite_sop',
   'get_preview_job', 'preview_job_events', 'cancel_preview_job',
 ]);
@@ -102,6 +111,38 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'list_general_skills': plan.path = `${agent}/general-skills`; plan.shape = 'collection'; break;
     case 'list_knowledge_bases': plan.path = `${agent}/knowledge-bases`; plan.shape = 'collection'; break;
     case 'list_sops': plan.path = `${agent}/sops`; plan.shape = 'sop-collection'; break;
+    case 'get_sop_draft':
+      plan.path = `${agent}/sops/${id(input.sopId)}/drafts/${id(input.draftId)}`;
+      plan.shape = 'draft'; break;
+    case 'list_sop_versions':
+    case 'get_sop_version':
+      plan.path = agentId === null ? `${agent}/sops/${id(input.sopId)}/versions`
+        : `sops/${id(input.sopId)}/versions?agent_id=${id(agentId)}`;
+      if (operation === 'get_sop_version') {
+        plan.path = agentId === null ? `${agent}/sops/${id(input.sopId)}/versions/${id(input.version)}`
+          : `sops/${id(input.sopId)}/versions/${id(input.version)}?agent_id=${id(agentId)}`;
+      } else plan.shape = 'collection';
+      break;
+    case 'create_sop_draft':
+      plan.method = 'POST'; plan.path = `${agent}/sops`; plan.body = publicBody(input);
+      if (Object.keys(plan.body).some(key => key !== 'content') || !record(plan.body.content)) fail('PUBLIC_INPUT_INVALID', 'A complete structured SOP content object is required.', 400);
+      plan.shape = 'created-draft'; break;
+    case 'replace_sop_draft':
+      if (typeof input.etag !== 'string' || !input.etag.trim()) fail('IF_MATCH_REQUIRED', 'The original draft ETag is required.', 428);
+      plan.method = 'PUT'; plan.path = `${agent}/sops/${id(input.sopId)}?draft_id=${id(input.draftId)}`;
+      plan.body = publicBody(input);
+      if (Object.keys(plan.body).some(key => key !== 'content') || !record(plan.body.content)) fail('PUBLIC_INPUT_INVALID', 'A complete structured SOP content object is required.', 400);
+      plan.headers['If-Match'] = input.etag;
+      plan.shape = 'draft'; break;
+    case 'publish_sop':
+      id(input.draftId);
+      plan.method = 'POST'; plan.path = `sops/${id(input.sopId)}:publish?agent_id=${id(agentId)}`;
+      plan.body = { draft_id: input.draftId }; break;
+    case 'archive_sop':
+      plan.method = 'POST'; plan.path = `sops/${id(input.sopId)}:archive?agent_id=${id(agentId)}`; break;
+    case 'rollback_sop_version':
+      plan.method = 'POST'; plan.path = `sops/${id(input.sopId)}/versions/${id(input.version)}:rollback?agent_id=${id(agentId)}`;
+      plan.shape = 'created-draft'; break;
     case 'create_tool':
     case 'update_tool':
       plan.method = operation === 'create_tool' ? 'POST' : 'PUT';
@@ -225,6 +266,10 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
       if (plan.shape === 'sop-collection' && (!Array.isArray(value.drafts) || value.drafts.some(item => !record(item)))) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public SOP collection is missing its drafts array.', 502);
       }
+      if (['draft', 'created-draft'].includes(plan.shape) && (typeof value.id !== 'string' || typeof value.etag !== 'string')) {
+        fail('PUBLIC_RESPONSE_INVALID', 'Public draft is missing its original ID or ETag.', 502);
+      }
+      if (plan.shape === 'created-draft' && response.status !== 201) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 201 draft response.', 502);
       if (plan.shape === 'accepted-job' && response.status !== 202) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 job acceptance.', 502);
       if (plan.shape === 'preview-accepted' && (response.status !== 202 || typeof value.job_id !== 'string')) {
         fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 transient preview job.', 502);

@@ -1,7 +1,7 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at ec4ea82cf1133fd337b34d5421c520fcf97859f7.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 29a3bc241514f6fe34db6fe688a4bf44751941bf.
 Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/sdk-worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)

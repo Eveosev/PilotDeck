@@ -12,6 +12,14 @@
 | `list_general_skills` | GET `agents/{agent}/general-skills` | 无 → `data[]` | `skills:read`，scoped目录 |
 | `list_knowledge_bases` | GET `agents/{agent}/knowledge-bases` | 无 → `data[]` | `knowledge:read`，员工 viewer PEP/可见 branch |
 | `list_sops` | GET `agents/{agent}/sops` | 无 → `data[]/drafts[]` | `sops:read`，员工 viewer PEP/可见 branch 与已存 draft |
+| `get_sop_draft` | GET `agents/{agent}/sops/{sop}/drafts/{draft}` | 原 sopId+draftId → 原 draft body 与 `ETag` header | `sops:read` + selected viewer/tenant/agent/draft 匹配；team 无 API draft，BLOCKED |
+| `list_sop_versions` | GET `sops/{sop}/versions?agent_id={selected}`；team `team/sops/{sop}/versions` | sopId → `{data:[]}` | `sops:read` + selected viewer/原 branch 可见版本；team 由原 `agent_id=None` 读 |
+| `get_sop_version` | GET `sops/{sop}/versions/{version}?agent_id={selected}`；team `team/sops/{sop}/versions/{version}` | sopId+精确 version → 原 SkillVersionRead | `sops:read` + selected viewer/原版本可见集合；不存在 404 |
+| `create_sop_draft` | POST `agents/{agent}/sops` | `{content:完整SkillCard}` → 201 原 draft body+`ETag` | `sops:write` + selected manager；原 structured draft，不 publish；team 写 BLOCKED |
+| `replace_sop_draft` | PUT `agents/{agent}/sops/{sop}?draft_id={draft}` | `{content:完整SkillCard}`、原 `etag` → 原 draft body+新 `ETag` | `sops:write` + selected manager/原 draft；SDK 精确 `If-Match`，缺失 428、旧值 412，不接受 latest ETag 救旧 content；team 写 BLOCKED |
+| `publish_sop` | POST `sops/{sop}:publish?agent_id={selected}` | `{draft_id:原ID}` → `{sop,draft}` | `sops:publish` + selected manager/原 validate+owner publish；原路由未要求 `If-Match`，不得额外造第二次 publish；team 写 BLOCKED |
+| `archive_sop` | POST `sops/{sop}:archive?agent_id={selected}` | sopId → 原 archived SkillRead | `sops:publish` + selected manager/原 archive；team 写 BLOCKED |
+| `rollback_sop_version` | POST `sops/{sop}/versions/{version}:rollback?agent_id={selected}` | sopId+version → 201 新 draft body，body 内原 `etag` | `sops:write` + selected manager/原选定版本；创建草稿，不直接改 published；team 写 BLOCKED |
 | `create_tool` | POST `agents/{agent}/tools` | 原 ToolCreate body → 掩码 tool | `tools:write`，原 owner/agent PEP |
 | `update_tool` | PUT `agents/{agent}/tools/{tool}` | 原 ToolUpdate body → 掩码 tool | `tools:write`；拒绝 `********` 回写 |
 | `test_tool` | POST `agents/{agent}/tools/{tool}:test` | 已存 tool ID+test body → 原结果 | `tools:test`；不代 unsaved probe |
@@ -53,20 +61,23 @@
 | `list_general_skills` | `agents/{selected}/general-skills` | `team/general-skills` | 原 `list_general_skills(tenant,db,agent_id)` 分支/团队可见集合；team 只允许账户 key |
 | `list_knowledge_bases` | `agents/{selected}/knowledge-bases` | `team/knowledge-bases` | 原 `list_knowledge_bases(tenant,agent_id,db)`；员工入口还经过公开 Knowledge viewer PEP；team 只允许账户 key |
 | `list_sops` | `agents/{selected}/sops` | `team/sops` | 原 `list_skills(tenant,db,agent_id)`；员工入口返回对应 API drafts 且显式 viewer PEP；team 的原语义无 API drafts，返回 `drafts:[]`，只允许账户 key |
+| `list_sop_versions` / `get_sop_version` | 原 `/sops/{sop}/versions...` 携 `agent_id={selected}` | `team/sops/{sop}/versions...` | 原 `list_skill_versions(..., agent_id)` 的分支/整体可见集合；team 用 `None`、账户 key |
 | `preview_generate_sop` / `preview_rewrite_sop` | `agents/{selected}/...` | `team/...` | 原 SkillDistill/RewriteRequest 的 `agent_id` 为 selected 或 `None`；原 owner manager/模型上下文/tenant、path SOP ID 校验不变，current_skill/conversation/target_path(s)/label 原样送 transient job |
 | `get_preview_job` / `preview_job_events` / `cancel_preview_job` | `agents/{selected}/sop-preview-jobs/...` | `team/sop-preview-jobs/...` | 原 tenant+actor job owner，facade 再校验 job 创建时的 selected/team 绑定；cancel 仅账户 `sops:cancel` |
 | 其他 agent 路径操作 | `agents/{selected}/...` | **BLOCKED** | 按表中原资源 PEP；team 没有已审等价公开 route，不能落回配置 target |
 
-`list_knowledge_bases` 与 `list_sops` 新增为第 31、32 项固定 operation；其余 30 项路由及生命周期不变。上述 team 路由只覆盖明确列出的读目录与 transient preview，不扩写入/管理 team 能力。`.d.mts` 的 `PublicOperationOutput` 对目录、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。SDK 不构造 `If-Match`，条件写入 Host 动作仍 BLOCKED，不能遗失原 ETag 后启用。
+`list_knowledge_bases` 与 `list_sops` 是第 31、32 项，随后增加上表 8 项管理原语，共 40 项固定 operation。team 仅覆盖四类读目录、SOP 版本读与 transient preview；team API draft/写入仍逐项 BLOCKED。`.d.mts` 的 `PublicOperationOutput` 对目录、draft、job、preview acceptance/status/cancel 和 extract 给结构类型；其余原 owner 响应保持 `PublicRecord`，SSE body 保持 `unknown` 并由两个 decoder 解析。`call` 返回值还包含原非 2xx 错误 body，调用方先按 status 分支；headers/ETag 原样保留。`replace_sop_draft` 必须拿当前选中 draft 的原 etag 作精确 `If-Match`；其他管理操作沿原路由的条件语义，不能用新 ETag 覆盖旧编辑内容。
 
 ## Knowledge PEP 与范围收紧
 
-SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 11 个公开 Knowledge 路由显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。archive 复用对应 update 路由，因此同一检查适用。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归，外部 source、团队/非目标作用域及实际 Knowledge 全操作仍需独立矩阵证据。
+SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公开 Knowledge 路由（含两个调用对应 update 函数的 archive 入口）显式调用原 `require_agent_scope_viewer` 或 `ensure_agent_scope_manager`，加 `ensure_public_agent`、路径 KB 的可见分支/版本核验；文档更新另核 document ID 确属路径 KB。原 enterprise route 的 `Depends` 在直接调用 Python 函数时不会自行执行，故显式补回。create/update/search/rollback 的 body tenant/agent/KB 覆盖被拒，upload/ingest 先过范围门，原异步 worker 仍用原 actor/credential。聚焦 HTTP 用例覆盖非 owner 403 与 owner 200；这只证明本地 PEP 回归，外部 source、团队/非目标作用域及实际 Knowledge 全操作仍需独立矩阵证据。
+
+当前可审的 Knowledge 公开路径权限：selected `agents/{agent}/knowledge-bases` 列表 `knowledge:read`、创建/更新/归档 `knowledge:write`；`{base}:search`、版本列表、文档列表、概念列表 `knowledge:read`；entries upsert、文档 upload/update/archive `knowledge:write`；`{base}:rollback` `knowledge:publish`。各条在 SD 入口先按 selected agent/viewer 或 manager、KB 可见分支、必要时 document 属主检查；SDK/browser 目前仅接 `list_knowledge_bases`。原 Host 的文档详情/原文、bucket/chunk、concept 导出/编辑、版本详情及 ingest/job 读写尚无本批逐名 SDK 与完整公开 PEP/响应合同，分别保持 BLOCKED，不能因目录 GET 通过而宣称 Knowledge 全闭合；team 对这些深层操作同样 BLOCKED。需按原 Host path 与 owner method 再逐名补 route/输入/响应/权限及真实拒绝证据。
 
 ## 本批校验与剩余具体边界
 
-- SD 新 facade OpenAPI 固定方法、仅账户 scope、dirty preview 输入不丢、无 create/save、preview job path 绑定、team `agent_id=None`、原 Remove 函数传 actor/tenant/agent、知识非 owner 403/owner 200：11 个聚焦测试通过。既有 public resource/account key 3 个测试通过；完整 G4/G5 业务未运行。
-- PD 旧真实目录/job/SSE/error 测试及新固定路由/selected scope/dirty preview/preview `data.seq`：11/11 聚焦 node:test 通过；上一提交 `.d.mts` 单文件 typecheck 通过，本次类型增量尚未重跑。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
+- SD 新 facade 固定方法、selected/team 与原 viewer/manager PEP、dirty preview、draft ETag 原条件写入：本批 13 个聚焦测试通过（12 个本线 facade/PEP 与 1 个既有 SOP 生命周期）；完整 G4/G5 业务未运行。
+- PD 旧真实目录/job/SSE/error 测试及新固定路由/selected scope/dirty preview/preview `data.seq`、draft `If-Match`：12/12 聚焦 node:test 通过；上一提交 `.d.mts` 单文件 typecheck 通过，本次类型增量尚未重跑。不得由这些测试声称 runtime pin、真实模型或浏览器已接入。
 - 外部 control identity source 的 handoff 用户目录仍无可供账户 key 调用的正式 reader，facade 给 `USER_DIRECTORY_UNAVAILABLE` 503。需要 deployment owner 提供保持原 actor/可见范围的公开目录 SDK 方法；不能换控制 token 或用本地 shadow 用户伪目录。
 - Knowledge 外部来源/团队/非目标可见范围尚未在真实运行验证，必要项仍 NOT RUN。`preview` 采用原 transient stream job 存储，facade 另将原 job ID 绑定创建时的 agent path；服务重启后其 in-memory job 不支持恢复，保持原语义，不将其映射到持久 APIJob。实际模型配置与 `model_for_agent` 仍需下一完整 candidate 证明。
 - 整合者接入 PD modules.js 和 adapter 固定公开响应/stream，串行 build/typecheck 后统一一个 cleanpair；独立验收 G0–G7 不因本批代码自动升 PASS。无 push/merge/deploy、AgentLoop/core/PEP 策略修改。
