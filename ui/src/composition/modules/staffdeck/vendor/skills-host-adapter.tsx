@@ -154,7 +154,7 @@ function skillContent(current: Record<string, any>, body: unknown) {
   return { ...next, ...record(candidate.content) };
 }
 
-async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
+async function callDistillApi<T>(snapshots: Map<string, any>, path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
   if (path.startsWith('/api/enterprise/tools')) throw new Error('PilotDeck tools capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/general-skills')) throw new Error('PilotDeck general-skills capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/model-configs')) throw new Error('PilotDeck model-configs capability is unavailable in this host.');
@@ -165,30 +165,33 @@ async function callDistillApi<T>(path: string, method: 'get' | 'post' | 'put' | 
     if (method === 'post') return await management('create', { content: body?.content || {} }) as T;
   }
   const skillId = skillIdFromPath(path);
-  if (skillId && method === 'get' && !path.includes('/versions')) return await readDefinition(skillId) as T;
+  if (skillId && method === 'get' && !path.includes('/versions')) {
+    const loaded = await readDefinition(skillId);
+    snapshots.set(skillId, structuredClone(loaded));
+    return loaded as T;
+  }
   if (skillId && method === 'put' && !path.includes('/versions')) {
-    const current = await readDefinition(skillId);
+    const current = snapshots.get(skillId);
+    if (!current) throw new Error('SOP edit snapshot is unavailable. Reload the editor before saving.');
     const content = skillContent(current, body);
+    if (text(current.draft_id) && !text(current.etag)) throw new Error('SOP edit snapshot has no ETag. Reload the editor before saving.');
     if (text(current.draft_id) && text(current.etag)) {
-      try {
         const saved = await management('replace_draft', {
           sopId: skillId,
           draftId: current.draft_id,
           etag: current.etag,
           content,
         });
-        return toManagedSkill(saved) as T;
-      } catch (error) {
-        // Publishing can leave a stale draft row in list results. Recreate
-        // it only for the explicit not-found conflict; other failures must
-        // remain visible to the page.
-        if ((error as { status?: number })?.status !== 404) throw error;
-      }
+        const next = toManagedSkill(saved);
+        snapshots.set(skillId, structuredClone(next));
+        return next as T;
     }
     // A published management row may not have a draft yet. Create it with
     // the same owner; lack of management must remain an explicit failure.
     const saved = await management('create', { sopId: skillId, content });
-    return toManagedSkill(saved) as T;
+    const next = toManagedSkill(saved);
+    snapshots.set(skillId, structuredClone(next));
+    return next as T;
   }
   if (method === 'post' && path.startsWith('/api/enterprise/skills/jobs/')) throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.');
   return await callSkillApi<T>(path, method, body);
@@ -243,24 +246,36 @@ export function PilotDeckSkillsPageProvider({ children }: { children: ReactNode 
   } }}>{children}</SkillsPageHostProvider>;
 }
 
-export const pilotDeckDistillPageHost: DistillPageHost = {
+export function createPilotDeckDistillPageHost(): DistillPageHost {
+  // One store per mounted editor, never shared across windows or instances.
+  const snapshots = new Map<string, any>();
+  return {
   api: {
-    get: (path, options) => callDistillApi(path, 'get', options),
-    post: (path, body) => callDistillApi(path, 'post', body),
-    postWithSignal: (path, body) => callDistillApi(path, 'post', body),
-    put: (path, body) => callDistillApi(path, 'put', body),
-    delete: (path) => callDistillApi(path, 'delete'),
+    get: (path, options) => callDistillApi(snapshots, path, 'get', options),
+    post: (path, body) => callDistillApi(snapshots, path, 'post', body),
+    postWithSignal: (path, body) => callDistillApi(snapshots, path, 'post', body),
+    put: (path, body) => callDistillApi(snapshots, path, 'put', body),
+    delete: (path) => callDistillApi(snapshots, path, 'delete'),
   },
   streamGet: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
   streamPost: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
   navigate: (path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
   tenantId: PILOTDECK_SOP_TENANT_ID,
-  notify: { success: (message) => console.info(message), warning: (message) => console.warn(message), error: (message) => console.error(message), info: (message) => console.info(message) },
+  notify: {
+    success: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'success', message } })),
+    warning: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'error', message } })),
+    error: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'error', message } })),
+    info: (message) => window.dispatchEvent(new CustomEvent('pilotdeck:toast', { detail: { kind: 'success', message } })),
+  },
   readEmployeeScope: () => '',
   isTeamScope: (value) => value.startsWith('team:'),
-};
+  };
+}
+
+export const pilotDeckDistillPageHost = createPilotDeckDistillPageHost();
 
 export function PilotDeckDistillPageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  return <DistillPageHostProvider value={{ ...pilotDeckDistillPageHost, navigate: (path, options) => navigate(path, options) }}>{children}</DistillPageHostProvider>;
+  const host = React.useMemo(createPilotDeckDistillPageHost, []);
+  return <DistillPageHostProvider value={{ ...host, navigate: (path, options) => navigate(path, options) }}>{children}</DistillPageHostProvider>;
 }

@@ -555,7 +555,7 @@ function lockPendingChangeSkillId(change: PendingChange | null, lockedSkillId: s
 }
 
 export default function DistillPage({ active = true, searchParamsOverride, currentUser, onLogout }: DistillPageProps = {}) {
-  const { navigate } = useDistillPageHost();
+  const { navigate, api, notify, streamGet, streamPost } = useDistillPageHost();
   const [routerSearchParams] = useSearchParams();
   const searchParams = searchParamsOverride || routerSearchParams;
   const skillId = searchParams.get('skill_id');

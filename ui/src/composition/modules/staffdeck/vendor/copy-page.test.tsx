@@ -10,7 +10,7 @@ import SkillsPage from './SkillsPage';
 import { DataTable as KnowledgeDataTable } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
 import { PilotDeckKnowledgePageProvider, pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
-import { PilotDeckSkillsPageProvider, pilotDeckDistillPageHost, pilotDeckSkillsPageHost } from './skills-host-adapter';
+import { PilotDeckSkillsPageProvider, createPilotDeckDistillPageHost, pilotDeckDistillPageHost, pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staffDeckSopManagementClient } from '../clients';
 
 const agents = [
@@ -183,9 +183,40 @@ describe('PilotDeck shared plaza pages', () => {
     });
 
     await expect(pilotDeckDistillPageHost.api.get('/api/enterprise/skills/other-sop')).rejects.toThrow('configured management owner');
+    await pilotDeckDistillPageHost.api.get('/api/enterprise/skills/sop-real');
     await expect(pilotDeckDistillPageHost.api.put('/api/enterprise/skills/sop-real', { name: 'Updated review' })).rejects.toThrow('not configured');
     expect(missing).not.toHaveBeenCalled();
     expect(nativeSave).not.toHaveBeenCalled();
+  });
+
+  it('preserves each editor read precondition and never recreates a failed draft', async () => {
+    let draft = { id: 'draft-one', sop_id: 'snapshot-sop', status: 'draft', etag: 'old', content: { skill_id: 'snapshot-sop', name: 'Original', description: 'Original description' } };
+    const calls: string[] = [];
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation, input: any) => {
+      calls.push(operation);
+      if (operation === 'list') return { data: [], drafts: [draft] } as never;
+      if (operation === 'get_draft') return structuredClone(draft) as never;
+      if (operation === 'replace_draft') {
+        if (input.etag !== draft.etag) throw Object.assign(new Error('stale edit'), { status: 412 });
+        draft = { ...draft, etag: 'new', content: input.content };
+        return structuredClone(draft) as never;
+      }
+      throw new Error(`Unexpected ${operation}`);
+    });
+    const a = createPilotDeckDistillPageHost();
+    const b = createPilotDeckDistillPageHost();
+    const path = '/api/enterprise/skills/snapshot-sop';
+    await a.api.get(path);
+    await b.api.get(path);
+    await a.api.put(path, { description: 'A latest description' });
+    calls.length = 0;
+    await expect(b.api.put(path, { name: 'B new name' })).rejects.toMatchObject({ status: 412 });
+    expect(calls).toEqual(['replace_draft']);
+    expect(draft.content.description).toBe('A latest description');
+    expect(draft.content.name).toBe('Original');
+    vi.mocked(staffDeckSopManagementClient.call).mockRejectedValueOnce(Object.assign(new Error('draft removed'), { status: 404 }));
+    await expect(a.api.put(path, { name: 'Do not recreate' })).rejects.toMatchObject({ status: 404 });
+    expect(calls).not.toContain('create');
   });
 
   it('keeps unrelated published SOPs and reads the editable draft through get_draft', async () => {
