@@ -12,7 +12,7 @@ describe('PilotDeck SOP editor lifecycle', () => {
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue(created);
     const host = createPilotDeckDistillPageHost();
     const read: any = await host.api.post('/api/enterprise/skills?tenant_id=tenant', content);
-    expect(read).toMatchObject({ id: 'sop', skill_id: 'sop', draft_id: 'new-draft', etag: '"new-draft"', version: '1.2.3', content });
+    expect(read).toMatchObject({ id: 'new-draft', skill_id: 'sop', draft_id: 'new-draft', etag: '"new-draft"', version: '1.2.3', content });
     await host.api.put('/api/enterprise/skills/sop?tenant_id=tenant', { name: 'Changed' });
     expect(call.mock.calls.map(([op]) => op)).toEqual(['create', 'replace_draft']);
     expect(call.mock.calls[1][1]).toEqual({ sopId: 'sop', draftId: 'new-draft', etag: '"new-draft"', content: { ...content, name: 'Changed' } });
@@ -29,6 +29,26 @@ describe('PilotDeck SOP editor lifecycle', () => {
     await expect(pilotDeckSkillsPageHost.api.get('/api/enterprise/skills')).rejects.toThrow('formal timestamps');
     call.mockResolvedValue({ data: [] });
     await expect(pilotDeckSkillsPageHost.api.get('/api/enterprise/skills')).rejects.toThrow('data and drafts');
+  });
+  it('preserves owner row ID independently from the SOP identity used for requests', async () => {
+    const ownerRow = { id: 'owner-row', skill_id: 'sop', name: 'Published', version: '1.2.3', updated_at: '2026-09-27T01:00:00Z', content };
+    const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [ownerRow], drafts: [] });
+    const rows: any = await pilotDeckSkillsPageHost.api.get('/api/enterprise/skills');
+    expect(rows[0]).toMatchObject({ id: 'owner-row', skill_id: 'sop' });
+    call.mockResolvedValue(ownerRow);
+    const host = createPilotDeckDistillPageHost();
+    expect(await host.api.get('/api/enterprise/skills/sop?published_version=1.2.3')).toMatchObject({ id: 'owner-row', skill_id: 'sop' });
+    expect(call.mock.calls[1]).toEqual(['get_version', { sopId: 'sop', version: '1.2.3' }]);
+  });
+  it('rejects missing row IDs for list, first create and direct published-version reads', async () => {
+    const malformed = { skill_id: 'sop', version: '1.2.3', content };
+    const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [malformed], drafts: [] });
+    await expect(pilotDeckSkillsPageHost.api.get('/api/enterprise/skills')).rejects.toThrow('formal row ID');
+    call.mockResolvedValue(malformed);
+    const host = createPilotDeckDistillPageHost();
+    await expect(host.api.post('/api/enterprise/skills', content)).rejects.toThrow('formal row ID');
+    await expect(host.api.get('/api/enterprise/skills/sop?published_version=1.2.3')).rejects.toThrow('formal row ID');
+    expect(call.mock.calls.map(([operation]) => operation)).toEqual(['list', 'create', 'get_version']);
   });
   it('restores dirty original lifecycle and never advances its ETag after a conflict', async () => {
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockRejectedValue(Object.assign(new Error('conflict'), { status: 412 }));

@@ -23,6 +23,7 @@ function text(value: unknown): string | undefined { return typeof value === 'str
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
 
 function toSkill(definition: SopDefinition, status = 'published') {
+  if (!text(definition.id)) throw new Error('SOP response has no formal row ID.');
   const content = record(definition.content);
   const list = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
   const nodes = Array.isArray(content.nodes) ? content.nodes : [];
@@ -61,10 +62,12 @@ function toManagedSkill(row: unknown) {
   const draft = record(row);
   const skillId = text(draft.sop_id) || text(draft.skill_id) || text(draft.id);
   if (!skillId) throw new Error('SOP response has no formal SOP ID.');
+  const rowId = text(draft.id);
+  if (!rowId) throw new Error('SOP response has no formal row ID.');
   const isDraft = Boolean(text(draft.sop_id) || text(draft.draft_id));
   return toSkill({
     ...draft,
-    id: skillId,
+    id: rowId,
     skill_id: skillId,
     draft_id: isDraft ? text(draft.draft_id) || text(draft.id) : undefined,
     version: text(draft.draft_version) || text(draft.version),
