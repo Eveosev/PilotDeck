@@ -1,45 +1,85 @@
 import { authenticatedFetch } from '../../../utils/api';
 
-type ModuleError = { error?: { message?: string; code?: string } };
+import { ApiError } from './vendor/DistillPageHost';
 
-export class StaffDeckModuleError extends Error {
-  constructor(readonly status: number, readonly body: unknown, readonly code: string | undefined, message: string) {
-    super(message);
-    this.name = 'StaffDeckModuleError';
-  }
+export type ModuleRequestOptions = { signal?: AbortSignal };
+
+// Preserve the original error payload contract and shared UI class identity.
+function moduleApiError(status: number, body: string, statusText: string): ApiError {
+  const stableCode = (value: unknown) => typeof value === 'string' && /^[A-Z][A-Z0-9_]+$/.test(value) ? value : undefined;
+  let message = body;
+  let code: string | undefined;
+  try {
+    const payload = JSON.parse(body);
+    const detail = payload.detail ?? payload.message ?? payload.error;
+    const topLevelCode = stableCode(payload.code);
+    code = topLevelCode;
+    if (typeof detail === 'string') {
+      message = detail;
+      code = topLevelCode ?? stableCode(detail);
+    } else if (Array.isArray(detail)) {
+      message = detail.map(item => {
+        if (typeof item === 'string') return item;
+        const msg = typeof item?.msg === 'string' ? item.msg : '';
+        const location = Array.isArray(item?.loc) ? item.loc.map(String).filter(Boolean).join('.') : '';
+        return location && msg ? `${location}: ${msg}` : msg;
+      }).filter(Boolean).join('；');
+    } else if (detail && typeof detail === 'object') {
+      const value = typeof detail.message === 'string' ? detail.message : typeof detail.detail === 'string' ? detail.detail : '';
+      code = stableCode(detail.code) ?? topLevelCode;
+      if (value || code) message = value || String(code);
+    }
+  } catch {}
+  const html = /<(?:!doctype|html|head|body)[\s>]/i.test(message);
+  // The common bridge is being restored to the source constructor signature.
+  // Reflect also accepts that signature while the fixed 0.1.12 stub is present.
+  const error = Reflect.construct(ApiError, [status, body, statusText]) as ApiError;
+  Object.assign(error, {
+    name: 'ApiError', status, body,
+    code: html ? 'UPSTREAM_INVALID_RESPONSE' : code,
+    message: html ? `服务暂时不可用，请稍后重试 (HTTP ${status})` : message || statusText || `HTTP ${status}`,
+  });
+  return error;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authenticatedFetch(path, init);
-  const body = await response.json().catch(() => ({})) as T & ModuleError;
-  if (!response.ok) {
-    throw new StaffDeckModuleError(response.status, body, body.error?.code,
-      body.error?.message || `Module request failed (${response.status}).`);
-  }
+  const raw = await response.text();
+  if (!response.ok) throw moduleApiError(response.status, raw, response.statusText);
+  const body = (raw ? JSON.parse(raw) : {}) as T;
   return body;
 }
 
+function moduleResult<T>(body: { result: T }): T {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.prototype.hasOwnProperty.call(body, 'result')) {
+    throw new Error('StaffDeck module response is missing its result envelope.');
+  }
+  return body.result;
+}
+
 export type StaffDeckKnowledgeClient = {
-  call<T>(operation: string, input?: Record<string, unknown>): Promise<T>;
+  call<T>(operation: string, input?: Record<string, unknown>, options?: ModuleRequestOptions): Promise<T>;
 };
 
 export const staffDeckKnowledgeClient: StaffDeckKnowledgeClient = {
-  async call<T>(operation: string, input: Record<string, unknown> = {}) {
+  async call<T>(operation: string, input: Record<string, unknown> = {}, options: ModuleRequestOptions = {}) {
     const body = await request<{ result: T }>('/api/modules/knowledge/call', {
       method: 'POST',
+      signal: options.signal,
       body: JSON.stringify({ operation, input }),
     });
-    return body.result;
+    return moduleResult(body);
   },
 };
 
 export const staffDeckCopyClient = {
-  async call<T>(operation: 'list_agents' | 'list_knowledge_bases' | 'list_skills' | 'import_resources', input: Record<string, unknown> = {}): Promise<T> {
+  async call<T>(operation: 'list_agents' | 'list_knowledge_bases' | 'list_skills' | 'import_resources', input: Record<string, unknown> = {}, options: ModuleRequestOptions = {}): Promise<T> {
     const body = await request<{ result: T }>('/api/modules/staffdeck-copy/call', {
       method: 'POST',
+      signal: options.signal,
       body: JSON.stringify({ operation, input }),
     });
-    return body.result;
+    return moduleResult(body);
   },
 };
 
@@ -55,17 +95,18 @@ export type StaffDeckSopClient = {
 export type SopManagementStatus = { enabled: true; methods: string[]; agentId: string };
 export type StaffDeckSopManagementClient = {
   status(): Promise<SopManagementStatus>;
-  call<T>(operation: string, input?: Record<string, unknown>): Promise<T>;
+  call<T>(operation: string, input?: Record<string, unknown>, options?: ModuleRequestOptions): Promise<T>;
 };
 
 export const staffDeckSopManagementClient: StaffDeckSopManagementClient = {
   status: () => request('/api/modules/sop/management'),
-  async call<T>(operation: string, input: Record<string, unknown> = {}) {
+  async call<T>(operation: string, input: Record<string, unknown> = {}, options: ModuleRequestOptions = {}) {
     const body = await request<{ result: T }>('/api/modules/sop/management/call', {
       method: 'POST',
+      signal: options.signal,
       body: JSON.stringify({ operation, input }),
     });
-    return body.result;
+    return moduleResult(body);
   },
 };
 

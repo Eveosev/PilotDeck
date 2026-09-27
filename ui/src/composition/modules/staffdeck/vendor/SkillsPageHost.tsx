@@ -286,23 +286,9 @@ const defaultHost: SkillsPageHost = {
 };
 
 const HostContext = createContext<SkillsPageHost>(defaultHost);
-let activeHost: SkillsPageHost = defaultHost;
 
-export function SkillsPageHostProvider({ value, children }: { value: SkillsPageHost; children: ReactNode }) { activeHost = value; return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
+export function SkillsPageHostProvider({ value, children }: { value: SkillsPageHost; children: ReactNode }) { return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
 export function useSkillsPageHost(): SkillsPageHost { return useContext(HostContext); }
-export const TENANT_ID = defaultHost.tenantId;
-export const api: Api = { get: (path) => activeHost.api.get(path), post: (path, body) => activeHost.api.post(path, body), put: (path, body) => activeHost.api.put(path, body), delete: (path) => activeHost.api.delete(path), blob: (path) => activeHost.api.blob?.(path) || Promise.reject(new Error('Blob API is not configured')) };
-export const navigate = (path: string) => activeHost.navigate(path);
-export const notify = { success: (message: string) => activeHost.notify.success(message), warning: (message: string) => activeHost.notify.warning(message), error: (message: string) => activeHost.notify.error(message) };
-export const isEnterpriseAdmin = (user?: EnterpriseAuthUser) => activeHost.isEnterpriseAdmin(user);
-export const canManageEmployeeAgent = (agent: AgentProfileRead, user?: EnterpriseAuthUser) => activeHost.canManageEmployeeAgent(agent, user);
-export const openGalleryAgentId = (agents: AgentProfileRead[]) => activeHost.openGalleryAgentId(agents);
-export const openGalleryImportSourceOptions = (...args: Parameters<SkillsPageHost['openGalleryImportSourceOptions']>) => activeHost.openGalleryImportSourceOptions(...args);
-export const resourceCreatorName = (row: Record<string, any>) => activeHost.resourceCreatorName(row);
-export const visibleEmployeeAgents = (...args: Parameters<SkillsPageHost['visibleEmployeeAgents']>) => activeHost.visibleEmployeeAgents(...args);
-export const readEmployeeScope = () => activeHost.readEmployeeScope();
-export const isTeamScope = (value: string) => activeHost.isTeamScope(value);
-export const useClientPagination = <T,>(items: T[], pageSize: number, resetKey: unknown) => activeHost.useClientPagination(items, pageSize, resetKey);
 export { cn } from './FormalUtils';
 export { MENU_CONTENT_CLASS } from './FormalHostStyles';
 export { MENU_ITEM_CLASS } from './FormalHostStyles';

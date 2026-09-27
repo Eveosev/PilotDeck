@@ -1,20 +1,15 @@
+import { createStaffDeckRequestContext } from './adapters/staffdeck-request-context.js';
+
 export function bindModuleRequestAbort(req, res) {
-  const controller = new AbortController();
-  const abort = () => controller.abort(new DOMException('Browser request disconnected', 'AbortError'));
+  const context = createStaffDeckRequestContext(req, res);
   const cleanup = () => {
-    req.off('aborted', abort);
-    res.off('close', close);
+    context.dispose();
+    res.off('close', cleanup);
     res.off('finish', cleanup);
   };
-  const close = () => {
-    if (!res.writableFinished) abort();
-    cleanup();
-  };
-  req.once('aborted', abort);
-  res.once('close', close);
+  res.once('close', cleanup);
   res.once('finish', cleanup);
-  if (req.aborted || res.destroyed) abort();
-  return controller.signal;
+  return context.signal;
 }
 
 export function moduleUpstreamSignal(signal, timeoutMs) {

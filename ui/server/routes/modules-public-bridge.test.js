@@ -33,7 +33,7 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }),
   const native = express();
   native.use(express.json());
   native.get('/api/auth/me', options.onIdentity ?? ((_req, res) => res.json({ id: 'actor', tenant_id: 'tenant' })));
-  native.get('/api/enterprise/agents', (_req, res) => res.json([{ id: 'agent', tenant_id: 'tenant', is_overall: false }]));
+  native.get('/api/enterprise/agents', options.onDirectory ?? ((_req, res) => res.json([{ id: 'agent', tenant_id: 'tenant', is_overall: false }])));
   if (options.onKnowledge) native.post('/v2/module/call', options.onKnowledge);
   native.get('/api/auth/me/api-credentials', (_req, res) => res.json([{ id: 'owned', user_id: 'actor',
     key_prefix: key.slice(0, 20) + '…', access: 'user_full_access', status: 'active', scopes: ['sops:read', 'sops:write', 'sops:publish'] }]));
@@ -61,6 +61,9 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }),
   const local = await listen(app);
   return {
     read: () => fetch(local + '/api/modules/sop/management'),
+    copy: (signal) => fetch(local + '/api/modules/staffdeck-copy/call', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_agents', input: {} }), signal,
+    }),
     knowledge: () => fetch(local + '/api/modules/knowledge/call', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_bases', input: {} }),
     }),
@@ -166,3 +169,21 @@ it('authenticates every Knowledge read before the module transport is called', a
     expect({ checks, calls }).toEqual({ checks: 2, calls: 1 });
   } finally { f.restore(); }
 });
+
+it('aborts the formal copy identity directory request when its browser disconnects', async () => {
+  let resolveStarted;
+  let resolveClosed;
+  const started = new Promise(resolve => { resolveStarted = resolve; });
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  const f = await fixture((_req, res) => res.json({}), undefined, {
+    onDirectory: (_req, res) => { res.once('close', () => resolveClosed(res.writableFinished)); resolveStarted(); },
+  });
+  try {
+    const controller = new AbortController();
+    const pending = f.copy(controller.signal).catch(error => error);
+    await Promise.race([started, pending.then(async response => { if (response instanceof Error) throw response; throw new Error('Directory not started: ' + response.status + ' ' + await response.text()); })]);
+    controller.abort();
+    expect((await pending).name).toBe('AbortError');
+    expect(await closed).toBe(false);
+  } finally { f.restore(); }
+}, 10000);

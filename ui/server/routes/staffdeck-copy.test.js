@@ -69,8 +69,8 @@ describe('StaffDeck formal copy bridge', () => {
     try {
       const directory = await call(fixture.origin, 'list_agents');
       expect(directory).toEqual({ status: 200, body: { result: [
-        { id: 'employee-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
-        { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false, can_manage: false },
+        { id: 'employee-real', tenant_id: 'tenant-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
+        { id: 'plaza-real', tenant_id: 'tenant-real', name: 'Plaza', is_overall: true, active: true, copy_target: false, can_manage: false },
       ] } });
       expect((await call(fixture.origin, 'list_knowledge_bases', { sourceAgentId: 'plaza-real' })).body.result).toEqual([{ id: 'base-real', status: 'active' }]);
       expect((await call(fixture.origin, 'list_skills', { sourceAgentId: 'plaza-real' })).body.result).toEqual([{ id: 'sop-real', status: 'published' }]);
@@ -114,7 +114,7 @@ describe('StaffDeck formal copy bridge', () => {
     const fixture = await setup({ directory: [agents[0]] });
     try {
       expect((await call(fixture.origin, 'list_agents')).body.result).toEqual([
-        { id: 'employee-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
+        { id: 'employee-real', tenant_id: 'tenant-real', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
       ]);
       expect((await call(fixture.origin, 'list_skills', { sourceAgentId: 'plaza-real' })).status).toBe(403);
     } finally { await close(fixture.server); await close(fixture.upstreamServer); }

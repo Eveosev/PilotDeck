@@ -60,7 +60,7 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
     const originalCall = staffDeckCopyClient.call;
     staffDeckCopyClient.call = async () => [
       { id: 'employee-real', tenant_id: 'tenant_demo', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
-      { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false },
+      { id: 'plaza-real', tenant_id: 'tenant-real', name: 'Plaza', is_overall: true, active: true, copy_target: false },
     ] as any;
     try {
       expect((await pilotDeckKnowledgePageHost.loadEmployeeDirectory()).map((agent) => agent.id)).toEqual(['employee-real', 'plaza-real']);
@@ -171,5 +171,56 @@ describe('PilotDeck Knowledge host protocol mapping', () => {
 
     expect(calls).toEqual(cases.map(({ operation, input }) => ({ operation, input })));
     await expect(pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/unsupported')).rejects.toThrow('Unsupported StaffDeck Knowledge path');
+  });
+});
+
+describe('Knowledge exact root and query projection', () => {
+  it('keeps root query scope and makes path/query identity authoritative over the body', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    const calls: any[] = [];
+    staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return {} as any; };
+    try {
+      const path = '/api/enterprise/knowledge-bases/base%2Fid?tenant_id=tenant&agent_id=target';
+      await pilotDeckKnowledgePageHost.api.put(path, { name: 'New name', knowledgeBaseId: 'spoof', agentId: 'spoof', tenantId: 'spoof' });
+      await pilotDeckKnowledgePageHost.api.delete!(path);
+      await pilotDeckKnowledgePageHost.api.post('/api/enterprise/knowledge-bases?tenant_id=tenant&agent_id=target', { name: 'Created', tenantId: 'spoof' });
+      expect(calls).toEqual([
+        { operation: 'update_base', input: { name: 'New name', knowledgeBaseId: 'base/id', agentId: 'target', tenantId: 'tenant' } },
+        { operation: 'delete_base', input: { knowledgeBaseId: 'base/id', agentId: 'target', tenantId: 'tenant' } },
+        { operation: 'create_base', input: { name: 'Created', tenantId: 'tenant', agentId: 'target' } },
+      ]);
+    } finally { staffDeckKnowledgeClient.call = original; }
+  });
+  it('keeps concept_type and the actual false include_all_versions value', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    const calls: any[] = [];
+    staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return [] as any; };
+    try {
+      await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/documents?tenant_id=tenant&include_all_versions=false');
+      await pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge-bases/base/okf/concepts?concept_type=SourceSection');
+      expect(calls).toEqual([
+        { operation: 'list_documents', input: { tenantId: 'tenant', includeAllVersions: false } },
+        { operation: 'list_okf_concepts', input: { knowledgeBaseId: 'base', conceptType: 'SourceSection' } },
+      ]);
+      await expect(pilotDeckKnowledgePageHost.api.get('/api/enterprise/knowledge/documents?include_all_versions=unknown')).rejects.toThrow('Invalid');
+    } finally { staffDeckKnowledgeClient.call = original; }
+  });
+  it('rejects unknown adjacent routes without invoking an owner', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    const calls: any[] = [];
+    staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return [] as any; };
+    try {
+      for (const path of ['/api/enterprise/knowledge/jobs/job/unknown', '/api/enterprise/knowledge/search/unknown', '/api/enterprise/knowledge-bases/base/versions/unknown', '/wrong/enterprise/knowledge/jobs']) {
+        await expect(pilotDeckKnowledgePageHost.api.get(path)).rejects.toThrow('Unsupported');
+      }
+      expect(calls).toEqual([]);
+    } finally { staffDeckKnowledgeClient.call = original; }
+  });
+  it('rejects a malformed export rather than fabricating a JSON archive', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    staffDeckKnowledgeClient.call = async () => ({ filename: 'wrong-shape' }) as any;
+    try {
+      await expect(pilotDeckKnowledgePageHost.api.blob!('/api/enterprise/knowledge-bases/base/okf/export')).rejects.toThrow('content_base64');
+    } finally { staffDeckKnowledgeClient.call = original; }
   });
 });

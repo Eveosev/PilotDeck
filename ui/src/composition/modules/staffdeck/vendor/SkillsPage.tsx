@@ -41,20 +41,8 @@ import {
   SelectValue,
   SopVersionDetailDialog,
   StatusBadge,
-  TENANT_ID, navigate,
   UIButton,
-  api,
-  canManageEmployeeAgent,
   cn,
-  isEnterpriseAdmin,
-  isTeamScope,
-  notify,
-  openGalleryAgentId,
-  openGalleryImportSourceOptions,
-  readEmployeeScope,
-  resourceCreatorName,
-  useClientPagination,
-  visibleEmployeeAgents,
   useSkillsPageHost,
 } from './SkillsPageHost';
 import type { AgentProfileRead, BadgeTone, EnterpriseAuthUser, SkillRead, SkillVersionRead } from './SkillsPageHost';
@@ -98,7 +86,7 @@ export default function SkillsPage({
   currentUser?: EnterpriseAuthUser;
   onLogout?: () => void;
 } = {}) {
-  const { editorQuery, api, navigate, notify, tenantId: TENANT_ID, readEmployeeScope, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, isTeamScope } = useSkillsPageHost();
+  const { editorQuery, api, navigate, notify, tenantId: TENANT_ID, readEmployeeScope, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, isTeamScope, useClientPagination } = useSkillsPageHost();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<SkillRead[]>([]);
   const [versionRows, setVersionRows] = useState<SkillVersionRead[]>([]);

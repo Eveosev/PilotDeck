@@ -55,32 +55,13 @@ const defaultHost: Host = {
   renderMarkdownBlocks: (value) => <span>{value}</span>, getDateLocale: () => 'zh-CN',
 };
 const HostContext = createContext<Host>(defaultHost);
-let activeHost: Host = defaultHost;
-export function KnowledgePageHostProvider({ value, children }: { value: Host; children: ReactNode }) { activeHost = value; return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
+export function KnowledgePageHostProvider({ value, children }: { value: Host; children: ReactNode }) { return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
 export function useKnowledgePageHost(): Host { return useContext(HostContext); }
-export const TENANT_ID = defaultHost.tenantId;
-export const api: Api = { get: (path, options) => activeHost.api.get(path, options), post: (path, body, options) => activeHost.api.post(path, body, options), put: (path, body) => activeHost.api.put(path, body), delete: (path) => activeHost.api.delete(path), blob: (path) => activeHost.api.blob(path) };
-export const navigate = (path: string) => activeHost.navigate(path);
 export { ApiError } from './FormalApiError';
-// Native and public module transports have different error constructors.
 export function hasApiErrorStatus(error: unknown, status: number): boolean {
   return error instanceof Error && 'status' in error && error.status === status;
 }
-export const notify = { success: (message: string) => activeHost.notify.success(message), warning: (message: string) => activeHost.notify.warning(message), error: (message: string) => activeHost.notify.error(message) };
-export const isEnterpriseAdmin = (user?: EnterpriseAuthUser) => activeHost.isEnterpriseAdmin(user);
-export const loadEmployeeDirectory = () => activeHost.loadEmployeeDirectory();
-export const clearSharedAgentScope = (userId?: string) => activeHost.agentScope.clear(userId);
-export const emitAgentScopeChange = (agentId: string) => activeHost.agentScope.emit(agentId);
-export const persistSharedAgentScope = (agentId: string, userId?: string) => activeHost.agentScope.persist(agentId, userId);
-export const readEmployeeScope = () => activeHost.agentScope.read();
 export const isTeamScope = (value: string) => value.startsWith('team:');
-export const canManageEmployeeAgent = (agent: AgentProfileRead, user?: EnterpriseAuthUser) => activeHost.canManageEmployeeAgent(agent, user);
-export const openGalleryAgentId = (agents: AgentProfileRead[]) => activeHost.openGalleryAgentId(agents);
-export const openGalleryImportSourceOptions = (...args: Parameters<Host['openGalleryImportSourceOptions']>) => activeHost.openGalleryImportSourceOptions(...args);
-export const resourceCreatorName = (row: Record<string, any>) => activeHost.resourceCreatorName(row);
-export const visibleEmployeeAgents = (...args: Parameters<Host['visibleEmployeeAgents']>) => activeHost.visibleEmployeeAgents(...args);
-export const renderMarkdownBlocks = (value: string) => activeHost.renderMarkdownBlocks(value);
-export const getDateLocale = () => activeHost.getDateLocale();
 export { normalizeCapabilityScope } from './FormalCapabilityScopeControl';
 export { cn } from './FormalUtils';
 export { useClientPagination } from './FormalPagination';

@@ -11,12 +11,9 @@ import {
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconAdd, IconChevronDown,
   IconClear, IconFolder, IconRefresh, IconSearch, Input, KnowledgeGraphCanvas,
   ModelConfigDropdown, Paginator, Progress, ResourceImportDialog, SelectContent, SelectItem,
-  SelectTrigger, SelectValue, StatCard, Textarea, UIButton, UISelect, api, canManageEmployeeAgent,
-  clearSharedAgentScope, cn, emitAgentScopeChange, getDateLocale, isEnterpriseAdmin,
-  isTeamScope, loadEmployeeDirectory, normalizeCapabilityScope, notify, openGalleryAgentId,
-  openGalleryImportSourceOptions, persistSharedAgentScope, readEmployeeScope,
-  renderMarkdownBlocks, resourceCreatorName, visibleEmployeeAgents, useClientPagination, navigate,
-  useKnowledgePageHost, TENANT_ID, KnowledgeGraphVisualization as HostKnowledgeGraphVisualization,
+  SelectTrigger, SelectValue, StatCard, Textarea, UIButton, UISelect, cn,
+  isTeamScope, normalizeCapabilityScope, useClientPagination,
+  useKnowledgePageHost, KnowledgeGraphVisualization as HostKnowledgeGraphVisualization,
   DIALOG_CANCEL_BUTTON_CLASS, DIALOG_FOOTER_CLASS, DIALOG_PRIMARY_BUTTON_CLASS,
   MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_ITEM_DANGER_CLASS, MOBILE_CARD_CLASS,
   OUTLINE_ACTION_BUTTON_CLASS, OUTLINE_ACTION_BUTTON_SM_CLASS, SEARCH_COMBO_BUTTON_CLASS,
@@ -98,7 +95,7 @@ function effectiveKnowledgeAgentId(rows: AgentProfileRead[], agentId: string): s
 }
 
 export default function KnowledgeManagePage({ currentUser, onLogout }: KnowledgePageProps = {}) {
-  const { api, navigate, notify, tenantId: TENANT_ID, loadEmployeeDirectory, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, agentScope } = useKnowledgePageHost();
+  const { api, navigate, notify, tenantId: TENANT_ID, loadEmployeeDirectory, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, getDateLocale, agentScope } = useKnowledgePageHost();
   const readEmployeeScope = agentScope.read;
   const persistSharedAgentScope = agentScope.persist;
   const clearSharedAgentScope = agentScope.clear;
@@ -1386,7 +1383,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
                 <span className="text-[12px] font-semibold text-[#858b9c]">引用</span>
                 <strong className="text-[13px] text-[#18181a]">{editingConcept.citations.length} 个</strong>
                 <span className="text-[12px] font-semibold text-[#858b9c]">更新时间</span>
-                <strong className="text-[13px] text-[#18181a]">{formatDateTime(editingConcept.updated_at)}</strong>
+                <strong className="text-[13px] text-[#18181a]">{formatDateTime(editingConcept.updated_at, getDateLocale())}</strong>
               </div>
               <div className="rounded-[12px] border border-[#eceef1] bg-white p-[12px] text-[13px] leading-[1.65] text-[#858b9c]">
                 知识图谱以结构化文本保存，标题和摘要会同步写入内容。
@@ -2209,6 +2206,7 @@ function 目录索引Overview({
   onViewConcept: (concept: KnowledgeConceptRead) => void;
   onEditConcept: (concept: KnowledgeConceptRead) => void;
 }) {
+  const dateLocale = useKnowledgePageHost().getDateLocale();
   const [detailView, setDetailView] = useState<KnowledgeDetailView | null>(null);
   const [detailFocusKey, setDetailFocusKey] = useState<string | null>(null);
   const [activeContentView, setActiveContentView] = useState<KnowledgeContentView>('evidence');
@@ -2216,8 +2214,8 @@ function 目录索引Overview({
   const [wikiViewMode, setWikiViewMode] = useState<'graph' | 'cards'>('graph');
   const metadata = document.metadata || {};
   const documentCard = isRecord(metadata.document_card) ? metadata.document_card : {};
-  const wikiStructureConcepts = useMemo(() => sortWikiConcepts(okfConcepts), [okfConcepts]);
-  const wikiIndexGroups = useMemo(() => buildWikiIndexGroups(wikiStructureConcepts), [wikiStructureConcepts]);
+  const wikiStructureConcepts = useMemo(() => sortWikiConcepts(okfConcepts, dateLocale), [okfConcepts, dateLocale]);
+  const wikiIndexGroups = useMemo(() => buildWikiIndexGroups(wikiStructureConcepts, dateLocale), [wikiStructureConcepts, dateLocale]);
   const previewWikiStructure = wikiIndexGroups.slice(0, STRUCTURE_PREVIEW_LIMIT);
   const previewConcepts = okfConcepts.slice(0, OKF_PREVIEW_LIMIT);
   const documentTitle = String(documentCard.title || document.title || knowledgeBase?.name || document.filename);
@@ -2688,6 +2686,7 @@ function WikiViewerTitle({ concept }: { concept: KnowledgeConceptRead }) {
 }
 
 function WikiConceptViewer({ concept }: { concept: KnowledgeConceptRead }) {
+  const dateLocale = useKnowledgePageHost().getDateLocale();
   const body = stripOkfFrontmatter(concept.content_md || '');
   const tags = Array.isArray(concept.frontmatter?.tags) ? concept.frontmatter.tags : [];
   const citations = Array.isArray(concept.citations) ? concept.citations : [];
@@ -2712,7 +2711,7 @@ function WikiConceptViewer({ concept }: { concept: KnowledgeConceptRead }) {
           { label: '页面路径', value: concept.concept_id },
           { label: '链接', value: `${links.length} 个` },
           { label: '引用', value: `${citations.length} 个` },
-          { label: '更新时间', value: formatDateTime(concept.updated_at) },
+          { label: '更新时间', value: formatDateTime(concept.updated_at, dateLocale) },
         ].map((item) => (
           <div
             key={item.label}
@@ -2767,6 +2766,7 @@ function WikiConceptViewer({ concept }: { concept: KnowledgeConceptRead }) {
 }
 
 function MarkdownPreview({ markdown }: { markdown: string }) {
+  const { renderMarkdownBlocks } = useKnowledgePageHost();
   const normalized = normalizeMarkdownForDisplay(markdown);
   return (
     <div {...(normalized ? USER_CONTENT_ATTRIBUTES : {})} className="knowledge-markdown-preview">
@@ -3334,7 +3334,7 @@ function conceptTypeColor(type: string) {
   return map[type] || 'default';
 }
 
-function sortWikiConcepts(concepts: KnowledgeConceptRead[]) {
+function sortWikiConcepts(concepts: KnowledgeConceptRead[], dateLocale: string) {
   const rank: Record<string, number> = {
     'Source Document': 0,
     'Source Section': 1,
@@ -3347,11 +3347,11 @@ function sortWikiConcepts(concepts: KnowledgeConceptRead[]) {
     const leftRank = rank[left.concept_type] ?? 99;
     const rightRank = rank[right.concept_type] ?? 99;
     if (leftRank !== rightRank) return leftRank - rightRank;
-    return (left.title || left.concept_id).localeCompare(right.title || right.concept_id, getDateLocale());
+    return (left.title || left.concept_id).localeCompare(right.title || right.concept_id, dateLocale);
   });
 }
 
-function buildWikiIndexGroups(concepts: KnowledgeConceptRead[]): WikiIndexGroup[] {
+function buildWikiIndexGroups(concepts: KnowledgeConceptRead[], dateLocale: string): WikiIndexGroup[] {
   const groupMap = new Map<string, WikiIndexGroup>();
   concepts.forEach((concept) => {
     const key = wikiIndexGroupKey(concept);
@@ -3370,7 +3370,7 @@ function buildWikiIndexGroups(concepts: KnowledgeConceptRead[]): WikiIndexGroup[
   });
   return Array.from(groupMap.values()).map((group) => ({
     ...group,
-    concepts: sortWikiConcepts(group.concepts),
+    concepts: sortWikiConcepts(group.concepts, dateLocale),
   }));
 }
 
@@ -3443,11 +3443,11 @@ function updateOkfFrontmatterValue(markdown: string, key: string, value: string)
   return markdown.replace(/^---\n[\s\S]*?\n---/, `---\n${lines.join('\n')}\n---`);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, dateLocale: string) {
   if (!value) return '未知时间';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(getDateLocale(), {
+  return date.toLocaleString(dateLocale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

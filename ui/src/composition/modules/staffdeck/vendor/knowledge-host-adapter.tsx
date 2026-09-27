@@ -1,14 +1,15 @@
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
-import { isCopyTarget, loadCopyDirectory, readCopyAgentScope, readCopyTenant } from './copy-scope';
+import { staffDeckNotify } from '../host-notify';
+import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 import './knowledge-host-theme.css';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
-import { pilotDeckFormalComponents, pilotDeckFormalIcons, pilotDeckNotify } from './host-components';
+import { pilotDeckFormalComponents, pilotDeckFormalIcons } from './host-components';
 import { renderMarkdownBlocks } from './FormalMarkdown';
 
 function query(path: string): URL { return new URL(path, 'http://staffdeck.local'); }
@@ -18,9 +19,14 @@ function decodePathSegment(segment: string): string {
 }
 function optionalQueryInput(url: URL): Record<string, string | boolean> {
   const input: Record<string, string | boolean> = {};
-  for (const [queryKey, inputKey] of [['tenant_id', 'tenantId'], ['agent_id', 'agentId'], ['knowledge_base_id', 'knowledgeBaseId'], ['status', 'status'], ['concept_type', 'conceptType']] as const) {
+  for (const [queryKey, inputKey] of [['tenant_id', 'tenantId'], ['agent_id', 'agentId'], ['knowledge_base_id', 'knowledgeBaseId'], ['status', 'status'], ['concept_type', 'conceptType'], ['include_all_versions', 'includeAllVersions']] as const) {
     const value = url.searchParams.get(queryKey);
-    if (value) input[inputKey] = value;
+    if (value !== null && value !== '') {
+      if (inputKey === 'includeAllVersions') {
+        if (!['true', 'false', '1', '0'].includes(value.toLowerCase())) throw new Error('Invalid include_all_versions query value.');
+        input[inputKey] = ['true', '1'].includes(value.toLowerCase());
+      } else input[inputKey] = value;
+    }
   }
   if (url.searchParams.has('include_all_versions')) input.includeAllVersions = ['true', '1'].includes(url.searchParams.get('include_all_versions') || '');
   return input;
@@ -37,14 +43,20 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
   return staffDeckKnowledgeClient.call<T>(operation, input);
 }
 
-async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
+async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext): Promise<T> {
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
   const exact = (...shape: string[]) => segments.length === shape.length && shape.every((part, index) => part === '*' ? Boolean(segments[index]) : part === segments[index]);
+  if (segments[0] !== 'api' || segments[1] !== 'enterprise') throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
+  const conceptPath = segments[2] === 'knowledge-bases' && segments[4] === 'okf' && segments[5] === 'concepts';
+  const allowedLength = segments[2] === 'agents' ? 6
+    : segments[2] === 'knowledge-bases' ? (segments[4] === 'okf' ? 6 : 5)
+    : segments[2] === 'knowledge' ? (segments[3] === 'knowledge-bases' ? 4 : 6) : 0;
+  if (!conceptPath && segments.length > allowedLength) throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return await staffDeckCopyClient.call<T>('list_agents');
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') {
     const sourceAgentId = url.searchParams.get('agent_id');
-    if (sourceAgentId && sourceAgentId !== pilotDeckAgentScope()) {
+    if (sourceAgentId && sourceAgentId !== (context ? context.readScope() : pilotDeckAgentScope())) {
       return await staffDeckCopyClient.call<T>('list_knowledge_bases', { sourceAgentId });
     }
     return await knowledge<T>('list_bases', optionalQueryInput(url));
@@ -119,10 +131,10 @@ export const pilotDeckKnowledgePageHost: Host = {
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       return new Blob([bytes], { type: String(result.media_type || 'application/octet-stream') });
     }
-    throw new Error('Formal OKF export did not return content_base64; no archive was produced.');
+    throw new Error('Knowledge export response is missing its formal content_base64 archive.');
   } },
   navigate: (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
-  tenantId: 'tenant_demo', notify: pilotDeckNotify, isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
+  tenantId: 'tenant_demo', notify: staffDeckNotify, isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
   loadEmployeeDirectory: async () => pilotDeckAgentDirectory(), agentScope: {
     read: pilotDeckAgentScope,
     persist: (value) => { try { window.localStorage.setItem(PILOTDECK_AGENT_SCOPE_KEY, value); } catch {} },
@@ -141,14 +153,28 @@ function mapKnowledgePath(path: string): string {
 export function PilotDeckKnowledgePageProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
+  const context = useMemo(createCopyContext, []);
+  const host = useMemo<Host>(() => ({
+    ...pilotDeckKnowledgePageHost,
+    api: { ...pilotDeckKnowledgePageHost.api,
+      get: (path) => callKnowledge(path, 'get', undefined, context),
+      post: (path, body) => callKnowledge(path, 'post', body, context),
+      put: (path, body) => callKnowledge(path, 'put', body, context),
+      delete: (path) => callKnowledge(path, 'delete', undefined, context),
+    },
+    loadEmployeeDirectory: () => context.loadDirectory(),
+    canManageEmployeeAgent: (agent) => Boolean(context.isTarget(agent) && agent.can_manage === true),
+    agentScope: { ...pilotDeckKnowledgePageHost.agentScope, read: context.readScope },
+  }), [context]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     let mounted = true;
-    void loadCopyDirectory().then(() => { if (mounted) setReady(true); }).catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
-    return () => { mounted = false; };
-  }, []);
+    const controller = new AbortController();
+    void context.loadDirectory({ signal: controller.signal }).then(() => { if (mounted) setReady(true); }).catch((cause) => { if (mounted) setError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { mounted = false; controller.abort(); };
+  }, [context]);
   if (error) return <div role="alert">{error}</div>;
   if (!ready) return null;
-  return <KnowledgePageHostProvider value={{ ...pilotDeckKnowledgePageHost, tenantId: readCopyTenant(), getDateLocale: () => i18n.resolvedLanguage?.startsWith('zh') ? 'zh-CN' : 'en-US', navigate: (path) => navigate(mapKnowledgePath(path)) }}><div className="pilotdeck-knowledge-host">{children}</div></KnowledgePageHostProvider>;
+  return <KnowledgePageHostProvider value={{ ...host, tenantId: context.readTenant(), getDateLocale: () => i18n.resolvedLanguage?.startsWith('zh') ? 'zh-CN' : 'en-US', navigate: (path) => navigate(mapKnowledgePath(path)) }}><div className="pilotdeck-knowledge-host">{children}</div></KnowledgePageHostProvider>;
 }

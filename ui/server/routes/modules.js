@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
+import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
@@ -434,7 +435,7 @@ async function callSopManagement(management, operation, value, signal) {
       if (sopId && input.content.skill_id !== undefined && input.content.skill_id !== sopId) {
         throw managementError(400, 'SOP_ID_MISMATCH', 'SOP content must match the selected SOP.');
       }
-      body = { content: sopId ? { ...input.content, skill_id: sopId } : input.content };
+      body = { content: staffDeckCreateContent(input) };
       break;
     case 'get_draft':
       required(sopId, 'sopId'); required(draftId, 'draftId'); target = `agents/${path(management.agentId)}/sops/${path(sopId)}/drafts/${path(draftId)}`; break;
@@ -465,8 +466,7 @@ async function callSopManagement(management, operation, value, signal) {
   if (!response.ok) {
     throw Object.assign(new Error(payload?.error?.message || payload?.detail || `StaffDeck SOP management request failed (${response.status}).`), { code: payload?.error?.code || 'SOP_MANAGEMENT_UPSTREAM_FAILED', status: response.status });
   }
-  if (isRecord(payload) && !payload.etag && ['create', 'get_draft', 'replace_draft', 'rollback'].includes(operation) && response.headers.get('etag')) payload.etag = response.headers.get('etag');
-  return { status: response.status, body: payload };
+  return { status: response.status, body: staffDeckDraftResponse(payload, response, operation) };
 }
 
 function required(value, field) {

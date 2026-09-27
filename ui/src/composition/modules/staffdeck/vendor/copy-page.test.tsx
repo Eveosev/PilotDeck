@@ -16,7 +16,7 @@ import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopClient, staf
 
 const agents = [
   { id: 'employee-real', tenant_id: 'tenant_demo', name: 'Employee', is_overall: false, active: true, copy_target: true, can_manage: true },
-  { id: 'plaza-real', name: 'Plaza', is_overall: true, active: true, copy_target: false, can_manage: false },
+  { id: 'plaza-real', tenant_id: 'tenant-real', name: 'Plaza', is_overall: true, active: true, copy_target: false, can_manage: false },
 ];
 const currentUser = { id: 'pd-user', username: 'operator', is_admin: false };
 
@@ -64,8 +64,8 @@ describe('PilotDeck shared plaza pages', () => {
     await expect(pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x`)).rejects.toThrow('updated_at');
   });
   it('maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope', async () => {
-    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as any);
-    vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue([] as any);
+    vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as never);
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [], drafts: [] } as never);
     window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
     function NavigationProbe() {
       const host = useDistillPageHost();
@@ -206,7 +206,7 @@ describe('PilotDeck shared plaza pages', () => {
       if (operation === 'import_resources') return { imported: [{ id: 'sop-real' }], missing: [] } as any;
       throw new Error(`Unexpected copy operation: ${operation}`);
     });
-    vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [] } as never);
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [], drafts: [] } as never);
     const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
     render(<MemoryRouter><PilotDeckSkillsPageProvider><SkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></MemoryRouter>);
 
@@ -240,7 +240,7 @@ describe('PilotDeck shared plaza pages', () => {
     const nativeSave = vi.spyOn(staffDeckSopClient, 'saveDefinition');
     const error = Object.assign(new Error('StaffDeck public SOP management is not configured.'), { status: 501 });
     vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {
-      if (operation === 'list') return { data: [{ id: 'sop-real', skill_id: 'sop-real', content: { name: 'Review' } }] } as never;
+      if (operation === 'list') return { data: [{ id: 'sop-real', skill_id: 'sop-real', content: { name: 'Review' } }], drafts: [] } as never;
       throw error;
     });
 
