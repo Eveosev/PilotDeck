@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
+import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -52,6 +53,7 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
   // distinction explicit in the runtime contract so the UI can disable only
   // the affected workflow while the restart is pending.
   const unavailableSlots = new Set();
+  const publishRuntime = createStaffDeckPublishRoute({ getGateway });
   route.get('/runtime', async (_req, res) => {
     try {
       const config = readConfig() ?? {};
@@ -218,8 +220,9 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
     try {
       const config = readConfig();
       const management = readSopManagement(config);
-      await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
-      return res.json({ enabled: true, methods: management.methods, agentId: management.agentId });
+      const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
+      const runtime = await publishRuntime.read({ binding: config.modules?.sop, management, owner });
+      return res.json({ enabled: true, methods: management.methods, agentId: management.agentId, runtime });
     } catch (error) {
       return res.status(Number.isInteger(error?.status) ? error.status : 502).json({ error: { code: error?.code || 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }
@@ -235,9 +238,12 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       if (!management.methods.includes(operation)) {
         return res.status(409).json({ error: { code: 'SOP_MANAGEMENT_CAPABILITY_UNAVAILABLE', message: `SOP management does not advertise ${operation}.` } });
       }
-      await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
-      const result = await callSopManagement(management, operation, req.body?.input, req.moduleRequestSignal);
-      return res.status(result.status).json({ result: result.body });
+      const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
+      const publish = () => callSopManagement(management, operation, req.body?.input, req.moduleRequestSignal);
+      const result = operation === 'publish'
+        ? await publishRuntime.publish({ binding: config.modules?.sop, management, owner, sopId: text(req.body?.input?.sopId), publish })
+        : await publish();
+      return res.status(result.status).json({ result: result.body, ...(result.runtime ? { runtime: result.runtime } : {}) });
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 502;
       return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
@@ -407,6 +413,7 @@ async function verifySopManagementIdentity(config, management, user, signal) {
   if (credential.access !== 'user_full_access' || !['sops:read', 'sops:write', 'sops:publish'].every((scope) => credential.scopes?.includes(scope))) {
     throw managementError(403, 'SOP_MANAGEMENT_SCOPE_FORBIDDEN', 'The StaffDeck account credential lacks SOP management scopes.');
   }
+  return { tenantId, actorUserId, agentId: targetAgentId, credentialId: management.credentialId };
 }
 
 async function callSopManagement(management, operation, value, signal) {

@@ -119,3 +119,13 @@ runtime 字段：`status`、`ownerPublished`、`snapshotWritten`、`refreshReque
 - 实际模型有效配置仍 NOT RUN。需从 PD effective model/profile 与 SD model_for_agent 正式配置分别核 provider/model/agent，正常 route/turn 的 modelwire 才是运行证据。此前请求 distill 返回 flash 的 alias 差异继续记录；本线没有发新模型请求或声称有效。
 
 没有共享桥/vendor/lock 修改，没有 core/ETag/cache/权限变化，没有 build 或新 164xx/166xx 服务，无 push/merge/部署。此交付是可整合本线代码，不是一个新候选或完整 cleanpair。
+
+## 整合者已接入的公共桥
+
+正常 `POST /api/modules/sop/management/call` 的 publish 分支已由整合者接入 coordinator，包裹原 `callSopManagement` 一次，不另调 publish。经原身份核实返回的 tenant/actor/agent/credential ID 构成 owner；相对 definitionsPath 沿正常 PILOT_HOME 解析。使用既有 `getPilotDeckGateway().reloadExtensions({changedPaths:[definitionsPath]})`，不回退 reload_config。
+
+返回 `{result: 原正式发布body, runtime: 独立状态}`；不会把 runtimeError 原因、凭据或部署路径发给浏览器。runtime 增加 receiptPersisted；若存储失败，另有 receiptFailure.code，但仍保原发布成功，effective 始终 false。receipt 存于 definitionsPath 相邻的 `.publish-receipts.json`，原子写入；发布/快照/receipt 在单 writer 进程内按路径串行。既有 `GET /api/modules/sop/management` 在正常身份核实后返回 `runtime:{receipts:[...]}`，仅含当前 owner 的 sopId/version/status 和阶段状态；web 重建后从盘回读，不靠内存宣称生效。
+
+adapter 接线须保留 response 同级 runtime，不能只读取 result 而丢弃运行状态；UI 分开呈现 ownerPublished 与 runtime 状态，awaiting-runtime-observation、failed 或 receiptPersisted:false 均不能显示“已在运行时生效”。具体 UI/adapter 改动仍由其唯一 owner 交付，不以管理 metadata 返回替代实际页面证据。
+
+整合者新增 `ui/server/staffdeck-publish-route.js` 与聚焦测试；原 13 项 helper 测试加 3 项持久 receipt 测试共 16 PASS，公共实际 HTTP route 3 PASS（create/ETag、abort、一次 publish→快照→Gateway port→receipt metadata）。这些使用正式协议替身与自有 166xx 端口，不是独立真实模型或 ownerDB 验收。

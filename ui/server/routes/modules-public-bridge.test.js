@@ -1,5 +1,8 @@
 import express from 'express';
 import http from 'node:http';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { afterEach, expect, it } from 'vitest';
 import { createModuleRuntimeRouter } from './modules.js';
 
@@ -25,7 +28,7 @@ async function listen(app) {
   throw new Error('No free owned test port in 16660–16679');
 }
 
-async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] })) {
+async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }), options = {}) {
   const key = 'sdak_bridge_test_account_123456789';
   const native = express();
   native.use(express.json());
@@ -34,13 +37,15 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }))
     key_prefix: key.slice(0, 20) + '…', access: 'user_full_access', status: 'active', scopes: ['sops:read', 'sops:write', 'sops:publish'] }]));
   native.post('/api/v1/agents/agent/sops', onCreate);
   native.get('/api/v1/agents/agent/sops', onList);
+  if (options.onPublish) native.post(/^\/api\/v1\/sops\/selected:publish$/, options.onPublish);
   const origin = await listen(native);
   const config = {
     webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin,
       tenantId: 'tenant', actorUserId: 'actor', targetAgentId: 'agent', pilotDeckUserId: 'local', userTokenEnv: 'BRIDGE_TEST_LOGIN_TOKEN' } },
-    modules: { sop: { enabled: true, management: { enabled: true, endpoint: origin + '/api/v1', apiKeyEnv: 'BRIDGE_TEST_ACCOUNT_KEY',
-      credentialId: 'owned', agentId: 'agent', methods: ['create', 'list'] } } },
+    modules: { sop: { enabled: true, ...options.binding, management: { enabled: true, endpoint: origin + '/api/v1', apiKeyEnv: 'BRIDGE_TEST_ACCOUNT_KEY',
+      credentialId: 'owned', agentId: 'agent', methods: ['create', 'list', 'publish'] } } },
   };
+  if (options.binding) config.modules.sop.discoveryEndpoint = origin + '/api/v1';
   const previous = process.env.BRIDGE_TEST_LOGIN_TOKEN;
   const previousKey = process.env.BRIDGE_TEST_ACCOUNT_KEY;
   process.env.BRIDGE_TEST_ACCOUNT_KEY = key;
@@ -48,9 +53,10 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }))
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => { req.user = { id: 'local' }; next(); });
-  app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => config }));
+  app.use('/api/modules', createModuleRuntimeRouter({ loadConfig: () => config, ...(options.getGateway ? { getGateway: options.getGateway } : {}) }));
   const local = await listen(app);
   return {
+    read: () => fetch(local + '/api/modules/sop/management'),
     call: (operation, input, signal) => fetch(local + '/api/modules/sop/management/call', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation, input }), signal,
     }),
@@ -94,3 +100,26 @@ it('aborts the real upstream request when the browser disconnects', async () => 
     expect(await closed).toBe(false);
   } finally { f.restore(); }
 }, 10000);
+
+
+it('normal publish route performs one owner publish, persists runtime receipt and returns unverified refresh state', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'publish-route-http-'));
+  const path = join(dir, 'definitions.yaml');
+  await writeFile(path, JSON.stringify({ sops: [{ id: 'selected', version: '1', content: { skill_id: 'selected', version: '1' } }] }));
+  let publications = 0;
+  const refreshes = [];
+  const f = await fixture((_req, res) => res.json({}), undefined, {
+    binding: { definitionsPath: path, defaultSopId: 'selected', discoveryAgentId: 'agent' },
+    onPublish: (_req, res) => { publications++; res.json({ sop: { id: 'owner-row', skill_id: 'selected', version: '2', status: 'published', content: { skill_id: 'selected', version: '2', nodes: [], edges: [] } } }); },
+    getGateway: async () => ({ reloadExtensions: async request => { refreshes.push(request); return { reloaded: true }; } }),
+  });
+  try {
+    const response = await f.call('publish', { sopId: 'selected', draftId: 'draft' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ result: { sop: { id: 'owner-row', skill_id: 'selected' } }, runtime: { ownerPublished: true, snapshotWritten: true, refreshRequested: true, receiptPersisted: true, effective: false, status: 'awaiting-runtime-observation' } });
+    expect(publications).toBe(1);
+    expect(refreshes).toEqual([{ changedPaths: [path] }]);
+    const metadata = await (await f.read()).json();
+    expect(metadata.runtime.receipts).toEqual([expect.objectContaining({ sopId: 'selected', version: '2', effective: false, receiptPersisted: true })]);
+  } finally { f.restore(); await rm(dir, { recursive: true, force: true }); }
+});
