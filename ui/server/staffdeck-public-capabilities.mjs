@@ -33,7 +33,7 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   archive_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents/{document}:archive', 'knowledge:write', 'document'],
   list_knowledge_concepts: ['GET', 'agents/{agent}/knowledge-bases/{base}/concepts', 'knowledge:read', 'data[]'],
   get_knowledge_document: ['GET', 'agents/{agent}/knowledge-bases/{base}/documents/{document}', 'knowledge:read', 'document'],
-  upload_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents', 'knowledge:write', '202 ingest job'],
+  upload_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents', 'knowledge:write', '200 KnowledgeIngestJobRead'],
   import_knowledge_okf: ['POST', 'agents/{agent}/knowledge-bases/{base}/okf:import', 'knowledge:write', 'import result'],
   list_document_buckets: ['GET', 'agents/{agent}/knowledge-documents/{document}/buckets', 'knowledge:read', 'data[]'],
   list_bucket_chunks: ['GET', 'agents/{agent}/knowledge-buckets/{bucket}/chunks', 'knowledge:read', 'data[]'],
@@ -174,7 +174,7 @@ export function planPublicOperation(agentId, operation, input = {}) {
       plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents/${id(input.documentId)}`; break;
     case 'upload_knowledge_document':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents`;
-      plan.body = publicBody(input); plan.shape = 'accepted-job'; break;
+      plan.body = publicBody(input); plan.shape = 'knowledge-ingest-job'; break;
     case 'import_knowledge_okf':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/okf:import`;
       plan.body = publicBody(input); break;
@@ -357,10 +357,11 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
       }
       if (plan.shape === 'created-draft' && response.status !== 201) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 201 draft response.', 502);
       if (plan.shape === 'accepted-job' && response.status !== 202) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 job acceptance.', 502);
+      if (plan.shape === 'knowledge-ingest-job' && response.status !== 200) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 200 Knowledge ingest response.', 502);
       if (plan.shape === 'preview-accepted' && (response.status !== 202 || typeof value.job_id !== 'string')) {
         fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 transient preview job.', 502);
       }
-      if (['accepted-job', 'job'].includes(plan.shape) && (typeof value.id !== 'string' || typeof value.status !== 'string')) {
+      if (['accepted-job', 'job', 'knowledge-ingest-job'].includes(plan.shape) && (typeof value.id !== 'string' || typeof value.status !== 'string')) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public job is missing its ID or status.', 502);
       }
       if (plan.shape === 'preview-job' && (typeof value.job_id !== 'string' || typeof value.status !== 'string')) {

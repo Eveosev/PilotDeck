@@ -90,7 +90,7 @@ SD 新增 `public_api/knowledge_pep.py`，在既有 `resources.py` 的 13 个公
 | `archive_knowledge_document` | POST `/{base}/documents/{document}:archive` | 两 ID → KnowledgeDocumentRead | `knowledge:write` + manager/KB/document 归属及原 archive |
 | `list_knowledge_concepts` | GET `/{base}/concepts` | `{knowledgeBaseId}` → `{data:[]}` | `knowledge:read` + viewer/KB branch |
 
-multipart 文档上传、OKF import、单文档详情、bucket/chunk、concept 详情/编辑/export、discovery/job 视图现已有固定 target facade 与 SDK planner；JSON gateway 仍须由 modules.js owner 接入，不能把 upload 改成 entries。真实 source 防误写、原文归属、job/discovery PEP 与拒绝证据仍需完整候选验证。团队/跨员工深层操作是用户范围排除；67 项 planner 测试/类型不代真实业务结果。
+multipart 文档上传的固定 target facade 保持原 HTTP `200` 与 `KnowledgeIngestJobRead`（`id/status/knowledge_base_id/document_id/filename/stage/progress/...`）响应；SDK 不把它伪装成 `202` accepted-job，后续 job 状态仍由 Knowledge ingest owner 的 job routes 提供。OKF import、单文档详情、bucket/chunk、concept 详情/编辑/export、discovery/job 视图现已有固定 target facade 与 SDK planner；JSON gateway 仍须由 modules.js owner 接入，不能把 upload 改成 entries。真实 source 防误写、原文归属、job/discovery PEP 与拒绝证据仍需完整候选验证。团队/跨员工深层操作是用户范围排除；67 项 planner 测试/类型不代真实业务结果。
 
 ## PilotDeck 宿主 Port/provider 边界
 

@@ -224,5 +224,9 @@ test('fixed Knowledge routes retain base and document IDs, conflict timestamp an
   });
   assert.equal(ingest.headers['Idempotency-Key'], 'source-v1');
   assert.equal(ingest.shape, 'accepted-job');
+  const multipart = planPublicOperation(target, 'upload_knowledge_document', {
+    knowledgeBaseId: 'kb/1', body: { filename: 'source.md', content_base64: 'YQ==', title: 'Source' },
+  });
+  assert.equal(multipart.shape, 'knowledge-ingest-job');
   assert.throws(() => planPublicOperation(null, 'update_knowledge_document', { knowledgeBaseId: 'kb', documentId: 'd', body: {} }), code('PUBLIC_TEAM_PROTOCOL_UNAVAILABLE'));
 });

@@ -82,6 +82,12 @@ export type PublicSelectedScope = { kind: 'agent'; agentId: string } | { kind: '
 export type PublicRecord = Record<string, unknown>;
 export type PublicCollection = { data: PublicRecord[]; next_cursor?: string | null };
 export type PublicJob = PublicRecord & { id: string; status: string };
+export type PublicKnowledgeIngestJob = PublicJob & {
+  tenant_id: string; knowledge_base_id: string; document_id?: string | null;
+  filename: string; stage: string; progress: number; error?: string | null;
+  metadata: PublicRecord; created_at: string; started_at?: string | null;
+  finished_at?: string | null; updated_at: string;
+};
 export type PublicPreviewJob = PublicRecord & { job_id: string; status: string; last_seq: number };
 export type PublicJobResult = { job: PublicJob; result: PublicRecord; error: PublicRecord };
 export type PublicSopDraft = PublicRecord & { id: string; agent_id: string; sop_id: string; content: PublicRecord; etag: string; status: string };
@@ -91,7 +97,7 @@ export type PublicOperationOutput = {
   search_knowledge_base: PublicRecord; upsert_knowledge_entries: PublicJob; list_knowledge_versions: PublicCollection;
   rollback_knowledge_base: PublicRecord; list_knowledge_documents: PublicCollection;
   update_knowledge_document: PublicRecord; archive_knowledge_document: PublicRecord; list_knowledge_concepts: PublicCollection;
-  get_knowledge_document: PublicRecord; upload_knowledge_document: PublicJob; import_knowledge_okf: PublicRecord;
+  get_knowledge_document: PublicRecord; upload_knowledge_document: PublicKnowledgeIngestJob; import_knowledge_okf: PublicRecord;
   list_document_buckets: PublicCollection; list_bucket_chunks: PublicCollection; update_knowledge_bucket: PublicRecord;
   update_knowledge_chunk: PublicRecord; get_knowledge_concept: PublicRecord; update_knowledge_concept: PublicRecord;
   export_knowledge_okf: { content_base64: string; media_type: string; filename?: string | null };
