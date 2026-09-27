@@ -222,7 +222,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const management = readSopManagement(config);
       const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal);
       const runtime = await publishRuntime.read({ binding: config.modules?.sop, management, owner });
-      return res.json({ enabled: true, methods: management.methods, agentId: management.agentId, runtime });
+      return res.json({ enabled: true, methods: management.methods, agentId: owner.agentId,
+        tenantId: owner.tenantId, actorUserId: owner.actorUserId, runtime });
     } catch (error) {
       return res.status(Number.isInteger(error?.status) ? error.status : 502).json({ error: { code: error?.code || 'SOP_MANAGEMENT_UNAVAILABLE', message: error instanceof Error ? error.message : String(error) } });
     }

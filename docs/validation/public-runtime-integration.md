@@ -128,4 +128,6 @@ runtime 字段：`status`、`ownerPublished`、`snapshotWritten`、`refreshReque
 
 adapter 接线须保留 response 同级 runtime，不能只读取 result 而丢弃运行状态；UI 分开呈现 ownerPublished 与 runtime 状态，awaiting-runtime-observation、failed 或 receiptPersisted:false 均不能显示“已在运行时生效”。具体 UI/adapter 改动仍由其唯一 owner 交付，不以管理 metadata 返回替代实际页面证据。
 
+GET management bootstrap 同时返回正式核实的 tenantId、actorUserId、agentId；不公开 credentialId，不改 adapter 旧 cache namespace。Knowledge query/citation/call 与 SOP management GET/call 每次显式核实身份，不依赖 native read 自动执行 FastAPI dependencies。新增两项真实 HTTP 聚焦测试在首次合法请求后撤销/改变正式身份，后续 read/write 均拒绝且不触发业务上游；连同原 route 测试共 5 PASS。
+
 整合者新增 `ui/server/staffdeck-publish-route.js` 与聚焦测试；原 13 项 helper 测试加 3 项持久 receipt 测试共 16 PASS，公共实际 HTTP route 3 PASS（create/ETag、abort、一次 publish→快照→Gateway port→receipt metadata）。这些使用正式协议替身与自有 166xx 端口，不是独立真实模型或 ownerDB 验收。

@@ -32,7 +32,9 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }),
   const key = 'sdak_bridge_test_account_123456789';
   const native = express();
   native.use(express.json());
-  native.get('/api/auth/me', (_req, res) => res.json({ id: 'actor', tenant_id: 'tenant' }));
+  native.get('/api/auth/me', options.onIdentity ?? ((_req, res) => res.json({ id: 'actor', tenant_id: 'tenant' })));
+  native.get('/api/enterprise/agents', (_req, res) => res.json([{ id: 'agent', tenant_id: 'tenant', is_overall: false }]));
+  if (options.onKnowledge) native.post('/v2/module/call', options.onKnowledge);
   native.get('/api/auth/me/api-credentials', (_req, res) => res.json([{ id: 'owned', user_id: 'actor',
     key_prefix: key.slice(0, 20) + '…', access: 'user_full_access', status: 'active', scopes: ['sops:read', 'sops:write', 'sops:publish'] }]));
   native.post('/api/v1/agents/agent/sops', onCreate);
@@ -41,10 +43,12 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }),
   const origin = await listen(native);
   const config = {
     webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin,
-      tenantId: 'tenant', actorUserId: 'actor', targetAgentId: 'agent', pilotDeckUserId: 'local', userTokenEnv: 'BRIDGE_TEST_LOGIN_TOKEN' } },
+      tenantId: 'tenant', actorUserId: 'actor', targetAgentId: 'agent', pilotDeckUserId: 'local', userTokenEnv: 'BRIDGE_TEST_LOGIN_TOKEN', methods: ['list_agents'] } },
     modules: { sop: { enabled: true, ...options.binding, management: { enabled: true, endpoint: origin + '/api/v1', apiKeyEnv: 'BRIDGE_TEST_ACCOUNT_KEY',
       credentialId: 'owned', agentId: 'agent', methods: ['create', 'list', 'publish'] } } },
   };
+  if (options.onKnowledge) config.modules.knowledge = { enabled: true, endpoint: origin,
+    tenantId: 'tenant', actorUserId: 'actor', agentId: 'agent', methods: ['list_bases'] };
   if (options.binding) config.modules.sop.discoveryEndpoint = origin + '/api/v1';
   const previous = process.env.BRIDGE_TEST_LOGIN_TOKEN;
   const previousKey = process.env.BRIDGE_TEST_ACCOUNT_KEY;
@@ -57,6 +61,9 @@ async function fixture(onCreate, onList = (_req, res) => res.json({ data: [] }),
   const local = await listen(app);
   return {
     read: () => fetch(local + '/api/modules/sop/management'),
+    knowledge: () => fetch(local + '/api/modules/knowledge/call', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_bases', input: {} }),
+    }),
     call: (operation, input, signal) => fetch(local + '/api/modules/sop/management/call', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation, input }), signal,
     }),
@@ -120,6 +127,42 @@ it('normal publish route performs one owner publish, persists runtime receipt an
     expect(publications).toBe(1);
     expect(refreshes).toEqual([{ changedPaths: [path] }]);
     const metadata = await (await f.read()).json();
+    expect(metadata).toMatchObject({ tenantId: 'tenant', actorUserId: 'actor', agentId: 'agent' });
+    expect(metadata).not.toHaveProperty('credentialId');
     expect(metadata.runtime.receipts).toEqual([expect.objectContaining({ sopId: 'selected', version: '2', effective: false, receiptPersisted: true })]);
   } finally { f.restore(); await rm(dir, { recursive: true, force: true }); }
+});
+
+it('authenticates every SOP request before management reads or writes', async () => {
+  let accepted = true;
+  let checks = 0;
+  let reads = 0;
+  let writes = 0;
+  const f = await fixture((_req, res) => { writes++; res.json({}); }, (_req, res) => { reads++; res.json({ data: [] }); }, {
+    onIdentity: (_req, res) => { checks++; res.json({ id: 'actor', tenant_id: accepted ? 'tenant' : 'other' }); },
+  });
+  try {
+    expect((await f.call('list')).status).toBe(200);
+    accepted = false;
+    expect((await f.call('list')).status).toBe(403);
+    expect((await f.call('create', { sopId: 'selected', content: { skill_id: 'selected' } })).status).toBe(403);
+    expect((await f.read()).status).toBe(403);
+    expect({ checks, reads, writes }).toEqual({ checks: 4, reads: 1, writes: 0 });
+  } finally { f.restore(); }
+});
+
+it('authenticates every Knowledge read before the module transport is called', async () => {
+  let accepted = true;
+  let checks = 0;
+  let calls = 0;
+  const f = await fixture((_req, res) => res.json({}), undefined, {
+    onIdentity: (_req, res) => { checks++; res.json({ id: accepted ? 'actor' : 'other', tenant_id: 'tenant' }); },
+    onKnowledge: (req, res) => { calls++; res.json({ kind: 'response', inReplyTo: req.body.messageId, ok: true, payload: { result: [] } }); },
+  });
+  try {
+    expect((await f.knowledge()).status).toBe(200);
+    accepted = false;
+    expect((await f.knowledge()).status).toBe(403);
+    expect({ checks, calls }).toEqual({ checks: 2, calls: 1 });
+  } finally { f.restore(); }
 });
