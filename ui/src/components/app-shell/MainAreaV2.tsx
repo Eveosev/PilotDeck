@@ -40,7 +40,10 @@ function DedicatedWorkspacePage({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-      <header className="workspace-header relative z-[80] shrink-0 overflow-visible">
+      {/* Dedicated business pages own modal overlays at z-50. Keep their
+          header below those overlays and avoid trapping page modals in a
+          content stacking context. The separate chat header is unchanged. */}
+      <header className="workspace-header relative z-40 shrink-0 overflow-visible">
         {isSidebarCollapsed ? (
           <button
             type="button"
@@ -58,7 +61,7 @@ function DedicatedWorkspacePage({
           </h1>
         </div>
       </header>
-      <div className="relative z-0 min-h-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {children}
       </div>
     </div>
