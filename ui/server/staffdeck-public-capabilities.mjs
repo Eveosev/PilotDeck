@@ -16,19 +16,53 @@ const id = value => {
 };
 const own = (value, key) => Object.hasOwn(value, key);
 
+/** Fixed, named grant surface. SD still enforces the scope and original PEP. */
+export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
+  list_tools: ['GET', 'agents/{agent}/tools', 'tools:read', 'data[]'],
+  list_general_skills: ['GET', 'agents/{agent}/general-skills', 'skills:read', 'data[]'],
+  create_tool: ['POST', 'agents/{agent}/tools', 'tools:write', 'tool'],
+  update_tool: ['PUT', 'agents/{agent}/tools/{tool}', 'tools:write', 'tool'],
+  test_tool: ['POST', 'agents/{agent}/tools/{tool}:test', 'tools:test', 'test-result'],
+  import_general_skill: ['POST', 'agents/{agent}/general-skills', 'skills:write', 'general-skill'],
+  publish_general_skill: ['POST', 'agents/{agent}/general-skills/{slug}:publish', 'skills:write', 'general-skill'],
+  archive_general_skill: ['POST', 'agents/{agent}/general-skills/{slug}:archive', 'skills:write', 'general-skill'],
+  test_general_skill: ['POST', 'agents/{agent}/general-skills/{slug}:test', 'skills:test', 'test-result'],
+  generate_sop: ['POST', 'agents/{agent}/sops:generate', 'sops:write', '202 APIJob'],
+  rewrite_saved_sop: ['POST', 'agents/{agent}/sops/{sop}:rewrite', 'sops:write', '202 APIJob'],
+  get_job: ['GET', 'jobs/{job}', 'sops:read', 'APIJob by kind'],
+  get_job_result: ['GET', 'jobs/{job}/result', 'sops:read', 'job/result/error'],
+  job_events: ['GET', 'jobs/{job}/events', 'sops:read', 'SSE id/event/data'],
+  cancel_job: ['POST', 'jobs/{job}:cancel', 'sops:cancel', 'APIJob'],
+  preview_generate_sop: ['POST', 'agents/{agent}/sops:preview-generate', 'sops:write', '202 {job_id}'],
+  preview_rewrite_sop: ['POST', 'agents/{agent}/sops/{sop}:preview-rewrite', 'sops:write', '202 {job_id}'],
+  get_preview_job: ['GET', 'agents/{agent}/sop-preview-jobs/{job}', 'sops:read', 'transient job'],
+  preview_job_events: ['GET', 'agents/{agent}/sop-preview-jobs/{job}/events', 'sops:read', 'SSE event/data.seq'],
+  cancel_preview_job: ['POST', 'agents/{agent}/sop-preview-jobs/{job}:cancel', 'sops:cancel', 'cancel_requested'],
+  move_to_draft_sop: ['POST', 'agents/{agent}/sops/{sop}:move-to-draft', 'sops:write', 'SkillRead'],
+  remove_sop: ['DELETE', 'agents/{agent}/sops/{sop}', 'sops:write', 'hidden/deleted'],
+  sync_sop_from_overall: ['POST', 'agents/{agent}/sops/{sop}:sync-from-overall', 'sops:write', 'branch head'],
+  promote_sop_to_overall: ['POST', 'agents/{agent}/sops/{sop}:promote-to-overall', 'sops:publish', 'promoted version'],
+  delete_sop_version: ['DELETE', 'agents/{agent}/sops/{sop}/versions/{version}', 'sops:publish', 'deleted'],
+  probe_unsaved_tool: ['POST', 'agents/{agent}/tools:probe', 'tools:test', 'probe-result'],
+  remove_tool: ['DELETE', 'agents/{agent}/tools/{tool}', 'tools:write', 'hidden/deleted'],
+  extract_sop_text: ['POST', 'agents/{agent}/sops:extract-file', 'sops:write', 'filename/text'],
+  list_model_catalog: ['GET', 'agents/{agent}/model-catalog', 'sops:read', 'data[] metadata'],
+  list_handoff_users: ['GET', 'agents/{agent}/handoff-users', 'agents:read', 'data[] users'],
+});
+export const PUBLIC_APPROVED_OPERATIONS = Object.freeze(Object.keys(PUBLIC_OPERATION_CONTRACTS));
+
 export const PUBLIC_PROTOCOL_BLOCKERS = Object.freeze({
-  rewrite_preview: 'The existing rewrite route does not accept dirty current_skill or conversation and persists a new draft.',
-  move_to_draft: 'Creating a draft does not change the original published object to draft.',
-  remove: 'Archive and binding omission do not preserve hidden/deleted branch semantics.',
-  sync_from_overall: 'No equivalent public route in the audited v1 contract.',
-  promote_to_overall: 'No equivalent public route preserving the original admin rule.',
-  delete_version: 'No equivalent public route preserving overall-only and active-version rejection.',
-  probe_tool: 'Testing an existing tool ID does not probe an unsaved tool.',
-  delete_tool: 'Archiving a binding does not delete a tool.',
-  extract_sop_file: 'Knowledge upload writes a knowledge resource; it is not SOP text extraction.',
-  model_catalog: 'Agent model bindings are not an effective selectable model catalog.',
-  user_catalog: 'Handoff records are not a visible user directory.',
-  cancel_job: 'Account cancellation scope and host operation authorization remain pending.',
+  rewrite_preview: 'Use the explicit preview_rewrite_sop operation with current_skill; saved rewrite is a different lifecycle.',
+  move_to_draft: 'Use move_to_draft_sop; creating a new draft is a different operation.',
+  remove: 'Use remove_sop or remove_tool; archive is a different operation.',
+  sync_from_overall: 'Use sync_sop_from_overall with an explicit SOP ID.',
+  promote_to_overall: 'Use promote_sop_to_overall with an explicit SOP ID.',
+  delete_version: 'Use delete_sop_version with an explicit SOP ID and version.',
+  probe_tool: 'Use probe_unsaved_tool with the complete unsaved tool body.',
+  delete_tool: 'Use remove_tool; archive is a different operation.',
+  extract_sop_file: 'Use extract_sop_text with the original filename/content_base64 body.',
+  model_catalog: 'Use list_model_catalog; model bindings are not a catalog.',
+  user_catalog: 'Use list_handoff_users; handoff records are not a directory.',
 });
 
 function publicBody(input) {
@@ -90,6 +124,7 @@ export function planPublicOperation(agentId, operation, input = {}) {
     }
     case 'get_job': plan.path = `jobs/${id(input.jobId)}`; plan.shape = 'job'; break;
     case 'get_job_result': plan.path = `jobs/${id(input.jobId)}/result`; plan.shape = 'job-result'; break;
+    case 'cancel_job': plan.method = 'POST'; plan.path = `jobs/${id(input.jobId)}:cancel`; plan.shape = 'job'; break;
     case 'job_events':
       plan.path = `jobs/${id(input.jobId)}/events`; plan.responseType = 'event-stream';
       plan.headers.accept = 'text/event-stream';
@@ -98,6 +133,45 @@ export function planPublicOperation(agentId, operation, input = {}) {
         plan.headers['Last-Event-ID'] = String(input.lastEventId);
       }
       break;
+    case 'preview_generate_sop':
+    case 'preview_rewrite_sop': {
+      const body = publicBody(input);
+      const fields = operation === 'preview_generate_sop'
+        ? ['title', 'raw_content', 'business_domain', 'model_config_id', 'available_tools', 'available_general_skills', 'available_knowledge_bases']
+        : ['current_skill', 'instruction', 'model_config_id', 'target_path', 'target_paths', 'target_label', 'conversation', 'available_tools', 'available_sops'];
+      if (Object.keys(body).some(key => !fields.includes(key))) fail('PUBLIC_INPUT_INVALID', 'Unsupported preview field; it will not be silently discarded.', 400);
+      if (operation === 'preview_rewrite_sop') {
+        if (!record(body.current_skill) || body.current_skill.skill_id !== input.sopId) {
+          fail('PUBLIC_INPUT_INVALID', 'Path SOP ID must match current_skill.skill_id.', 400);
+        }
+      }
+      plan.method = 'POST';
+      plan.path = operation === 'preview_generate_sop'
+        ? `${agent}/sops:preview-generate`
+        : `${agent}/sops/${id(input.sopId)}:preview-rewrite`;
+      plan.body = body; plan.shape = 'preview-accepted';
+      break;
+    }
+    case 'get_preview_job': plan.path = `${agent}/sop-preview-jobs/${id(input.jobId)}`; plan.shape = 'preview-job'; break;
+    case 'preview_job_events':
+      plan.path = `${agent}/sop-preview-jobs/${id(input.jobId)}/events`;
+      if (input.afterSeq !== undefined) {
+        if (!/^\d+$/.test(String(input.afterSeq))) fail('PUBLIC_INPUT_INVALID', 'afterSeq must be a non-negative integer.', 400);
+        plan.path += `?after_seq=${encodeURIComponent(String(input.afterSeq))}`;
+      }
+      plan.responseType = 'event-stream'; plan.headers.accept = 'text/event-stream';
+      break;
+    case 'cancel_preview_job': plan.method = 'POST'; plan.path = `${agent}/sop-preview-jobs/${id(input.jobId)}:cancel`; break;
+    case 'move_to_draft_sop': plan.method = 'POST'; plan.path = `${agent}/sops/${id(input.sopId)}:move-to-draft`; break;
+    case 'remove_sop': plan.method = 'DELETE'; plan.path = `${agent}/sops/${id(input.sopId)}`; break;
+    case 'sync_sop_from_overall': plan.method = 'POST'; plan.path = `${agent}/sops/${id(input.sopId)}:sync-from-overall`; break;
+    case 'promote_sop_to_overall': plan.method = 'POST'; plan.path = `${agent}/sops/${id(input.sopId)}:promote-to-overall`; break;
+    case 'delete_sop_version': plan.method = 'DELETE'; plan.path = `${agent}/sops/${id(input.sopId)}/versions/${id(input.version)}`; break;
+    case 'probe_unsaved_tool': plan.method = 'POST'; plan.path = `${agent}/tools:probe`; plan.body = publicBody(input); rejectMaskedCredentials(plan.body); break;
+    case 'remove_tool': plan.method = 'DELETE'; plan.path = `${agent}/tools/${id(input.toolId)}`; break;
+    case 'extract_sop_text': plan.method = 'POST'; plan.path = `${agent}/sops:extract-file`; plan.body = publicBody(input); break;
+    case 'list_model_catalog': plan.path = `${agent}/model-catalog`; plan.shape = 'collection'; break;
+    case 'list_handoff_users': plan.path = `${agent}/handoff-users`; plan.shape = 'collection'; break;
     default: fail('PUBLIC_OPERATION_UNSUPPORTED', `Unsupported public operation: ${operation}`, 400);
   }
   return plan;
@@ -126,8 +200,14 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
         fail('PUBLIC_RESPONSE_INVALID', 'Public collection is missing its data array.', 502);
       }
       if (plan.shape === 'accepted-job' && response.status !== 202) fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 job acceptance.', 502);
+      if (plan.shape === 'preview-accepted' && (response.status !== 202 || typeof value.job_id !== 'string')) {
+        fail('PUBLIC_RESPONSE_INVALID', 'Expected a 202 transient preview job.', 502);
+      }
       if (['accepted-job', 'job'].includes(plan.shape) && (typeof value.id !== 'string' || typeof value.status !== 'string')) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public job is missing its ID or status.', 502);
+      }
+      if (plan.shape === 'preview-job' && (typeof value.job_id !== 'string' || typeof value.status !== 'string')) {
+        fail('PUBLIC_RESPONSE_INVALID', 'Preview job is missing its ID or status.', 502);
       }
       if (plan.shape === 'job-result' && (!record(value.job) || !record(value.result) || !record(value.error))) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public job result envelope is incomplete.', 502);
@@ -172,4 +252,16 @@ export async function* decodePublicJobEvents(chunks, { signal } = {}) {
   }
   signal?.throwIfAborted();
   decoder.decode(); // Reject truncated UTF-8. An unterminated SSE frame is not delivered.
+}
+
+/** The native preview stream carries seq inside JSON data, not an SSE id. */
+export async function* decodePreviewJobEvents(chunks, options = {}) {
+  for await (const event of decodePublicJobEvents(chunks, options)) {
+    let sequence;
+    try {
+      const payload = JSON.parse(event.data);
+      if (Number.isSafeInteger(payload?.seq) && payload.seq > 0) sequence = payload.seq;
+    } catch { /* Preserve the actual data and event name even when not JSON. */ }
+    yield sequence === undefined ? event : { ...event, sequence };
+  }
 }

@@ -1,8 +1,8 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 4950956ef8b0a91126b80493b7a99a439ef1b0bd.
-Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/worktrees/staffdeck.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at da3a59a66bd05f6ad3a2258680324ad632527932.
+Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/sdk-worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
 and mounted Distill/API error repair (SD8e50d166). UI owner user-content delivery (1b201192) was integrated by three-way hunks.
@@ -42,3 +42,8 @@ input type=text are distributed from the canonical ref above; both host
 localizers consume the title-only metadata. Adapter/context contracts remain
 unchanged. Detailed behavior evidence stays in the UI owner's
 DELIVERY_DYNAMIC_OVERLAYS.md; this snapshot is not G gate approval.
+
+Public SDK integration updates the canonical provenance ref only; all 40 UI
+sources and manifest remain identical to the preceding UI freeze. SD facade/
+Knowledge PEP is server-side; final adapter production mappings are separate
+owner work and this public increment is not a completed acceptance candidate.

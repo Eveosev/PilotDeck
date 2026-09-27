@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPublicCapabilityClient, planPublicOperation, decodePublicJobEvents, PUBLIC_PROTOCOL_BLOCKERS } from './staffdeck-public-capabilities.mjs';
+import { createPublicCapabilityClient, planPublicOperation, decodePublicJobEvents, decodePreviewJobEvents, PUBLIC_PROTOCOL_BLOCKERS, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from './staffdeck-public-capabilities.mjs';
 
 const code = expected => cause => cause.code === expected;
 
@@ -74,4 +74,60 @@ test('SSE preserves real IDs, event names, multiline data and split UTF-8; drops
     { id: '7', event: 'sop.generate.learning', data: '{"text":"中文"}\nsecond' },
     { id: '8', event: 'job.succeeded', data: '{}' },
   ]);
+});
+
+test('approved facade plans remain fixed by name, method, path and input', () => {
+  const cases = [
+    ['preview_generate_sop', { body: { title: 't', raw_content: 'r' } }, 'POST', 'agents/a/sops:preview-generate'],
+    ['preview_rewrite_sop', { sopId: 's/x', body: { current_skill: { skill_id: 's/x' }, instruction: 'change', conversation: [{ role: 'user', content: 'current' }] } }, 'POST', 'agents/a/sops/s%2Fx:preview-rewrite'],
+    ['get_preview_job', { jobId: 'j' }, 'GET', 'agents/a/sop-preview-jobs/j'],
+    ['preview_job_events', { jobId: 'j', afterSeq: 4 }, 'GET', 'agents/a/sop-preview-jobs/j/events?after_seq=4'],
+    ['cancel_preview_job', { jobId: 'j' }, 'POST', 'agents/a/sop-preview-jobs/j:cancel'],
+    ['move_to_draft_sop', { sopId: 's' }, 'POST', 'agents/a/sops/s:move-to-draft'],
+    ['remove_sop', { sopId: 's' }, 'DELETE', 'agents/a/sops/s'],
+    ['sync_sop_from_overall', { sopId: 's' }, 'POST', 'agents/a/sops/s:sync-from-overall'],
+    ['promote_sop_to_overall', { sopId: 's' }, 'POST', 'agents/a/sops/s:promote-to-overall'],
+    ['delete_sop_version', { sopId: 's', version: '1.0.0' }, 'DELETE', 'agents/a/sops/s/versions/1.0.0'],
+    ['probe_unsaved_tool', { body: { name: 't', url: 'https://example.test' } }, 'POST', 'agents/a/tools:probe'],
+    ['remove_tool', { toolId: 't' }, 'DELETE', 'agents/a/tools/t'],
+    ['extract_sop_text', { body: { filename: 'a.txt', content_base64: 'YQ==' } }, 'POST', 'agents/a/sops:extract-file'],
+    ['list_model_catalog', {}, 'GET', 'agents/a/model-catalog'],
+    ['list_handoff_users', {}, 'GET', 'agents/a/handoff-users'],
+    ['cancel_job', { jobId: 'j' }, 'POST', 'jobs/j:cancel'],
+  ];
+  for (const [operation, input, method, path] of cases) {
+    const planned = planPublicOperation('a', operation, input);
+    assert.equal(planned.method, method, operation);
+    assert.equal(planned.path, path, operation);
+  }
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 30);
+  for (const operation of PUBLIC_APPROVED_OPERATIONS) {
+    assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
+  }
+});
+
+test('preview keeps dirty current skill and conversation, while saved rewrite still rejects them', async () => {
+  let request;
+  const client = createPublicCapabilityClient({ agentId: 'a', authorizedOperations: ['preview_rewrite_sop', 'rewrite_saved_sop'], transport: async value => { request = value; return { status: 202, body: { job_id: 'preview' } }; } });
+  const current_skill = { skill_id: 's', version: '1', nodes: [{ id: 'dirty' }] };
+  const conversation = [{ role: 'user', content: 'keep this' }];
+  const input = { sopId: 's', body: { current_skill, instruction: 'rewrite', conversation } };
+  assert.deepEqual((await client.call('preview_rewrite_sop', input)).body, { job_id: 'preview' });
+  assert.deepEqual(request.body.current_skill, current_skill);
+  assert.deepEqual(request.body.conversation, conversation);
+  await assert.rejects(client.call('rewrite_saved_sop', input), code('PUBLIC_PREVIEW_REQUIRED'));
+});
+
+test('preview SSE exposes only the native data.seq cursor and preserves token event text', async () => {
+  async function* chunks() {
+    yield 'event: message_chunk\ndata: {"job_id":"j","seq":12,"text":"part"}\n\n';
+    yield 'event: job_complete\ndata: {"job_id":"j","status":"succeeded"}\n\n';
+  }
+  const events = [];
+  for await (const event of decodePreviewJobEvents(chunks())) events.push(event);
+  assert.deepEqual(events, [
+    { event: 'message_chunk', data: '{"job_id":"j","seq":12,"text":"part"}', sequence: 12 },
+    { event: 'job_complete', data: '{"job_id":"j","status":"succeeded"}' },
+  ]);
+  assert.equal(events[0].id, undefined);
 });

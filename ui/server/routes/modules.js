@@ -1,4 +1,6 @@
 import express from 'express';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +9,7 @@ import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { bindModuleRequestAbort, moduleUpstreamSignal } from '../module-request-abort.js';
 import { staffDeckCreateContent, staffDeckDraftResponse } from '../adapters/staffdeck-request-context.js';
 import { createStaffDeckPublishRoute } from '../staffdeck-publish-route.js';
-import { createPublicCapabilityClient, decodePublicJobEvents } from '../staffdeck-public-capabilities.mjs';
+import { createPublicCapabilityClient, decodePublicJobEvents, PUBLIC_APPROVED_OPERATIONS, PUBLIC_OPERATION_CONTRACTS } from '../staffdeck-public-capabilities.mjs';
 import { createStaffDeckCopyRouter, verifyStaffDeckKnowledgeBinding } from './staffdeck-copy.js';
 
 const router = express.Router();
@@ -26,6 +28,8 @@ const KNOWLEDGE_READ_OPERATIONS = new Set([
   'list_document_buckets', 'list_bucket_chunks', 'get_job', 'list_jobs',
   'list_okf_concepts', 'get_okf_concept', 'export_okf', 'list_discoveries', 'query', 'resolve_citation',
 ]);
+const PUBLIC_SDK_OPERATIONS = new Set(PUBLIC_APPROVED_OPERATIONS);
+const PUBLIC_SDK_STREAM_OPERATIONS = new Set(['job_events', 'preview_job_events']);
 const SOP_MANAGEMENT_OPERATIONS = new Set([
   'list', 'create', 'get_draft', 'replace_draft', 'validate',
   'publish', 'archive', 'list_versions', 'get_version', 'rollback',
@@ -252,6 +256,57 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       return res.status(status).json({ error: { code: error?.code || 'SOP_MANAGEMENT_CALL_FAILED', message: error instanceof Error ? error.message : String(error) } });
     }
   });
+  const publicSdkCall = async (req, res, streamOnly = false) => {
+    try {
+      const operation = streamOnly ? req.query.operation : req.body?.operation;
+      if (typeof operation !== 'string' || !PUBLIC_SDK_OPERATIONS.has(operation)
+        || (streamOnly && !PUBLIC_SDK_STREAM_OPERATIONS.has(operation))) {
+        throw managementError(400, 'PUBLIC_OPERATION_UNSUPPORTED', 'A fixed public SDK operation is required.');
+      }
+      const input = streamOnly ? {
+        jobId: req.query.jobId,
+        ...(req.query.agentId !== undefined ? { agentId: req.query.agentId } : {}),
+        ...(operation === 'job_events' && (req.get('Last-Event-ID') !== undefined || req.query.lastEventId !== undefined)
+          ? { lastEventId: req.get('Last-Event-ID') ?? req.query.lastEventId } : {}),
+        ...(operation === 'preview_job_events' && req.query.afterSeq !== undefined ? { afterSeq: req.query.afterSeq } : {}),
+      } : req.body?.input ?? {};
+      if (!isRecord(input)) throw managementError(400, 'PUBLIC_INPUT_INVALID', 'SDK input must be an object.');
+      if (['tenantId', 'tenant_id', 'actorUserId', 'actor_user_id', 'credentialId'].some(field => Object.hasOwn(input, field))) {
+        throw managementError(400, 'PUBLIC_SCOPE_OVERRIDE', 'SDK identity comes from the verified owner.');
+      }
+      const config = readConfig();
+      const management = readSopManagement(config);
+      const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal,
+        PUBLIC_OPERATION_CONTRACTS[operation][2]);
+      const gateway = createStaffDeckPublicCapabilityGateway({ management, owner, signal: req.moduleRequestSignal,
+        authorizedOperations: PUBLIC_APPROVED_OPERATIONS });
+      const result = await gateway.call(operation, input);
+      res.status(result.status);
+      for (const header of ['content-type', 'etag', 'retry-after', 'x-request-id']) {
+        const value = result.headers?.get(header);
+        if (value !== null && value !== undefined) res.setHeader(header, value);
+      }
+      if (PUBLIC_SDK_STREAM_OPERATIONS.has(operation) && result.status >= 200 && result.status < 300) {
+        if (!result.headers?.get('content-type')?.toLowerCase().startsWith('text/event-stream') || !result.body) {
+          throw managementError(502, 'PUBLIC_RESPONSE_INVALID', 'SDK stream did not return an event stream.');
+        }
+        res.flushHeaders();
+        await pipeline(Readable.fromWeb(result.body), res, { signal: req.moduleRequestSignal });
+        return;
+      }
+      return res.end(result.rawBody ?? JSON.stringify(result.body));
+    } catch (error) {
+      if (res.headersSent || res.destroyed || req.moduleRequestSignal.aborted) {
+        if (!res.destroyed) res.destroy();
+        return;
+      }
+      return res.status(Number.isInteger(error?.status) ? error.status : 502).json({
+        error: { code: error?.code || 'PUBLIC_SDK_CALL_FAILED', message: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  };
+  route.post('/staffdeck-sdk/call', (req, res) => publicSdkCall(req, res));
+  route.get('/staffdeck-sdk/events', (req, res) => publicSdkCall(req, res, true));
   return route;
 }
 
@@ -364,7 +419,7 @@ function readSopManagement(config) {
   return { endpoint: endpoint.endsWith('/') ? endpoint : `${endpoint}/`, apiKey, credentialId, agentId, methods, timeoutMs: Number(management.timeoutMs) || 10_000 };
 }
 
-async function verifySopManagementIdentity(config, management, user, signal) {
+async function verifySopManagementIdentity(config, management, user, signal, requiredScope) {
   const copy = config?.webui?.staffdeckCopy;
   if (copy?.enabled !== true || copy?.contract !== 'staffdeck.enterprise-copy/v1') {
     throw managementError(501, 'SOP_MANAGEMENT_UNAVAILABLE', 'StaffDeck copy identity is not enabled for SOP management.');
@@ -415,6 +470,9 @@ async function verifySopManagementIdentity(config, management, user, signal) {
   }
   if (credential.access !== 'user_full_access' || !['sops:read', 'sops:write', 'sops:publish'].every((scope) => credential.scopes?.includes(scope))) {
     throw managementError(403, 'SOP_MANAGEMENT_SCOPE_FORBIDDEN', 'The StaffDeck account credential lacks SOP management scopes.');
+  }
+  if (requiredScope && !credential.scopes?.includes(requiredScope)) {
+    throw managementError(403, 'PUBLIC_SCOPE_FORBIDDEN', `The account credential lacks ${requiredScope}.`);
   }
   return { tenantId, actorUserId, agentId: targetAgentId, credentialId: management.credentialId };
 }
@@ -481,16 +539,17 @@ function fetchStaffDeckOwner(management, { method, path, headers, body, signal }
   });
 }
 
-/** Prepare only after the normal per-request owner verification. No route or
- * advertised operation uses this gateway while the whitelist is pending. */
-export function createStaffDeckPublicCapabilityGateway({ management, owner, signal }) {
+/** Server-only typed transport, prepared after per-request owner verification.
+ * Grants come from the route's fixed table; callers cannot supply a URL or key. */
+export function createStaffDeckPublicCapabilityGateway({ management, owner, signal, authorizedOperations = [] }) {
   if (!owner?.tenantId || !owner?.actorUserId || !owner?.credentialId
     || owner.agentId !== management?.agentId || owner.credentialId !== management?.credentialId) {
     throw managementError(409, 'SOP_MANAGEMENT_TARGET_MISMATCH', 'Public capability transport requires the verified management owner.');
   }
-  const client = createPublicCapabilityClient({
-    agentId: owner.agentId,
-    authorizedOperations: [], // Pending whitelist is never read from browser input.
+  const grants = authorizedOperations.filter(operation => PUBLIC_SDK_OPERATIONS.has(operation));
+  const clientFor = agentId => createPublicCapabilityClient({
+    agentId,
+    authorizedOperations: grants,
     transport: async plan => {
       const response = await fetchStaffDeckOwner(management, plan);
       if (plan.responseType === 'event-stream' && response.ok) {
@@ -499,10 +558,20 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
       const raw = await response.text();
       let body = raw;
       if (response.ok) { try { body = JSON.parse(raw); } catch {} }
-      return { status: response.status, body, headers: response.headers };
+      return { status: response.status, body, rawBody: raw, headers: response.headers };
     },
   });
-  const call = (operation, input, options = {}) => client.call(operation, input, { signal: options.signal ?? signal });
+  const call = (operation, input = {}, options = {}) => {
+    if (!isRecord(input)) throw managementError(400, 'PUBLIC_INPUT_INVALID', 'SDK input must be an object.');
+    const agentId = input.agentId === undefined ? owner.agentId : input.agentId;
+    if (typeof agentId !== 'string' || !agentId.trim()) {
+      throw managementError(400, 'PUBLIC_INPUT_INVALID', 'Selected agentId must be a non-empty string.');
+    }
+    // Resource selection is separate from credential ownership. SD enforces the
+    // original viewer/manager PEP for the selected agent, including non-targets.
+    const { agentId: _selectedAgent, ...sdkInput } = input;
+    return clientFor(agentId).call(operation, sdkInput, { signal: options.signal ?? signal });
+  };
   return Object.freeze({
     call,
     async events(input, options = {}) {
