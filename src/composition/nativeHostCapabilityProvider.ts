@@ -8,6 +8,8 @@
  */
 import type { ModelConfig, CanonicalModelRequest } from "../model/protocol/canonical.js";
 import type { ModelRuntime } from "../model/ModelRuntime.js";
+import { validateModelRequest } from "../model/request/validateModelRequest.js";
+import { ModelProviderError, ModelRequestError } from "../model/protocol/errors.js";
 import type { ToolRegistry } from "../tool/registry/ToolRegistry.js";
 import type { ToolRuntime } from "../tool/execution/ToolRuntime.js";
 import type { PilotDeckToolRuntimeContext } from "../tool/protocol/types.js";
@@ -32,6 +34,7 @@ export type PublicCapabilityResponse = {
 
 export type NativePublicHostRuntime = {
   modelConfig: ModelConfig;
+  defaultSelection?: { provider: string; model: string };
   modelRuntime: ModelRuntime;
   tools: ToolRegistry;
   toolRuntime: ToolRuntime;
@@ -59,6 +62,22 @@ const SUPPORTED_OPERATIONS = Object.freeze([
   "model_prepare",
   "model_stream",
 ]);
+
+export const PUBLIC_HOST_CAPABILITY_GAPS = Object.freeze({
+  create_tool: "ToolRegistry has no persisted descriptor management owner; ToolPort.execute is not a create/update operation.",
+  update_tool: "ToolRegistry.replace is in-memory only and has no public descriptor persistence contract.",
+  probe_unsaved_tool: "No mounted unsaved-descriptor probe primitive exists in the native ToolPort.",
+  remove_tool: "ToolRegistry.unregister has no persisted management/source contract.",
+  publish_general_skill: "SkillManager has no publish lifecycle operation; create/write is not publish.",
+  archive_general_skill: "SkillManager.delete is removal and cannot be exposed as archive.",
+  test_general_skill: "SkillManager has validation, not the required general-skill test execution contract.",
+  extract_sop_text: "No mounted file parsing Port is available in the native runtime root.",
+  task_start: "BackgroundTaskRuntime is Bash-only and is not a SOP preview/APIJob/Knowledge ingest task namespace.",
+  task_status: "No public domain task status reader is mounted at the host root.",
+  task_result: "No public domain task result reader is mounted at the host root.",
+  task_cancel: "No domain cancel primitive is available; disconnect must not call Bash task cancellation.",
+  task_events: "No resumable domain event cursor is mounted at the host root.",
+});
 
 const unsupported = (operation: string): PublicCapabilityResponse => ({
   status: 501,
@@ -96,6 +115,21 @@ function modelSelection(config: ModelConfig, requestedModelId: string): PublicMo
     throw new Error(matches.length === 0 ? "model_not_found" : "model_id_ambiguous");
   }
   return matches[0];
+}
+
+function validateBudget(input: Record<string, unknown>, selection: PublicModelSelection, runtime: NativePublicHostRuntime): void {
+  const budget = asRecord(input.budget);
+  if (!budget) return;
+  for (const field of ["maxOutputTokens", "maxInputTokens", "timeoutMs"]) {
+    if (budget[field] !== undefined && (!Number.isInteger(budget[field]) || Number(budget[field]) <= 0)) {
+      throw new ModelRequestError("invalid_budget", `${field} must be a positive integer.`);
+    }
+  }
+  const maxOutput = budget.maxOutputTokens;
+  const cap = runtime.modelRuntime.getCapabilities(selection.providerId, selection.selectedModelId).maxOutputTokens;
+  if (typeof maxOutput === "number" && cap !== undefined && maxOutput > cap) {
+    throw new ModelRequestError("invalid_budget", `maxOutputTokens exceeds the selected model cap (${cap}).`);
+  }
 }
 
 function descriptor(tool: ReturnType<ToolRegistry["list"]>[number]) {
@@ -143,9 +177,10 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
           return { status: 200, body: { data: runtime.tools.list().map(descriptor) } };
         case "test_tool": {
           const name = requireString(input.toolId ?? input.name, "toolId");
-          if (!Object.hasOwn(input, "input")) return invalid("test_tool requires input.");
+          const testInput = Object.hasOwn(input, "input") ? input.input : input.body;
+          if (testInput === undefined) return invalid("test_tool requires body/input.");
           const result = await runtime.toolRuntime.execute(
-            { id: `public-test-${name}`, name, input: input.input },
+            { id: `public-test-${name}`, name, input: testInput },
             runtime.toolContext(options.principal, options.signal),
           );
           return { status: 200, body: result };
@@ -158,10 +193,22 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
             cursor: input.cursor as string | undefined,
             limit: input.limit as number | undefined,
           });
-          return { status: 200, body: result };
+          return {
+            status: 200,
+            body: {
+              data: result.items,
+              next_cursor: result.nextCursor ?? null,
+              builtin: result.builtin,
+              user: result.user,
+              project: result.project,
+              projectPath: result.projectPath,
+            },
+          };
         }
-        case "import_general_skill":
-          return { status: 200, body: await runtime.skills.create(skillInput(input, runtime.projectKey)) };
+        case "import_general_skill": {
+          const payload = asRecord(input.body) ?? input;
+          return { status: 200, body: await runtime.skills.create(skillInput(payload, runtime.projectKey)) };
+        }
         case "list_model_catalog": {
           const data = Object.values(runtime.modelConfig.providers).flatMap((provider) =>
             Object.values(provider.models).map((model) => ({
@@ -170,7 +217,7 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
               model: model.id,
               provider: provider.id,
               enabled: true,
-              is_default: false,
+              is_default: runtime.defaultSelection?.provider === provider.id && runtime.defaultSelection.model === model.id,
             })),
           );
           return { status: 200, body: { data } };
@@ -179,12 +226,15 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
           const request = asRecord(input.request) as Partial<CanonicalModelRequest> | undefined;
           const requestedModelId = requireString(input.modelId ?? request?.model, "modelId");
           const selection = modelSelection(runtime.modelConfig, requestedModelId);
+          validateBudget(input, selection, runtime);
+          const preparedRequest = { ...request, model: selection.selectedModelId, provider: selection.providerId } as CanonicalModelRequest;
+          validateModelRequest(preparedRequest, runtime.modelConfig);
           return {
             status: 200,
             body: {
               requestId: requireString(input.requestId, "requestId"),
               selection,
-              request: { ...request, model: selection.selectedModelId, provider: selection.providerId },
+              request: preparedRequest,
             },
           };
         }
@@ -197,6 +247,7 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
             model: selection.selectedModelId,
             provider: selection.providerId,
           } as CanonicalModelRequest;
+          validateModelRequest(canonicalRequest, runtime.modelConfig);
           const events = runtime.modelRuntime.stream(canonicalRequest, { signal: options.signal });
           return {
             status: 200,
@@ -212,6 +263,13 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
           return unsupported(operation);
       }
     } catch (error) {
+      if (options.signal?.aborted) return { status: 499, body: { code: "PUBLIC_HOST_CANCELLED" } };
+      if (error instanceof ModelProviderError) {
+        return { status: error.error.status ?? 502, body: error.error };
+      }
+      if (error instanceof ModelRequestError) {
+        return { status: 400, body: { code: error.code, message: error.message, details: error.details } };
+      }
       const message = error instanceof Error ? error.message : String(error);
       return { status: 502, body: { code: "PUBLIC_HOST_PROVIDER_ERROR", operation, message } };
     }
