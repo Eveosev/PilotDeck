@@ -555,7 +555,7 @@ function lockPendingChangeSkillId(change: PendingChange | null, lockedSkillId: s
 }
 
 export default function DistillPage({ active = true, searchParamsOverride, currentUser, onLogout }: DistillPageProps = {}) {
-  const { navigate, api, notify, streamGet, streamPost } = useDistillPageHost();
+  const { navigate, api, notify, streamGet, streamPost, restoreEditorReadSnapshot } = useDistillPageHost();
   const [routerSearchParams] = useSearchParams();
   const searchParams = searchParamsOverride || routerSearchParams;
   const skillId = searchParams.get('skill_id');
@@ -653,6 +653,9 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
         removeDistillCache(cacheKey);
       } else {
         const cachedLockedSkillId = cached.loadedSkill?.skill_id || skillId || '';
+        // Restore the precondition from the same cached read as this content.
+        // Never fetch a newer ETag to authorize an older editable draft.
+        if (cached.loadedSkill) restoreEditorReadSnapshot?.(cached.loadedSkill);
         setDraft(lockNullableSkillIdForDraft(cached.draft, cachedLockedSkillId));
         setLoadedSkill(cached.loadedSkill);
         setLastSavedDraft(lockNullableSkillIdForDraft(cached.lastSavedDraft, cachedLockedSkillId));

@@ -219,6 +219,35 @@ describe('PilotDeck shared plaza pages', () => {
     expect(calls).not.toContain('create');
   });
 
+  it('restores cached content with its original read precondition after remount', async () => {
+    let draft = { id: 'cached-draft', sop_id: 'cached-sop', status: 'draft', etag: 'cached-etag', content: { skill_id: 'cached-sop', name: 'Cached name', description: 'Cached description' } };
+    const calls: string[] = [];
+    vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation, input: any) => {
+      calls.push(operation);
+      if (operation === 'list') return { data: [], drafts: [draft] } as never;
+      if (operation === 'get_draft') return structuredClone(draft) as never;
+      if (operation === 'replace_draft') {
+        if (input.etag !== draft.etag) throw Object.assign(new Error('stale cached edit'), { status: 412 });
+        draft = { ...draft, etag: 'saved-etag', content: input.content };
+        return structuredClone(draft) as never;
+      }
+      throw new Error(`Unexpected ${operation}`);
+    });
+    const path = '/api/enterprise/skills/cached-sop';
+    const first = createPilotDeckDistillPageHost();
+    const cached = await first.api.get<any>(path);
+    const remounted = createPilotDeckDistillPageHost();
+    remounted.restoreEditorReadSnapshot!(cached);
+    calls.length = 0;
+    await remounted.api.put(path, { name: 'Reloaded name' });
+    expect(calls).toEqual(['replace_draft']);
+    expect(draft.content.description).toBe('Cached description');
+    const staleRemount = createPilotDeckDistillPageHost();
+    staleRemount.restoreEditorReadSnapshot!(cached);
+    await expect(staleRemount.api.put(path, { description: 'Stale cached change' })).rejects.toMatchObject({ status: 412 });
+    expect(draft.content.name).toBe('Reloaded name');
+  });
+
   it('keeps unrelated published SOPs and reads the editable draft through get_draft', async () => {
     const operations: string[] = [];
     vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {
