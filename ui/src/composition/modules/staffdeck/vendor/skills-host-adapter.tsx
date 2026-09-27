@@ -1,3 +1,4 @@
+import { planPublicHost, callPublicHost, selectedPublicScope, publicModuleClient, previewEvents } from '../public-host-mapping';
 import type { SkillsPageHost } from './SkillsPageHost';
 import { SkillsPageHostProvider } from './SkillsPageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
@@ -89,8 +90,8 @@ async function management(operation: string, input: Record<string, unknown> = {}
   return options ? staffDeckSopManagementClient.call(operation, input, options) : staffDeckSopManagementClient.call(operation, input);
 }
 
-async function listDefinitions(options?: ModuleRequestOptions): Promise<any[]> {
-  const result = record(await management('list', {}, options));
+async function listDefinitions(options?: ModuleRequestOptions, scope?: ReturnType<typeof selectedPublicScope>): Promise<any[]> {
+  const result = record(scope ? (await publicModuleClient.call('list_sops', {}, { scope, signal: options?.signal })).body : await management('list', {}, options));
   if (!Array.isArray(result.data) || !Array.isArray(result.drafts)) throw new Error('SOP list response must include data and drafts arrays.');
   const published = result.data.map(toManagedSkill);
   const drafts: ReturnType<typeof toManagedSkill>[] = [];
@@ -123,8 +124,17 @@ async function listDefinitions(options?: ModuleRequestOptions): Promise<any[]> {
   return rows;
 }
 
+async function requireManagementScope(path: string, body: unknown, context?: CopyContext, options?: ModuleRequestOptions) {
+  if (!context && !new URL(path, 'http://host.local').searchParams.has('agent_id')) return;
+  const scope = selectedPublicScope(path, body as Record<string, unknown>, context?.readScope);
+  const status = await staffDeckSopManagementClient.status(options);
+  if (scope.kind !== 'agent' || scope.agentId !== status.agentId) throw new Error('PUBLIC_SCOPED_MANAGEMENT_UNAVAILABLE: this draft/version management operation has no equivalent selected-scope contract.');
+}
+
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  const publicPlan = planPublicHost(path, method, body);
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
   const url = new URL(path, 'http://staffdeck.local');
   const match = path.split('?')[0].match(/^\/api\/enterprise\/skills\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?(?:\/([^/]+))?$/);
   const importMatch = path.match(/^\/api\/enterprise\/agents\/([^/?]+)\/resources\/import$/);
@@ -133,8 +143,11 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
     resourceType: body?.resource_type, resourceIds: body?.resource_ids,
   });
   if (url.pathname === '/api/enterprise/skills') {
-    if (method === 'get') return await listDefinitions(options) as T;
-    if (method === 'post') return toManagedSkill(await management('create', { content: record(body?.content ?? body) }, options)) as T;
+    if (method === 'get') return await listDefinitions(options, url.searchParams.has('agent_id') || context ? selectedPublicScope(path, body, context?.readScope) : undefined) as T;
+    if (method === 'post') {
+      await requireManagementScope(path, body, context, options);
+      return toManagedSkill(await management('create', { content: record(body?.content ?? body) }, options)) as T;
+    }
   }
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return await (context ? context.loadDirectory(options) : loadCopyDirectory(options)) as T;
   if (/^\/api\/enterprise\/agents\/[^/]+\/skills$/.test(url.pathname)) {
@@ -143,6 +156,7 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
     return await staffDeckCopyClient.call<T>('list_skills', { sourceAgentId });
   }
   if (!match) throw new Error(`Unsupported StaffDeck skills path: ${path}`);
+  await requireManagementScope(path, body, context, options);
   const sopId = decodeURIComponent(match[1]);
   const suffix = match[2] ? decodeURIComponent(match[2]) : '';
   const version = match[3] ? decodeURIComponent(match[3]) : undefined;
@@ -215,8 +229,10 @@ function queryPathIsSkill(path: string): boolean {
   return /^\/api\/enterprise\/skills\/[^/]+$/.test(path.split('?')[0]);
 }
 
-async function callDistillApi<T>(snapshots: Map<string, any>, path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions): Promise<T> {
+async function callDistillApi<T>(snapshots: Map<string, any>, path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  const publicPlan = planPublicHost(path, method, body);
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
   if (path.startsWith('/api/enterprise/tools')) throw new Error('PilotDeck tools capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/general-skills')) throw new Error('PilotDeck general-skills capability is unavailable in this host.');
   if (path.startsWith('/api/enterprise/model-configs')) throw new Error('PilotDeck model-configs capability is unavailable in this host.');
@@ -226,11 +242,13 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
     const input: Record<string, unknown> = {};
     if (query.get('agent_id')) input.agentId = query.get('agent_id');
     if (query.get('tenant_id')) input.tenantId = query.get('tenant_id');
+    if (context || query.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope), options?.signal) as T;
     return await staffDeckKnowledgeClient.call<T>('list_bases', input, options);
   }
   if (path.split('?')[0] === '/api/enterprise/skills') {
-    if (method === 'get') return await listDefinitions(options) as T;
+    if (method === 'get') return await listDefinitions(options, new URL(path, 'http://host.local').searchParams.has('agent_id') || context ? selectedPublicScope(path, body, context?.readScope) : undefined) as T;
     if (method === 'post') {
+      await requireManagementScope(path, body, context, options);
       const created = toManagedSkill(await management('create', { content: record(body?.content ?? body) }, options));
       if (!text(created.draft_id)) throw new Error('SOP create response has no draft ID.');
       options?.signal?.throwIfAborted();
@@ -239,6 +257,7 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
     }
   }
   const skillId = skillIdFromPath(path);
+  if (skillId) await requireManagementScope(path, body, context, options);
   if (skillId && method === 'get' && queryPathIsSkill(path)) {
     const query = new URLSearchParams(path.split('?')[1] || '');
     const loaded = await readDefinition(skillId, text(query.get('draft_id')), text(query.get('published_version')), options);
@@ -270,7 +289,7 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
     return next as T;
   }
   if (method === 'post' && path.startsWith('/api/enterprise/skills/jobs/')) throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.');
-  return await callSkillApi<T>(path, method, body, options);
+  return await callSkillApi<T>(path, method, body, options, context);
 }
 
 export const pilotDeckSkillsPageHost: SkillsPageHost = {
@@ -366,14 +385,29 @@ export function createPilotDeckDistillPageHost(context?: CopyContext, observer?:
     snapshots.set(snapshot.skill_id, structuredClone(snapshot));
   },
   api: {
-    get: (path, options) => callDistillApi(snapshots, path, 'get', undefined, options),
-    post: (path, body) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer)),
-    postWithSignal: (path, body, signal) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer, { signal })),
-    put: (path, body) => callDistillApi(snapshots, path, 'put', body),
-    delete: (path) => callDistillApi(snapshots, path, 'delete'),
+    get: (path, options) => callDistillApi(snapshots, path, 'get', undefined, options, context),
+    post: (path, body) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer), context),
+    postWithSignal: (path, body, signal) => callDistillApi(snapshots, path, 'post', body, runtimePublishOptions(path, observer, { signal }), context),
+    put: (path, body) => callDistillApi(snapshots, path, 'put', body, undefined, context),
+    delete: (path) => callDistillApi(snapshots, path, 'delete', undefined, undefined, context),
   },
-  streamGet: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
-  streamPost: async () => { throw new Error('SOP generation streaming is unavailable in the portable PilotDeck definition host.'); },
+  streamGet: async (path, onEvent, signal) => {
+    const url = new URL(path, 'http://host.local');
+    const match = url.pathname.match(/^\/api\/enterprise\/skills\/jobs\/([^/]+)\/stream$/);
+    if (!match) throw new Error('Unsupported preview stream path.');
+    await previewEvents(decodeURIComponent(match[1]), selectedPublicScope(path, undefined, context?.readScope), url.searchParams.get('after_seq') ?? undefined, onEvent, signal);
+  },
+  streamPost: async (path, body, onEvent, signal) => {
+    const url = new URL(path, 'http://host.local');
+    const rewrite = url.pathname.match(/^\/api\/enterprise\/skills\/([^/]+)\/rewrite\/stream$/);
+    if (!rewrite && url.pathname !== '/api/enterprise/skills/distill/stream') throw new Error('Unsupported preview request path.');
+    const scope = selectedPublicScope(path, body, context?.readScope);
+    const inputBody = { ...body }; delete inputBody.tenant_id; delete inputBody.agent_id;
+    const response = await publicModuleClient.call(rewrite ? 'preview_rewrite_sop' : 'preview_generate_sop', { ...(rewrite ? { sopId: decodeURIComponent(rewrite[1]) } : {}), body: inputBody }, { scope, signal });
+    const job = response.body as { job_id?: string };
+    if (response.status !== 202 || !job?.job_id) throw new Error('Preview did not return its own 202 job_id.');
+    await previewEvents(job.job_id, scope, undefined, onEvent, signal);
+  },
   navigate: (path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); },
   tenantId: PILOTDECK_SOP_TENANT_ID,
   notify: staffDeckNotify,

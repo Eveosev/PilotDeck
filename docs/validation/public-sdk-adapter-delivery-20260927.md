@@ -9,3 +9,29 @@ Focused evidence: `public-module-client.test.ts` 2/2 PASS; `pnpm --dir ui run ty
 The new user approval removes only the whitelist and account `sops:cancel` **decision** blocks. Production mapping remains dependent on the public SDK owner's fixed operation names and per-operation method/path/ID/query/body/response/PEP contract, plus the integrator's named module gateway route and event transport. In particular, the existing public helper's `agentId` is one configured target: routing the original employee/team/non-target Host queries to that target would change visible scope, so those paths are not silently enabled. Dirty `current_skill`/conversation preview must use the eventual non-persisting preview facade, never existing saved-SOP rewrite; source stream events cannot be synthesized from a 202 job. The adapter owner will apply those Host mappings to its files after the SDK contract freezes. The shared `modules.js` must remain a single-owner integration hunk.
 
 No scope/key change, core/AgentLoop change, auto publish, dirty reset, ETag refresh or gate PASS follows from this local increment. The existing cleanpair remains the only concentrated candidate until integration makes a new fixed pair.
+
+## Frozen SDK consumption increment (supersedes the first increment's dependency wait)
+
+Consumed fixed SD ec4ea82cf1133fd337b34d5421c520fcf97859f7 / PD c52d715c1b73bceb453d16b27dda6a47db93b7e8 gateway contract and SDK ad637585/6fc5e555. This branch retains 68f51bf9 on parent 06122672; integrator must apply only this new fixed diff over later baseline work. No common routes, canonical vendor/lock or another owner's dirty content was read/changed.
+
+Browser call now sends `{operation,input,scope}` to `/api/modules/staffdeck-sdk/call`. Explicit query/body/path employee wins; team/empty selected scope stays team; absent selected context rejects rather than falling back to configured target. Global APIJob requests omit scope. `gatewayEvents` calls GET `/api/modules/staffdeck-sdk/events`; APIJob uses original `id` and Last-Event-ID, preview uses scoped `afterSeq` and unchanged payload `seq`. UTF8/CRLF frames and cancellation preserve original events; disconnect does not send cancel.
+
+| Original Host call | Fixed SDK consumption |
+|---|---|
+| tools/general/model/user GET directories | list_tools/list_general_skills/list_model_catalog/list_handoff_users; strict `data[]` projection |
+| scoped SOP/KB directories | list_sops (preserving all data/drafts, row IDs/dates)/list_knowledge_bases; selected employee/team |
+| tool POST/PUT/test, unsaved probe, DELETE | create_tool/update_tool/test_tool/probe_unsaved_tool/remove_tool; path tool ID and original body minus host authority fields |
+| general POST and slug publish/archive/test | import_general_skill/publish_general_skill/archive_general_skill/test_general_skill; encoded slug is decoded once, original result retained |
+| SOP move/Remove/sync/promote/history DELETE | move_to_draft_sop/remove_sop/sync_sop_from_overall/promote_sop_to_overall/delete_sop_version; exact source path SOP/employee/version IDs, no create/archive/rollback substitution |
+| file extract | extract_sop_text with filename/content_base64 and original signal; no Knowledge write |
+| Distill generation/rewrite stream | preview_generate_sop/preview_rewrite_sop -> actual 202 job_id -> preview_job_events; dirty current_skill/conversation/target_path(s)/label preserved, no save or snapshot reset |
+| Distill resume/cancel | scoped preview_job_events afterSeq/cancel_preview_job; distinct from APIJob namespace |
+| saved generation/rewrite + global APIJob | generic named browser client supports generate_sop/rewrite_saved_sop/get_job/get_job_result/cancel_job; gatewayEvents supports job_events. These are not substituted into the original transient preview UI |
+| existing save/read/replace/publish/archive/rollback | original management lifecycle retained; selected non-target/team management explicitly rejects PUBLIC_SCOPED_MANAGEMENT_UNAVAILABLE instead of operating on configured target. Existing publish coordinator remains single-call |
+
+Remaining bounded contracts for public/route owner: selected-scope get_draft/get_version/list_versions/create/replace_draft/publish/archive/rollback must preserve owner response and same ETag; team writes outside the nine frozen team routes remain PUBLIC_TEAM_PROTOCOL_UNAVAILABLE; conditional writes remain PUBLIC_CONDITIONAL_WRITE_UNAVAILABLE until exact If-Match handling is provided. No conditional fields are dropped. External handoff 503 is propagated, not replaced by shadow rows. Full original Knowledge read/write scope/PEP beyond the new scoped list remains a public integration/evidence dependency; this increment does not assert its closure.
+
+Focused verification: module transport + new mapping + original editor lifecycle 20 PASS, then newly added independent APIJob cursor test makes the mapping file 9 PASS. UI typecheck checked after scope integration. No business service/model run, full-suite rerun, gate approval or new candidate. Initial mapping fixture attempted to spy on a frozen client (failed); corrected to mock the actual browser fetch. Initial typecheck exposed old target-lib Object.hasOwn and call scope signature, then a narrowed context expression; fixed without changing dependencies.
+
+Knowledge focused regression subsequently passed 12/12. Its two first failures were the old plaza fixture expecting the former copy list (now correctly asserts SDK selected-scope wire body) and the new SOP/tool planner decoding an unrelated malformed Knowledge path; the planner now returns before decoding unrelated namespaces. Final typecheck rerun follows these focused changes. This is not a repeated business round.
+Final mapping file 10/10 PASS includes a zero-business-call guard for non-target/team draft management; final UI typecheck PASS. The 20 combined tests and later 10 mapping tests overlap and are not added together.

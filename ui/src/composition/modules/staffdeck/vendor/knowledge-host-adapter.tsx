@@ -1,3 +1,4 @@
+import { planPublicHost, callPublicHost, selectedPublicScope } from '../public-host-mapping';
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
@@ -44,6 +45,8 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
 }
 
 async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext): Promise<T> {
+  const publicPlan = planPublicHost(path, method, body);
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope)) as T;
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
   const exact = (...shape: string[]) => segments.length === shape.length && shape.every((part, index) => part === '*' ? Boolean(segments[index]) : part === segments[index]);
@@ -55,8 +58,9 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (!conceptPath && segments.length > allowedLength) throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return await staffDeckCopyClient.call<T>('list_agents');
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') {
+    if (context || url.searchParams.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope)) as T;
     const sourceAgentId = url.searchParams.get('agent_id');
-    if (sourceAgentId && sourceAgentId !== (context ? context.readScope() : pilotDeckAgentScope())) {
+    if (sourceAgentId && sourceAgentId !== pilotDeckAgentScope()) {
       return await staffDeckCopyClient.call<T>('list_knowledge_bases', { sourceAgentId });
     }
     return await knowledge<T>('list_bases', optionalQueryInput(url));

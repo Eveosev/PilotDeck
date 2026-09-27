@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
 import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
@@ -72,6 +72,7 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
   });
 
   it('maps both shared plaza pages to scoped source reads and formal resource imports', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: [] })));
     const originalCall = staffDeckCopyClient.call;
     const calls: Array<{ operation: string; input: Record<string, unknown> }> = [];
     staffDeckCopyClient.call = async (operation, input = {}) => {
@@ -85,12 +86,12 @@ describe('PilotDeck Knowledge host authorization boundary', () => {
       await pilotDeckKnowledgePageHost.api.post('/api/enterprise/agents/employee-real/resources/import', { source_agent_id: 'plaza-real', resource_type: 'knowledge_base', resource_ids: ['base-real'], tenant_id: 'forged' });
       await pilotDeckSkillsPageHost.api.post('/api/enterprise/agents/employee-real/resources/import', { source_agent_id: 'plaza-real', resource_type: 'skill', resource_ids: ['sop-real'], tenant_id: 'forged' });
       expect(calls).toEqual([
-        { operation: 'list_knowledge_bases', input: { sourceAgentId: 'plaza-real' } },
         { operation: 'list_skills', input: { sourceAgentId: 'plaza-real' } },
         { operation: 'import_resources', input: { targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'knowledge_base', resourceIds: ['base-real'] } },
         { operation: 'import_resources', input: { targetAgentId: 'employee-real', sourceAgentId: 'plaza-real', resourceType: 'skill', resourceIds: ['sop-real'] } },
       ]);
-    } finally { staffDeckCopyClient.call = originalCall; window.localStorage.removeItem('ultrarag_enterprise_agent_scope'); }
+      expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toMatchObject({ operation: 'list_knowledge_bases', scope: { kind: 'agent', agentId: 'plaza-real' } });
+    } finally { fetch.mockRestore(); staffDeckCopyClient.call = originalCall; window.localStorage.removeItem('ultrarag_enterprise_agent_scope'); }
   });
 
   it('resolves plaza copy only from an actual overall agent in either shared page', () => {
