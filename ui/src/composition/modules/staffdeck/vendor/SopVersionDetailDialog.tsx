@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { History, Workflow } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle, DetailField, IconSkill } from './SkillsPageHost';
 
 export type StaffDeckSopVersion = {
   id: string;
@@ -47,28 +46,29 @@ export function SopVersionDetailDialog({ detail, onClose, labels = DEFAULT_LABEL
   onClose: () => void;
   labels?: SopVersionDetailLabels;
 }) {
-  useEffect(() => {
-    if (!detail) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [detail, onClose]);
-  if (!detail) return null;
-  const value = (item: unknown) => typeof item === 'number' ? String(item) : String(item || labels.unknown);
-  const rate = (item: unknown) => typeof item === 'number' ? `${Math.round(item * 100)}%` : labels.unknown;
-  const status = detail.status === 'published' ? labels.published : detail.status === 'draft' ? labels.draft : detail.status === 'archived' ? labels.archived : value(detail.status);
-  const source = skillSourceText(detail);
-  return <div role="dialog" aria-modal="true" aria-label={`${labels.title}: ${detail.name} / ${detail.version}`} className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="flex max-h-[calc(100dvh-4rem)] w-[min(900px,calc(100vw-2rem))] flex-col gap-4 overflow-hidden rounded-[14px] bg-white px-5 py-4 text-neutral-900 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <header className="flex items-center gap-2 text-sm text-neutral-500"><Workflow className="size-4 shrink-0" /><h2 className="min-w-0 truncate font-normal">{labels.title}: {detail.name} / {detail.version}</h2><button type="button" aria-label="Close" className="ml-auto rounded px-2 py-1 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onClose}>×</button></header>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
-        <div className="grid grid-cols-2 gap-2.5 max-[520px]:grid-cols-1">{[
-          [labels.version, detail.version], [labels.domain, detail.business_domain], [labels.status, status], [labels.calls, `${value(detail.call_count)} 次`], [labels.positive, rate(detail.positive_rate)], [labels.negative, rate(detail.negative_rate)], [labels.updated, detail.updated_at.slice(0, 10)],
-        ].map(([label, item]) => <div key={label} className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm dark:border-neutral-800 dark:bg-neutral-950"><span className="text-xs font-semibold text-neutral-500">{label}</span><strong className="break-words">{item || labels.unknown}</strong></div>)}</div>
-        <pre className="overflow-x-auto rounded-xl bg-neutral-100 p-3.5 text-xs leading-7 text-neutral-700 whitespace-pre-wrap break-words dark:bg-neutral-950 dark:text-neutral-300"><History className="mb-2 size-4" />{source}</pre>
+  const status = detail?.status === 'published' ? labels.published : detail?.status === 'draft' ? labels.draft : detail?.status === 'archived' ? labels.archived : detail?.status || labels.unknown;
+  // Mechanical restoration of the original VersionDetailDialog layout.
+  // Controlled Close, focus, portal and Escape belong to the formal Host.
+  return <Dialog open={Boolean(detail)} onOpenChange={(next: boolean) => !next && onClose()}>
+    <DialogContent aria-describedby={undefined} className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[900px]">
+      <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <IconSkill className="size-[14px] shrink-0" />
+        <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">{detail ? `${labels.title}：${detail.name} / ${detail.version}` : labels.emptyTitle}</DialogTitle>
       </div>
-    </section>
-  </div>;
+      {detail && <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto px-[12px]">
+        <div className="grid grid-cols-2 gap-[10px] max-[520px]:grid-cols-1">
+          <DetailField label={labels.version}>{detail.version}</DetailField>
+          <DetailField label={labels.domain}>{detail.business_domain || labels.unknown}</DetailField>
+          <DetailField label={labels.status}>{status}</DetailField>
+          <DetailField label={labels.calls}>{detail.call_count || 0} 次</DetailField>
+          <DetailField label={labels.positive}>{`${Math.round((detail.positive_rate || 0) * 100)}%`}</DetailField>
+          <DetailField label={labels.negative}>{`${Math.round((detail.negative_rate || 0) * 100)}%`}</DetailField>
+          <DetailField label={labels.updated}>{detail.updated_at.slice(0, 10)}</DetailField>
+        </div>
+        <pre className="overflow-x-auto rounded-[12px] bg-[#f6f6f6] p-[14px] text-[12px] leading-[1.7] text-[#464c5e] wrap-anywhere whitespace-pre-wrap" data-i18n-ignore="true">{skillSourceText(detail)}</pre>
+      </div>}
+    </DialogContent>
+  </Dialog>;
 }
 
 function skillSourceText(detail: StaffDeckSopVersion): string {

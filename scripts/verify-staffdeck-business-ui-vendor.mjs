@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +17,9 @@ const [upstreamPackage, vendorPackage] = await Promise.all([
 if (upstreamPackage.name !== '@staffdeck/business-ui' || vendorPackage.name !== upstreamPackage.name || vendorPackage.version !== upstreamPackage.version) {
   throw new Error(`PilotDeck StaffDeck UI vendor version mismatch: ${vendorPackage.name}@${vendorPackage.version} != ${upstreamPackage.name}@${upstreamPackage.version}`);
 }
-const files = ['KnowledgeGraphCanvas.tsx', 'KnowledgeGraphCanvas.css', 'types.ts', 'KnowledgePage.tsx', 'KnowledgePageHost.tsx', 'SkillsPage.tsx', 'SkillsPageHost.tsx', 'DistillPage.tsx', 'DistillPageHost.tsx', 'distillPageStyles.ts', 'distillFailure.ts', 'skillFlowModel.ts', 'SopVersionDetailDialog.tsx'];
+// Audit every authoritative source, including mechanically extracted formal
+// helpers; an old fixed thirteen-file list would silently omit new consumers.
+const files = (await readdir(resolve(upstreamRoot, 'src'))).filter((file) => /\.(tsx?|css)$/.test(file));
 const mismatches = [];
 for (const file of files) {
   const [upstream, vendor] = await Promise.all([
@@ -30,4 +32,4 @@ for (const file of files) {
 if (mismatches.length > 0) {
   throw new Error(`PilotDeck StaffDeck UI vendor snapshot is stale: ${mismatches.join(', ')}`);
 }
-process.stdout.write(`PilotDeck StaffDeck UI vendor snapshot matches ${upstreamPackage.name} ${upstreamPackage.version}.\n`);
+process.stdout.write(`PilotDeck StaffDeck UI vendor snapshot matches ${upstreamPackage.name} ${upstreamPackage.version} (${files.length} source files).\n`);

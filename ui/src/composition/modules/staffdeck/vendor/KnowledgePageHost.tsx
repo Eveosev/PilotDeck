@@ -61,7 +61,11 @@ export function useKnowledgePageHost(): Host { return useContext(HostContext); }
 export const TENANT_ID = defaultHost.tenantId;
 export const api: Api = { get: (path, options) => activeHost.api.get(path, options), post: (path, body, options) => activeHost.api.post(path, body, options), put: (path, body) => activeHost.api.put(path, body), delete: (path) => activeHost.api.delete(path), blob: (path) => activeHost.api.blob(path) };
 export const navigate = (path: string) => activeHost.navigate(path);
-export class ApiError extends Error { status = 500; }
+export { ApiError } from './FormalApiError';
+// Native and public module transports have different error constructors.
+export function hasApiErrorStatus(error: unknown, status: number): boolean {
+  return error instanceof Error && 'status' in error && error.status === status;
+}
 export const notify = { success: (message: string) => activeHost.notify.success(message), warning: (message: string) => activeHost.notify.warning(message), error: (message: string) => activeHost.notify.error(message) };
 export const isEnterpriseAdmin = (user?: EnterpriseAuthUser) => activeHost.isEnterpriseAdmin(user);
 export const loadEmployeeDirectory = () => activeHost.loadEmployeeDirectory();
@@ -77,15 +81,15 @@ export const resourceCreatorName = (row: Record<string, any>) => activeHost.reso
 export const visibleEmployeeAgents = (...args: Parameters<Host['visibleEmployeeAgents']>) => activeHost.visibleEmployeeAgents(...args);
 export const renderMarkdownBlocks = (value: string) => activeHost.renderMarkdownBlocks(value);
 export const getDateLocale = () => activeHost.getDateLocale();
-export const normalizeCapabilityScope = (value: unknown) => value;
-export const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' ');
-export const useClientPagination = <T,>(items: T[], pageSize: number, _resetKey: unknown) => { const [page, setPage] = useState(1); const pageCount = Math.max(1, Math.ceil(items.length / pageSize)); const safePage = Math.min(page, pageCount); return { page: safePage, pageCount, setPage, pagedItems: items.slice((safePage - 1) * pageSize, safePage * pageSize) }; };
+export { normalizeCapabilityScope } from './FormalCapabilityScopeControl';
+export { cn } from './FormalUtils';
+export { useClientPagination } from './FormalPagination';
 
 const iconMap: Record<string, any> = { AuditOutlined: Check, CheckOutlined: Check, CloseOutlined: X, DatabaseOutlined: Folder, DeleteOutlined: Trash2, DownloadOutlined: Download, EditOutlined: FilePlus2, FileAddOutlined: FilePlus2, FileMarkdownOutlined: FilePlus2, HistoryOutlined: History, InboxOutlined: Folder, MoreOutlined: MoreHorizontal, PauseCircleOutlined: Pause, PlayCircleOutlined: Play, ReloadOutlined: RefreshCw, RightOutlined: ChevronDown, TeamOutlined: Folder, IconAdd: FilePlus2, IconChevronDown: ChevronDown, IconClear: X, IconFolder: Folder, IconRefresh: RefreshCw, IconSearch: Search };
 function icon(name: string): ComponentType<any> { return (props: any) => { const host = useKnowledgePageHost(); const Icon = host.icons?.[name] || iconMap[name] || FilePlus2; return createElement(Icon, props); }; }
 export const AuditOutlined = icon('AuditOutlined'); export const CheckOutlined = icon('CheckOutlined'); export const CloseOutlined = icon('CloseOutlined'); export const DatabaseOutlined = icon('DatabaseOutlined'); export const DeleteOutlined = icon('DeleteOutlined'); export const DownloadOutlined = icon('DownloadOutlined'); export const EditOutlined = icon('EditOutlined'); export const FileAddOutlined = icon('FileAddOutlined'); export const FileMarkdownOutlined = icon('FileMarkdownOutlined'); export const HistoryOutlined = icon('HistoryOutlined'); export const InboxOutlined = icon('InboxOutlined'); export const MoreOutlined = icon('MoreOutlined'); export const PauseCircleOutlined = icon('PauseCircleOutlined'); export const PlayCircleOutlined = icon('PlayCircleOutlined'); export const ReloadOutlined = icon('ReloadOutlined'); export const RightOutlined = icon('RightOutlined'); export const TeamOutlined = icon('TeamOutlined'); export const IconAdd = icon('IconAdd'); export const IconChevronDown = icon('IconChevronDown'); export const IconClear = icon('IconClear'); export const IconFolder = icon('IconFolder'); export const IconRefresh = icon('IconRefresh'); export const IconSearch = icon('IconSearch');
 
-function passthrough(name: string, fallback: ComponentType<any> = ({ children, ...props }: any) => <div {...props}>{children}</div>): ComponentType<any> { return (props: any) => { const host = useKnowledgePageHost(); return createElement(host.components?.[name] || fallback, props); }; }
+function passthrough(name: string, fallback: ComponentType<any> = ({ children, ...props }: any) => <div {...props}>{children}</div>): ComponentType<any> { return forwardRef<any, any>((props, ref) => { const host = useKnowledgePageHost(); const injected = host.components?.[name]; return createElement(injected || fallback, injected ? { ...props, ref } : props); }); }
 function refPassthrough(name: string, fallback: ComponentType<any>): ComponentType<any> {
   return forwardRef<any, any>((props, ref) => {
     const host = useKnowledgePageHost();
@@ -99,5 +103,5 @@ export const ConfirmDialog = passthrough('ConfirmDialog', DefaultConfirmDialog);
 export const DropdownMenu = passthrough('DropdownMenu', DefaultDropdownMenu); export const DropdownMenuContent = passthrough('DropdownMenuContent', DefaultDropdownMenuContent); export const DropdownMenuItem = passthrough('DropdownMenuItem', DefaultDropdownMenuItem); export const DropdownMenuSeparator = passthrough('DropdownMenuSeparator', DefaultDropdownMenuSeparator); export const DropdownMenuTrigger = passthrough('DropdownMenuTrigger', DefaultDropdownMenuTrigger);
 export const Paginator = passthrough('Paginator', DefaultPaginator); export const ResourceImportDialog = passthrough('ResourceImportDialog', DefaultResourceImportDialog); export const SelectContent = passthrough('SelectContent', DefaultSelectContent); export const SelectItem = passthrough('SelectItem', DefaultSelectItem); export const SelectTrigger = passthrough('SelectTrigger', DefaultSelectTrigger); export const SelectValue = passthrough('SelectValue', DefaultSelectValue); export const StatusBadge = passthrough('StatusBadge', DefaultStatusBadge); export const UIButton = passthrough('UIButton', DefaultUIButton);
 export { KnowledgeGraphCanvas };
-export const DIALOG_CANCEL_BUTTON_CLASS = ''; export const DIALOG_FOOTER_CLASS = ''; export const DIALOG_PRIMARY_BUTTON_CLASS = ''; export const MENU_CONTENT_CLASS = ''; export const MENU_ITEM_CLASS = ''; export const MENU_ITEM_DANGER_CLASS = 'text-red-600'; export const MOBILE_CARD_CLASS = 'rounded-lg border p-4'; export const OUTLINE_ACTION_BUTTON_CLASS = ''; export const OUTLINE_ACTION_BUTTON_SM_CLASS = ''; export const SEARCH_COMBO_BUTTON_CLASS = ''; export const SEARCH_COMBO_CLASS = ''; export const SEARCH_COMBO_INPUT_CLASS = ''; export const SELECT_TRIGGER_CLASS = '';
+export { DIALOG_CANCEL_BUTTON_CLASS } from './FormalHostStyles'; export { DIALOG_FOOTER_CLASS } from './FormalHostStyles'; export { DIALOG_PRIMARY_BUTTON_CLASS } from './FormalHostStyles'; export { MENU_CONTENT_CLASS } from './FormalHostStyles'; export { MENU_ITEM_CLASS } from './FormalHostStyles'; export { MENU_ITEM_DANGER_CLASS } from './FormalHostStyles'; export { MOBILE_CARD_CLASS } from './FormalHostStyles'; export { OUTLINE_ACTION_BUTTON_CLASS } from './FormalHostStyles'; export { OUTLINE_ACTION_BUTTON_SM_CLASS } from './FormalHostStyles'; export { SEARCH_COMBO_BUTTON_CLASS } from './FormalHostStyles'; export { SEARCH_COMBO_CLASS } from './FormalHostStyles'; export { SEARCH_COMBO_INPUT_CLASS } from './FormalHostStyles'; export { SELECT_TRIGGER_CLASS } from './FormalHostStyles';
 export const KnowledgeGraphVisualization = passthrough('KnowledgeGraphVisualization');

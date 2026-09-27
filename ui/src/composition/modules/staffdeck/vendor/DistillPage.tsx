@@ -32,12 +32,12 @@ import {
   Checkbox, Dialog, DialogContent, DialogFooter, DialogTitle, Input, Popover,
   PopoverContent, PopoverTrigger, UISelect, SelectContent, SelectItem,
   SelectTrigger, SelectValue, Textarea, Tooltip, TooltipContent,
-  TooltipProvider, TooltipTrigger, UIButton, notify, ConfirmDialog, AppHeader,
+  TooltipProvider, TooltipTrigger, UIButton, ConfirmDialog, AppHeader,
   CapabilityScopeBadge, CapabilityScopeControl, normalizeCapabilityScope,
-  ModelConfigDropdown, cn, isTeamScope, readEmployeeScope,
+  ModelConfigDropdown, cn,
   subscribeEnterpriseCapabilityCatalogRefresh, SELECT_TRIGGER_CLASS,
   formatHandoffAssigneeValue, parseHandoffAssigneeValue,
-  api, ApiError, streamGet, streamPost, TENANT_ID, copyTextToClipboard,
+  ApiError, copyTextToClipboard,
   useDistillPageHost,
 } from './DistillPageHost';
 import type { EnterpriseAuthUser, GeneralSkillRead, KnowledgeBaseRead, ModelConfigRead, SkillCard, SkillRead, ToolProbeResponse, ToolRead, ToolSuggestion } from './DistillPageHost';
@@ -555,7 +555,7 @@ function lockPendingChangeSkillId(change: PendingChange | null, lockedSkillId: s
 }
 
 export default function DistillPage({ active = true, searchParamsOverride, currentUser, onLogout }: DistillPageProps = {}) {
-  const { navigate, api, notify, streamGet, streamPost, restoreEditorReadSnapshot, saveVersionPolicy } = useDistillPageHost();
+  const { navigate, api, notify, streamGet, streamPost, restoreEditorReadSnapshot, saveVersionPolicy, permitsNativeConflictRecovery, tenantId: TENANT_ID, readEmployeeScope, isTeamScope } = useDistillPageHost();
   const [routerSearchParams] = useSearchParams();
   const searchParams = searchParamsOverride || routerSearchParams;
   const skillId = searchParams.get('skill_id');
@@ -1234,7 +1234,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
         try {
           savedSkill = await api.post<SkillRead>(`/api/enterprise/skills${agentOnlyQuery}`, { tenant_id: TENANT_ID, content: finalDraft, status: 'published' });
         } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409) throw error;
+          if (!permitsNativeConflictRecovery?.(error)) throw error;
           finalDraft = {
             ...cloneSkill(finalDraft),
             skill_id: uniqueDraftSkillId(finalDraft.skill_id),
@@ -1553,7 +1553,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
     setToolSuggestionPatch(messageId, suggestion.name, { probeStatus: 'probing' });
     try {
       const payload = {
-        ...toolPayloadFromSuggestion(suggestion, lockNullableSkillIdForDraft(pendingChange?.nextDraft || draft, lockedSkillId)?.skill_id),
+        ...toolPayloadFromSuggestion(suggestion, lockNullableSkillIdForDraft(pendingChange?.nextDraft || draft, lockedSkillId)?.skill_id, TENANT_ID),
         sample_arguments: args,
       };
       const result = await api.post<ToolProbeResponse>('/api/enterprise/tools/probe', payload);
@@ -1645,15 +1645,15 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
         if (!suggestion.probe_result?.success) {
           throw new Error(`工具「${suggestion.display_name || suggestion.name}」尚未测试通过`);
         }
-        const payload = toolPayloadFromSuggestion(suggestion, activeDraft?.skill_id);
+        const payload = toolPayloadFromSuggestion(suggestion, activeDraft?.skill_id, TENANT_ID);
         let createdTool: ToolRead;
         let createdNewTool = false;
         try {
           createdTool = await api.post<ToolRead>(`/api/enterprise/tools${agentQuery ? `?${agentQuery.slice(1)}` : ''}`, payload);
           createdNewTool = true;
         } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409) throw error;
-          createdTool = toolReadFromSuggestion(suggestion, activeDraft?.skill_id);
+          if (!permitsNativeConflictRecovery?.(error)) throw error;
+          createdTool = toolReadFromSuggestion(suggestion, activeDraft?.skill_id, TENANT_ID);
         }
         createdTools.push(createdTool);
         if (createdNewTool) createdNewTools.push(createdTool);
@@ -3213,6 +3213,7 @@ function SkillSource({
   onToggle: (target: TargetSelection) => void;
   onEdit: (nextDraft: SkillCard, path: string) => void;
 }) {
+  const { notify } = useDistillPageHost();
   const [deleteNodeIndex, setDeleteNodeIndex] = useState<number | null>(null);
 
   function editBasic(
@@ -3803,6 +3804,7 @@ function SkillFlow({
   onToggle: (target: TargetSelection) => void;
   onEdit: (nextDraft: SkillCard, path: string) => void;
 }) {
+  const { notify } = useDistillPageHost();
   const [flowZoom, setFlowZoom] = useState(0.64);
   const [flowPreset, setFlowPreset] = useState<'fit' | '100' | null>('fit');
   const [flowPan, setFlowPan] = useState({ x: 0, y: 0 });
@@ -6735,6 +6737,7 @@ function EditableActionList({
   toolStatuses: ToolStatusMap;
   onChange: (value: string) => void;
 }) {
+  const { notify } = useDistillPageHost();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const mergedOptions = mergeSelectOptions(options, actions.map((action) => ({
     value: action,
@@ -8337,12 +8340,12 @@ function buildToolStatusMap(tools: ToolRead[], messages: ChatItem[]): ToolStatus
   return statuses;
 }
 
-function toolPayloadFromSuggestion(suggestion: ToolSuggestionItem, skillId?: string): Record<string, unknown> {
+function toolPayloadFromSuggestion(suggestion: ToolSuggestionItem, skillId: string | undefined, tenantId: string): Record<string, unknown> {
   const outputSchema = suggestion.probe_result?.success && suggestion.probe_result.inferred_output_schema
     ? suggestion.probe_result.inferred_output_schema
     : suggestion.output_schema || {};
   return {
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     name: suggestion.name,
     display_name: suggestion.display_name || suggestion.name,
     description: suggestion.description || suggestion.reason || '',
@@ -8361,13 +8364,13 @@ function toolPayloadFromSuggestion(suggestion: ToolSuggestionItem, skillId?: str
   };
 }
 
-function toolReadFromSuggestion(suggestion: ToolSuggestionItem, skillId?: string): ToolRead {
+function toolReadFromSuggestion(suggestion: ToolSuggestionItem, skillId: string | undefined, tenantId: string): ToolRead {
   const outputSchema = suggestion.probe_result?.success && suggestion.probe_result.inferred_output_schema
     ? suggestion.probe_result.inferred_output_schema
     : suggestion.output_schema || {};
   return {
     id: suggestion.name,
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     name: suggestion.name,
     display_name: suggestion.display_name || suggestion.name,
     description: suggestion.description || suggestion.reason || '',

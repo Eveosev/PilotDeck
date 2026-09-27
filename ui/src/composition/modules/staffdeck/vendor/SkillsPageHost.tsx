@@ -303,12 +303,12 @@ export const visibleEmployeeAgents = (...args: Parameters<SkillsPageHost['visibl
 export const readEmployeeScope = () => activeHost.readEmployeeScope();
 export const isTeamScope = (value: string) => activeHost.isTeamScope(value);
 export const useClientPagination = <T,>(items: T[], pageSize: number, resetKey: unknown) => activeHost.useClientPagination(items, pageSize, resetKey);
-export const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' ');
-export const MENU_CONTENT_CLASS = '';
-export const MENU_ITEM_CLASS = '';
-export const MENU_ITEM_DANGER_CLASS = 'text-red-600';
-export const MOBILE_CARD_CLASS = 'rounded-lg border border-neutral-200 bg-white p-4';
-export const SELECT_TRIGGER_CLASS = '';
+export { cn } from './FormalUtils';
+export { MENU_CONTENT_CLASS } from './FormalHostStyles';
+export { MENU_ITEM_CLASS } from './FormalHostStyles';
+export { MENU_ITEM_DANGER_CLASS } from './FormalHostStyles';
+export { MOBILE_CARD_CLASS } from './FormalHostStyles';
+export { SELECT_TRIGGER_CLASS } from './FormalHostStyles';
 
 const componentDefaults: Record<string, HostComponent> = {
   AppHeader: DefaultAppHeader, ConfirmDialog: DefaultConfirmDialog, DataTable: BusinessDataTable, DetailField: DefaultDetailField, Dialog: DefaultDialog, DialogContent: DefaultDialogContent, DialogTitle: DefaultDialogTitle,
@@ -322,7 +322,7 @@ const componentDefaults: Record<string, HostComponent> = {
 };
 
 function component(name: string): HostComponent {
-  return (props: any) => { const host = useSkillsPageHost(); return createElement(host.components?.[name] || componentDefaults[name], props); };
+  return refComponent(name);
 }
 function refComponent(name: string): HostComponent {
   return forwardRef<any, any>((props, ref) => {

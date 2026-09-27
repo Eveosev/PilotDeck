@@ -1,4 +1,5 @@
-import { createContext, createElement, useContext, useState, type ComponentType, type ReactNode } from 'react';
+import { createContext, createElement, forwardRef, useContext, useState, type ComponentType, type ReactNode } from 'react';
+import { cn } from './FormalUtils';
 import { AlertCircle, ArrowLeft, Braces, Check, CheckCircle, ChevronDown, CircleX, Clipboard, Code2, FileText, Info, LoaderCircle, MoreHorizontal, Play, Plus, Save, Send, Square, Trash2, Upload, X, type LucideProps } from 'lucide-react';
 import {
   Dialog as SkillsDialog,
@@ -34,6 +35,8 @@ type Api = {
 type HostComponent = ComponentType<any>;
 
 export type DistillPageHost = {
+  // Only the native Host retains its original conflict fallback semantics.
+  permitsNativeConflictRecovery?(error: unknown): boolean;
   saveVersionPolicy?(snapshot: SkillRead): { serviceAssigned: true; label: string } | undefined;
   restoreEditorReadSnapshot?(snapshot: SkillRead): void;
   api: Api;
@@ -60,29 +63,19 @@ const defaultHost: DistillPageHost = {
   isTeamScope: (value) => value.startsWith('team:'),
 };
 const HostContext = createContext<DistillPageHost>(defaultHost);
-let activeHost = defaultHost;
-export function DistillPageHostProvider({ value, children }: { value: DistillPageHost; children: ReactNode }) { activeHost = value; return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
+export function DistillPageHostProvider({ value, children }: { value: DistillPageHost; children: ReactNode }) { return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
 export function useDistillPageHost(): DistillPageHost { return useContext(HostContext); }
 
-export const api: Api = { get: (path, options) => activeHost.api.get(path, options), post: (path, body) => activeHost.api.post(path, body), postWithSignal: (path, body, signal) => activeHost.api.postWithSignal(path, body, signal), put: (path, body) => activeHost.api.put(path, body), delete: (path) => activeHost.api.delete(path) };
-export const streamGet = (path: string, onEvent: (event: StreamEvent) => void, signal?: AbortSignal) => activeHost.streamGet(path, onEvent, signal);
-export const streamPost = (path: string, body: Record<string, unknown>, onEvent: (event: StreamEvent) => void, signal?: AbortSignal) => activeHost.streamPost(path, body, onEvent, signal);
-export const TENANT_ID = defaultHost.tenantId;
-export class ApiError extends Error { status = 500; body = ''; code?: string; }
-export const notify = { success: (message: string) => activeHost.notify.success(message), warning: (message: string) => activeHost.notify.warning(message), error: (message: string) => activeHost.notify.error(message), info: (message: string) => activeHost.notify.info(message) };
-export const navigate = (path: string, options?: { replace?: boolean }) => activeHost.navigate(path, options);
-export const readEmployeeScope = () => activeHost.readEmployeeScope();
-export const isTeamScope = (value: string) => activeHost.isTeamScope(value);
-export const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' ');
-export const normalizeCapabilityScope = (value: unknown) => value;
-export const SELECT_TRIGGER_CLASS = '';
-export const subscribeEnterpriseCapabilityCatalogRefresh = (listener: () => void) => { window.addEventListener('staffdeck-capability-catalog-refresh', listener); return () => window.removeEventListener('staffdeck-capability-catalog-refresh', listener); };
-export const formatHandoffAssigneeValue = (userId: string, channel?: string) => channel ? `${userId}::${channel}` : userId;
-export const parseHandoffAssigneeValue = (value: string) => { const [userId, channel] = value.split('::'); return { userId, channel: channel || undefined }; };
-export async function copyTextToClipboard(value: string): Promise<void> { if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value); else throw new Error('Clipboard API is unavailable'); }
+export { ApiError } from './FormalApiError';
+export { cn } from './FormalUtils';
+export { normalizeCapabilityScope } from './FormalCapabilityScopeControl';
+export { SELECT_TRIGGER_CLASS } from './FormalHostStyles';
+export { subscribeEnterpriseCapabilityCatalogRefresh } from './FormalCatalogEvents';
+export { formatHandoffAssigneeValue, parseHandoffAssigneeValue } from './FormalHandoff';
+export { copyTextToClipboard } from './FormalClipboard';
 
 function fallbackComponent(name: string, fallback: HostComponent): HostComponent {
-  return (props: any) => { const host = useDistillPageHost(); return createElement(host.components?.[name] || fallback, props); };
+  return forwardRef<any, any>((props, ref) => { const host = useDistillPageHost(); const injected = host.components?.[name]; return createElement(injected || fallback, injected ? { ...props, ref } : props); });
 }
 const NativeInput = ({ className, ...props }: any) => <input {...props} className={cn('rounded border border-neutral-300 px-2 py-1.5 text-sm', className)} />;
 const NativeTextarea = ({ className, ...props }: any) => <textarea {...props} className={cn('rounded border border-neutral-300 px-2 py-1.5 text-sm', className)} />;

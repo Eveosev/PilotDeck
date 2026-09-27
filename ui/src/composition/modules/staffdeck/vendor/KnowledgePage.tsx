@@ -1,9 +1,10 @@
 // @ts-nocheck
+import './FormalKnowledgeLayout.css';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger, AppHeader, ApiError,
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger, AppHeader, hasApiErrorStatus,
   CapabilityScopeBadge, CapabilityScopeControl, CapabilityScopeLoading, ConfirmDialog,
   DataTable, Dialog, DialogContent, DialogTitle, DropdownMenu, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconAdd, IconChevronDown,
@@ -96,6 +97,11 @@ function effectiveKnowledgeAgentId(rows: AgentProfileRead[], agentId: string): s
 }
 
 export default function KnowledgeManagePage({ currentUser, onLogout }: KnowledgePageProps = {}) {
+  const { api, navigate, notify, tenantId: TENANT_ID, loadEmployeeDirectory, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, agentScope } = useKnowledgePageHost();
+  const readEmployeeScope = agentScope.read;
+  const persistSharedAgentScope = agentScope.persist;
+  const clearSharedAgentScope = agentScope.clear;
+  const emitAgentScopeChange = agentScope.emit;
   const [searchParams, setSearchParams] = useSearchParams();
   const [documents, setDocuments] = useState<KnowledgeDocumentRead[]>([]);
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseRead[]>([]);
@@ -429,7 +435,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
       setOkfLintIssues([]);
     } catch (error) {
       setOkfConcepts([]);
-      if (error instanceof ApiError && error.status === 404) {
+      if (hasApiErrorStatus(error, 404)) {
         setOkfLintIssues([]);
         return;
       }
@@ -1663,6 +1669,11 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
 }
 
 export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
+  const { api, navigate, notify, tenantId: TENANT_ID, loadEmployeeDirectory, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, agentScope } = useKnowledgePageHost();
+  const readEmployeeScope = agentScope.read;
+  const persistSharedAgentScope = agentScope.persist;
+  const clearSharedAgentScope = agentScope.clear;
+  const emitAgentScopeChange = agentScope.emit;
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseRead[]>([]);
   const [capabilityScope, setCapabilityScope] = useState<CapabilityScope>('general');
   const [jobs, setJobs] = useState<Record<string, KnowledgeIngestJobRead>>({});

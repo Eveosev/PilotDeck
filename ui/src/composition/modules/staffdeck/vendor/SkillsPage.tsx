@@ -97,7 +97,7 @@ export default function SkillsPage({
   currentUser?: EnterpriseAuthUser;
   onLogout?: () => void;
 } = {}) {
-  const { editorQuery } = useSkillsPageHost();
+  const { editorQuery, api, navigate, notify, tenantId: TENANT_ID, readEmployeeScope, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, isTeamScope } = useSkillsPageHost();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<SkillRead[]>([]);
   const [versionRows, setVersionRows] = useState<SkillVersionRead[]>([]);
