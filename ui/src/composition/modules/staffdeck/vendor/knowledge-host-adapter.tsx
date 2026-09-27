@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
+import './knowledge-host-theme.css';
 
 function query(path: string): URL { return new URL(path, 'http://staffdeck.local'); }
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
@@ -140,5 +141,5 @@ export function PilotDeckKnowledgePageProvider({ children }: { children: ReactNo
   }, []);
   if (error) return <div role="alert">{error}</div>;
   if (!ready) return null;
-  return <KnowledgePageHostProvider value={{ ...pilotDeckKnowledgePageHost, navigate: (path) => navigate(mapKnowledgePath(path)) }}>{children}</KnowledgePageHostProvider>;
+  return <KnowledgePageHostProvider value={{ ...pilotDeckKnowledgePageHost, navigate: (path) => navigate(mapKnowledgePath(path)) }}><div className="pilotdeck-knowledge-host">{children}</div></KnowledgePageHostProvider>;
 }
