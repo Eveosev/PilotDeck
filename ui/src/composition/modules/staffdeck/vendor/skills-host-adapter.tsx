@@ -89,7 +89,7 @@ async function listDefinitions(): Promise<any[]> {
 }
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any): Promise<T> {
-  const match = path.match(/^\/api\/enterprise\/skills\/([^/?]+)(?:\/([^/?]+))?/);
+  const match = path.split('?')[0].match(/^\/api\/enterprise\/skills\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?(?:\/([^/]+))?$/);
   const importMatch = path.match(/^\/api\/enterprise\/agents\/([^/?]+)\/resources\/import$/);
   if (importMatch && method === 'post') return await staffDeckCopyClient.call<T>('import_resources', {
     targetAgentId: decodeURIComponent(importMatch[1]), sourceAgentId: body?.source_agent_id,
@@ -108,11 +108,23 @@ async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'd
   if (!match) throw new Error(`Unsupported StaffDeck skills path: ${path}`);
   const sopId = decodeURIComponent(match[1]);
   const suffix = match[2] ? decodeURIComponent(match[2]) : '';
+  const version = match[3] ? decodeURIComponent(match[3]) : undefined;
+  const action = match[4];
+  if (method === 'get' && suffix === 'versions' && version && !action) {
+    const result = await management('get_version', { sopId, version });
+    if (!result || Array.isArray(result) || typeof result.updated_at !== 'string') {
+      throw new Error('SOP version detail response is missing its formal updated_at field.');
+    }
+    return result as T;
+  }
+  if (method === 'post' && suffix === 'versions' && version && action === 'rollback') {
+    return toManagedSkill(await management('rollback', { sopId, version })) as T;
+  }
+  if (version || action) throw new Error(`Unsupported StaffDeck skills operation: ${method} ${path}`);
   if (method === 'get' && suffix === 'versions') {
     const result = record(await management('list_versions', { sopId }));
     return (Array.isArray(result.data) ? result.data : result) as T;
   }
-  if (method === 'get' && suffix) return await management('get_version', { sopId, version: suffix }) as T;
   if (method === 'post' && suffix === 'publish') {
     const current = await readDefinition(sopId);
     return await management('publish', { sopId, draftId: current.draft_id }) as T;

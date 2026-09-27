@@ -27,6 +27,26 @@ afterEach(() => {
 });
 
 describe('PilotDeck shared plaza pages', () => {
+  it('dispatches exact version list/detail/rollback paths with their selected version and formal response', async () => {
+    const published = { id: 'version-row', skill_id: 'sop/encoded', version: '1.1.0', name: 'Published', updated_at: '2026-09-27T04:00:00Z', content: { skill_id: 'sop/encoded', name: 'Published', version: '1.1.0', nodes: [] } };
+    const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async (operation) => {
+      if (operation === 'list_versions') return { data: [published] } as any;
+      if (operation === 'get_version') return published as any;
+      if (operation === 'rollback') return { id: 'rollback-draft', sop_id: 'sop/encoded', status: 'draft', draft_version: '1.1.0', updated_at: published.updated_at, content: published.content } as any;
+      throw new Error(`Unexpected operation ${operation}`);
+    });
+    const base = '/api/enterprise/skills/sop%2Fencoded/versions';
+    expect(await pilotDeckSkillsPageHost.api.get(`${base}?tenant_id=x`)).toEqual([published]);
+    expect(await pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x&agent_id=target`)).toEqual(published);
+    expect(call).toHaveBeenNthCalledWith(2, 'get_version', { sopId: 'sop/encoded', version: '1.1.0' });
+    const rolled: any = await pilotDeckSkillsPageHost.api.post(`${base}/1.1.0/rollback?tenant_id=x&agent_id=target`);
+    expect(call).toHaveBeenNthCalledWith(3, 'rollback', { sopId: 'sop/encoded', version: '1.1.0' });
+    expect(rolled).toMatchObject({ skill_id: 'sop/encoded', draft_id: 'rollback-draft', version: '1.1.0', status: 'draft', content: published.content });
+    await expect(pilotDeckSkillsPageHost.api.get(`${base}/1.1.0/extra?tenant_id=x`)).rejects.toThrow('Unsupported');
+    expect(call).toHaveBeenCalledTimes(3);
+    call.mockResolvedValue({ data: [published] } as any);
+    await expect(pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x`)).rejects.toThrow('updated_at');
+  });
   it('maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope', () => {
     window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
     function NavigationProbe() {
