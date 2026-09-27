@@ -1,6 +1,7 @@
 import {
   createContext,
   createElement,
+  forwardRef,
   useContext,
   useMemo,
   useState,
@@ -323,14 +324,21 @@ const componentDefaults: Record<string, HostComponent> = {
 function component(name: string): HostComponent {
   return (props: any) => { const host = useSkillsPageHost(); return createElement(host.components?.[name] || componentDefaults[name], props); };
 }
+function refComponent(name: string): HostComponent {
+  return forwardRef<any, any>((props, ref) => {
+    const host = useSkillsPageHost();
+    const injected = host.components?.[name];
+    return createElement(injected || componentDefaults[name], injected ? { ...props, ref } : props);
+  });
+}
 
 export const AppHeader = component('AppHeader');
 export const ConfirmDialog = component('ConfirmDialog');
 export const DataTable = component('DataTable');
 export const DetailField = component('DetailField');
 export const Dialog = component('Dialog');
-export const DialogContent = component('DialogContent');
-export const DialogTitle = component('DialogTitle');
+export const DialogContent = refComponent('DialogContent');
+export const DialogTitle = refComponent('DialogTitle');
 export const DropdownMenu = component('DropdownMenu');
 export const DropdownMenuContent = component('DropdownMenuContent');
 export const DropdownMenuItem = component('DropdownMenuItem');

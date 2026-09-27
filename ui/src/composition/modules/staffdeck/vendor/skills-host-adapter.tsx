@@ -1,6 +1,7 @@
 import type { SkillsPageHost } from './SkillsPageHost';
 import { SkillsPageHostProvider } from './SkillsPageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
+import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
 import type { DistillPageHost } from './DistillPageHost';
 import { DistillPageHostProvider } from './DistillPageHost';
 import * as React from 'react';
@@ -216,7 +217,7 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   editorQuery: (row): Record<string, string> => text(row.draft_id)
     ? { editor_context: `draft:${row.draft_id}`, draft_id: row.draft_id }
     : { editor_context: `published:${row.version}`, published_version: row.version },
-  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
+  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog, Dialog: PilotDeckDialog, DialogContent: PilotDeckDialogContent, DialogTitle: PilotDeckDialogTitle },
   api: {
     get: (path) => callSkillApi(path, 'get'),
     post: (path, body) => callSkillApi(path, 'post', body),

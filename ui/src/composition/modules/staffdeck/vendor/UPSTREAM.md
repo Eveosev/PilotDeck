@@ -1,10 +1,11 @@
 # StaffDeck business UI release
 
-This directory is the vendored `@staffdeck/business-ui` `0.1.11` shared-slice release
+This directory is the vendored `@staffdeck/business-ui` `0.1.12` shared-slice release
 used by the PilotDeck production composition. The authoritative source package
 lives in `OpenBMB/StaffDeck` at `packages/staffdeck-business-ui` on branch
-`codex/g5-editor-context-sd`. This snapshot corresponds to StaffDeck
-candidate commit `e83c347d1425d8c869c8b61772b57c93216f8a7e`; the latest shared source change is that commit,
+`codex/g4-dialog-host-sd`. This snapshot corresponds to StaffDeck
+candidate commit `01fb898ecd7c0bf2b5a6991577f2f5a7e79bedb1`; the latest shared source change is that commit,
+following `e83c347d1425d8c869c8b61772b57c93216f8a7e`,
 following `019f0355e27c6bc71e71a01e0f3055ef49d9bb7b`,
 following `0d2839ebaad22c077cfaaf22ca479dd47e27c5f1`,
 following `5adaade114b38a9a5af731f922ce71110fd24798`,

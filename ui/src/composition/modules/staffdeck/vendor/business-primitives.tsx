@@ -2,6 +2,7 @@ import {
   BusinessDataTable, BusinessResourceImportDialog, defaultResourceImportPrimitives,
   type DataTablePrimitives, type ResourceImportDialogProps, type ResourceImportPrimitives,
 } from './SkillsPageHost';
+import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
 
 function classNames(base: string, extra?: string) { return `${base} ${extra || ''}`; }
 
@@ -22,7 +23,9 @@ export function PilotDeckDataTable(props: any) {
 // Keep its surface consistent even when the surrounding PilotDeck page is dark.
 const resourceImportPrimitives: ResourceImportPrimitives = {
   ...defaultResourceImportPrimitives,
-  DialogContent: ({ children, className }: any) => <section className={classNames('max-h-[calc(100dvh-2rem)] w-[min(960px,100%)] overflow-auto rounded-lg bg-white p-5 text-[#18181a] shadow-xl', className)}>{children}</section>,
+  Dialog: PilotDeckDialog,
+  DialogContent: PilotDeckDialogContent,
+  DialogTitle: PilotDeckDialogTitle,
 };
 
 export function PilotDeckResourceImportDialog(props: ResourceImportDialogProps) {

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 import { isCopyTarget, loadCopyDirectory, readCopyAgentScope } from './copy-scope';
 import './knowledge-host-theme.css';
+import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
 
 function query(path: string): URL { return new URL(path, 'http://staffdeck.local'); }
 function record(value: unknown): Record<string, any> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}; }
@@ -103,7 +104,7 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
 }
 
 export const pilotDeckKnowledgePageHost: Host = {
-  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog },
+  components: { DataTable: PilotDeckDataTable, ResourceImportDialog: PilotDeckResourceImportDialog, Dialog: PilotDeckDialog, DialogContent: PilotDeckDialogContent, DialogTitle: PilotDeckDialogTitle },
   api: { get: (path) => callKnowledge(path, 'get'), post: (path, body) => callKnowledge(path, 'post', body), put: (path, body) => callKnowledge(path, 'put', body), delete: (path) => callKnowledge(path, 'delete'), blob: async (path) => {
     const result = record(await callKnowledge(path, 'get'));
     if (typeof result.content_base64 === 'string') {
