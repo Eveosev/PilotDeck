@@ -1,3 +1,4 @@
+import { isTeamScope } from './FormalHostContractHelpers';
 import {
   createContext,
   createElement,
@@ -281,7 +282,7 @@ const defaultHost: SkillsPageHost = {
   tenantId: 'tenant_demo', notify: defaultNotify,
   isEnterpriseAdmin: (user) => Boolean(user?.is_admin), canManageEmployeeAgent: () => true,
   openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })),
-  resourceCreatorName: (row) => String(row.created_by_name || row.creator_name || ''), visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId), readEmployeeScope: () => '', isTeamScope: (value) => value.startsWith('team:'),
+  resourceCreatorName: (row) => String(row.created_by_name || row.creator_name || ''), visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId), readEmployeeScope: () => '', isTeamScope,
   useClientPagination: <T,>(items: T[], pageSize: number, _resetKey: unknown) => { const [page, setPage] = useState(1); const pageCount = Math.max(1, Math.ceil(items.length / pageSize)); return { page: Math.min(page, pageCount), setPage, pageCount, pagedItems: items.slice((Math.min(page, pageCount) - 1) * pageSize, Math.min(page, pageCount) * pageSize) }; },
 };
 

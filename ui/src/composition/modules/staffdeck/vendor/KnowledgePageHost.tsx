@@ -58,11 +58,10 @@ const HostContext = createContext<Host>(defaultHost);
 export function KnowledgePageHostProvider({ value, children }: { value: Host; children: ReactNode }) { return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
 export function useKnowledgePageHost(): Host { return useContext(HostContext); }
 export { ApiError } from './FormalApiError';
+export * from './FormalHostContractHelpers';
 export function hasApiErrorStatus(error: unknown, status: number): boolean {
   return error instanceof Error && 'status' in error && error.status === status;
 }
-export const isTeamScope = (value: string) => value.startsWith('team:');
-export { normalizeCapabilityScope } from './FormalCapabilityScopeControl';
 export { cn } from './FormalUtils';
 export { useClientPagination } from './FormalPagination';
 

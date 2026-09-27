@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 import { staffDeckNotify } from '../host-notify';
+import { persistSharedAgentScope, clearSharedAgentScope, emitAgentScopeChange } from '../host-contract-helpers';
 import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 import './knowledge-host-theme.css';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
@@ -31,7 +32,6 @@ function optionalQueryInput(url: URL): Record<string, string | boolean> {
   if (url.searchParams.has('include_all_versions')) input.includeAllVersions = ['true', '1'].includes(url.searchParams.get('include_all_versions') || '');
   return input;
 }
-const PILOTDECK_AGENT_SCOPE_KEY = 'ultrarag_enterprise_agent_scope';
 function pilotDeckAgentScope(): string {
   return readCopyAgentScope();
 }
@@ -137,9 +137,9 @@ export const pilotDeckKnowledgePageHost: Host = {
   tenantId: 'tenant_demo', notify: staffDeckNotify, isEnterpriseAdmin: (user) => Boolean(user?.is_admin),
   loadEmployeeDirectory: async () => pilotDeckAgentDirectory(), agentScope: {
     read: pilotDeckAgentScope,
-    persist: (value) => { try { window.localStorage.setItem(PILOTDECK_AGENT_SCOPE_KEY, value); } catch {} },
-    clear: () => { try { window.localStorage.removeItem(PILOTDECK_AGENT_SCOPE_KEY); } catch {} },
-    emit: (value) => { window.dispatchEvent(new CustomEvent('ultrarag-enterprise-agent-scope-change', { detail: { agentId: value } })); },
+    persist: persistSharedAgentScope,
+    clear: clearSharedAgentScope,
+    emit: emitAgentScopeChange,
   },
   visibleEmployeeAgents: (agents) => agents.filter((agent) => !agent.is_overall), canManageEmployeeAgent: (agent) => Boolean(isCopyTarget(agent) && agent.can_manage === true), openGalleryAgentId: (agents) => agents.find((agent) => agent.is_overall)?.id || '', openGalleryImportSourceOptions: (agents) => agents.filter((agent) => agent.is_overall).map((agent) => ({ value: agent.id, label: agent.name || agent.id })), resourceCreatorName: (row) => String(row.created_by_name || ''), renderMarkdownBlocks: (value) => renderMarkdownBlocks(value), getDateLocale: () => 'zh-CN',
 };

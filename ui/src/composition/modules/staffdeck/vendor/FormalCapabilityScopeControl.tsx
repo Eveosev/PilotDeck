@@ -2,7 +2,8 @@ import { InfoCircleOutlined } from './FormalHostPrimitives';
 import { Switch } from './FormalHostPrimitives';
 import { Tooltip, TooltipContent, TooltipTrigger } from './FormalHostPrimitives';
 import { cn } from './FormalHostPrimitives';
-type CapabilityScope = 'general' | 'sop_specific';
+import { normalizeCapabilityScope } from './FormalHostContractHelpers';
+export { normalizeCapabilityScope } from './FormalHostContractHelpers';
 
 export type CapabilityScopeResourceType = 'tool' | 'skill' | 'sop' | 'knowledge_base';
 
@@ -20,9 +21,6 @@ const SOP_SPECIFIC_INLINE_DESCRIPTIONS: Record<CapabilityScopeResourceType, stri
   knowledge_base: '仅在 SOP 步骤指定相关知识库时可用。',
 };
 
-export function normalizeCapabilityScope(value: unknown): CapabilityScope {
-  return value === 'sop_specific' || value === 'sop-specific' ? 'sop_specific' : 'general';
-}
 
 export function capabilityScopeLabel(value: unknown): string {
   return normalizeCapabilityScope(value) === 'sop_specific' ? '仅限 SOP' : '通用';

@@ -1,3 +1,4 @@
+import { isTeamScope } from './FormalHostContractHelpers';
 import { createContext, createElement, forwardRef, useContext, useState, type ComponentType, type ReactNode } from 'react';
 import { cn } from './FormalUtils';
 import { AlertCircle, ArrowLeft, Braces, Check, CheckCircle, ChevronDown, CircleX, Clipboard, Code2, FileText, Info, LoaderCircle, MoreHorizontal, Play, Plus, Save, Send, Square, Trash2, Upload, X, type LucideProps } from 'lucide-react';
@@ -60,19 +61,16 @@ const defaultHost: DistillPageHost = {
   tenantId: 'tenant_demo',
   notify: { success: () => {}, warning: () => {}, error: () => {}, info: () => {} },
   readEmployeeScope: () => '',
-  isTeamScope: (value) => value.startsWith('team:'),
+  isTeamScope,
 };
 const HostContext = createContext<DistillPageHost>(defaultHost);
 export function DistillPageHostProvider({ value, children }: { value: DistillPageHost; children: ReactNode }) { return <HostContext.Provider value={value}>{children}</HostContext.Provider>; }
 export function useDistillPageHost(): DistillPageHost { return useContext(HostContext); }
 
 export { ApiError } from './FormalApiError';
+export * from './FormalHostContractHelpers';
 export { cn } from './FormalUtils';
-export { normalizeCapabilityScope } from './FormalCapabilityScopeControl';
 export { SELECT_TRIGGER_CLASS } from './FormalHostStyles';
-export { subscribeEnterpriseCapabilityCatalogRefresh } from './FormalCatalogEvents';
-export { formatHandoffAssigneeValue, parseHandoffAssigneeValue } from './FormalHandoff';
-export { copyTextToClipboard } from './FormalClipboard';
 
 function fallbackComponent(name: string, fallback: HostComponent): HostComponent {
   return forwardRef<any, any>((props, ref) => { const host = useDistillPageHost(); const injected = host.components?.[name]; return createElement(injected || fallback, injected ? { ...props, ref } : props); });

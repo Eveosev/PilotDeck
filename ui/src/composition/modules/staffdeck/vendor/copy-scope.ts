@@ -1,7 +1,8 @@
 import { staffDeckCopyClient, type ModuleRequestOptions } from '../clients';
+import { isTeamScope, ENTERPRISE_AGENT_STORAGE_KEY } from '../host-contract-helpers';
 
 export type CopyAgent = { id: string; tenant_id: string; name: string; is_overall: boolean; active: boolean; copy_target: boolean; can_manage: boolean };
-const AGENT_SCOPE_KEY = 'ultrarag_enterprise_agent_scope';
+const AGENT_SCOPE_KEY = ENTERPRISE_AGENT_STORAGE_KEY;
 
 // Each mounted provider owns its directory target. The persisted scope key is
 // retained so this adaptation cannot disconnect existing editor lifecycles.
@@ -12,6 +13,7 @@ export function createCopyContext() {
   const storedScope = () => { try { return window.localStorage.getItem(AGENT_SCOPE_KEY) || ''; } catch { return ''; } };
   const readScope = (): string => {
     const stored = storedScope();
+    if (isTeamScope(stored)) return '';
     return stored && (!visibleAgentIds || visibleAgentIds.has(stored)) ? stored : targetAgentId;
   };
   return {
@@ -34,7 +36,7 @@ export function createCopyContext() {
       targetTenantId = target.tenant_id;
       visibleAgentIds = new Set(agents.filter(agent => !agent.is_overall).map(agent => agent.id));
       const current = storedScope();
-      if (!agents.some((agent) => agent.id === current && !agent.is_overall)) {
+      if (!isTeamScope(current) && !agents.some((agent) => agent.id === current && !agent.is_overall)) {
         try { window.localStorage.setItem(AGENT_SCOPE_KEY, target.id); } catch {}
       }
       return agents;

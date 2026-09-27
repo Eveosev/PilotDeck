@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient, type SopDefinition, type ModuleRequestOptions } from '../clients';
 import { staffDeckNotify } from '../host-notify';
+import { isTeamScope } from '../host-contract-helpers';
 import { createCopyContext, isCopyTarget, loadCopyDirectory, readCopyAgentScope, type CopyContext } from './copy-scope';
 
 // PilotDeck is a single-user host. The SOP management identity is supplied by
@@ -280,7 +281,7 @@ export const pilotDeckSkillsPageHost: SkillsPageHost = {
   resourceCreatorName: (row) => text(row.created_by_name) || '',
   visibleEmployeeAgents: (agents, _user, options = {}) => agents.filter((agent) => !agent.is_overall && (!options.activeOnly || agent.active !== false) && agent.id !== options.excludeAgentId),
   readEmployeeScope: readCopyAgentScope,
-  isTeamScope: (value) => value.startsWith('team:'),
+  isTeamScope,
   useClientPagination: <T,>(items: T[], pageSize: number, resetKey: unknown) => {
     const [page, setPage] = React.useState(1);
     React.useEffect(() => setPage(1), [resetKey]);
@@ -356,7 +357,7 @@ export function createPilotDeckDistillPageHost(context?: CopyContext): DistillPa
   tenantId: PILOTDECK_SOP_TENANT_ID,
   notify: staffDeckNotify,
   readEmployeeScope: context ? context.readScope : readCopyAgentScope,
-  isTeamScope: (value) => value.startsWith('team:'),
+  isTeamScope,
   };
 }
 
