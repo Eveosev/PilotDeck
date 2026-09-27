@@ -555,7 +555,7 @@ function lockPendingChangeSkillId(change: PendingChange | null, lockedSkillId: s
 }
 
 export default function DistillPage({ active = true, searchParamsOverride, currentUser, onLogout }: DistillPageProps = {}) {
-  const { navigate, api, notify, streamGet, streamPost, restoreEditorReadSnapshot } = useDistillPageHost();
+  const { navigate, api, notify, streamGet, streamPost, restoreEditorReadSnapshot, saveVersionPolicy } = useDistillPageHost();
   const [routerSearchParams] = useSearchParams();
   const searchParams = searchParamsOverride || routerSearchParams;
   const skillId = searchParams.get('skill_id');
@@ -584,6 +584,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
   const [saveName, setSaveName] = useState('');
   const [saveDomain, setSaveDomain] = useState('');
   const [saveVersion, setSaveVersion] = useState('');
+  const [assignedVersionLabel, setAssignedVersionLabel] = useState('');
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearAfterSave, setClearAfterSave] = useState(false);
   const [clearNewConfirm, setClearNewConfirm] = useState<{ title: string; description: string } | null>(null);
@@ -1201,7 +1202,9 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
     setSaveDraftSnapshot(targetDraft);
     setSaveName(targetDraft.name);
     setSaveDomain(targetDraft.business_domain || '');
-    setSaveVersion(loadedSkill ? bumpSkillVersion(loadedSkill.version || targetDraft.version) : '1.0.0');
+    const versionPolicy = loadedSkill ? saveVersionPolicy?.(loadedSkill) : undefined;
+    setAssignedVersionLabel(versionPolicy?.label || '');
+    setSaveVersion(versionPolicy ? targetDraft.version : loadedSkill ? bumpSkillVersion(loadedSkill.version || targetDraft.version) : '1.0.0');
     setSaveReviewOpen(true);
   }
 
@@ -2725,7 +2728,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
           </label>
           <label className={SAVE_REVIEW_FORM_LABEL_CLASS}>
             <span>版本号</span>
-            <Input value={saveVersion} disabled={!saveReviewHasContentChanges} onChange={(event) => setSaveVersion(event.target.value)} />
+            <Input value={assignedVersionLabel || saveVersion} disabled={Boolean(assignedVersionLabel) || !saveReviewHasContentChanges} onChange={(event) => setSaveVersion(event.target.value)} />
           </label>
         </div>
         <div className={SAVE_REVIEW_DIFF_CLASS}>

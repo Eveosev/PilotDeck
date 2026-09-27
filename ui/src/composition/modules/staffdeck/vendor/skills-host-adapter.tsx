@@ -264,6 +264,9 @@ export function createPilotDeckDistillPageHost(): DistillPageHost {
   // One store per mounted editor, never shared across windows or instances.
   const snapshots = new Map<string, any>();
   return {
+  saveVersionPolicy: (snapshot) => !text(snapshot.draft_id)
+    ? { serviceAssigned: true, label: 'Assigned by the service when creating the draft' }
+    : undefined,
   restoreEditorReadSnapshot: (snapshot) => {
     if (!text(snapshot.skill_id)) throw new Error('Cached SOP read snapshot has no skill ID.');
     snapshots.set(snapshot.skill_id, structuredClone(snapshot));

@@ -34,6 +34,7 @@ type Api = {
 type HostComponent = ComponentType<any>;
 
 export type DistillPageHost = {
+  saveVersionPolicy?(snapshot: SkillRead): { serviceAssigned: true; label: string } | undefined;
   restoreEditorReadSnapshot?(snapshot: SkillRead): void;
   api: Api;
   streamGet(path: string, onEvent: (event: StreamEvent) => void, signal?: AbortSignal): Promise<void>;
