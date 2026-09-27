@@ -4,6 +4,22 @@ import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 
 describe('PilotDeck Knowledge host authorization boundary', () => {
+  it('dispatches a complete scoped concept ID and exact body/response without updating the base', async () => {
+    const original = staffDeckKnowledgeClient.call;
+    const calls: any[] = [];
+    const concept = { id: 'row', concept_id: 'rules/中文', content_md: 'title-only edit', source_refs: [{ document_id: 'doc' }] };
+    staffDeckKnowledgeClient.call = async (operation, input) => { calls.push({ operation, input }); return concept as any; };
+    try {
+      const path = '/api/enterprise/knowledge-bases/base%20id/okf/concepts/rules/%E4%B8%AD%E6%96%87?agent_id=actual-target';
+      expect(await pilotDeckKnowledgePageHost.api.put(path, { tenant_id: 'actual-tenant', document_id: 'doc', content_md: 'title-only edit', status: 'active' })).toBe(concept);
+      expect(calls[0]).toEqual({ operation: 'upsert_okf_concept', input: { knowledgeBaseId: 'base id', conceptId: 'rules/中文', agentId: 'actual-target', tenantId: 'actual-tenant', documentId: 'doc', contentMd: 'title-only edit', status: 'active' } });
+      expect(await pilotDeckKnowledgePageHost.api.get(path + '&tenant_id=actual-tenant')).toBe(concept);
+      expect(calls[1]).toEqual({ operation: 'get_okf_concept', input: { knowledgeBaseId: 'base id', conceptId: 'rules/中文', agentId: 'actual-target', tenantId: 'actual-tenant' } });
+      await expect(pilotDeckKnowledgePageHost.api.delete!(path)).rejects.toThrow('Unsupported');
+      await expect(pilotDeckKnowledgePageHost.api.put('/api/enterprise/knowledge-bases/base/unknown', {})).rejects.toThrow('Unsupported');
+      expect(calls).toHaveLength(2);
+    } finally { staffDeckKnowledgeClient.call = original; }
+  });
   it('does not grant overall administration to an authenticated non-admin user', () => {
     expect(pilotDeckKnowledgePageHost.isEnterpriseAdmin({ id: 'user-1', is_admin: false })).toBe(false);
     expect(pilotDeckKnowledgePageHost.canManageEmployeeAgent({ id: 'agent-1' }, { id: 'user-1', is_admin: false })).toBe(false);

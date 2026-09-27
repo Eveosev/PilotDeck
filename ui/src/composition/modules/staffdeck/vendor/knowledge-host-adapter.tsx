@@ -60,11 +60,27 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'sync-from-overall' && method === 'post') return await knowledge<T>('sync_base', { knowledgeBaseId: segments[3], agentId: url.searchParams.get('agent_id') || '' });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'promote-to-overall' && method === 'post') return await knowledge<T>('publish_version', { knowledgeBaseId: segments[3], agentId: url.searchParams.get('agent_id') || '' });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'rollback' && method === 'post') return await knowledge<T>('rollback_version', { knowledgeBaseId: segments[3], ...(body || {}) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'concepts' && method === 'get') return await knowledge<T>('list_okf_concepts', { knowledgeBaseId: segments[3], ...optionalQueryInput(url) });
+  if (segments[0] === 'api' && segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'concepts') {
+    const knowledgeBaseId = decodePathSegment(segments[3]);
+    const scope = optionalQueryInput(url);
+    if (segments.length === 6 && method === 'get') return await knowledge<T>('list_okf_concepts', { ...scope, knowledgeBaseId });
+    if (segments.length > 6 && (method === 'get' || method === 'put')) {
+      const conceptId = segments.slice(6).map(decodePathSegment).join('/');
+      const input = method === 'get' ? { ...scope, knowledgeBaseId, conceptId } : {
+        tenantId: body?.tenant_id, documentId: body?.document_id,
+        contentMd: body?.content_md, status: body?.status,
+        ...scope, knowledgeBaseId, conceptId,
+      };
+      const result = await knowledge<any>(method === 'get' ? 'get_okf_concept' : 'upsert_okf_concept', input);
+      if (!result || Array.isArray(result) || typeof result.concept_id !== 'string' || typeof result.content_md !== 'string') throw new Error('Knowledge concept response does not match the formal concept contract.');
+      return result as T;
+    }
+    throw new Error(`Unsupported StaffDeck Knowledge concept operation: ${method} ${path}`);
+  }
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'export' && method === 'get') return await knowledge<T>('export_okf', { knowledgeBaseId: segments[3], ...optionalQueryInput(url) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && segments[4] === 'okf' && segments[5] === 'lint' && method === 'post') return await knowledge<T>('lint_okf', { knowledgeBaseId: segments[3], ...optionalQueryInput(url), ...(body || {}) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && method === 'put') return await knowledge<T>('update_base', { knowledgeBaseId: segments[3], ...(body || {}) });
-  if (segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && method === 'delete') return await knowledge<T>('delete_base', { knowledgeBaseId: segments[3] });
+  if (segments.length === 4 && segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && method === 'put') return await knowledge<T>('update_base', { knowledgeBaseId: decodePathSegment(segments[3]), ...(body || {}) });
+  if (segments.length === 4 && segments[1] === 'enterprise' && segments[2] === 'knowledge-bases' && segments[3] && method === 'delete') return await knowledge<T>('delete_base', { knowledgeBaseId: decodePathSegment(segments[3]) });
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'search' && method === 'post') return await knowledge<T>('query', body || {});
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'okf' && segments[4] === 'import' && method === 'post') return await knowledge<T>('import_okf', body || {});
   if (segments[1] === 'enterprise' && segments[2] === 'knowledge' && segments[3] === 'buckets' && segments[4] && segments[5] === 'chunks' && method === 'get') return await knowledge<T>('list_bucket_chunks', { bucketId: segments[4], ...optionalQueryInput(url) });
