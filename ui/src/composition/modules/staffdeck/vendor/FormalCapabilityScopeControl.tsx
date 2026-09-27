@@ -1,6 +1,6 @@
 import { InfoCircleOutlined } from './FormalHostPrimitives';
 import { Switch } from './FormalHostPrimitives';
-import { Tooltip, TooltipContent, TooltipTrigger } from './FormalHostPrimitives';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './FormalHostPrimitives';
 import { cn } from './FormalHostPrimitives';
 import { normalizeCapabilityScope } from './FormalHostContractHelpers';
 export { normalizeCapabilityScope } from './FormalHostContractHelpers';
@@ -76,8 +76,9 @@ export function CapabilityScopeControl({
       <div className="min-w-0">
         <div className="flex items-center gap-[6px]">
           <span className="text-[13px] font-medium text-[#18181a]">能力范围</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
               <button
                 type="button"
                 aria-label="查看仅限 SOP 说明"
@@ -85,11 +86,12 @@ export function CapabilityScopeControl({
               >
                 <InfoCircleOutlined className="size-[14px]" />
               </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="max-w-[360px] leading-[1.55]">
-              {SOP_SPECIFIC_SCOPE_DESCRIPTIONS[resourceType]}
-            </TooltipContent>
-          </Tooltip>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="start" className="max-w-[360px] leading-[1.55]">
+                {SOP_SPECIFIC_SCOPE_DESCRIPTIONS[resourceType]}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {!compact && (
           <p className="mt-[2px] text-[12px] leading-[1.55] text-[#858b9c]">

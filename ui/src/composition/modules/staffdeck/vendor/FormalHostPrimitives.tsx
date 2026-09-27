@@ -20,6 +20,7 @@ export const AlertDialogTitle = primitive('AlertDialogTitle');
 export const Button = primitive('Button');
 export const Switch = primitive('Switch');
 export const Tooltip = primitive('Tooltip');
+export const TooltipProvider = primitive('TooltipProvider');
 export const TooltipContent = primitive('TooltipContent');
 export const TooltipTrigger = primitive('TooltipTrigger');
 export const DropdownMenu = primitive('DropdownMenu');
