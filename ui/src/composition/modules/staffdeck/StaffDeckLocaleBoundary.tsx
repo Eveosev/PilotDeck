@@ -129,9 +129,15 @@ export default function StaffDeckLocaleBoundary({ children }: { children: ReactN
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    localize(root, locale);
-    const observer = new MutationObserver(() => localize(root, locale));
-    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: [...ATTRIBUTES] });
+    const refresh = () => {
+      localize(root, locale);
+      // Only the public formal Host's labelled Portal roots. Never walk the
+      // native shell, another module's dialog or arbitrary document content.
+      document.querySelectorAll<HTMLElement>('[data-staffdeck-portal-root="true"]').forEach(portal => localize(portal, locale));
+    };
+    refresh();
+    const observer = new MutationObserver(refresh);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: [...ATTRIBUTES] });
     return () => observer.disconnect();
   }, [locale]);
 

@@ -3,6 +3,7 @@ import {
   type DataTablePrimitives, type ResourceImportDialogProps, type ResourceImportPrimitives,
 } from './SkillsPageHost';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './dialog-primitives';
+import * as Primitive from './formal-primitives';
 
 function classNames(base: string, extra?: string) { return `${base} ${extra || ''}`; }
 
@@ -23,6 +24,13 @@ export function PilotDeckDataTable(props: any) {
 // Keep its surface consistent even when the surrounding PilotDeck page is dark.
 const resourceImportPrimitives: ResourceImportPrimitives = {
   ...defaultResourceImportPrimitives,
+  Select: Primitive.Select,
+  SelectContent: Primitive.SelectContent,
+  SelectItem: Primitive.SelectItem,
+  SelectTrigger: Primitive.SelectTrigger,
+  SelectValue: Primitive.SelectValue,
+  Checkbox: Primitive.Checkbox,
+  Button: Primitive.UIButton,
   Dialog: PilotDeckDialog,
   DialogContent: PilotDeckDialogContent,
   DialogTitle: PilotDeckDialogTitle,

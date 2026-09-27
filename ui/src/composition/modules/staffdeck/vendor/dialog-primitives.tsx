@@ -33,7 +33,7 @@ export const PilotDeckDialogContent = React.forwardRef<
 >(function PilotDeckDialogContent({ className, children, showCloseButton = true, onEscapeKeyDown, ...props }, ref) {
   return <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content ref={ref} data-slot="dialog-content" onEscapeKeyDown={(event) => {
+    <DialogPrimitive.Content ref={ref} data-slot="dialog-content" data-staffdeck-portal-root="true" onEscapeKeyDown={(event) => {
       event.preventDefault();
       onEscapeKeyDown?.(event);
     }} className={cn(
