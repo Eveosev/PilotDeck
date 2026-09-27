@@ -9,7 +9,7 @@
 | 范围 | 唯一 owner 与本次固定成果 | 整合边界 |
 |---|---|---|
 | UI 原 0.1.13 WIP | UI 01a0e22b-7b86-7161-ac30-746b44a0b269；SD972f38 / PDce837 固化快照 | 原 primitive/graph/Markdown/layout/三Page/三Host 保留；旧 dirty 树未覆盖。 |
-| UI 接续 | SD32b87446 → 674821da → be3b7a4163a5d8b953cf72cb54f20693af3fa860 → 332387195761d6a973a112fddf522874ecb91eed；PDd77691af | 实际 ref、Progress/Tooltip、用户内容、图谱标签、selected draft publish query。独占 canonical 呈现源码，PD vendor 只由整合者同步。 |
+| UI 接续 | SD32b87446 → 674821da → be3b7a4163a5d8b953cf72cb54f20693af3fa860 → 332387195761d6a973a112fddf522874ecb91eed；PDd77691af → e53589cbf385e23023fda0d422734bb23eb5dd34 | 实际 ref、Progress/Tooltip、用户内容、图谱标签、selected draft publish query。独占 canonical 呈现源码，PD vendor 只由整合者同步。 |
 | adapter/context | 01a0e22b-8565-7db3-92f3-cc4b2f8eef6f；a7518c10 → 3fa7b145 → 1524821d → 8e8d5cdf → d29e9a34 → e56bcdf3c199255b969d38ba4f398ba99f405ad9 | clients、宿主 adapters/copy-scope、请求/响应/snapshot/notify；原 PD 六文件和 SD 两文件 WIP 按 patch 保留。common helpers 单源由整合者放置。 |
 | 公开/runtime | 01a0e22b-681f-7213-8475-a510215540f5；4319eadd → e8a53ad955e023238f8a2127be436cdce9316209 | 独立 server-only 能力/runtime/readiness helpers；不直接双写 adapter/route。 |
 | 公共/集中接线 | 整合者 | modules.js、身份/abort公共桥、Gateway/receipt、Toast warning、runtime mounted observer/provider/状态面板、canonical/vendor/依赖/构建/处置表。clients/adapter只加已交 e56 上的窄 runtime callback hunk；不改变其余唯一 owner。 |
@@ -23,7 +23,7 @@
 | ID | 已接源码与可复核路径 | 定向证据 | 完整项当前状态、剩余与 owner |
 |---|---|---|---|
 | D01 | canonical FormalHostPrimitives、三 Host/三 Page 及 PD formal-primitives/Dialog ports，Distill 工厂实际注入 components；原 Escape preventDefault 保留；Host 状态按挂载隔离。 | 已交 Dialog/Portal/Host 测试，sd-changed-consumer-tests 与旧 mounted 日志。 | NOT RUN：全部 Dialog controlledClose/ref/focus/aria/尺寸合同尚无完整双 Host 签证。UI owner 对全部原 props 负责；独立 S03 需核实际消费者。 |
-| D02 | 原 Radix primitive 机械 port；native Input/Textarea forwardRef；实际全屏 button ref；原 icons 按注入来源保留。 | UI ref/Page/Portal 7 项及 PD primitive/locale、呈现日志。 | NOT RUN：全部 Select/Dropdown/Popover/Tooltip/Accordion/Checkbox indeterminate/Footer close/asChild/disabled/键盘/focus/ref 注册项仍需完整核验。未用样本数代 111 项。 |
+| D02 | 原 Radix primitive 机械 port；SD native与PD宿主 Input/Textarea forwardRef；实际全屏 button ref；原 icons 按注入来源保留。 | UI ref/Page/Portal 7 项及 PD primitive/locale、呈现日志；e535实际primitive4 PASS，覆盖Input/Textarea DOM ref、Progress aria、Checkbox mixed/disabled、Dialog ref/asChild/Portal/autofocus/preventEscape/首次Close、Select键盘/disabled/焦点。 | NOT RUN：本次关闭上列具体primitive/ref定向证据缺口；Dropdown/Popover/Tooltip/Accordion生产调用、Footer showCloseButton与Confirm loading的实际Host调用、全部注册/三Host注入仍需完整核验。未用样本数代 111 项。 |
 | D03 | Formal Scope Loading/Badge/Control、StatCard、DetailField/StatusBadge/Paginator；内部 TooltipProvider；两宿主 Progress 将 value 传真实 Radix Root。 | SD/PD 实际呈现各3 PASS；App/Host 生产模块图。 | NOT RUN：全 AppHeader slots、Models/UISelect、每个 tone/class/label/value 合同和双 Host 实际主题未完整采集。UI owner；非权限阻塞。 |
 | D04 | 原 enterprise graph 入口 reexport canonical FormalKnowledgeGraphVisualization/Model；两 build 均实际包含主 graph/cytoscape 源。新增 graph 资源名/说明 translate=no 边界。 | 原 owner renderer/model13 PASS；本次改 renderer 测试实际经过 canonical，SD changed 记录。 | NOT RUN：双 Host 真实节点编辑/保存/重载及主题/交互仍无业务 raw。主 renderer 源复用不以 ViewAll 小 canvas 代替。 |
 | D05 | FormalKnowledgeLayout/Presentation、Knowledge 局部样式和原 block/inline/table/code/image Markdown 源；native Markdown 与 PD Host 指向同源。 | 两生产模块图包含 FormalMarkdown；mounted 多实例消费者测试。 | NOT RUN：完整原 Markdown 内容、布局/响应式/深浅色 DOM/PNG 尚未逐项闭合。UI owner保原样式；不复制私有整份全局 CSS。 |
@@ -41,7 +41,7 @@
 | D17 | 真实data/drafts封套严格拒绝坏shape；rowID≠skill_id；每个draft保原顺序/日期/ID，重复ID拒绝、多draft无明确选择拒写；Page选中行传自己draft_id；无伪now/默认synced、缺status不造draft。 | e56 adapter更新 + SDselected-draft2；final-runtime-adapter36/Knowledge12；production editor路径选精确draft。 | NOT RUN：真实多draft/history/统计/日期/selected版本浏览器与owner回读未采。原统计定义0默认不统称伪造；缺字段明确边界按源码处理。 |
 | D18 | Knowledge/SOP/copy每请求核PD user、正式actor/tenant/target/ownedcredential，撤销/身份变化后不进入业务上游；浏览器无SD key。 | 实际公共HTTP身份5/后续bridge6+gateway2，copy bridge9（既有原件）。 | BLOCKED：原native可见employee/team/合法非target每operation PEP尚无完整公开等价合同。直接调用native read不执行FastAPI dependencies；configID/HTTP200/ownedmetadata不代PEP。当前target约束不签原范围parity；若需core policy改变先报，未改core。 |
 | C01 | 唯一现有publish包一次正式请求→owner响应→完整atomic bundle→真实Gateway reloadExtensions→持久owner receipt；GET management重建回读；browser per-mount observer/provider+实际入口保 sibling runtime，UI分阶段状态，effective始终false。 | 原runtime13+receipt3、actual route单publish；本次production editor+EN/ZH状态7 PASS；readiness4仅配置准备。 | NOT RUN：model_for_agent有效配置、真实discovery/modelwire/runtime下一load/newpin/oldpin同wait恢复/审批/仅web重启/实际Gateway失败仍未运行。ack不等于effective；单writer进程限制保留。代码/投影接线已交，不再等待adapter/UI。 |
-| C02 | 三Page/版本详情/graph资源内容 FormalUserContent；Portal独立locale边界；mounted日期locale；raw名称正文保translate=no，labels仍EN/ZH。 | 真实DOM/ImportPortal/EN→ZH7、PDPortal1，新增graph content和runtime状态测试。 | NOT RUN：所有页面语言/主题/日期/Portal实际浏览器矩阵未全采；局部保护证据不签全内容边界。 |
+| C02 | 三Page/版本详情/graph资源内容 FormalUserContent；Portal独立locale边界；mounted日期locale；raw名称正文保translate=no，labels仍EN/ZH。 | 真实DOM/ImportPortal/EN→ZH7、PDPortal1，新增graph content和runtime状态测试；动态Dialog/aria模板混入用户文本仍为UI具体未完实现，不能统称仅运行项。 | NOT RUN：所有页面语言/主题/日期/Portal实际浏览器矩阵未全采；局部保护证据不签全内容边界。 |
 | C03 | 0.1.13 canonical全部40源逐字vendor；UPSTREAM指精确SDref。manifest补齐clsx/tailwind/router/Radix/cytoscape/lucide实际peer版本；使用各自locked安装和本树解析，无借依赖/临时shared symlink。移除ambient Record<any>伪类型，SD编译真实canonical。两生产模块图保存。 | SD tsc-b+Vite PASS；PD tsc noEmit与enabled生产build PASS；final-vendor-check PASS。 | NOT RUN（整组/独立S06）：build/typecheck子检查PASS；原Page ts-nocheck仍保留，完整原props和fresh四clone/后端锁/实际装配尚未独立核。不以删除nocheck重写Page来制造通过。 |
 | C04 | 原layout/palette/classes/paginator/padZero/current/ellipsis/aria/跳页合同源提取；PD现有pagination消费；scope tooltip与progress实际调用修复。 | SD/PD presentation各3、selecteddraft/Portal/graph测试及两生产build。 | NOT RUN：全layout响应式/主题/所有props、clamp/resetKey真实行为与双Host视觉尚未完整签证。UI owner不是等待文件分配。 |
 
@@ -78,6 +78,12 @@
 - 历史聚焦原件分别在三handoff目录：mounted/api/helper/HTTP identity/abort/receipt/Portal/ref/Progress/scope/paginator；本次未无理由重跑已通过局部测试。旧实际业务FAIL/state仍在其原目录。
 
 Node22.23.1、pnpm10.32.1。SD frontend npm ci --ignore-scripts、PD pnpm frozen-lockfile --ignore-scripts分别用本树锁与本树node_modules；无需新增锁条目，shared只声明已安装host peers。SD原lucide1.27.0、PD0.515.0的兼容peer范围已明确。PD root LFS缺assets/awo.gif远端对象，保留指针，不代媒体PASS；本次enabled UI构建不依赖该对象。两build仅报chunk size warning。example-seven-managed只作静态模块装配形状，其placeholder绝不是有效模型/服务配置。
+
+## UI e535 固定增量收口
+
+SD be3b7a41 graph hunk已在0de673e5 canonical/vendor；这次不重复合入、不重跑已测graph。PD e53589cb固定提交新增宿主Input/Textarea forwardRef及实际primitive test；其Progress hunk与当前实现逐字相同，保留现有行。owner目录后续LocaleBoundary dirty仅查状态路径，未读内容；只读取不可变commit diff。
+
+本次聚焦4/4及最终PD typecheck/StaffDeck-enabled生产build通过，raw为交付根 `ui-wip-handoff/ui-e53589cb-{integrated-tests,typecheck,enabled-build}.log`；SD源码未变不重build。仍具体未完：Dropdown/Popover/Tooltip/Accordion生产调用、DialogFooter showCloseButton/Confirm loading实际Host、最终三Host全注册/ref/props、动态Dialog/aria用户内容窄hunk。双Hostdark/light/响应式/图节点编辑保存/真实语言错误并发继续唯一矩阵NOT RUN；不把这些实现/聚焦缺口全部推成独立业务验收。
 
 ## 后续唯一依赖与交付顺序
 

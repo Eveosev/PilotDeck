@@ -31,3 +31,7 @@ Manifest peers include both installed host lucide versions. All 40 canonical
 source files match the committed StaffDeck ref above; the manifest is identical.
 Runtime browser context/status files are PilotDeck integration glue outside
 canonical. Both public/runtime protocol helpers remain SERVER-ONLY.
+
+UI e53589cb host-owned Input/Textarea forwardRef and primitive tests are
+integrated; Progress was already identical. These host ports are outside the
+40 canonical sources and do not change the canonical StaffDeck ref.

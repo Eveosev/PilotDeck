@@ -3,7 +3,7 @@ import * as React from "react"
 import { useI18n } from "./locale"
 import { cn } from "../../../../../lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(function Input({ className, type, ...props }, ref) {
   const { t } = useI18n()
   const localizedProps = {
     ...props,
@@ -14,6 +14,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 
   return (
     <input
+      ref={ref}
       type={type}
       data-slot="input"
       autoComplete="off"
@@ -27,6 +28,6 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       {...localizedProps}
     />
   )
-}
+})
 
 export { Input }

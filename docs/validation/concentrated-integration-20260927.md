@@ -9,3 +9,5 @@
 SD真实canonical类型与生产构建、PD类型与enabled静态profile生产构建、40源vendor验证通过；修改测试只用实际Host类型，移除ambient伪类型。producer图在SD dist/business-ui-modules.json与PD dist/composition-modules.json，独立copy原件在交付目录；example profile只为静态build，不证明运行配置。
 
 D13–D15等价公开语义/route白名单和cancel scope、D18原可见范围PEP保持精确BLOCKED；完整props/真实DB/UI/模型/newoldpin/wait未运行。旧首FAIL/raw不变，无业务轮/push/merge/部署，不以unsupported代功能PASS。
+
+UI固定e53589cb增量追加：宿主Input/Textarea forwardRef与实际primitive4测试通过，Progress行已同源不重复改；SD be3graph已接不重跑。PD typecheck/enabled build通过，raw在ui-wip-handoff。仍未完生产Dropdown/Popover/Tooltip/Accordion、Footer/Confirm与三Host全注入、动态Dialog/aria用户文本详见唯一处置表；不升gate。
