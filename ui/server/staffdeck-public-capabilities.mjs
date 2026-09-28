@@ -34,6 +34,7 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   list_knowledge_concepts: ['GET', 'agents/{agent}/knowledge-bases/{base}/concepts', 'knowledge:read', 'data[]'],
   get_knowledge_document: ['GET', 'agents/{agent}/knowledge-bases/{base}/documents/{document}', 'knowledge:read', 'document'],
   upload_knowledge_document: ['POST', 'agents/{agent}/knowledge-bases/{base}/documents', 'knowledge:write', '200 KnowledgeIngestJobRead'],
+  upload_knowledge_document_auto: ['POST', 'agents/{agent}/knowledge/documents:auto-create', 'knowledge:write', '200 KnowledgeIngestJobRead'],
   import_knowledge_okf: ['POST', 'agents/{agent}/knowledge-bases/{base}/okf:import', 'knowledge:write', 'import result'],
   list_document_buckets: ['GET', 'agents/{agent}/knowledge-documents/{document}/buckets', 'knowledge:read', 'data[]'],
   list_bucket_chunks: ['GET', 'agents/{agent}/knowledge-buckets/{bucket}/chunks', 'knowledge:read', 'data[]'],
@@ -175,6 +176,18 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'upload_knowledge_document':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/documents`;
       plan.body = publicBody(input); plan.shape = 'knowledge-ingest-job'; break;
+    case 'upload_knowledge_document_auto': {
+      if (input.knowledgeBaseId !== undefined) fail('PUBLIC_INPUT_INVALID', 'Auto-create upload does not accept a knowledge base ID.', 400);
+      const body = publicBody(input);
+      if (Object.keys(body).some(key => !['filename', 'title', 'content_base64', 'media_type', 'capability_scope'].includes(key))) {
+        fail('PUBLIC_INPUT_INVALID', 'Auto-create upload accepts only original file, title and capability scope.', 400);
+      }
+      if (body.capability_scope !== undefined && !['general', 'sop_specific'].includes(body.capability_scope)) {
+        fail('PUBLIC_INPUT_INVALID', 'Unknown capability scope.', 400);
+      }
+      plan.method = 'POST'; plan.path = `${agent}/knowledge/documents:auto-create`;
+      plan.body = body; plan.shape = 'knowledge-ingest-job'; break;
+    }
     case 'import_knowledge_okf':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/okf:import`;
       plan.body = publicBody(input); break;

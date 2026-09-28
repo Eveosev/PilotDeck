@@ -100,7 +100,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 67);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 68);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }
@@ -228,6 +228,16 @@ test('fixed Knowledge routes retain base and document IDs, conflict timestamp an
     knowledgeBaseId: 'kb/1', body: { filename: 'source.md', content_base64: 'YQ==', title: 'Source' },
   });
   assert.equal(multipart.shape, 'knowledge-ingest-job');
+  const auto = planPublicOperation(target, 'upload_knowledge_document_auto', {
+    body: { filename: 'source.md', content_base64: 'YQ==', title: 'Source', capability_scope: 'general' },
+  });
+  assert.equal(auto.path, 'agents/target%2F1/knowledge/documents:auto-create');
+  assert.equal(auto.shape, 'knowledge-ingest-job');
+  assert.equal(auto.body.capability_scope, 'general');
+  assert.throws(() => planPublicOperation(target, 'upload_knowledge_document_auto', {
+    knowledgeBaseId: 'not-allowed', body: { filename: 'source.md' },
+  }), code('PUBLIC_INPUT_INVALID'));
+
   const jobs = planPublicOperation(target, 'list_knowledge_jobs', { status: 'running', limit: 12 });
   assert.equal(jobs.path, 'agents/target%2F1/knowledge-jobs?status=running&limit=12');
   const discoveries = planPublicOperation(target, 'list_knowledge_discoveries', { knowledgeBaseId: 'kb/1', status: 'pending' });
