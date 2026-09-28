@@ -51,4 +51,11 @@
 - 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
 - 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
-最终clean refs记在[MINIMUM_SOURCE_FREEZE.json](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/MINIMUM_SOURCE_FREEZE.json)，SD认证入口整合ref为1383e39a。独立fresh流程先正常启动隔离Gateway与SD、取响应tuple及发布合法无审批bundle，再运行`prepare-staffdeck-bindings.mjs`和`compose-limited-staffdeck-profile.mjs`写同一个private enabled profile并令Gateway实际选中；准备工具不代业务结果。最终源码与准入结论见[DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
+此前冻结refs保存在[MINIMUM_SOURCE_FREEZE.json](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/MINIMUM_SOURCE_FREEZE.json)，保持 `candidateReady:false`，不再指令验收重启旧根。最新待准入双源及缺口集中于[NEXT_MINIMUM_CANDIDATE_ADMISSION.json](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/NEXT_MINIMUM_CANDIDATE_ADMISSION.json)。源码与跨线准入结论见[DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
+
+## runtime-6/7 后的窄整合
+
+- public SD `2f1dcd28` 已窄接为 `23d9319d`：只改原 PD host SOP route candidate 执行和定向测试，复用 `LLMClient.generate_json` 的原 JSON/schema repair。没有改已固定 `pilotdeck_domain_binding.py` 或启动 root；不证明此前缺 problem body 的 K3 503 子因。整合树用现有依赖解释器执行 controlled portable/host/public-route 三文件，17/17通过，无模型业务调用。
+- public PD `4601344a` / `1814a420` 已接为 `f899b67c` / `d69f40ca`：[owner 原件](runtime6-runtime7-public-handoff-20260928.md)与[portable/profile supplement](runtime6-runtime7-profile-focused-evidence-20260928.json)。8a03 verified CLI及短时真实portable manifest/prepare/submit已验证，进程已停；fixture身份/模型与这些协议结果不作部署或业务PASS。
+- 新共享[启动工具](minimum-startup-admission-20260928.md)保单一bootstrap/enabled认证DB，门禁Harness产物、verified tuple/profile、实际portable manifest、本轮Gatewaytoken、认证describe/catalog和同profile唯一默认模型；拒绝时不启动SD命令，保原非2xx body。它不运行stream、不声称SD DI生效，生成的准备receipt始终`candidateReady:false`。18/18 focused通过，PD根TypeScript emit通过；本批无frontend/canonical/vendor/lock代码变化，不重复UI构建。实际enabled profile构建仍是新进程准入项。
+- runtime-6/7已封存并idle；当前尚缺下一进程真实Gateway auth/describe/catalog/stream、fixed SD DI响应及selected Port证据。准入前只可准备这些输入，不通知独立重启或运行旧root。Fresh5 K3仍记discovery503，P3按原raw记health404，UI/adapter无此次hunk；无K3/P3浏览器AX/DOM原件不签页面操作PASS。shared validator/native覆盖仍沿原owner固定交付，active public Port的400不能代该覆盖。
