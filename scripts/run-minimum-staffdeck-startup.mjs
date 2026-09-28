@@ -43,6 +43,14 @@ export async function prepareMinimumStartup(config, stage, {
     candidateReady: false, business: 'NOT RUN' });
   const env = { ...inheritedEnv, ...config.environment, DATABASE_PATH: database,
     PILOT_HOME: home, PILOTDECK_DISABLE_LOCAL_AUTH: '0', NODE_ENV: 'production' };
+  if (stage.endsWith('-bootstrap')) {
+    delete env.PILOTDECK_CONFIG_PATH;
+    if (config.bootstrapProfilePath) {
+      const bootstrapProfile = statePath(config, 'bootstrapProfilePath');
+      await requireFile(bootstrapProfile, 'STARTUP_BOOTSTRAP_PROFILE_REQUIRED');
+      env.PILOTDECK_CONFIG_PATH = bootstrapProfile;
+    }
+  }
   if (stage.startsWith('sd-')) {
     requireValue(isAbsolute(config.harnessRoot ?? ''), 'STARTUP_HARNESS_ROOT_REQUIRED');
     await requireFile(resolve(config.harnessRoot, 'apps/cli/lib/bin.js'), 'STARTUP_HARNESS_BUILD_REQUIRED');

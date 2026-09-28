@@ -61,6 +61,14 @@ test('both SD phases gate on the completed Harness CLI artifact before any callb
 
 test('enabled uses the bootstrap auth root, ignores inherited DB, rejects a second configured DB', async t => {
   const f = await fixture(t);
+  const bootstrap = await prepareMinimumStartup(f.config, 'pd-bootstrap', {
+    inheritedEnv: { PILOTDECK_CONFIG_PATH: '/old/profile.json' },
+  });
+  assert.equal(bootstrap.PILOTDECK_CONFIG_PATH, undefined);
+  const bootstrapProfilePath = join(f.config.stateRoot, 'bootstrap-profile.json');
+  await writeFile(bootstrapProfilePath, '{}');
+  const explicit = await prepareMinimumStartup({ ...f.config, bootstrapProfilePath }, 'pd-bootstrap', { inheritedEnv: {} });
+  assert.equal(explicit.PILOTDECK_CONFIG_PATH, bootstrapProfilePath);
   const env = await prepareMinimumStartup(f.config, 'pd-enabled', {
     fetchImpl: f.fetchImpl, inheritedEnv: { DATABASE_PATH: '/old/auth.db', PILOTDECK_DISABLE_LOCAL_AUTH: '1' },
   });
