@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
-// @ts-expect-error Standalone profile renderer is JavaScript and has no declaration.
-import { renderLimitedProfile } from '../../products/pilotdeck-staffdeck-sop/profiles/render-limited-20260928.mjs';
+const rendererPath = pathToFileURL(join(process.cwd(), 'products/pilotdeck-staffdeck-sop/profiles/render-limited-20260928.mjs')).href;
+const { renderLimitedProfile } = await import(rendererPath);
 import { loadPilotConfig } from '../../src/pilot/config/loadPilotConfig.js';
 import { parseModulesConfig } from '../../src/pilot/config/parseModulesConfig.js';
 import type { PilotConfigDiagnostic } from '../../src/pilot/config/types.js';
