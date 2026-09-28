@@ -49,6 +49,9 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
   required(text(input.definitionsPath) && text(input.defaultSopId), 'SOP_BINDING_REQUIRED');
   const env = {
     STAFFDECK_FORMAL_API_ORIGIN: origin.origin,
+    STAFFDECK_PUBLIC_ORIGIN: origin.origin,
+    STAFFDECK_FIXED_TARGET_AGENT_ID: target.id,
+    STAFFDECK_KNOWLEDGE_READ_KEY: credentialCreated.api_key,
     STAFFDECK_COPY_TENANT_ID: tenant,
     STAFFDECK_COPY_ACTOR_USER_ID: actorId,
     STAFFDECK_COPY_TARGET_AGENT_ID: target.id,
@@ -61,6 +64,8 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
     STAFFDECK_SOP_MANAGEMENT_ENDPOINT: endpoint,
     STAFFDECK_SOP_MANAGEMENT_API_KEY: credentialCreated.api_key,
     STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID: credential.id,
+    STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH: input.definitionsPath,
+    STAFFDECK_PUBLISHED_SOP_ID: input.defaultSopId,
     ...(hasApprover ? { STAFFDECK_APPROVAL_USER_ID: approverMe.id } : {}),
   };
   return {

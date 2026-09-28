@@ -23,6 +23,10 @@ test('actual response IDs bind copy, management and discovery without claiming r
   assert.equal(result.env.STAFFDECK_APPROVAL_USER_ID, result.identity.approverUserId);
   assert.equal(result.env.PILOTDECK_GATEWAY_URL, 'ws://127.0.0.1:16411/ws');
   assert.equal(result.env.PILOTDECK_GATEWAY_TOKEN_PATH, '/isolated-home/server-token');
+  assert.equal(result.env.STAFFDECK_PUBLIC_ORIGIN, result.env.STAFFDECK_FORMAL_API_ORIGIN);
+  assert.equal(result.env.STAFFDECK_KNOWLEDGE_READ_KEY, result.env.STAFFDECK_SOP_MANAGEMENT_API_KEY);
+  assert.equal(result.env.STAFFDECK_FIXED_TARGET_AGENT_ID, result.identity.targetAgentId);
+  assert.equal(result.env.STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH, result.configPatch.modules.sop.definitionsPath);
   assert.equal(result.configPatch.modules.sop.discoveryAgentId, result.identity.targetAgentId);
   assert.deepEqual(result.configPatch.modules.knowledge, {
     tenantId: result.identity.tenantId,
