@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CirclePause, Loader2, RefreshCw } from 'lucide-react';
 
 import { api } from '../../utils/api';
-import FormalSopApprovalInbox from '../../composition/modules/staffdeck/vendor/FormalSopApprovalInbox';
-import { approvalInboxItem, type ApprovalStatus, type ApprovalReceipt, type ApprovalReply, type ApprovalScope } from '../../composition/modules/staffdeck/public-approval-client';
 
 type SopWait = {
   id: string;
@@ -17,14 +15,7 @@ type SopStatus = {
   revision: number;
   state: Record<string, unknown>;
   wait?: SopWait;
-  approval?: ApprovalStatus['approval'];
-  approvalError?: ApprovalStatus['approvalError'];
 };
-
-type ApprovalClient = Readonly<{
-  status(scope: ApprovalScope, options?: { signal?: AbortSignal }): Promise<ApprovalStatus | null>;
-  resume(reply: ApprovalReply, options?: { signal?: AbortSignal }): Promise<ApprovalReceipt>;
-}>;
 
 type SopWaitBannerProps = {
   sessionKey: string | null;
@@ -33,7 +24,8 @@ type SopWaitBannerProps = {
   disabled?: boolean;
   onPrepared: (message: string) => void;
   onError: (message: string) => void;
-  approvalClient?: ApprovalClient;
+  allowedWaitKind?: 'external_task';
+  onWaitKind?: (kind: SopWait['kind'] | null) => void;
 };
 
 export default function SopWaitBanner({
@@ -43,7 +35,8 @@ export default function SopWaitBanner({
   disabled = false,
   onPrepared,
   onError,
-  approvalClient,
+  allowedWaitKind,
+  onWaitKind,
 }: SopWaitBannerProps) {
   const [status, setStatus] = useState<SopStatus | null>(null);
   const draftKey = sessionKey ? `pilotdeck:sop:continuation:${sessionKey}` : null;
@@ -53,7 +46,6 @@ export default function SopWaitBanner({
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const statusRequestRef = useRef(0);
   const resumeInFlightRef = useRef(false);
-  const approvalRequestRef = useRef<{ key: string; id: string } | null>(null);
 
   useEffect(() => {
     if (messageInputRef.current) messageInputRef.current.value = readDraft(draftKey);
@@ -63,29 +55,23 @@ export default function SopWaitBanner({
     const requestId = ++statusRequestRef.current;
     if (!sessionKey) {
       setStatus(null);
+      onWaitKind?.(null);
       return;
     }
     setLoading(true);
     try {
-      let nextStatus: SopStatus | null;
-      if (approvalClient) {
-        const authenticated = await approvalClient.status({ sessionKey, projectKey });
-        approvalInboxItem(authenticated);
-        nextStatus = isSopStatus(authenticated) ? authenticated : null;
-      } else {
-        const response = await api.sopStatus(sessionKey, projectKey);
-        if (requestId !== statusRequestRef.current) return;
-        if (!response.ok) {
-          if (response.status === 404 || response.status === 501) {
-            setStatus(null);
-            return;
-          }
-          throw new Error(await responseMessage(response, 'Unable to read SOP status.'));
-        }
-        const body = await response.json();
-        nextStatus = isSopStatus(body?.status) ? body.status : null;
-      }
+      const response = await api.sopStatus(sessionKey, projectKey);
       if (requestId !== statusRequestRef.current) return;
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 501 || response.status === 503) {
+          setStatus(null);
+          onWaitKind?.(null);
+          return;
+        }
+        throw new Error(await responseMessage(response, 'Unable to read SOP status.'));
+      }
+      const body = await response.json();
+      const nextStatus = isSopStatus(body?.status) ? body.status : null;
       const nextWaitId = nextStatus?.wait?.id;
       // The first status response may arrive after the operator starts
       // typing. Only a subsequent, distinct handoff should replace a draft.
@@ -96,57 +82,23 @@ export default function SopWaitBanner({
       }
       if (!waitIdRef.current && nextWaitId) waitIdRef.current = nextWaitId;
       setStatus(nextStatus);
+      onWaitKind?.(nextStatus?.wait?.kind ?? null);
     } catch (error) {
       if (requestId !== statusRequestRef.current) return;
       setStatus(null);
+      onWaitKind?.(null);
       onError(error instanceof Error ? error.message : String(error));
     } finally {
       if (requestId === statusRequestRef.current) setLoading(false);
     }
-  }, [approvalClient, onError, projectKey, sessionKey]);
+  }, [onError, onWaitKind, projectKey, sessionKey]);
 
   useEffect(() => {
     void loadStatus();
   }, [loadStatus, refreshKey]);
 
-  if (!status?.wait) return null;
+  if (!status?.wait || (allowedWaitKind && status.wait.kind !== allowedWaitKind)) return null;
   const wait = status.wait;
-
-  if (wait.kind === 'handoff') {
-    const onReply = async (approval: NonNullable<ApprovalStatus['approval']>, message: string) => {
-      if (!approvalClient || disabled || resumeInFlightRef.current
-        || approval.waitId !== wait.id || approval.revision !== status.revision) return;
-      const activeStatusRequest = statusRequestRef.current;
-      const key = `${status.sessionId}\u0000${projectKey}\u0000${approval.waitId}\u0000${approval.revision}\u0000${message}`;
-      if (approvalRequestRef.current?.key !== key) approvalRequestRef.current = { key, id: crypto.randomUUID() };
-      resumeInFlightRef.current = true;
-      setResuming(true);
-      try {
-        const receipt = await approvalClient.resume({ sessionKey: status.sessionId, projectKey,
-          requestId: approvalRequestRef.current.id, waitId: approval.waitId,
-          expectedRevision: approval.revision, message });
-        approvalRequestRef.current = null;
-        if (activeStatusRequest !== statusRequestRef.current) return;
-        setStatus(null);
-        onPrepared(receipt.message);
-      } catch (error) {
-        onError(error instanceof Error ? error.message : String(error));
-        await loadStatus();
-      } finally {
-        resumeInFlightRef.current = false;
-        setResuming(false);
-      }
-    };
-    const validPin = status.approval?.waitId === wait.id && status.approval.revision === status.revision;
-    const displayStatus = approvalClient && validPin ? status : {
-      ...status, approval: undefined,
-      approvalError: approvalClient
-        ? { code: 'SOP_APPROVAL_PIN_INVALID', message: 'The pinned approval does not match this wait.' }
-        : { code: 'APPROVAL_AUTH_REQUIRED', message: 'A normal StaffDeck approver login is required.' },
-    };
-    return <div data-testid="sop-wait-banner"><FormalSopApprovalInbox
-      status={displayStatus} loading={loading} submitting={resuming} onReply={onReply} /></div>;
-  }
 
   const resume = async () => {
     const normalizedMessage = messageInputRef.current?.value.trim() ?? '';
@@ -159,7 +111,7 @@ export default function SopWaitBanner({
         projectKey,
         requestId: crypto.randomUUID(),
         waitId: wait.id,
-        source: 'external_task',
+        source: wait.kind === 'handoff' ? 'human' : 'external_task',
         message: normalizedMessage,
         expectedRevision: status.revision,
       });
@@ -180,7 +132,9 @@ export default function SopWaitBanner({
     }
   };
 
-  const label = 'This SOP is waiting for an external task result.';
+  const label = wait.kind === 'handoff'
+    ? 'This SOP is waiting for a handoff response.'
+    : 'This SOP is waiting for an external task result.';
 
   return (
     <div
@@ -202,7 +156,7 @@ export default function SopWaitBanner({
             onKeyDown={(event) => {
               if (event.key === 'Enter') void resume();
             }}
-            placeholder="Enter the external task result"
+            placeholder={wait.kind === 'handoff' ? 'Enter the handoff response' : 'Enter the external task result'}
             disabled={disabled || resuming}
           />
         </div>

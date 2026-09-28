@@ -10,9 +10,12 @@ import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
 import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
-import { useStaffDeckApprovalClient } from './staffdeck-approval-binding';
+import { PublicApprovalInboxMount } from './staffdeck/public-approval-inbox-mount';
+import FormalSopApprovalInbox from './staffdeck/vendor/FormalSopApprovalInbox';
+import { useCallback, useState } from 'react';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
+const noop = () => {};
 
 function FormalSopPage() {
   const { user } = useAuth();
@@ -26,17 +29,21 @@ function FormalSopDistillPage() {
   return <StaffDeckHostBinding><StaffDeckLocaleBoundary><PublishRuntimeProvider><PublishRuntimeStatus /><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></PublishRuntimeProvider></StaffDeckLocaleBoundary></StaffDeckHostBinding>;
 }
 
-function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {
-  const approvalClient = useStaffDeckApprovalClient();
-  return <SopWaitBanner
-    sessionKey={sessionId ?? ''}
-    projectKey={projectKey}
-    refreshKey={refreshKey ?? sessionId ?? ''}
-    disabled={disabled}
-    onPrepared={onPrepared ?? (() => {})}
-    onError={onError ?? (() => {})}
-    approvalClient={approvalClient ?? undefined}
-  />;
+type ApprovalHostInput = { readApproverBearer?: () => string };
+
+function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError, host }: SurfaceProps) {
+  const approvalInput = (host as typeof host & { approval?: ApprovalHostInput })?.approval;
+  const [externalWait, setExternalWait] = useState(false);
+  const onWaitKind = useCallback((kind: 'handoff' | 'external_task' | null) => setExternalWait(kind === 'external_task'), []);
+  return <>
+    <SopWaitBanner sessionKey={sessionId ?? ''} projectKey={projectKey} refreshKey={refreshKey ?? sessionId ?? ''}
+      disabled={disabled} onPrepared={onPrepared ?? noop} onError={onError ?? noop}
+      allowedWaitKind="external_task" onWaitKind={onWaitKind} />
+    {sessionId ? <PublicApprovalInboxMount scope={{ sessionKey: sessionId, projectKey }}
+      readApproverBearer={approvalInput?.readApproverBearer} Inbox={FormalSopApprovalInbox}
+      refreshKey={refreshKey} disabled={disabled} hidden={externalWait}
+      onPrepared={onPrepared} onError={onError} /> : null}
+  </>;
 }
 
 export function SopPermissionPanel(props: SurfaceProps) {
