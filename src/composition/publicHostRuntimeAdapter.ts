@@ -4,6 +4,7 @@
  * Ports; this file never constructs a model runtime, registry, skill store,
  * task state machine, or permission context.
  */
+import { ModelRequestError, ModelProviderError } from "../model/protocol/errors.js";
 import type { PublicCapabilityResponse, PublicHostCapabilityProvider, PublicHostPrincipal } from "./nativeHostCapabilityProvider.js";
 
 type AbortOptions = { signal?: AbortSignal; principal: PublicHostPrincipal };
@@ -119,10 +120,16 @@ export function createRuntimeHostCapabilityProvider(selection: PublicRuntimePort
         case "model_prepare":
         case "model_stream": {
           const result = await method({ ...input, profileId: selection.profile.id, principal: options.principal, signal: options.signal });
-          return { status: 200, body: result.body ?? result, headers: result.headers };
+          return result && typeof result.status === "number"
+            ? { status: result.status, body: result.body, headers: result.headers }
+            : { status: 200, body: result.body ?? result, headers: result.headers };
         }
         case "file_parse": {
-          const bytes = Buffer.from(requiredString(input.content_base64, "content_base64"), "base64");
+          const encoded = requiredString(input.content_base64, "content_base64");
+          if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+            return invalid("content_base64 must be canonical base64.");
+          }
+          const bytes = Buffer.from(encoded, "base64");
           return { status: 200, body: await method({ filename: requiredString(input.filename, "filename"), mediaType: input.media_type, bytes, maxBytes: input.max_bytes, signal: options.signal }) };
         }
         case "task_start":
@@ -145,8 +152,11 @@ export function createRuntimeHostCapabilityProvider(selection: PublicRuntimePort
       }
     } catch (error) {
       if (options.signal?.aborted) return { status: 499, body: { code: "PUBLIC_HOST_CANCELLED" } };
+      if (error instanceof ModelRequestError) return { status: 400, body: { code: error.code, message: error.message, details: error.details } };
+      if (error instanceof ModelProviderError) return { status: error.error.status ?? 502, body: error.error };
       const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 502;
-      return { status, body: error instanceof Error ? { code: error.name, message: error.message } : error };
+      const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : error instanceof Error ? error.name : "PUBLIC_HOST_PROVIDER_ERROR";
+      return { status, body: error instanceof Error ? { code, message: error.message } : error };
     }
   };
   return { operations, call };
