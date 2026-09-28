@@ -542,9 +542,8 @@ class SopControlToolPort implements ToolPort {
               + "If a field is genuinely absent, resubmit awaiting_user for only that field; do not invent a value or repeat fields already supplied.",
               "invalid_tool_input");
           }
-          if (missing.length === 0 && ((type === "collect_info" && currentStep.expectedUserInfo.length > 0)
-            || ((type === "response" || type === "knowledge_query")
-              && !currentStep.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")))) {
+          if (missing.length === 0 && (currentStep.expectedUserInfo.length > 0
+            || !currentStep.allowedActions.some((action) => action === "ask_user" || action === "ask_missing"))) {
             return controlError(call, "STEP_MUST_ADVANCE: required fields are complete. Submit completed to an allowed next step; approval belongs to the declared handoff node.", "invalid_tool_input");
           }
           if (type === "collect_info" && missing.length > 0) {

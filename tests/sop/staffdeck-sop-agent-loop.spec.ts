@@ -372,6 +372,7 @@ test("evidence step without missing fields routes approval to its declared next 
 
 for (const scenario of [
   { name: "complete collect", type: "collect_info", fields: ["stage"], slots: { stage: "validation" }, actions: ["extract_slots"], reject: true },
+  { name: "no-input decision", type: "decision", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
   { name: "evidence approval", type: "knowledge_query", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
   { name: "undeclared handoff", type: "knowledge_query", fields: [], slots: {}, actions: ["continue_flow"], reject: true },
   { name: "legal missing field", type: "collect_info", fields: ["stage"], slots: {}, actions: ["extract_slots"], reject: false },
