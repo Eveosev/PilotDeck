@@ -3985,5 +3985,10 @@
   "同名预设已存在，请使用其他名称": "A preset with this name already exists. Choose a different name.",
   "装配正在应用，请完成后再保存预设": "The assembly is being applied. Save the preset after it finishes.",
   "尚无运行中的装配可供保存": "There is no running assembly to save yet.",
-  "预设名称不能为空且不超过 80 字，说明不超过 500 字": "Enter a name of up to 80 characters and a description of up to 500 characters."
+  "预设名称不能为空且不超过 80 字，说明不超过 500 字": "Enter a name of up to 80 characters and a description of up to 500 characters.",
+  "SOP 人工审批": "SOP Human Approval",
+  "正在加载审批": "Loading approval",
+  "当前会话没有待处理的人工审批": "No human approval is pending for this session",
+  "固定版本": "Pinned Version",
+  "人工回复": "Human Reply"
 }
