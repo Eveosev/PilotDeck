@@ -9,7 +9,7 @@
 ```json
 {
   "stateRoot": "/RUN_ROOT/state",
-  "pilotdeckAuthDatabasePath": "/RUN_ROOT/state/auth.db",
+  "pilotdeckAuthDatabasePath": "/RUN_ROOT/state/pilot-home/auth.db",
   "pilotdeckHome": "/RUN_ROOT/state/pilot-home",
   "harnessRoot": "/RUN_ROOT/harness",
   "preparedBindingsPath": "/RUN_ROOT/state/prepared-bindings.json",
@@ -23,7 +23,7 @@
 运行形式：`node <canonical-PD>/scripts/run-minimum-staffdeck-startup.mjs <private-startup.json> <stage> -- <owner-command> <args...>`。工具传递校验后的 env，前置失败时不启动命令。stage 为 `pd-bootstrap`、`sd-bootstrap`、`pd-enabled`、`sd-enabled`。
 
 1. 先完成 locked 安装及 Harness `pnpm build:lib`，成功后检查 `apps/cli/lib/bin.js`。SD 两阶段在该产物缺失时均拒启动。PD/SD 原构建命令和固定 Harness/portable refs 不变。
-2. 首次 `pd-bootstrap` 写本轮 `minimum-pd-auth-root.json`，记唯一 `DATABASE_PATH` 和 `PILOT_HOME`。bootstrap/enabled 均使用它。enabled 发现第二库或不同 home 即拒绝，不创建替代库、不删库、不关认证。bootstrap清除继承的`PILOTDECK_CONFIG_PATH`；若需独立bootstrap配置，显式给`bootstrapProfilePath`（本轮stateRoot内已写出的绝对文件），不读取旧profile。第一次正常注册建立本轮用户后，后续必须正常登录同一用户，保登录和 `/me` 原响应；不要再 register，不借旧根 user/profile。
+2. 首次 `pd-bootstrap` 写本轮 `minimum-pd-auth-root.json`，记唯一 `DATABASE_PATH` 和 `PILOT_HOME`。PD Web 原配置解析会先用`webui.runtime.databasePath`（或`customEnv.DATABASE_PATH`），默认是`PILOT_HOME/auth.db`，再加载db.js；仅传环境`DATABASE_PATH`不能覆盖这个解析。工具核profile解析路径与声明一致，bootstrap/enabled均用实际同一库。发现第二库或不同home即拒绝，不创建替代库、不删库、不关认证。bootstrap清除继承的`PILOTDECK_CONFIG_PATH`；若需独立bootstrap配置，显式给`bootstrapProfilePath`（本轮stateRoot内已写出的绝对文件），不读取旧profile。第一次正常注册建立本轮用户后，后续必须正常登录同一用户，保登录和 `/me` 原响应；不要再 register，不借旧根 user/profile。
 3. 启动 SD bootstrap（domain DI 关闭）与真实 portable 服务。SD `/api/health` 独立采证；portable `/healthz` 必须声明 `sop.runtime`、`sop.lifecycle/v2`、协议 `2.0`、prepare/submit。
 4. 原生显式发布合法无审批启动 bundle，取本轮响应派生 bindings。使用 `await composeVerifiedLimitedStaffDeckProfile(prepared, env)` 或 canonical CLI；必须 await 成功及确认新 profile 文件写出。不要只调用纯 `composeLimitedStaffDeckProfile`。portable 与 SD API origin 分开，discovery/management 仍指 SD `/api/v1`。
 5. 使用同一 `PILOTDECK_CONFIG_PATH` 完成 enabled 前端构建，再运行 `pd-enabled`。工具要求 bootstrap auth 库存在、bindings tuple 一致、profile 固定 target 正确，以及此刻 portable manifest 有效。它不注册、登录或改写 profile。

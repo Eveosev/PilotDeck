@@ -18,7 +18,7 @@ const response = (body, status = 200) => new Response(JSON.stringify(body), { st
 async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'minimum-startup-')));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const config = { stateRoot: root, pilotdeckAuthDatabasePath: join(root, 'auth.db'),
+  const config = { stateRoot: root, pilotdeckAuthDatabasePath: join(root, 'pilot-home/auth.db'),
     pilotdeckHome: join(root, 'pilot-home'), harnessRoot: join(root, 'harness'),
     preparedBindingsPath: join(root, 'prepared.json'), profilePath: join(root, 'profile.json') };
   await mkdir(config.pilotdeckHome);
@@ -77,6 +77,10 @@ test('enabled uses the bootstrap auth root, ignores inherited DB, rejects a seco
   await assert.rejects(prepareMinimumStartup({ ...f.config,
     pilotdeckAuthDatabasePath: join(f.config.stateRoot, 'formal-auth.db') }, 'pd-enabled'),
   { code: 'STARTUP_AUTH_DATABASE_MISMATCH' });
+  f.profile.webui = { runtime: { databasePath: join(f.config.stateRoot, 'profile-other.db') } };
+  await f.save();
+  await assert.rejects(prepareMinimumStartup(f.config, 'pd-enabled', { fetchImpl: f.fetchImpl }),
+    { code: 'STARTUP_AUTH_DATABASE_MISMATCH' });
   await assert.rejects(prepareMinimumStartup({ ...f.config,
     environment: { DATABASE_PATH: join(f.config.stateRoot, 'formal-auth.db') } }, 'pd-bootstrap'),
   { code: 'STARTUP_AUTH_DATABASE_MISMATCH' });

@@ -26,6 +26,20 @@ export async function prepareMinimumStartup(config, stage, {
   requireValue(['pd-bootstrap', 'sd-bootstrap', 'pd-enabled', 'sd-enabled'].includes(stage), 'STARTUP_STAGE_INVALID');
   const database = statePath(config, 'pilotdeckAuthDatabasePath');
   const home = statePath(config, 'pilotdeckHome');
+  const phaseProfilePath = stage.endsWith('-enabled') ? statePath(config, 'profilePath')
+    : config.bootstrapProfilePath ? statePath(config, 'bootstrapProfilePath') : undefined;
+  let phaseProfile;
+  if (phaseProfilePath) {
+    await requireFile(phaseProfilePath, stage.endsWith('-enabled')
+      ? 'STARTUP_ENABLED_PROFILE_REQUIRED' : 'STARTUP_BOOTSTRAP_PROFILE_REQUIRED');
+    phaseProfile = JSON.parse(await readFile(phaseProfilePath, 'utf8'));
+  }
+  // ui/server/services/pilotdeckConfig.js derives this value before db.js loads;
+  // DATABASE_PATH alone does not override a profile's webui.runtime.databasePath.
+  const profileDatabase = phaseProfile?.customEnv?.DATABASE_PATH
+    ?? phaseProfile?.webui?.runtime?.databasePath ?? resolve(home, 'auth.db');
+  requireValue(isAbsolute(profileDatabase) && resolve(profileDatabase) === database,
+    'STARTUP_AUTH_DATABASE_MISMATCH');
   requireValue(!config.environment?.DATABASE_PATH || resolve(config.environment.DATABASE_PATH) === database,
     'STARTUP_AUTH_DATABASE_MISMATCH');
   const authReceiptPath = resolve(config.stateRoot, 'minimum-pd-auth-root.json');
@@ -87,7 +101,7 @@ export async function prepareMinimumStartup(config, stage, {
     }
     Object.assign(env, prepared.env, { DATABASE_PATH: database, PILOT_HOME: home,
       PILOTDECK_DISABLE_LOCAL_AUTH: '0', PILOTDECK_CONFIG_PATH: profilePath });
-    const profile = JSON.parse(await readFile(profilePath, 'utf8'));
+    const profile = phaseProfile;
     const manifest = await verifyPortableSopRuntime(profile, fetchImpl);
     requireValue(profile.modules?.sop?.discoveryAgentId === identity.targetAgentId
       && profile.modules?.knowledge?.agentId === identity.targetAgentId,
