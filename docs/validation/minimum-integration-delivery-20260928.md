@@ -13,13 +13,15 @@
 | 公共网关4496af69 | /api/modules/staffdeck-sdk/file allowlist具名auto，保原bytes/title/capability_scope/200/body/headers/signal，无任意代理；原JSON入口拒文件伪装 |
 | SD root c762495c | 显式部署bind_pilotdeck_domain_client，正常Gatewaytokenpath/origin/response-derived PDuser/exact tenant/actor/target；缺配置启用失败，wrongtuple在transport前拒绝 |
 | 绑定准备91aed706 / 293a3250 | 允许同时省略延期approver响应；仍核fresh actor/PDuser/target/owned credential；部分env/configPatch不冒有效profile，正常部署token不mint、不复制 |
+| public SDd7f33288 / PD61cac7fc | SD1383e39a / PD17691edb；正常Knowledge query使用账户Bearer、原PEP、public_host_retrieval与正式module envelope，PD凭credentialEnv只从server进程取账户key；旧无认证module路径不作有限版绑定 |
+| 整合PD3aadf223 / b3e8d441 | 私有profile组合把准备好的copy、management、discovery与public limited renderer合一；target/key/bundle不一致拒绝。compiled-tree profile测试路径修正，不改生产协议 |
 
 同源校验：SD packages/staffdeck-business-ui 与 PD vendor @staffdeck/business-ui 0.1.13 **41个canonical源逐字一致**，manifest无差异；本批无canonical、lock、vendor实现改写。
 
 ## 当前必要差异
 
-1. 正常 PD conversation 的 `knowledge_query` 当前仍由 `ProjectSessionRuntimeBundle` → `createKnowledgeModulePort` → `HttpModuleClient` 使用 module-http-v2。SD 旧 `/v2/module/call` 只依赖DB session，按body actor ID取User，query未选择public_host_retrieval。**它不是已认证 public facade，不能直接作为有限版本正式读取入口。** 原public owner须交有界query/resolve_citation的正式认证/PEP/module envelope+manifest endpoint及credential合同；整合再接原root/HTTP，不以body身份代认证、不用单KB目录证明正常模型引用。
-2. 实际enabled profile尚缺：native-five-staffdeck现有knowledge-runtime/sop-runtime是占位endpoint，definitions指approval示例；必须给正式domain承载点/同target/discovery/正常原生无审批定义/唯一真实PD模型绑定。已有enabled形状构建不证明它有效。fresh身份/owned key只按原正式API取得，不抄旧DB、token或推测ID。
+1. 认证Knowledge源码合同已接，实际PD账户key、原PEP、文档引用和正常模型回答尚未在新进程中观察。SD facade当前只广告`query`；旧`resolve_citation`与高级管理按最小范围不冒等价能力。原模型回答中的citation须由同次查询结果验证。
+2. limited renderer和私有binding组合已接；实际enabled profile须等独立fresh正式身份、账户key、原生无审批已发布bundle、模型环境取得后写入并由Gateway启动选中。native-five原占位endpoint与approval示例不作为本轮profile。未观察启动/manifest/模型配置前不称effective。
 3. root暂未广告tools.list，其工具执行/管理合同仍由原public provider owner承接；若最小SOP编辑需要目录，须原runtime.tools.list的准确descriptor固定投影。工具不可执行不伪装probe/create，保同真源；最小链路未使用操作按用户延期，非PASS。
 
 员工/team扩展USER EXCLUDED；审批和高级管理USER DEFERRED。既有固定consumer/router/源码/失败保留。没有正常approver reader/admitted mapping时human mount禁提交，旧直接human resume不恢复；external_task仍沿原路。审批输入不再作为首轮前置。领域ETag/412、版本/PEP/正常合法分支规则不变。
@@ -31,8 +33,9 @@
 - `minimum-upload-consumer-tests.log`：browser file client、Knowledge Host和同源SDK gateway，38/38（聚焦consumer与transport，不是业务PASS）。
 - `minimum-sdk-tests.log`：具名SDK planner14/14。
 - `minimum-domain-binding-tests.log`：SD正式root binding/domain/auto owner12/12；native原metadata不构成public来源。
-- 准备工具6/6；active model/text Port5/5已通过。新增gateway测试最初fixture漏SOP管理scope得到403，补齐fixture后17/17；未减少生产身份guard。
-- SDK、memory依赖和PD根tsc emit通过；原server/插件资源分发已完成。`minimum-pd-final-source-build.log`留已接最终frontend增量的enabled注册形状生成、UI typecheck、Vite build；保存对应generated入口后恢复默认源码。
-- `minimum-sd-build.log`留SD tsc-b/Vite build。仅借已安装dependency路径，未运行install、未改锁，临时link已删除。Vite只有体积告警。
+- 准备/私有组合8/8；active model/text Port5/5已通过。新增gateway测试最初fixture漏SOP管理scope得到403，补齐fixture后17/17；未减少生产身份guard。
+- 新SD public read pytest3/3；PD Knowledge transport/profile4/4。第一次在`dist`运行profile测试因standalone `.mjs`未复制到`dist`报`ERR_MODULE_NOT_FOUND`；b3e8d441让测试按工作树资源路径读取，修后4/4。
+- 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
+- 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
-最终源码冻结与准入结论见唯一 [DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。本批是同一集中任务的公共收口，不启动独立业务轮，不将源码pair冒充完整可运行candidate，旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
+当前clean refs PD b3e8d441a37ff210cedc1b91e463c13a8ed68e93 / SD 1383e39a1aafc82b70a38c71401681bc0863a7ff。独立fresh流程先正常启动隔离Gateway与SD、取响应tuple及发布合法无审批bundle，再运行`prepare-staffdeck-bindings.mjs`和`compose-limited-staffdeck-profile.mjs`写同一个private enabled profile并令Gateway实际选中；准备工具不代业务结果。最终源码与准入结论见[DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
