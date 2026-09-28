@@ -35,9 +35,13 @@ describe('fixed-target Knowledge public planning', () => {
     expect(planKnowledgePublic('/api/enterprise/knowledge/documents/doc%2F1?knowledge_base_id=base', 'put', { tenant_id: 'forged', content_md: 'full text', expected_updated_at: 'original' })).toMatchObject({
       operation: 'update_knowledge_document', input: { knowledgeBaseId: 'base', documentId: 'doc/1', body: { content_md: 'full text', expected_updated_at: 'original' } },
     });
-    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { tenant_id: 'forged', knowledge_base_ids: ['base'], query: 'question' })).toMatchObject({
-      operation: 'search_knowledge_base', input: { knowledgeBaseId: 'base', body: { query: 'question' } },
+    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { tenant_id: 'forged', knowledge_base_ids: ['base'], query: 'question', model_config_id: 'provider/model', mode: 'debug', max_depth: 3, need_evidence_pack: true })).toEqual({
+      operation: 'search_knowledge_base', input: { knowledgeBaseId: 'base', selectedPdModelId: 'provider/model', body: { query: 'question', mode: 'debug', max_depth: 3, need_evidence_pack: true } }, collection: false,
     });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { knowledge_base_ids: ['base'], query: 'question', model_config_id: '' })?.input).toEqual({
+      knowledgeBaseId: 'base', selectedPdModelId: '', body: { query: 'question' },
+    });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { knowledge_base_ids: ['base'], query: 'question', model_config_id: 'stale/provider' })?.input.selectedPdModelId).toBe('stale/provider');
   });
 
   it('does not substitute archive, scoped search or one-base document listing for different owner semantics', () => {

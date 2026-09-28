@@ -69,7 +69,9 @@ export function planKnowledgePublic(path: string, method: string, body?: unknown
     const baseIds = record(body).knowledge_base_ids;
     if (Array.isArray(baseIds) && baseIds.length === 1 && typeof baseIds[0] === 'string' && baseIds[0]) {
       delete inputBody.knowledge_base_ids;
-      return plan('search_knowledge_base', { knowledgeBaseId: baseIds[0], body: inputBody });
+      const selectedPdModelId = inputBody.model_config_id;
+      delete inputBody.model_config_id;
+      return plan('search_knowledge_base', { knowledgeBaseId: baseIds[0], selectedPdModelId, body: inputBody });
     }
   }
   if (baseId === 'documents' && action && parts.length === 5) {
