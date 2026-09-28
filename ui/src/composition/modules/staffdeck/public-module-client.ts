@@ -63,3 +63,36 @@ export async function uploadPublicKnowledgeDocument(input: {
   }
   return body;
 }
+
+export async function uploadPublicKnowledgeDocumentAuto(input: {
+  scope: Extract<PublicSelectedScope, { kind: 'agent' }>;
+  filename: string;
+  contentBase64: string;
+  title?: string;
+  capabilityScope?: 'general' | 'sop_specific';
+  mediaType?: string;
+  signal?: AbortSignal;
+}): Promise<Record<string, unknown>> {
+  input.signal?.throwIfAborted();
+  if (!input.filename) throw new Error('PUBLIC_FILE_INPUT_INVALID');
+  const binary = atob(input.contentBase64);
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  const form = new FormData();
+  form.set('operation', 'upload_knowledge_document_auto');
+  form.set('scope', JSON.stringify(input.scope));
+  if (input.title !== undefined) form.set('title', input.title);
+  if (input.capabilityScope !== undefined) form.set('capability_scope', input.capabilityScope);
+  form.set('file', new File([bytes], input.filename, { type: input.mediaType || 'application/octet-stream' }));
+  const response = await authenticatedFetch('/api/modules/staffdeck-sdk/file', { method: 'POST', body: form, signal: input.signal });
+  const raw = await response.text();
+  input.signal?.throwIfAborted();
+  if (!response.ok) throw moduleApiError(response.status, raw, response.statusText);
+  let body: unknown;
+  try { body = JSON.parse(raw); } catch { throw new Error('Knowledge ingest response is not JSON.'); }
+  const job = body as Record<string, unknown>;
+  if (response.status !== 200 || typeof job?.id !== 'string' || !job.id || typeof job.status !== 'string' ||
+      typeof job.knowledge_base_id !== 'string' || !job.knowledge_base_id) {
+    throw new Error('Knowledge auto-upload did not return the original ingest job and new knowledge base ID.');
+  }
+  return job;
+}

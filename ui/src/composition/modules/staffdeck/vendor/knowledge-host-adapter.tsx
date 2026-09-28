@@ -1,6 +1,6 @@
 import { usePilotDeckHostCapabilities } from '../pilotdeck-host-capabilities';
 import { planPublicHost, callPublicHost, selectedPublicScope, type HostPlan } from '../public-host-mapping';
-import { uploadPublicKnowledgeDocument } from '../public-module-client';
+import { uploadPublicKnowledgeDocument, uploadPublicKnowledgeDocumentAuto } from '../public-module-client';
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
@@ -144,9 +144,11 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
   }
   if (context && url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') {
     const baseId = body?.knowledge_base_id;
-    if (typeof baseId !== 'string' || !baseId) throw new Error('PUBLIC_KNOWLEDGE_BASE_REQUIRED: the public file route needs the owner-created Knowledge base ID.');
     const scope = selectedPublicScope(path, body, context.readScope);
     if (scope.kind !== 'agent') throw new Error('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH');
+    if (typeof baseId !== 'string' || !baseId) return await uploadPublicKnowledgeDocumentAuto({ scope,
+      filename: body?.filename, contentBase64: body?.content_base64, title: body?.title,
+      capabilityScope: body?.capability_scope, mediaType: body?.media_type, signal }) as T;
     return await uploadPublicKnowledgeDocument({ scope, knowledgeBaseId: baseId, filename: body?.filename,
       contentBase64: body?.content_base64, title: body?.title, signal }) as T;
   }

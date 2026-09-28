@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticatedFetch } from '../../../utils/api';
-import { createPublicModuleClient, uploadPublicKnowledgeDocument } from './public-module-client';
+import { createPublicModuleClient, uploadPublicKnowledgeDocument, uploadPublicKnowledgeDocumentAuto } from './public-module-client';
 
 vi.mock('../../../utils/api', () => ({ authenticatedFetch: vi.fn() }));
 const fetch = vi.mocked(authenticatedFetch);
@@ -56,4 +56,22 @@ it('does not turn a file HTTP failure into an accepted job', async () => {
   fetch.mockResolvedValueOnce(new Response(raw, { status: 409 }));
   await expect(uploadPublicKnowledgeDocument({ scope: { kind: 'agent', agentId: 'target' }, knowledgeBaseId: 'base-1',
     filename: 'fact.md', contentBase64: btoa('fact') })).rejects.toMatchObject({ status: 409, code: 'PUBLIC_FILE_INPUT_INVALID', body: raw });
+});
+
+it('uses the named auto-create multipart operation without a guessed base and validates the returned new base', async () => {
+  const job = { id: 'ingest-auto', status: 'queued', knowledge_base_id: 'new-base', filename: 'fact.md' };
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify(job), { status: 200 }));
+  expect(await uploadPublicKnowledgeDocumentAuto({ scope: { kind: 'agent', agentId: 'target' }, filename: 'fact.md',
+    contentBase64: btoa('unique fact'), title: 'Fact', capabilityScope: 'general' })).toEqual(job);
+  const init = fetch.mock.calls[0][1] as RequestInit;
+  const form = init.body as FormData;
+  expect(form.get('operation')).toBe('upload_knowledge_document_auto');
+  expect(form.get('knowledgeBaseId')).toBeNull();
+  expect(form.get('capability_scope')).toBe('general');
+  expect(await (form.get('file') as File).text()).toBe('unique fact');
+});
+
+it('rejects an auto-upload response with no new knowledge base ID', async () => {
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'job', status: 'queued' }), { status: 200 }));
+  await expect(uploadPublicKnowledgeDocumentAuto({ scope: { kind: 'agent', agentId: 'target' }, filename: 'fact.md', contentBase64: btoa('fact') })).rejects.toThrow('new knowledge base ID');
 });
