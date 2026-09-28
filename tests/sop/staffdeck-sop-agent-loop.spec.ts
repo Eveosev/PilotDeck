@@ -644,6 +644,60 @@ test("terminal response without missing fields cannot create an ordinary user wa
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("terminal completion rejects stale waiting replies before they become durable", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-terminal-reply-"));
+  try {
+    const fragments = [
+      "请提供以下信息，我才能生成最终答复。",
+      "我目前被卡在 recognize_b 步骤，无法推进。请提供相关资料。",
+      "I cannot proceed without more information. Please provide the documents.",
+      "F64D：已完成 recognize_b 与 reply_b。先前提示“无法推进、请提供资料”已解除。",
+    ];
+    let calls = 0;
+    let submissions = 0;
+    const model = modelFromStream(async function* () {
+      const call = calls++;
+      if (call === 0) {
+        yield* yieldToolCall("final-reply-wait", "submit_step_result", {
+          status: "awaiting_user", replyFragment: "请提供更多信息。", slotUpdates: {},
+        });
+        return;
+      }
+      const replyFragment = fragments[call - 1];
+      assert.ok(replyFragment);
+      yield* yieldToolCall(`final-reply-${calls}`, "submit_step_result", {
+        status: "completed", replyFragment, slotUpdates: {},
+      });
+    });
+    const base = acceptingClient(() => { submissions++; });
+    const client: StaffDeckSopRuntimeClient = { ...base, async prepare(input) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, state: { ...prepared.state, active_step_id: "reply_b" }, step: { ...prepared.step,
+        nodeId: "reply_b", node: { type: "response" }, instruction: "F64D: confirm both steps completed.",
+        requiredToolNames: [], allowedNextStepIds: [], expectedUserInfo: [],
+        allowedActions: ["answer_user"], isTerminal: true } };
+    } };
+    const session = createSopSession({ root, sessionId: "terminal-reply", model, client });
+    const events = await collectSessionTurn(session, "Complete the SOP.", "terminal-reply-turn");
+    const rejected = events.filter((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.error.message.includes("FINAL_REPLY_CONTRADICTS_COMPLETION"));
+    assert.equal(rejected.length, 3);
+    assert.equal(events.filter((event) => event.type === "tool_result" && event.result.type === "error"
+      && event.result.error.message.includes("STEP_MUST_ADVANCE")).length, 1);
+    assert.equal(submissions, 1);
+    assert.equal(calls, 5);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("terminal-reply"))?.state.status, "completed");
+    const terminal = events.find((event) => event.type === "turn_completed");
+    assert.equal(terminal?.result.type === "success"
+      && (terminal.result.structuredOutput as { sop?: { replyFragment?: string } } | undefined)?.sop?.replyFragment,
+    fragments[3]);
+    assert.deepEqual(events.filter((event) => event.type === "assistant_message"
+      && event.message.metadata?.purpose === "staffdeck_sop_reply")
+      .map((event) => event.type === "assistant_message" && event.message.content[0]?.type === "text"
+        ? event.message.content[0].text : ""), [fragments[3]]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("SOP session construction rejects definitions whose required PilotDeck tool is unavailable", () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-missing-tool-"));
   try {
