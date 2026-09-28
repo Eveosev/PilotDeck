@@ -17,6 +17,7 @@
 | 整合PD3aadf223 / b3e8d441 / 88d84c29 | 私有profile组合把准备好的copy、management、discovery与public limited renderer合一；target/key/bundle不一致及相对bundle路径拒绝。compiled-tree profile测试路径修正，不改生产协议 |
 | adapter f858ddb2 | 固定[Knowledge查询consumer处置](minimum-knowledge-query-consumer-delivery-20260928.md)：正常对话的认证module读已由后续public合同接通；正式Knowledge页单KB检索仍把自动选择的PD `model_config_id`传给当前拒绝此字段的SD public search。结构化响应/引用投影无需改，输入模型绑定尚未闭合 |
 | public PD35bbd45a | 本树已接[浏览器模型选择合同](browser-knowledge-model-selection-delivery-20260928.md)及公共route：SDK用同一已认证Gateway/selected Host Port的catalog校验唯一可用默认`provider/model`；非2xx Host响应保原status/body，成功检索的`host_model_selection`写回浏览器JSON。SD原词法检索、PEP和evidence/citations不变 |
+| adapter PD123f0271 | 本树已接[正式页面模型输入映射](browser-knowledge-model-selection-adapter-delivery-20260928.md)：单KB搜索把页面所选PD ID移到外层`selectedPdModelId`，SD body保留原查询过滤但不含`model_config_id`；空值和陈旧值交SDK原样拒绝，不选择替代模型 |
 
 同源校验：SD packages/staffdeck-business-ui 与 PD vendor @staffdeck/business-ui 0.1.13 **41个canonical源逐字一致**，manifest无差异；本批无canonical、lock、vendor实现改写。
 
@@ -25,7 +26,7 @@
 1. 认证Knowledge源码合同已接，实际PD账户key、原PEP、文档引用和正常模型回答尚未在新进程中观察。SD facade当前只广告`query`；旧`resolve_citation`与高级管理按最小范围不冒等价能力。原模型回答中的citation须由同次查询结果验证。
 2. limited renderer和私有binding组合已接；实际enabled profile须等独立fresh正式身份、账户key、原生无审批已发布bundle、模型环境取得后写入并由Gateway启动选中。native-five原占位endpoint与approval示例不作为本轮profile。未观察启动/manifest/模型配置前不称effective。
 3. root暂未广告tools.list，其工具执行/管理合同仍由原public provider owner承接；若最小SOP编辑需要目录，须原runtime.tools.list的准确descriptor固定投影。工具不可执行不伪装probe/create，保同真源；最小链路未使用操作按用户延期，非PASS。
-4. K3正式Knowledge页查询仍为源码BLOCKED：public合同与公共route已接；adapter owner尚须把页面自动选择的PD `model_config_id`移为外层`selectedPdModelId`，从SD search body移除此字段，保持单KB与原scope。现有页面路径仍会被SDK准确拒绝。不可静默丢弃、当成SD模型ID或假称查询/引用已跑通；无单KB选择或多KB搜索亦不计本轮单文档映射PASS。
+4. K3正式Knowledge页单KB输入、SDK模型校验、公共route和原SD词法检索在源码上已接通。实际启用profile后的页面查询、返回引用及正常对话模型引用仍NOT RUN；无单KB选择或多KB搜索不计本轮单文档映射PASS。空/陈旧模型和不可用默认值会在SD请求前明确失败，不自动替换。
 
 员工/team扩展USER EXCLUDED；审批和高级管理USER DEFERRED。既有固定consumer/router/源码/失败保留。没有正常approver reader/admitted mapping时human mount禁提交，旧直接human resume不恢复；external_task仍沿原路。审批输入不再作为首轮前置。领域ETag/412、版本/PEP/正常合法分支规则不变。
 
@@ -40,6 +41,7 @@
 - 新SD public read pytest3/3；PD Knowledge transport/profile4/4。第一次在`dist`运行profile测试因standalone `.mjs`未复制到`dist`报`ERR_MODULE_NOT_FOUND`；b3e8d441让测试按工作树资源路径读取，修后4/4。
 - public模型选择SDK Node测试16/16；公共route Vitest18/18（含同一principal/catalog、原Host 422、错配前置拒绝及成功receipt）。这些为源码聚焦检查，非浏览器/模型业务PASS。
 - 接公共route后PD根TypeScript `--noEmit`、UI TypeScript `--noEmit`和Vite build串行通过；Vite仍有既有CSS/大chunk告警，不影响构建。SD本批无源码改动，其既有构建结果沿用。
+- 接adapter页面映射后，Knowledge Host与公共route聚焦合计33/33、UI TypeScript `--noEmit`、Vite build通过；根TypeScript与SD源码未因本批改变，沿用前述检查。仍无真实页面或模型业务采证。
 - 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
 - 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
