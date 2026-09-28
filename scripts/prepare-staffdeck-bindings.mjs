@@ -29,7 +29,8 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
     && (!credential.expires_at || (Number.isFinite(Date.parse(credential.expires_at)) && Date.parse(credential.expires_at) > now)), 'CREDENTIAL_INACTIVE');
   required(credential.access === 'user_full_access'
     && ['sops:read', 'sops:write', 'sops:publish', 'sops:cancel', 'knowledge:read', 'knowledge:write'].every(scope => credential.scopes?.includes(scope)), 'CREDENTIAL_SCOPE_MISSING');
-  required(approverMe?.tenant_id === tenant && text(approverMe.id) && approverMe.source === 'web'
+  const hasApprover = approverLogin !== undefined || approverMe !== undefined;
+  if (hasApprover) required(approverMe?.tenant_id === tenant && text(approverMe.id) && approverMe.source === 'web'
     && ['admin', 'member'].includes(approverMe.role) && approverMe.disabled !== true
     && text(approverLogin?.token) && approverLogin.user?.id === approverMe.id
     && approverLogin.user?.tenant_id === tenant, 'NATIVE_APPROVER_MISMATCH');
@@ -44,11 +45,13 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
     STAFFDECK_COPY_ACTOR_USER_ID: actorId,
     STAFFDECK_COPY_TARGET_AGENT_ID: target.id,
     STAFFDECK_COPY_PILOTDECK_USER_ID: pdUserId,
+    PILOTDECK_DOMAIN_HOST_ENABLED: 'true',
+    PILOTDECK_USER_ID: pdUserId,
     STAFFDECK_COPY_USER_TOKEN: actorLogin.token,
     STAFFDECK_SOP_MANAGEMENT_ENDPOINT: endpoint,
     STAFFDECK_SOP_MANAGEMENT_API_KEY: credentialCreated.api_key,
     STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID: credential.id,
-    STAFFDECK_APPROVAL_USER_ID: approverMe.id,
+    ...(hasApprover ? { STAFFDECK_APPROVAL_USER_ID: approverMe.id } : {}),
   };
   return {
     env,
@@ -76,7 +79,8 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
       },
     },
     identity: { tenantId: tenant, actorUserId: actorId, targetAgentId: target.id, pilotDeckUserId: pdUserId,
-      credentialId: credential.id, approverUserId: approverMe.id, memberIdentitySource: 'web', assigneeNotifyChannel: 'web' },
+      credentialId: credential.id,
+      ...(hasApprover ? { approverUserId: approverMe.id, memberIdentitySource: 'web', assigneeNotifyChannel: 'web' } : {}) },
     readiness: { recordedTupleConsistent: true, activeAuthenticationObserved: false, effectiveProfile: false,
       runtimeObserved: false, approvalPrincipalMapping: 'NOT_CONFIGURED' },
   };
@@ -87,7 +91,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     required(process.argv.length === 4, 'USAGE: node scripts/prepare-staffdeck-bindings.mjs private-input.json new-private-output.json');
     const result = prepareStaffDeckBindings(JSON.parse(await readFile(process.argv[2], 'utf8')));
     await writeFile(process.argv[3], JSON.stringify(result, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
-    process.stdout.write('Private binding preparation written; effective profile and approval mapping remain required.\n');
+    process.stdout.write('Private binding preparation written; effective profile remains required.\n');
   } catch (error) {
     // Report fixed codes only; malformed input may itself contain credentials.
     process.stderr.write(`${error.code ?? 'PREPARATION_INPUT_INVALID'}\n`);

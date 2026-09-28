@@ -23,6 +23,8 @@ import {
   createStaffDeckSopAgentLoop,
   StaffDeckSopControlPlane,
 } from "../sop/staffdeck/index.js";
+import { createActiveRuntimeModelPorts } from "../composition/activeRuntimeModelPorts.js";
+import { createActiveRuntimeTextParsingPort } from "../composition/activeRuntimeTextParsing.js";
 import {
   createNodeAttachmentPort,
   type CompactionPort,
@@ -1186,6 +1188,12 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     getPublicApprovals: () => publicApprovals,
     getPublicHostCapabilities: () => {
       const runtime = registry.resolve();
+      const modelPorts = createActiveRuntimeModelPorts({
+        config: runtime.snapshot.config.model,
+        model: runtime.model,
+        catalog: () => sessionModels.modelCatalogList({ includeAuto: false }),
+      });
+      const textParse = createActiveRuntimeTextParsingPort();
       return createRuntimeHostCapabilityProvider({
         profile: { id: runtime.projectRoot },
         tools: {},
@@ -1195,7 +1203,8 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
             name: item.displayName, enabled: item.available,
             is_default: result.defaultSelection?.provider === item.provider && result.defaultSelection.model === item.model,
           })) };
-        } },
+        }, prepare: modelPorts.prepare, stream: modelPorts.stream },
+        file: { parse: textParse },
         skills: isDisabledModuleBinding(runtime.snapshot.config.modules?.skills) ? {} : { list: async () => {
           const result = await skillManager.list({ projectKey: runtime.projectRoot });
           return { ...result, items: result.items.map(item => ({ ...item, id: item.slug })) };

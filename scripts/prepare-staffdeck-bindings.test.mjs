@@ -50,6 +50,19 @@ test('native member mapping rejects external source, other tenant and disabled a
   }
 });
 
+test('minimum path can omit deferred approval but cannot accept a partial approver tuple', () => {
+  const input = fixture();
+  delete input.approverLogin;
+  delete input.approverMe;
+  const result = prepareStaffDeckBindings(input);
+  assert.equal(result.env.PILOTDECK_USER_ID, result.identity.pilotDeckUserId);
+  assert.equal(result.env.PILOTDECK_DOMAIN_HOST_ENABLED, 'true');
+  assert.equal(result.env.STAFFDECK_APPROVAL_USER_ID, undefined);
+  assert.equal(result.identity.approverUserId, undefined);
+  input.approverMe = fixture().approverMe;
+  assert.throws(() => prepareStaffDeckBindings(input), /NATIVE_APPROVER_MISMATCH/);
+});
+
 test('origin with credentials, unrelated path or query cannot become a formal owner endpoint', () => {
   for (const origin of ['http://user:secret@localhost:16400', 'http://localhost:16400/unrelated', 'http://localhost:16400/?secret=value']) {
     const input = fixture(); input.staffDeckOrigin = origin; assert.throws(() => prepareStaffDeckBindings(input));
