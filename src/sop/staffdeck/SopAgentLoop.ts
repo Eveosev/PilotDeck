@@ -551,6 +551,14 @@ class SopControlToolPort implements ToolPort {
           }
         }
       }
+      if (proposal.status === "completed" && currentStep && currentStep.nodeId === persisted.state.active_step_id
+        && currentStep.isTerminal && currentStep.expectedUserInfo.length === 0
+        && !currentStep.allowedActions.some((action) => action === "ask_user" || action === "ask_missing")
+        && claimsUnresolvedUserWait(proposal.replyFragment)) {
+        return controlError(call,
+          "FINAL_REPLY_CONTRADICTS_COMPLETION: this terminal step has no missing user fields, but replyFragment says progress is blocked or asks the user for missing information. Rewrite the final answer from the current step instruction and known facts, then submit completed without a nextStepId. Do not reuse the rejected waiting reply.",
+          "invalid_tool_input");
+      }
       const successfulToolNames = Array.isArray(persisted.state.successful_tool_names)
         ? persisted.state.successful_tool_names.filter((name): name is string => typeof name === "string" && name.length > 0)
         : [];
@@ -699,6 +707,11 @@ function slotFilled(value: unknown): boolean {
 
 function missingFieldsReply(fields: readonly string[]): string {
   return `请补充以下信息，以继续当前步骤：\n${fields.map((field) => `- ${field}`).join("\n")}`;
+}
+
+function claimsUnresolvedUserWait(reply: string): boolean {
+  // Match an active blocker or request, not a completed answer quoting an old error.
+  return /(?:^|[。！？.!?\n])\s*(?:(?:由于)?(?:我|目前|当前|本步骤|此步骤|SOP).{0,80}(?:卡在|无法(?:继续|推进|完成|生成)|缺少.{0,30}(?:信息|资料|上下文))|请(?:您|你)?(?:提供|补充)|(?:I|we|this step|the SOP)\s+(?:(?:am|are|is)\s+)?(?:stuck|blocked|cannot|can't|lack|need more information)|(?:please|could you)\s+(?:provide|supply))/i.test(reply);
 }
 
 function controlSuccess(
