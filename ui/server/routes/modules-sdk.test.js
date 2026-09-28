@@ -350,6 +350,26 @@ it('forwards real Knowledge multipart bytes and original ingest status without J
   expect((await f.call('upload_knowledge_document', { knowledgeBaseId: 'kb', body: { filename: 'x', content_base64: '' } }, { kind: 'agent', agentId: 'target' })).status).toBe(409);
 });
 
+it('forwards OKF FormData through the same named file route with its original response', async () => {
+  const uploads = [];
+  const parser = multer({ storage: multer.memoryStorage() }).single('file');
+  const f = await fixture((req, res) => parser(req, res, error => {
+    if (error) return res.status(400).json({ detail: error.message });
+    uploads.push({ url: req.url, bytes: [...req.file.buffer], name: req.file.originalname });
+    res.status(200).set('x-request-id', 'okf-import').json({ imported: 2, skipped: 0 });
+  }), { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write'] });
+  const form = new FormData();
+  form.set('operation', 'import_knowledge_okf');
+  form.set('knowledgeBaseId', 'kb/id');
+  form.set('scope', JSON.stringify({ kind: 'agent', agentId: 'target' }));
+  form.set('file', new Blob([new Uint8Array([80, 75, 3, 4])], { type: 'application/zip' }), 'backup.okf');
+  const response = await f.file(form);
+  expect(response.status).toBe(200);
+  expect(response.headers.get('x-request-id')).toBe('okf-import');
+  expect(await response.json()).toEqual({ imported: 2, skipped: 0 });
+  expect(uploads).toEqual([{ url: '/agents/target/knowledge-bases/kb%2Fid/okf:import', bytes: [80, 75, 3, 4], name: 'backup.okf' }]);
+});
+
 it('dispatches deep Knowledge IDs and raw export/domain-job envelopes without APIJob conversion', async () => {
   const calls = [];
   const f = await fixture((req, res) => {
