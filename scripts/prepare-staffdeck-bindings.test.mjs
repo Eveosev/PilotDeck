@@ -12,13 +12,17 @@ function fixture() {
     credentialCreated: { ...credential, api_key: '01234567890123456789fixture-only' }, credentials: [credential],
     target: { id: 'target-from-response', tenant_id: actor.tenant_id, status: 'active', is_overall: false },
     pilotDeckLogin: { success: true, token: 'fixture-pd-token', user: { id: 17 } }, pilotDeckMe: { user: { id: 17 } },
-    staffDeckOrigin: 'http://127.0.0.1:16400', definitionsPath: 'sops/acceptance.yaml', defaultSopId: 'project_delivery_plan' };
+    staffDeckOrigin: 'http://127.0.0.1:16400', pilotDeckGatewayUrl: 'ws://127.0.0.1:16411/ws',
+    pilotDeckGatewayTokenPath: '/isolated-home/server-token',
+    definitionsPath: 'sops/acceptance.yaml', defaultSopId: 'project_delivery_plan' };
 }
 
 test('actual response IDs bind copy, management and discovery without claiming readiness', () => {
   const result = prepareStaffDeckBindings(fixture());
   assert.equal(result.env.STAFFDECK_COPY_PILOTDECK_USER_ID, '17');
   assert.equal(result.env.STAFFDECK_APPROVAL_USER_ID, result.identity.approverUserId);
+  assert.equal(result.env.PILOTDECK_GATEWAY_URL, 'ws://127.0.0.1:16411/ws');
+  assert.equal(result.env.PILOTDECK_GATEWAY_TOKEN_PATH, '/isolated-home/server-token');
   assert.equal(result.configPatch.modules.sop.discoveryAgentId, result.identity.targetAgentId);
   assert.equal(result.configPatch.modules.sop.discoveryEndpoint, result.env.STAFFDECK_SOP_MANAGEMENT_ENDPOINT);
   assert.equal(result.readiness.effectiveProfile, false);
@@ -66,5 +70,18 @@ test('minimum path can omit deferred approval but cannot accept a partial approv
 test('origin with credentials, unrelated path or query cannot become a formal owner endpoint', () => {
   for (const origin of ['http://user:secret@localhost:16400', 'http://localhost:16400/unrelated', 'http://localhost:16400/?secret=value']) {
     const input = fixture(); input.staffDeckOrigin = origin; assert.throws(() => prepareStaffDeckBindings(input));
+  }
+});
+
+test('domain callback needs an explicit normal Gateway origin and token path', () => {
+  for (const mutate of [
+    input => { delete input.pilotDeckGatewayUrl; },
+    input => { delete input.pilotDeckGatewayTokenPath; },
+    input => { input.pilotDeckGatewayUrl = 'ws://user:secret@127.0.0.1:16411/ws'; },
+    input => { input.pilotDeckGatewayUrl = 'ws://127.0.0.1:16411/other'; },
+    input => { input.pilotDeckGatewayTokenPath = 'relative/server-token'; },
+  ]) {
+    const input = fixture(); mutate(input);
+    assert.throws(() => prepareStaffDeckBindings(input), /PILOTDECK_GATEWAY_BINDING_/);
   }
 });

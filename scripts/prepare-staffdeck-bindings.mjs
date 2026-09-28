@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const required = (condition, code) => {
@@ -38,6 +39,13 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
   required(['http:', 'https:'].includes(origin.protocol) && !origin.username && !origin.password
     && origin.pathname === '/' && !origin.search && !origin.hash, 'FORMAL_ORIGIN_INVALID');
   const endpoint = `${origin.origin}/api/v1`;
+  required(text(input.pilotDeckGatewayUrl) && text(input.pilotDeckGatewayTokenPath), 'PILOTDECK_GATEWAY_BINDING_REQUIRED');
+  let gateway;
+  try { gateway = new URL(input.pilotDeckGatewayUrl); } catch { required(false, 'PILOTDECK_GATEWAY_URL_INVALID'); }
+  required(['http:', 'https:', 'ws:', 'wss:'].includes(gateway.protocol) && gateway.hostname
+    && !gateway.username && !gateway.password && !gateway.search && !gateway.hash
+    && (gateway.pathname === '/' || gateway.pathname === '/ws')
+    && isAbsolute(input.pilotDeckGatewayTokenPath), 'PILOTDECK_GATEWAY_BINDING_INVALID');
   required(text(input.definitionsPath) && text(input.defaultSopId), 'SOP_BINDING_REQUIRED');
   const env = {
     STAFFDECK_FORMAL_API_ORIGIN: origin.origin,
@@ -47,6 +55,8 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
     STAFFDECK_COPY_PILOTDECK_USER_ID: pdUserId,
     PILOTDECK_DOMAIN_HOST_ENABLED: 'true',
     PILOTDECK_USER_ID: pdUserId,
+    PILOTDECK_GATEWAY_URL: gateway.href,
+    PILOTDECK_GATEWAY_TOKEN_PATH: input.pilotDeckGatewayTokenPath,
     STAFFDECK_COPY_USER_TOKEN: actorLogin.token,
     STAFFDECK_SOP_MANAGEMENT_ENDPOINT: endpoint,
     STAFFDECK_SOP_MANAGEMENT_API_KEY: credentialCreated.api_key,
