@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { composeLimitedStaffDeckProfile } from './compose-limited-staffdeck-profile.mjs';
+import { composeLimitedStaffDeckProfile, composeVerifiedLimitedStaffDeckProfile,
+  verifyPortableSopRuntime } from './compose-limited-staffdeck-profile.mjs';
 
-test('limited profile consumes one verified target, credential and published bundle', () => {
+test('limited profile consumes one verified target, credential and published bundle', async () => {
   const root = mkdtempSync(join(tmpdir(), 'staffdeck-limited-'));
   try {
     const bundle = join(root, 'published.json');
@@ -38,6 +39,14 @@ test('limited profile consumes one verified target, credential and published bun
     assert.equal(profile.modules.sop.endpoint, 'http://127.0.0.1:16401');
     assert.equal(profile.modules.knowledge.credentialEnv, 'STAFFDECK_KNOWLEDGE_READ_KEY');
     assert.equal(profile.modules.sop.discoveryApiKey, key);
+    const verified = await composeVerifiedLimitedStaffDeckProfile(prepared, env, async () => ({
+      ok: true, json: async () => ({ status: 'ok', moduleId: 'sop.runtime',
+        contract: 'sop.lifecycle/v2', protocolVersion: '2.0', operations: ['prepare', 'submit'] }),
+    }));
+    assert.deepEqual(verified, profile);
+    assert.throws(() => composeLimitedStaffDeckProfile(prepared, {
+      ...env, STAFFDECK_SOP_RUNTIME_ORIGIN: 'http://127.0.0.1:16400',
+    }), /SOP_RUNTIME_ORIGIN_COLLIDES_WITH_STAFFDECK_API/);
     assert.throws(() => composeLimitedStaffDeckProfile(prepared, { ...env, STAFFDECK_FIXED_TARGET_AGENT_ID: 'other' }), /PRIVATE_BINDING_ENV_MISMATCH/);
     assert.throws(() => composeLimitedStaffDeckProfile(prepared, { ...env, STAFFDECK_KNOWLEDGE_READ_KEY: 'another' }), /PRIVATE_BINDING_ENV_MISMATCH/);
     assert.throws(() => composeLimitedStaffDeckProfile({ ...prepared,
@@ -46,4 +55,22 @@ test('limited profile consumes one verified target, credential and published bun
       env: { ...prepared.env, STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH: 'relative.json' },
     }, { ...env, STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH: 'relative.json' }), /SOP_BUNDLE_ABSOLUTE_PATH_REQUIRED/);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('enabled profile requires the portable SOP runtime manifest at its own origin', async () => {
+  const profile = { modules: { sop: { endpoint: 'http://127.0.0.1:16401' } } };
+  const calls = [];
+  const manifest = { status: 'ok', protocolVersion: '2.0', moduleId: 'sop.runtime',
+    contract: 'sop.lifecycle/v2', operations: ['prepare', 'submit'] };
+  const fetchManifest = async (url, options) => {
+    calls.push({ url, method: options.method });
+    return { ok: true, json: async () => manifest };
+  };
+  assert.equal(await verifyPortableSopRuntime(profile, fetchManifest), manifest);
+  assert.deepEqual(calls, [{ url: 'http://127.0.0.1:16401/healthz', method: 'GET' }]);
+  await assert.rejects(() => verifyPortableSopRuntime(profile, async () => ({ ok: false })),
+    /SOP_RUNTIME_MANIFEST_UNAVAILABLE/);
+  await assert.rejects(() => verifyPortableSopRuntime(profile, async () => ({ ok: true,
+    json: async () => ({ status: 'ok' }),
+  })), /SOP_RUNTIME_MANIFEST_INVALID/);
 });

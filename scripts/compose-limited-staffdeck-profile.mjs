@@ -34,6 +34,10 @@ export function composeLimitedStaffDeckProfile(prepared, environment = process.e
   requireMatch(binding.modules.knowledge?.agentId, identity.targetAgentId, 'KNOWLEDGE_TARGET_MISMATCH');
   requireMatch(binding.modules.sop.discoveryAgentId, identity.targetAgentId, 'SOP_DISCOVERY_TARGET_MISMATCH');
   const profile = renderLimitedProfile(env);
+  if (new URL(profile.modules.sop.endpoint).origin === new URL(env.STAFFDECK_PUBLIC_ORIGIN).origin) {
+    throw Object.assign(new Error('SOP_RUNTIME_ORIGIN_COLLIDES_WITH_STAFFDECK_API'),
+      { code: 'SOP_RUNTIME_ORIGIN_COLLIDES_WITH_STAFFDECK_API' });
+  }
   return {
     ...profile,
     webui: { ...profile.webui, ...binding.webui },
@@ -48,11 +52,41 @@ export function composeLimitedStaffDeckProfile(prepared, environment = process.e
   };
 }
 
+/** Require the portable SOP runtime's protocol manifest before writing an enabled profile. */
+export async function verifyPortableSopRuntime(profile, fetchImpl = fetch) {
+  let response;
+  try {
+    response = await fetchImpl(`${profile.modules.sop.endpoint}/healthz`, {
+      method: 'GET', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    throw Object.assign(new Error('SOP_RUNTIME_MANIFEST_UNAVAILABLE'), { code: 'SOP_RUNTIME_MANIFEST_UNAVAILABLE' });
+  }
+  if (!response.ok) {
+    throw Object.assign(new Error('SOP_RUNTIME_MANIFEST_UNAVAILABLE'), { code: 'SOP_RUNTIME_MANIFEST_UNAVAILABLE' });
+  }
+  let manifest;
+  try { manifest = await response.json(); } catch { /* handled below */ }
+  if (manifest?.status !== 'ok' || manifest?.moduleId !== 'sop.runtime'
+      || manifest?.contract !== 'sop.lifecycle/v2' || manifest?.protocolVersion !== '2.0'
+      || !Array.isArray(manifest?.operations)
+      || !['prepare', 'submit'].every(operation => manifest.operations.includes(operation))) {
+    throw Object.assign(new Error('SOP_RUNTIME_MANIFEST_INVALID'), { code: 'SOP_RUNTIME_MANIFEST_INVALID' });
+  }
+  return manifest;
+}
+
+export async function composeVerifiedLimitedStaffDeckProfile(prepared, environment = process.env, fetchImpl = fetch) {
+  const profile = composeLimitedStaffDeckProfile(prepared, environment);
+  await verifyPortableSopRuntime(profile, fetchImpl);
+  return profile;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     if (process.argv.length !== 4) throw Object.assign(new Error('USAGE'), { code: 'USAGE' });
     const prepared = JSON.parse(await readFile(process.argv[2], 'utf8'));
-    const profile = composeLimitedStaffDeckProfile(prepared);
+    const profile = await composeVerifiedLimitedStaffDeckProfile(prepared);
     await writeFile(process.argv[3], `${JSON.stringify(profile, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
     process.stdout.write('Private limited profile written; runtime and business evidence remain required.\n');
   } catch (error) {

@@ -19,6 +19,7 @@
 | public PD35bbd45a | 本树已接[浏览器模型选择合同](browser-knowledge-model-selection-delivery-20260928.md)及公共route：SDK用同一已认证Gateway/selected Host Port的catalog校验唯一可用默认`provider/model`；非2xx Host响应保原status/body，成功检索的`host_model_selection`写回浏览器JSON。SD原词法检索、PEP和evidence/citations不变 |
 | adapter PD123f0271 | 本树已接[正式页面模型输入映射](browser-knowledge-model-selection-adapter-delivery-20260928.md)：单KB搜索把页面所选PD ID移到外层`selectedPdModelId`，SD body保留原查询过滤但不含`model_config_id`；空值和陈旧值交SDK原样拒绝，不选择替代模型 |
 | public PD e9e3e69f / 21a5e0ad，SD 3820a9b0 / 8e476b64 | [Fresh3 SOP route 原件](fresh3-sop-route-pd-model-delivery-20260928.md)：PD discovery 明传`model_source: pilotdeck_host`，追加测试核同一catalog/stream模型；SD 保原可见SOP/PEP与TurnPlanner校验，借既有服务端Gateway Port调用当前`list_model_catalog`/`model_stream`，多个可用模型在stream前拒绝。整合SD启动继续使用已存在的`bind_pilotdeck_domain_client`和同一正式URL/token/PD用户；`FixedPilotDeckDomainHostClient.plan_sop_route`校验固定tenant/actor/target，不作第二次无scope绑定 |
+| Fresh5 P3 整合 profile 守卫 | `compose-limited-staffdeck-profile.mjs` 拒绝把 SOP runtime origin 配成 SD API origin；CLI及导出的 `composeVerifiedLimitedStaffDeckProfile` 写出 enabled profile 前实际 GET runtime `/healthz`，核 `sop.runtime`、`sop.lifecycle/v2`、协议`2.0`和`prepare/submit`声明。独立准备程序须调用此 verified 入口或CLI，不能仅调用纯配置函数。discovery/management 仍用 SD `/api/v1`，bundle/默认SOP不变。此 guard 阻止 fresh5 误指址，实际 portable runtime 启动与操作仍待新隔离验证 |
 
 同源校验：SD packages/staffdeck-business-ui 与 PD vendor @staffdeck/business-ui 0.1.13 **41个canonical源逐字一致**，manifest无差异；本批无canonical、lock、vendor实现改写。
 
@@ -46,6 +47,7 @@
 - 接adapter页面映射后，Knowledge Host与公共route聚焦合计33/33、UI TypeScript `--noEmit`、Vite build通过；根TypeScript与SD源码未因本批改变，沿用前述检查。仍无真实页面或模型业务采证。
 - Fresh3修复接入后PD根`tsc -p tsconfig.json`、PD UI typecheck/Vite通过；PD discovery/active-model聚焦4/4、Host远程/route聚焦8/8。SD route/host/fixed启动绑定pytest 7/7；SD frontend用`package-lock.json`锁定安装后`tsc -b`/Vite通过。首次在无依赖树执行SD typecheck因缺包失败；该环境问题不记产品FAIL。较宽PD mocked discovery-routing单用例仍FAIL `SOP_STEP_RESULT_REQUIRED`，原错误保留为已知测试缺口。以上都不是新fresh业务证据。
 - Fresh3追加提交：PD native catalog/stream一致性测试在整合树1/1，根`tsc --noEmit`通过；公开owner SD route/host/ingest聚焦14/14。整合SD树的新增Python文件语法检查通过；本地未装pytest依赖，未在整合树复跑14项。唯一可用模型守卫和固定身份绑定已合入，实际Gateway模型与业务仍NOT RUN。
+- Fresh5 P3 配置守卫聚焦2/2：错址、正确manifest、404与假200无合同均覆盖。此测试注入本地响应，证明配置逻辑；真实portable runtime的健康与`prepare/submit`需新隔离进程采证。
 - 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
 - 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
