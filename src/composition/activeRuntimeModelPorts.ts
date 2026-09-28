@@ -1,6 +1,6 @@
 /** Bind the public model callback to the already selected project generation. */
 import type { ModelRuntime } from "../model/ModelRuntime.js";
-import type { CanonicalModelRequest, ModelConfig } from "../model/protocol/canonical.js";
+import type { CanonicalMessage, CanonicalModelRequest, ModelConfig } from "../model/protocol/canonical.js";
 import { ModelRequestError } from "../model/protocol/errors.js";
 import { validateModelRequest } from "../model/request/validateModelRequest.js";
 import type { ModelCatalogListResult } from "../gateway/protocol/types.js";
@@ -26,6 +26,58 @@ function positive(value: unknown, field: string): number | undefined {
     throw new ModelRequestError("invalid_budget", `${field} must be a positive integer`);
   }
   return Number(value);
+}
+
+const CANONICAL_CONTENT_TYPES = new Set([
+  "text",
+  "thinking",
+  "image",
+  "pdf",
+  "audio",
+  "tool_call",
+  "tool_result",
+  "tool_result_reference",
+  "media_reference",
+]);
+
+/**
+ * Validate the public model boundary before the request reaches a provider.
+ *
+ * The internal request builders intentionally tolerate incomplete historical
+ * messages, but a public model call must not silently turn a malformed user
+ * message into an empty provider `messages` array.  Keep this check at the
+ * public Port so internal replay/compatibility paths retain their behaviour.
+ */
+function validatePublicMessages(value: unknown): asserts value is CanonicalMessage[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ModelRequestError("invalid_request", "messages must be a non-empty array");
+  }
+  for (const [messageIndex, rawMessage] of value.entries()) {
+    if (!rawMessage || typeof rawMessage !== "object" || Array.isArray(rawMessage)) {
+      throw new ModelRequestError("invalid_request", `messages[${messageIndex}] must be an object`);
+    }
+    const message = rawMessage as Record<string, unknown>;
+    if (message.role !== "user" && message.role !== "assistant") {
+      throw new ModelRequestError("invalid_request", `messages[${messageIndex}].role must be user or assistant`);
+    }
+    const content = message.content;
+    if (!Array.isArray(content) || content.length === 0) {
+      throw new ModelRequestError(
+        "invalid_request",
+        `messages[${messageIndex}].content must be a non-empty canonical block array`,
+      );
+    }
+    for (const [blockIndex, rawBlock] of content.entries()) {
+      if (!rawBlock || typeof rawBlock !== "object" || Array.isArray(rawBlock)
+        || typeof (rawBlock as Record<string, unknown>).type !== "string"
+        || !CANONICAL_CONTENT_TYPES.has((rawBlock as Record<string, unknown>).type as string)) {
+        throw new ModelRequestError(
+          "invalid_request",
+          `messages[${messageIndex}].content[${blockIndex}] must be a canonical content block`,
+        );
+      }
+    }
+  }
 }
 
 /** No alias or provider inference: selection must be a single available catalog entry. */
@@ -77,9 +129,7 @@ export function createActiveRuntimeModelPorts(runtime: {
       model: selected.model,
       ...(output !== undefined ? { maxOutputTokens: output } : {}),
     } as CanonicalModelRequest;
-    if (!Array.isArray(canonical.messages)) {
-      throw new ModelRequestError("invalid_request", "messages must be an array");
-    }
+    validatePublicMessages(canonical.messages);
     validateModelRequest(canonical, runtime.config);
     return {
       requestId: input.requestId,

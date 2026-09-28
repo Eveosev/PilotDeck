@@ -61,3 +61,25 @@ test("RPC mapper retains stream status and canonical validation error", async ()
   assert.equal(bad.status, 400);
   assert.equal((bad.body as { code: string }).code, "model_not_available");
 });
+
+test("public model stream rejects malformed canonical messages before runtime.stream", async () => {
+  const { ports, seen } = fixture();
+  const provider = createRuntimeHostCapabilityProvider({
+    profile: { id: "active" }, model: ports, tools: {}, skills: {},
+    context: { forTool: () => { throw Error("unbound"); } },
+  });
+  for (const request of [
+    { messages: [{ role: "user", content: "hello" }] },
+    { messages: [{ role: "user", content: [] }] },
+    { messages: [] },
+  ]) {
+    const response = await provider.call(
+      "model_stream",
+      { requestId: "r", modelId: "p/m", request },
+      { principal },
+    );
+    assert.equal(response.status, 400);
+    assert.equal((response.body as { code: string }).code, "invalid_request");
+  }
+  assert.equal(seen.length, 0);
+});
