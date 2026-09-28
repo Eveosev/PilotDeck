@@ -1,4 +1,5 @@
 /** Public protocol helpers only. The host owns authentication, PEP and operation authorization. */
+import { bindBrowserKnowledgeSearchModel } from './public-knowledge-model-selection.mjs';
 export class PublicCapabilityError extends Error {
   constructor(code, message, status = 409) {
     super(message);
@@ -146,8 +147,15 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'archive_knowledge_base':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}:archive`; break;
     case 'search_knowledge_base':
+      if (own(input, 'selectedPdModelId')) {
+        fail('PUBLIC_PD_MODEL_VALIDATION_REQUIRED', 'Validate the selected PilotDeck model through the mounted host catalog first.', 409);
+      }
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}:search`;
-      plan.body = publicBody(input); break;
+      plan.body = publicBody(input);
+      if (own(plan.body, 'model_config_id') || own(plan.body, 'modelConfigId')) {
+        fail('PUBLIC_SD_MODEL_SELECTION_FORBIDDEN', 'SD model_config_id cannot select a PilotDeck model.', 400);
+      }
+      break;
     case 'upsert_knowledge_entries':
       plan.method = 'POST'; plan.path = `${agent}/knowledge-bases/${id(input.knowledgeBaseId)}/entries`;
       plan.body = publicBody(input);
@@ -349,7 +357,7 @@ export function planPublicOperation(agentId, operation, input = {}) {
  * It must use the host's already-authorized owner credentials and propagate HTTP
  * failures unchanged. This module neither obtains credentials nor enables routes.
  */
-export function createPublicCapabilityClient({ agentId, transport, authorizedOperations = [], fixedTargetAgentId } = {}) {
+export function createPublicCapabilityClient({ agentId, transport, authorizedOperations = [], fixedTargetAgentId, hostModelCatalog } = {}) {
   if (fixedTargetAgentId !== undefined) id(fixedTargetAgentId);
   const authorized = new Set(authorizedOperations);
   return Object.freeze({
@@ -370,6 +378,16 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
         fail('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH', 'This gateway is bound to a different configured target.', 403);
       }
       const selectedAgentId = scope?.kind === 'team' ? null : scope?.kind === 'agent' ? scope.agentId : agentId;
+      let selectedModel;
+      if (operation === 'search_knowledge_base') {
+        if (typeof hostModelCatalog !== 'function') {
+          fail('PUBLIC_PD_MODEL_CATALOG_UNAVAILABLE', 'The current PilotDeck model catalog is not mounted.', 503);
+        }
+        const bound = bindBrowserKnowledgeSearchModel(input, await hostModelCatalog({ signal }));
+        input = bound.input;
+        selectedModel = bound.selection;
+      }
+      signal?.throwIfAborted();
       const plan = planPublicOperation(selectedAgentId, operation, input);
       const response = await transport({ ...plan, signal });
       // A raw HTTP failure remains a failure with its original body/status.
@@ -402,6 +420,7 @@ export function createPublicCapabilityClient({ agentId, transport, authorizedOpe
       if (plan.shape === 'job-result' && (!record(value.job) || !record(value.result) || !record(value.error))) {
         fail('PUBLIC_RESPONSE_INVALID', 'Public job result envelope is incomplete.', 502);
       }
+      if (selectedModel) return { ...response, body: { ...value, host_model_selection: selectedModel } };
       return response; // Preserve drafts, dates, ETags, terminal errors and extensions verbatim.
     },
   });

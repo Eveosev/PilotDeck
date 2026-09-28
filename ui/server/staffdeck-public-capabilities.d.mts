@@ -6,7 +6,7 @@ export type PublicOperationInput = {
   create_knowledge_base: { body: { name: string; description?: string | null; capability_scope?: string; metadata?: PublicRecord } };
   update_knowledge_base: { knowledgeBaseId: string; body: { name?: string; description?: string | null; status?: 'active' | 'archived'; capability_scope?: string; metadata?: PublicRecord } };
   archive_knowledge_base: { knowledgeBaseId: string };
-  search_knowledge_base: { knowledgeBaseId: string; body: { query: string; query_type?: 'answer' | 'policy_check' | 'tool_discovery' | 'skill_discovery'; document_ids?: string[]; [key: string]: unknown } };
+  search_knowledge_base: { knowledgeBaseId: string; selectedPdModelId: string; body: { query: string; query_type?: 'answer' | 'policy_check' | 'tool_discovery' | 'skill_discovery'; document_ids?: string[]; [key: string]: unknown } };
   upsert_knowledge_entries: { knowledgeBaseId: string; body: { entries: PublicRecord[] }; idempotencyKey?: string };
   list_knowledge_versions: { knowledgeBaseId: string };
   rollback_knowledge_base: { knowledgeBaseId: string; version: string };
@@ -88,13 +88,20 @@ export type PublicKnowledgeIngestJob = PublicJob & {
   metadata: PublicRecord; created_at: string; started_at?: string | null;
   finished_at?: string | null; updated_at: string;
 };
+export type PublicPdModelCatalog = {
+  data: Array<{ id: string; provider: string; model: string; available?: boolean; enabled?: boolean; is_default?: boolean }>;
+  defaultSelection?: { mode?: 'model'; provider: string; model: string };
+};
+export type PublicKnowledgeSearchResult = PublicRecord & {
+  host_model_selection: { id: string; model_use: 'pilotdeck_dialogue_only'; retrieval_mode: 'staffdeck_public_lexical' };
+};
 export type PublicPreviewJob = PublicRecord & { job_id: string; status: string; last_seq: number };
 export type PublicJobResult = { job: PublicJob; result: PublicRecord; error: PublicRecord };
 export type PublicSopDraft = PublicRecord & { id: string; agent_id: string; sop_id: string; content: PublicRecord; etag: string; status: string };
 export type PublicOperationOutput = {
   list_tools: PublicCollection; list_general_skills: PublicCollection; list_knowledge_bases: PublicCollection;
   create_knowledge_base: PublicRecord; update_knowledge_base: PublicRecord; archive_knowledge_base: PublicRecord;
-  search_knowledge_base: PublicRecord; upsert_knowledge_entries: PublicJob; list_knowledge_versions: PublicCollection;
+  search_knowledge_base: PublicKnowledgeSearchResult; upsert_knowledge_entries: PublicJob; list_knowledge_versions: PublicCollection;
   rollback_knowledge_base: PublicRecord; list_knowledge_documents: PublicCollection;
   update_knowledge_document: PublicRecord; archive_knowledge_document: PublicRecord; list_knowledge_concepts: PublicCollection;
   get_knowledge_document: PublicRecord; upload_knowledge_document: PublicKnowledgeIngestJob; import_knowledge_okf: PublicRecord;
@@ -138,6 +145,8 @@ export function createPublicCapabilityClient(options: {
   transport: (plan: PublicTransportPlan) => Promise<PublicResponse>;
   authorizedOperations?: readonly PublicOperation[];
   fixedTargetAgentId?: string;
+  /** Must read the selected PD runtime Port/Gateway catalog for this request. */
+  hostModelCatalog?: (options: { signal?: AbortSignal }) => Promise<PublicPdModelCatalog>;
 }): {
   call<O extends PublicOperation>(operation: O, input: PublicOperationInput[O], options?: { signal?: AbortSignal; scope?: PublicSelectedScope }): Promise<PublicResponse<PublicOperationOutput[O] | PublicRecord>>;
 };

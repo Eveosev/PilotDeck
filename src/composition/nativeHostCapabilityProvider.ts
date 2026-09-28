@@ -212,7 +212,7 @@ export function createNativeHostCapabilityProvider(runtime: NativePublicHostRunt
         case "list_model_catalog": {
           const data = Object.values(runtime.modelConfig.providers).flatMap((provider) =>
             Object.values(provider.models).map((model) => ({
-              id: model.id,
+              id: `${provider.id}/${model.id}`,
               name: model.displayName ?? model.id,
               model: model.id,
               provider: provider.id,
