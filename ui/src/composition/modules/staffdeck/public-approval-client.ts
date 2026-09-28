@@ -28,8 +28,10 @@ function approverHeader(bearer: string): Record<string, string> {
   return { 'X-StaffDeck-Approver-Authorization': `Bearer ${bearer}` };
 }
 async function json<T>(path: string, init: RequestInit): Promise<T> {
+  init.signal?.throwIfAborted();
   const response = await authenticatedFetch(path, init);
   const raw = await response.text();
+  init.signal?.throwIfAborted();
   if (!response.ok) throw moduleApiError(response.status, raw, response.statusText);
   try { return JSON.parse(raw) as T; } catch { throw new Error('Approval response is not valid JSON.'); }
 }
@@ -72,8 +74,10 @@ export function createPublicApprovalClient(readApproverBearer: () => string) {
 export function approvalInboxItem(status: ApprovalStatus | null) {
   if (!status?.approval) return null;
   const pinned = status.approval;
-  if (!nonempty(pinned.waitId) || !Number.isInteger(pinned.revision) || pinned.revision < 0 || !nonempty(pinned.assigneeUserId)) {
+  if (!nonempty(pinned.waitId) || !Number.isInteger(pinned.revision) || pinned.revision < 0 ||
+      !nonempty(pinned.skillId) || !nonempty(pinned.version) || !nonempty(pinned.nodeId) || !nonempty(pinned.assigneeUserId)) {
     throw new Error('Pinned approval snapshot is incomplete.');
   }
-  return Object.freeze({ sessionKey: status.sessionId, ...pinned });
+  return Object.freeze({ sessionKey: status.sessionId, waitId: pinned.waitId, revision: pinned.revision,
+    skillId: pinned.skillId, version: pinned.version, nodeId: pinned.nodeId, assigneeUserId: pinned.assigneeUserId });
 }

@@ -12,6 +12,8 @@ it('reads only the original pinned wait with independent approver login and requ
   expect(approvalInboxItem(await client.status({ sessionKey: 'session', projectKey: 'project' }, { signal }))).toMatchObject(status.approval);
   expect(request).toHaveBeenCalledWith('/api/sop/status?sessionKey=session&projectKey=project', { headers: { 'X-StaffDeck-Approver-Authorization': 'Bearer approver-login' }, signal });
   expect(approvalInboxItem(null)).toBeNull();
+  expect(approvalInboxItem({ ...status, approval: { ...status.approval, authority: { role: 'admin' } } } as any)).toEqual({ sessionKey: 'session', ...status.approval });
+  expect(() => approvalInboxItem({ ...status, approval: { ...status.approval, nodeId: '' } })).toThrow('incomplete');
 });
 it('posts original request/wait/revision once and accepts only matching receipt', async () => {
   const receipt = { accepted: true, duplicate: true, sessionId: 'session', requestId: 'request', revision: 5, message: 'approved' };
@@ -22,6 +24,15 @@ it('posts original request/wait/revision once and accepts only matching receipt'
   expect(JSON.parse(String((request.mock.calls[0][1] as RequestInit)?.body))).toEqual({ ...reply, source: 'human' });
   expect((request.mock.calls[0][1] as RequestInit)?.headers).toEqual({ 'X-StaffDeck-Approver-Authorization': 'Bearer normal-login' });
   expect(request).toHaveBeenCalledTimes(1);
+});
+it('keeps approvalError visible and rejects a request aborted after its HTTP response', async () => {
+  const controller = new AbortController();
+  const status = { sessionId: 'session', revision: 4, state: {}, approvalError: { code: 'SOP_APPROVAL_ASSIGNEE_REQUIRED', message: 'Missing assignee' } };
+  request.mockResolvedValueOnce(new Response(JSON.stringify({ status })));
+  expect(await createPublicApprovalClient(() => 'normal-login').status({ sessionKey: 'session' })).toEqual(status);
+  expect(approvalInboxItem(status)).toBeNull();
+  request.mockImplementationOnce(async () => { controller.abort(); return new Response(JSON.stringify({ status })); });
+  await expect(createPublicApprovalClient(() => 'normal-login').status({ sessionKey: 'session' }, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
 });
 it('retains real HTTP error and never sends authority, management key or a missing approver login', async () => {
   const raw = '{"error":{"code":"SOP_APPROVAL_SESSION_MAPPING_UNAVAILABLE","message":"Unmapped"}}';
