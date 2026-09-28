@@ -75,7 +75,7 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
         pilotDeckUserIdEnv: 'STAFFDECK_COPY_PILOTDECK_USER_ID', userTokenEnv: 'STAFFDECK_COPY_USER_TOKEN',
       } },
       modules: {
-        knowledge: { tenantId: tenant, actorUserId: actorId },
+        knowledge: { tenantId: tenant, actorUserId: actorId, agentId: target.id },
         sop: {
           definitionsPath: input.definitionsPath, defaultSopId: input.defaultSopId,
           discoveryEndpoint: endpoint, discoveryAgentId: target.id, discoveryApiKey: credentialCreated.api_key,
