@@ -40,5 +40,10 @@ test('limited profile consumes one verified target, credential and published bun
     assert.equal(profile.modules.sop.discoveryApiKey, key);
     assert.throws(() => composeLimitedStaffDeckProfile(prepared, { ...env, STAFFDECK_FIXED_TARGET_AGENT_ID: 'other' }), /PRIVATE_BINDING_ENV_MISMATCH/);
     assert.throws(() => composeLimitedStaffDeckProfile(prepared, { ...env, STAFFDECK_KNOWLEDGE_READ_KEY: 'another' }), /PRIVATE_BINDING_ENV_MISMATCH/);
+    assert.throws(() => composeLimitedStaffDeckProfile({ ...prepared,
+      configPatch: { ...prepared.configPatch, modules: { ...prepared.configPatch.modules,
+        sop: { ...prepared.configPatch.modules.sop, definitionsPath: 'relative.json' } } },
+      env: { ...prepared.env, STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH: 'relative.json' },
+    }, { ...env, STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH: 'relative.json' }), /SOP_BUNDLE_ABSOLUTE_PATH_REQUIRED/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

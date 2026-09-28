@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { renderLimitedProfile } from '../products/pilotdeck-staffdeck-sop/profiles/render-limited-20260928.mjs';
 
@@ -27,6 +27,9 @@ export function composeLimitedStaffDeckProfile(prepared, environment = process.e
   requireMatch(env.STAFFDECK_KNOWLEDGE_READ_KEY, privateEnv.STAFFDECK_SOP_MANAGEMENT_API_KEY, 'PUBLIC_CREDENTIAL_MISMATCH');
   requireMatch(env.STAFFDECK_FIXED_TARGET_AGENT_ID, identity.targetAgentId, 'TARGET_ID_MISMATCH');
   requireMatch(env.STAFFDECK_PUBLISHED_SOP_BUNDLE_PATH, binding.modules.sop.definitionsPath, 'SOP_BUNDLE_MISMATCH');
+  if (!isAbsolute(binding.modules.sop.definitionsPath)) {
+    throw Object.assign(new Error('SOP_BUNDLE_ABSOLUTE_PATH_REQUIRED'), { code: 'SOP_BUNDLE_ABSOLUTE_PATH_REQUIRED' });
+  }
   requireMatch(env.STAFFDECK_PUBLISHED_SOP_ID, binding.modules.sop.defaultSopId, 'SOP_ID_MISMATCH');
   requireMatch(binding.modules.knowledge?.agentId, identity.targetAgentId, 'KNOWLEDGE_TARGET_MISMATCH');
   requireMatch(binding.modules.sop.discoveryAgentId, identity.targetAgentId, 'SOP_DISCOVERY_TARGET_MISMATCH');
