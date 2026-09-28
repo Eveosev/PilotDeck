@@ -1,5 +1,5 @@
 import { usePilotDeckHostCapabilities } from '../pilotdeck-host-capabilities';
-import { planPublicHost, callPublicHost, selectedPublicScope } from '../public-host-mapping';
+import { planPublicHost, callPublicHost, selectedPublicScope, type HostPlan } from '../public-host-mapping';
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
@@ -34,6 +34,68 @@ function optionalQueryInput(url: URL): Record<string, string | boolean> {
   if (url.searchParams.has('include_all_versions')) input.includeAllVersions = ['true', '1'].includes(url.searchParams.get('include_all_versions') || '');
   return input;
 }
+function publicKnowledgeBody(body: unknown): Record<string, unknown> {
+  const value = { ...record(body) };
+  for (const field of ['tenant_id', 'agent_id', 'actor_user_id', 'user_id', 'tenantId', 'agentId', 'actorUserId', 'userId', 'knowledgeBaseId', 'documentId', 'bucketId', 'chunkId', 'conceptId', 'jobId', 'suggestionId']) delete value[field];
+  return value;
+}
+
+/** Only map owner-equivalent operations; removal, unscoped documents and multi-base search retain their original contract. */
+export function planKnowledgePublic(path: string, method: string, body?: unknown): HostPlan | undefined {
+  const url = query(path);
+  const parts = url.pathname.split('/').filter(Boolean).map(decodePathSegment);
+  const [api, enterprise, resource, baseId, action, itemId] = parts;
+  if (api !== 'api' || enterprise !== 'enterprise') return;
+  const plan = (operation: string, input: Record<string, unknown> = {}, collection = false): HostPlan => ({ operation, input, collection });
+  const inputBody = publicKnowledgeBody(body);
+  if (resource === 'knowledge-bases' && parts.length === 3 && method === 'post') return plan('create_knowledge_base', { body: inputBody });
+  if (resource === 'knowledge-bases' && baseId && parts.length === 4) {
+    if (method === 'put') return plan('update_knowledge_base', { knowledgeBaseId: baseId, body: inputBody });
+  }
+  if (resource === 'knowledge-bases' && baseId && parts.length === 5 && action === 'versions' && method === 'get') return plan('list_knowledge_versions', { knowledgeBaseId: baseId }, true);
+  if (resource === 'knowledge-bases' && baseId && parts.length === 5 && action === 'rollback' && method === 'post' && inputBody.version !== undefined) return plan('rollback_knowledge_base', { knowledgeBaseId: baseId, version: inputBody.version });
+  if (resource === 'knowledge-bases' && baseId && action === 'okf') {
+    if (parts.length === 6 && itemId === 'export' && method === 'get') return plan('export_knowledge_okf', { knowledgeBaseId: baseId });
+    if (parts.length === 6 && itemId === 'concepts' && method === 'get' && !url.searchParams.has('concept_type')) return plan('list_knowledge_concepts', { knowledgeBaseId: baseId }, true);
+    if (parts.length > 6 && itemId === 'concepts' && (method === 'get' || method === 'put')) {
+      const conceptId = parts.slice(6).join('/');
+      return method === 'get' ? plan('get_knowledge_concept', { knowledgeBaseId: baseId, conceptId })
+        : plan('update_knowledge_concept', { knowledgeBaseId: baseId, conceptId, body: inputBody });
+    }
+  }
+  if (resource !== 'knowledge') return;
+  if (baseId === 'search' && parts.length === 4 && method === 'post') {
+    const baseIds = record(body).knowledge_base_ids;
+    if (Array.isArray(baseIds) && baseIds.length === 1 && typeof baseIds[0] === 'string' && baseIds[0]) {
+      delete inputBody.knowledge_base_ids;
+      return plan('search_knowledge_base', { knowledgeBaseId: baseIds[0], body: inputBody });
+    }
+  }
+  if (baseId === 'documents' && action && parts.length === 5) {
+    const knowledgeBaseId = url.searchParams.get('knowledge_base_id');
+    if (knowledgeBaseId && method === 'get') return plan('get_knowledge_document', { knowledgeBaseId, documentId: action });
+    if (knowledgeBaseId && method === 'put') return plan('update_knowledge_document', { knowledgeBaseId, documentId: action, body: inputBody });
+  }
+  if (baseId === 'documents' && parts.length === 4 && method === 'get' && url.searchParams.get('knowledge_base_id') && !url.searchParams.has('include_all_versions')) {
+    return plan('list_knowledge_documents', { knowledgeBaseId: url.searchParams.get('knowledge_base_id') }, true);
+  }
+  if (baseId === 'documents' && parts.length === 6 && parts[5] === 'buckets' && method === 'get') return plan('list_document_buckets', { documentId: action }, true);
+  if (baseId === 'buckets' && action && parts.length === 6 && parts[5] === 'chunks' && method === 'get') return plan('list_bucket_chunks', { bucketId: action }, true);
+  if (baseId === 'buckets' && action && parts.length === 5 && method === 'put') return plan('update_knowledge_bucket', { bucketId: action, body: inputBody });
+  if (baseId === 'chunks' && action && parts.length === 5 && method === 'put') return plan('update_knowledge_chunk', { chunkId: action, body: inputBody });
+  if (baseId === 'jobs') {
+    if (parts.length === 4 && method === 'get') return plan('list_knowledge_jobs', { limit: Number(url.searchParams.get('limit') || 20), ...optionalQueryInput(url) }, true);
+    if (action && parts.length === 5 && method === 'get') return plan('get_knowledge_job', { jobId: action });
+    if (action && parts.length === 6 && parts[5] === 'cancel' && method === 'post') return plan('cancel_knowledge_job', { jobId: action });
+  }
+  if (baseId === 'discoveries') {
+    if (parts.length === 4 && method === 'get') return plan('list_knowledge_discoveries', optionalQueryInput(url), true);
+    if (action && parts.length === 6 && method === 'post') {
+      if (parts[5] === 'confirm') return plan('confirm_knowledge_discovery', { suggestionId: action });
+      if (parts[5] === 'reject') return plan('reject_knowledge_discovery', { suggestionId: action });
+    }
+  }
+}
 function pilotDeckAgentScope(): string {
   return readCopyAgentScope();
 }
@@ -58,6 +120,8 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
     : segments[2] === 'knowledge-bases' ? (segments[4] === 'okf' ? 6 : 5)
     : segments[2] === 'knowledge' ? (segments[3] === 'knowledge-bases' ? 4 : 6) : 0;
   if (!conceptPath && segments.length > allowedLength) throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
+  const knowledgePlan = context && planKnowledgePublic(path, method, body);
+  if (knowledgePlan) return await callPublicHost(knowledgePlan, selectedPublicScope(path, body, context.readScope), undefined, context.hostCapabilities) as T;
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return await staffDeckCopyClient.call<T>('list_agents');
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') {
     if (context || url.searchParams.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope), undefined, context?.hostCapabilities) as T;

@@ -1,7 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
-import { pilotDeckKnowledgePageHost } from './knowledge-host-adapter';
+import { pilotDeckKnowledgePageHost, planKnowledgePublic } from './knowledge-host-adapter';
 import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
+
+describe('fixed-target Knowledge public planning', () => {
+  it('keeps original IDs, content and ingest-job namespaces in owner-equivalent operations', () => {
+    expect(planKnowledgePublic('/api/enterprise/knowledge-bases/base%2F1/okf/concepts/path/%E4%B8%AD%E6%96%87', 'put', { tenant_id: 'forged', document_id: 'doc', content_md: 'new text' })).toEqual({
+      operation: 'update_knowledge_concept', input: { knowledgeBaseId: 'base/1', conceptId: 'path/中文', body: { document_id: 'doc', content_md: 'new text' } }, collection: false,
+    });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/jobs/ingest%2F1/cancel', 'post')).toMatchObject({ operation: 'cancel_knowledge_job', input: { jobId: 'ingest/1' } });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/buckets/b%2F1/chunks', 'get')).toMatchObject({ operation: 'list_bucket_chunks', input: { bucketId: 'b/1' }, collection: true });
+    expect(planKnowledgePublic('/api/enterprise/knowledge-bases/base/okf/export', 'get')).toMatchObject({ operation: 'export_knowledge_okf', input: { knowledgeBaseId: 'base' } });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/documents/doc%2F1?knowledge_base_id=base', 'put', { tenant_id: 'forged', content_md: 'full text', expected_updated_at: 'original' })).toMatchObject({
+      operation: 'update_knowledge_document', input: { knowledgeBaseId: 'base', documentId: 'doc/1', body: { content_md: 'full text', expected_updated_at: 'original' } },
+    });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { tenant_id: 'forged', knowledge_base_ids: ['base'], query: 'question' })).toMatchObject({
+      operation: 'search_knowledge_base', input: { knowledgeBaseId: 'base', body: { query: 'question' } },
+    });
+  });
+
+  it('does not substitute archive, scoped search or one-base document listing for different owner semantics', () => {
+    expect(planKnowledgePublic('/api/enterprise/knowledge-bases/base', 'delete')).toBeUndefined();
+    expect(planKnowledgePublic('/api/enterprise/knowledge/documents', 'get')).toBeUndefined();
+    expect(planKnowledgePublic('/api/enterprise/knowledge/documents/doc', 'put', { content_md: 'unspecified base' })).toBeUndefined();
+    expect(planKnowledgePublic('/api/enterprise/knowledge/search', 'post', { knowledge_base_ids: ['a', 'b'] })).toBeUndefined();
+    expect(planKnowledgePublic('/api/enterprise/knowledge-bases/base/okf/concepts?concept_type=SourceSection', 'get')).toBeUndefined();
+  });
+});
 
 describe('PilotDeck Knowledge host authorization boundary', () => {
   it('preserves document query scope and body for scoped branch writes and adjacent reads', async () => {
