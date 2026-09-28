@@ -79,13 +79,14 @@ type KnowledgePageProps = {
 function resolveKnowledgeAgentScope(
   rows: AgentProfileRead[],
   currentUser: EnterpriseAuthUser | undefined,
+  isAdmin: (user?: EnterpriseAuthUser) => boolean,
   currentAgentId: string,
 ): string {
   const currentAgent = rows.find((item) => item.id === currentAgentId);
   if (currentAgent) {
-    if (!currentAgent.is_overall || isEnterpriseAdmin(currentUser)) return currentAgent.id;
+    if (!currentAgent.is_overall || isAdmin(currentUser)) return currentAgent.id;
   }
-  if (isEnterpriseAdmin(currentUser)) return '';
+  if (isAdmin(currentUser)) return '';
   return visibleEmployeeAgents(rows, currentUser, { activeOnly: true })[0]?.id || '';
 }
 
@@ -227,7 +228,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
 
   useEffect(() => {
     if (!agentScopeLoaded) return;
-    const resolvedAgentId = resolveKnowledgeAgentScope(agents, currentUser, agentId);
+    const resolvedAgentId = resolveKnowledgeAgentScope(agents, currentUser, isEnterpriseAdmin, agentId);
     if (resolvedAgentId !== agentId) {
       clearKnowledgeViewState();
       applyResolvedAgentScope(resolvedAgentId);
@@ -316,7 +317,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
     try {
       const agentRows = await loadEmployeeDirectory();
       setAgents(agentRows);
-      const resolvedAgentId = resolveKnowledgeAgentScope(agentRows, currentUser, agentId);
+      const resolvedAgentId = resolveKnowledgeAgentScope(agentRows, currentUser, isEnterpriseAdmin, agentId);
       if (resolvedAgentId !== agentId) {
         clearKnowledgeViewState();
         applyResolvedAgentScope(resolvedAgentId);
@@ -1702,7 +1703,7 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
     loadEmployeeDirectory()
       .then((agentRows) => {
         if (!active) return;
-        const resolvedAgentId = resolveKnowledgeAgentScope(agentRows, currentUser, agentId);
+        const resolvedAgentId = resolveKnowledgeAgentScope(agentRows, currentUser, isEnterpriseAdmin, agentId);
         if (resolvedAgentId !== agentId) {
           if (resolvedAgentId) {
             persistSharedAgentScope(resolvedAgentId, currentUser?.id);

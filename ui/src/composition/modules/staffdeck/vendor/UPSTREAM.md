@@ -1,8 +1,8 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 2ca20d8d (UI approval inbox increment, parent integrated 69d8e170).
-Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/sdk-worktrees/staffdeck.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 107bea11 (UI fixed f6e66ecc integrated narrowly on 23d9319d; concentrated repair implementation, not candidate admission).
+Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/concentrated-fix-worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
 and mounted Distill/API error repair (SD8e50d166). UI owner user-content delivery (1b201192) was integrated by three-way hunks.
@@ -53,3 +53,9 @@ FormalSopApprovalInbox source is copied byte-for-byte into this vendor tree;
 the mounted approval status, normal approver identity and resume callback are
 host consumers, not canonical state. The original native handoff remains
 separate. This increment does not close the admitted-session mapping.
+
+Concentrated UI f6e66ecc fixes the top-level Knowledge scope resolver by passing
+the existing Host admin predicate through all three call sites. The one changed
+canonical file is copied byte-for-byte from SD107bea11. Authorization and adapters
+are unchanged. Production build/login verification remains pending owner evidence;
+source/vendor equality does not establish browser or business PASS.
