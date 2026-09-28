@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticatedFetch } from '../../../utils/api';
-import { createPublicModuleClient } from './public-module-client';
+import { createPublicModuleClient, uploadPublicKnowledgeDocument } from './public-module-client';
 
 vi.mock('../../../utils/api', () => ({ authenticatedFetch: vi.fn() }));
 const fetch = vi.mocked(authenticatedFetch);
@@ -32,4 +32,28 @@ describe('public capability module transport', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(() => createPublicModuleClient('/api/v1/agents/private')).toThrow('PilotDeck module');
   });
+});
+
+it('sends original file bytes to the named multipart route and keeps the 200 ingest job namespace', async () => {
+  const signal = new AbortController().signal;
+  const job = { id: 'ingest-1', status: 'queued', knowledge_base_id: 'base-1', filename: 'fact.md' };
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify(job), { status: 200 }));
+  expect(await uploadPublicKnowledgeDocument({ scope: { kind: 'agent', agentId: 'target' }, knowledgeBaseId: 'base-1',
+    filename: 'fact.md', contentBase64: btoa('unique fact'), signal })).toEqual(job);
+  const [url, init] = fetch.mock.calls[0];
+  expect(url).toBe('/api/modules/staffdeck-sdk/file');
+  expect(init).toMatchObject({ method: 'POST', signal });
+  const form = (init as RequestInit).body as FormData;
+  expect(form.get('operation')).toBe('upload_knowledge_document');
+  expect(form.get('scope')).toBe(JSON.stringify({ kind: 'agent', agentId: 'target' }));
+  expect(form.get('knowledgeBaseId')).toBe('base-1');
+  expect(await (form.get('file') as File).text()).toBe('unique fact');
+  expect((init as RequestInit).headers).toBeUndefined();
+});
+
+it('does not turn a file HTTP failure into an accepted job', async () => {
+  const raw = '{"error":{"code":"PUBLIC_FILE_INPUT_INVALID","message":"Wrong base"}}';
+  fetch.mockResolvedValueOnce(new Response(raw, { status: 409 }));
+  await expect(uploadPublicKnowledgeDocument({ scope: { kind: 'agent', agentId: 'target' }, knowledgeBaseId: 'base-1',
+    filename: 'fact.md', contentBase64: btoa('fact') })).rejects.toMatchObject({ status: 409, code: 'PUBLIC_FILE_INPUT_INVALID', body: raw });
 });

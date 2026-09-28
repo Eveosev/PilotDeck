@@ -1,5 +1,6 @@
 import { usePilotDeckHostCapabilities } from '../pilotdeck-host-capabilities';
 import { planPublicHost, callPublicHost, selectedPublicScope, type HostPlan } from '../public-host-mapping';
+import { uploadPublicKnowledgeDocument } from '../public-module-client';
 import type { Host } from './KnowledgePageHost';
 import { KnowledgePageHostProvider } from './KnowledgePageHost';
 import { PilotDeckDataTable, PilotDeckResourceImportDialog } from './business-primitives';
@@ -107,10 +108,26 @@ async function knowledge<T>(operation: string, input: Record<string, unknown> = 
   return staffDeckKnowledgeClient.call<T>(operation, input);
 }
 
-async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext): Promise<T> {
+export async function visibleKnowledgeDocuments(context: CopyContext, signal?: AbortSignal): Promise<Array<Record<string, any>>> {
+  signal?.throwIfAborted();
+  const scope = selectedPublicScope('/api/enterprise/knowledge/documents', undefined, context.readScope);
+  context.assertSelectedScope(scope);
+  const bases = await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, scope, signal);
+  if (!Array.isArray(bases)) throw new Error('Knowledge base directory is invalid.');
+  const groups = await Promise.all(bases.map(async (base) => {
+    const baseId = record(base).id;
+    if (typeof baseId !== 'string' || !baseId) throw new Error('Knowledge base directory omitted its ID.');
+    return await callPublicHost({ operation: 'list_knowledge_documents', input: { knowledgeBaseId: baseId }, collection: true }, scope, signal);
+  }));
+  signal?.throwIfAborted();
+  return groups.flat().map((row) => record(row));
+}
+
+async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
-  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), undefined, context?.hostCapabilities) as T;
+  if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), signal, context?.hostCapabilities) as T;
   const url = query(path);
   const segments = url.pathname.split('/').filter(Boolean);
   const exact = (...shape: string[]) => segments.length === shape.length && shape.every((part, index) => part === '*' ? Boolean(segments[index]) : part === segments[index]);
@@ -121,7 +138,27 @@ async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | '
     : segments[2] === 'knowledge' ? (segments[3] === 'knowledge-bases' ? 4 : 6) : 0;
   if (!conceptPath && segments.length > allowedLength) throw new Error(`Unsupported StaffDeck Knowledge path: ${method} ${path}`);
   const knowledgePlan = context && planKnowledgePublic(path, method, body);
-  if (knowledgePlan) return await callPublicHost(knowledgePlan, selectedPublicScope(path, body, context.readScope), undefined, context.hostCapabilities) as T;
+  if (knowledgePlan) return await callPublicHost(knowledgePlan, selectedPublicScope(path, body, context.readScope), signal, context.hostCapabilities) as T;
+  if (context && url.pathname === '/api/enterprise/knowledge/documents' && method === 'get' && !url.searchParams.has('include_all_versions')) {
+    return await visibleKnowledgeDocuments(context, signal) as T;
+  }
+  if (context && url.pathname === '/api/enterprise/knowledge/documents' && method === 'post') {
+    const baseId = body?.knowledge_base_id;
+    if (typeof baseId !== 'string' || !baseId) throw new Error('PUBLIC_KNOWLEDGE_BASE_REQUIRED: the public file route needs the owner-created Knowledge base ID.');
+    const scope = selectedPublicScope(path, body, context.readScope);
+    if (scope.kind !== 'agent') throw new Error('PUBLIC_FIXED_TARGET_SCOPE_MISMATCH');
+    return await uploadPublicKnowledgeDocument({ scope, knowledgeBaseId: baseId, filename: body?.filename,
+      contentBase64: body?.content_base64, title: body?.title, signal }) as T;
+  }
+  if (context && segments[2] === 'knowledge' && segments[3] === 'documents' && segments[4] && segments.length === 5 && (method === 'get' || method === 'put')) {
+    const documentId = decodePathSegment(segments[4]);
+    const rows = await visibleKnowledgeDocuments(context, signal);
+    const row = rows.find((item) => item.id === documentId);
+    if (!row || typeof row.knowledge_base_id !== 'string') throw new Error('Knowledge document is not in the visible target bases.');
+    const operation = method === 'get' ? 'get_knowledge_document' : 'update_knowledge_document';
+    return await callPublicHost({ operation, input: { knowledgeBaseId: row.knowledge_base_id, documentId,
+      ...(method === 'put' ? { body: publicKnowledgeBody(body) } : {}) } }, selectedPublicScope(path, body, context.readScope), signal) as T;
+  }
   if (url.pathname === '/api/enterprise/agents' && method === 'get') return await staffDeckCopyClient.call<T>('list_agents');
   if (url.pathname === '/api/enterprise/knowledge-bases' && method === 'get') {
     if (context || url.searchParams.has('agent_id')) return await callPublicHost({ operation: 'list_knowledge_bases', input: {}, collection: true }, selectedPublicScope(path, body, context?.readScope), undefined, context?.hostCapabilities) as T;
@@ -228,8 +265,8 @@ export function PilotDeckKnowledgePageProvider({ children }: { children: ReactNo
   const host = useMemo<Host>(() => ({
     ...pilotDeckKnowledgePageHost,
     api: { ...pilotDeckKnowledgePageHost.api,
-      get: (path) => callKnowledge(path, 'get', undefined, context),
-      post: (path, body) => callKnowledge(path, 'post', body, context),
+      get: (path, options) => callKnowledge(path, 'get', undefined, context, options?.signal),
+      post: (path, body, options) => callKnowledge(path, 'post', body, context, options?.signal),
       put: (path, body) => callKnowledge(path, 'put', body, context),
       delete: (path) => callKnowledge(path, 'delete', undefined, context),
     },

@@ -1,9 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
-import { pilotDeckKnowledgePageHost, planKnowledgePublic } from './knowledge-host-adapter';
+import { pilotDeckKnowledgePageHost, planKnowledgePublic, visibleKnowledgeDocuments } from './knowledge-host-adapter';
 import { pilotDeckSkillsPageHost } from './skills-host-adapter';
 import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
+import type { CopyContext } from './copy-scope';
 
 describe('fixed-target Knowledge public planning', () => {
+  it('collects every visible current document through its owner base with request-local scope and signal', async () => {
+    const signal = new AbortController().signal;
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_path, init) => {
+      const { operation, input } = JSON.parse(String(init?.body));
+      const data = operation === 'list_knowledge_bases' ? [{ id: 'a' }, { id: 'b' }]
+        : [{ id: `doc-${input.knowledgeBaseId}`, knowledge_base_id: input.knowledgeBaseId }];
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    });
+    const context = { readScope: () => 'target', assertSelectedScope: vi.fn() } as unknown as CopyContext;
+    try {
+      expect(await visibleKnowledgeDocuments(context, signal)).toEqual([
+        { id: 'doc-a', knowledge_base_id: 'a' }, { id: 'doc-b', knowledge_base_id: 'b' },
+      ]);
+      expect(fetch.mock.calls.map(([_path, init]) => [JSON.parse(String(init?.body)), init?.signal])).toEqual([
+        [{ operation: 'list_knowledge_bases', input: {}, scope: { kind: 'agent', agentId: 'target' } }, signal],
+        [{ operation: 'list_knowledge_documents', input: { knowledgeBaseId: 'a' }, scope: { kind: 'agent', agentId: 'target' } }, signal],
+        [{ operation: 'list_knowledge_documents', input: { knowledgeBaseId: 'b' }, scope: { kind: 'agent', agentId: 'target' } }, signal],
+      ]);
+    } finally { fetch.mockRestore(); }
+  });
   it('keeps original IDs, content and ingest-job namespaces in owner-equivalent operations', () => {
     expect(planKnowledgePublic('/api/enterprise/knowledge-bases/base%2F1/okf/concepts/path/%E4%B8%AD%E6%96%87', 'put', { tenant_id: 'forged', document_id: 'doc', content_md: 'new text' })).toEqual({
       operation: 'update_knowledge_concept', input: { knowledgeBaseId: 'base/1', conceptId: 'path/中文', body: { document_id: 'doc', content_md: 'new text' } }, collection: false,

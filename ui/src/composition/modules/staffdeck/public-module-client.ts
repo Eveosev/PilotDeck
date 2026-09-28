@@ -31,3 +31,35 @@ export function createPublicModuleClient(endpoint: string): PublicCapabilityClie
     },
   });
 }
+
+/** The named file route preserves the original 200 Knowledge ingest job. */
+export async function uploadPublicKnowledgeDocument(input: {
+  scope: Extract<PublicSelectedScope, { kind: 'agent' }>;
+  knowledgeBaseId: string;
+  filename: string;
+  contentBase64: string;
+  title?: string;
+  signal?: AbortSignal;
+}): Promise<unknown> {
+  input.signal?.throwIfAborted();
+  if (!input.knowledgeBaseId || !input.filename) throw new Error('PUBLIC_FILE_INPUT_INVALID');
+  const binary = atob(input.contentBase64);
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  const form = new FormData();
+  form.set('operation', 'upload_knowledge_document');
+  form.set('scope', JSON.stringify(input.scope));
+  form.set('knowledgeBaseId', input.knowledgeBaseId);
+  if (input.title !== undefined) form.set('title', input.title);
+  form.set('file', new File([bytes], input.filename, { type: 'application/octet-stream' }));
+  const response = await authenticatedFetch('/api/modules/staffdeck-sdk/file', { method: 'POST', body: form, signal: input.signal });
+  const raw = await response.text();
+  input.signal?.throwIfAborted();
+  if (!response.ok) throw moduleApiError(response.status, raw, response.statusText);
+  let body: unknown;
+  try { body = JSON.parse(raw); } catch { throw new Error('Knowledge ingest response is not JSON.'); }
+  const job = body as Record<string, unknown>;
+  if (response.status !== 200 || !job || typeof job.id !== 'string' || typeof job.status !== 'string' || job.knowledge_base_id !== input.knowledgeBaseId) {
+    throw new Error('Knowledge upload did not return the original ingest job.');
+  }
+  return body;
+}
