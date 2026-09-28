@@ -39,6 +39,7 @@
 - 准备/私有组合8/8；active model/text Port5/5已通过。新增gateway测试最初fixture漏SOP管理scope得到403，补齐fixture后17/17；未减少生产身份guard。
 - 新SD public read pytest3/3；PD Knowledge transport/profile4/4。第一次在`dist`运行profile测试因standalone `.mjs`未复制到`dist`报`ERR_MODULE_NOT_FOUND`；b3e8d441让测试按工作树资源路径读取，修后4/4。
 - public模型选择SDK Node测试16/16；公共route Vitest18/18（含同一principal/catalog、原Host 422、错配前置拒绝及成功receipt）。这些为源码聚焦检查，非浏览器/模型业务PASS。
+- 接公共route后PD根TypeScript `--noEmit`、UI TypeScript `--noEmit`和Vite build串行通过；Vite仍有既有CSS/大chunk告警，不影响构建。SD本批无源码改动，其既有构建结果沿用。
 - 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
 - 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
