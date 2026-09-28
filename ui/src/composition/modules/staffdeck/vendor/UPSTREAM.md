@@ -1,12 +1,12 @@
 # StaffDeck business UI snapshot
 
 Version: 0.1.13 (concentrated cleanpair source delivery; no gate approval).
-Canonical source: StaffDeck packages/staffdeck-business-ui/src at 2da6f276d4834aa3bd8b51aa6288453ca9d91624.
+Canonical source: StaffDeck packages/staffdeck-business-ui/src at 2ca20d8d (UI approval inbox increment, parent integrated 69d8e170).
 Source repository: /Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/sdk-worktrees/staffdeck.
 
 The canonical sources come from the explicitly transferred UI WIP (SD972f38cf)
 and mounted Distill/API error repair (SD8e50d166). UI owner user-content delivery (1b201192) was integrated by three-way hunks.
-Mounted Knowledge/Skills boundaries (SD4fafd1aa) remove module Host state. All 40 canonical source
+Mounted Knowledge/Skills boundaries (SD4fafd1aa) remove module Host state. All 41 canonical source
 files are copied byte-for-byte; host adapter/primitives/tests remain PilotDeck-owned.
 Use scripts/verify-staffdeck-business-ui-vendor.mjs with STAFFDECK_BUSINESS_UI_ROOT
 to verify the full source directory. Subsequent UI/adapter deliveries must update
@@ -27,8 +27,8 @@ source one-line value={value} fix; adapter scope semantics remain unchanged.
 
 Final concentrated delivery preserves UI be3b7a41/33238719 graph resource
 content and exact selected draft action, plus real canonical consumer typing.
-Manifest peers include both installed host lucide versions. All 40 canonical
-source files match the committed StaffDeck ref above; the manifest is identical.
+Manifest peers include both installed host lucide versions. The prior 40-source
+snapshot matched its historical StaffDeck ref; the manifest is identical.
 Runtime browser context/status files are PilotDeck integration glue outside
 canonical. Both public/runtime protocol helpers remain SERVER-ONLY.
 
@@ -47,3 +47,9 @@ Public SDK integration updates the canonical provenance ref only; all 40 UI
 sources and manifest remain identical to the preceding UI freeze. SD facade/
 Knowledge PEP is server-side; final adapter production mappings are separate
 owner work and this public increment is not a completed acceptance candidate.
+
+UI approval inbox 09fc3341 was integrated as SD2ca20d8d. The canonical
+FormalSopApprovalInbox source is copied byte-for-byte into this vendor tree;
+the mounted approval status, normal approver identity and resume callback are
+host consumers, not canonical state. The original native handoff remains
+separate. This increment does not close the admitted-session mapping.

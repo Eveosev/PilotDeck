@@ -10,6 +10,7 @@ import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
 import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
+import { useStaffDeckApprovalClient } from './staffdeck-approval-binding';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
 
@@ -26,6 +27,7 @@ function FormalSopDistillPage() {
 }
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError }: SurfaceProps) {
+  const approvalClient = useStaffDeckApprovalClient();
   return <SopWaitBanner
     sessionKey={sessionId ?? ''}
     projectKey={projectKey}
@@ -33,6 +35,7 @@ function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled,
     disabled={disabled}
     onPrepared={onPrepared ?? (() => {})}
     onError={onError ?? (() => {})}
+    approvalClient={approvalClient ?? undefined}
   />;
 }
 

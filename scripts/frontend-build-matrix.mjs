@@ -58,6 +58,7 @@ const staffdeckVendorSources = [
   'ui/src/composition/modules/staffdeck/staffdeck-source-translations.json',
   'ui/src/composition/modules/staffdeck/vendor/DistillPage.tsx',
   'ui/src/composition/modules/staffdeck/vendor/DistillPageHost.tsx',
+  'ui/src/composition/modules/staffdeck/vendor/FormalSopApprovalInbox.tsx',
   'ui/src/composition/modules/staffdeck/vendor/KnowledgeGraphCanvas.css',
   'ui/src/composition/modules/staffdeck/vendor/KnowledgeGraphCanvas.tsx',
   'ui/src/composition/modules/staffdeck/vendor/KnowledgePage.tsx',

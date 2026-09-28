@@ -888,7 +888,15 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     turnReplayStore,
     turnTelemetryContextResolver,
     manualCompactionCoordinator,
-    sopStatus: (input) => publicApprovals.status(input),
+    sopStatus: async (input) => {
+      if (input.approverAuthorization) return publicApprovals.status(input);
+      // The original external-task banner has its own continuation path. An
+      // unauthenticated human projection cannot cross this boundary.
+      const snapshot = await sopControl.status({ sessionKey: input.sessionKey, projectKey: input.projectKey });
+      if (snapshot?.wait?.kind === "external_task") return { ...snapshot, approval: undefined, approvalError: undefined };
+      if (!snapshot?.wait) return null;
+      throw Object.assign(new Error("APPROVAL_AUTH_REQUIRED"), { status: 401, code: "APPROVAL_AUTH_REQUIRED" });
+    },
     resumeSop: (input) => {
       if (Object.hasOwn(input, "authority") || Object.hasOwn(input, "subject")) {
         throw Object.assign(new Error("APPROVAL_AUTHORITY_OVERRIDE"), { status: 400, code: "APPROVAL_AUTHORITY_OVERRIDE" });
