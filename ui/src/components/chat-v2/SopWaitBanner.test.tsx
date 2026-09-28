@@ -57,6 +57,21 @@ describe('SopWaitBanner', () => {
     expect(api.resumeSop).not.toHaveBeenCalled();
   });
 
+  it('rejects an incomplete pinned status before mounting a human reply action', async () => {
+    const approvalClient = {
+      status: vi.fn().mockResolvedValue({ sessionId: 'session-1', revision: 4, state: {},
+        wait: { id: 'wait-1', kind: 'handoff' },
+        approval: { waitId: 'wait-1', revision: 4, skillId: 'sop', version: '1', nodeId: '', assigneeUserId: 'approver' } }),
+      resume: vi.fn(),
+    };
+    const onError = vi.fn();
+    render(<SopWaitBanner sessionKey="session-1" projectKey="/project" refreshKey="idle"
+      approvalClient={approvalClient} onPrepared={vi.fn()} onError={onError} />);
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('Pinned approval snapshot is incomplete.'));
+    expect(screen.queryByTestId('sop-wait-banner')).toBeNull();
+    expect(approvalClient.resume).not.toHaveBeenCalled();
+  });
+
   it('stays hidden when the session has no active wait', async () => {
     vi.mocked(api.sopStatus).mockResolvedValue(new Response(JSON.stringify({ status: null }), {
       status: 200,

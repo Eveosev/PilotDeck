@@ -3,7 +3,7 @@ import { CirclePause, Loader2, RefreshCw } from 'lucide-react';
 
 import { api } from '../../utils/api';
 import FormalSopApprovalInbox from '../../composition/modules/staffdeck/vendor/FormalSopApprovalInbox';
-import type { ApprovalStatus, ApprovalReceipt, ApprovalReply, ApprovalScope } from '../../composition/modules/staffdeck/public-approval-client';
+import { approvalInboxItem, type ApprovalStatus, type ApprovalReceipt, type ApprovalReply, type ApprovalScope } from '../../composition/modules/staffdeck/public-approval-client';
 
 type SopWait = {
   id: string;
@@ -70,6 +70,7 @@ export default function SopWaitBanner({
       let nextStatus: SopStatus | null;
       if (approvalClient) {
         const authenticated = await approvalClient.status({ sessionKey, projectKey });
+        approvalInboxItem(authenticated);
         nextStatus = isSopStatus(authenticated) ? authenticated : null;
       } else {
         const response = await api.sopStatus(sessionKey, projectKey);
