@@ -128,8 +128,9 @@ function assertDeclaredMethod(binding: ExternalModuleBinding, operation: string,
 
 export function createKnowledgeQueryTool(
   port: KnowledgeModulePort,
-  scope: Pick<ExternalModuleBinding, "tenantId" | "actorUserId" | "agentId"> = {},
+  scope: Pick<ExternalModuleBinding, "tenantId" | "actorUserId" | "agentId" | "credentialEnv"> = {},
 ): PilotDeckToolDefinition {
+  const bindingHasReadCredential = "credentialEnv" in scope && typeof scope.credentialEnv === "string";
   return {
     name: "knowledge_query",
     description: "Query the configured knowledge module for grounded evidence and citations. The host supplies tenant and agent scope; provide a natural-language query and optionally select knowledge_base_ids.",
@@ -144,7 +145,11 @@ export function createKnowledgeQueryTool(
     isConcurrencySafe: () => true,
     async execute(input) {
       const modelInput = input as Record<string, unknown>;
-      const result = await port.call("query", {
+      if (bindingHasReadCredential && Object.keys(modelInput).some(key =>
+          ["tenantId", "tenant_id", "actorUserId", "actor_user_id", "agentId", "agent_id", "modelConfigId", "model_config_id"].includes(key))) {
+        throw protocolFailure("Knowledge query cannot supply identity or an SD model selection.");
+      }
+      const result = await port.call("query", bindingHasReadCredential ? modelInput : {
         ...modelInput,
         ...(scope.tenantId ? { tenantId: scope.tenantId } : {}),
         ...(scope.actorUserId ? { actorUserId: scope.actorUserId } : {}),

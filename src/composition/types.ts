@@ -44,6 +44,8 @@ export type ExternalModuleBinding = Readonly<{
   endpoint: string;
   manifestPath: string;
   callPath: string;
+  /** Server-only environment variable holding the SD account public credential. */
+  credentialEnv?: string;
   timeoutMs?: number;
   methods: readonly string[];
   /** Optional static frontend registry key selected by the profile. */

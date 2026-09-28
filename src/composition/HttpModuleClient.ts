@@ -39,9 +39,14 @@ export class HttpModuleClient {
       messageId,
       ...requestInput,
     };
+    const credentialEnv = this.binding.credentialEnv;
+    const credential = credentialEnv ? process.env[credentialEnv]?.trim() : undefined;
+    if (credentialEnv && !credential) {
+      throw protocolError("Knowledge module account credential is not configured.");
+    }
     const response = await this.requestJson(this.binding.callPath, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(credential ? { authorization: `Bearer ${credential}` } : {}) },
       body: JSON.stringify(request),
     }, true, abortSignal);
     const validation = validateModuleMessage(response);

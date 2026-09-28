@@ -93,7 +93,7 @@ function parseCoreModule(
     "enabled", "provider", "implementationId", "contract", "transport", "endpoint",
     "manifestPath", "callPath", "timeoutMs", "methods", "catalog", "frontendModule",
     "command", "args", "env", "host", "port", "connectTimeoutMs", "deployment",
-    "defaultBaseId", "resultLimit", "tenantId", "actorUserId", "agentId",
+    "defaultBaseId", "resultLimit", "tenantId", "actorUserId", "agentId", "credentialEnv",
   ], path, diagnostics);
   if (value.enabled === false && (name === "skills" || name === "knowledge")) {
     return { enabled: false };
@@ -156,6 +156,22 @@ function parseExternalModule(
   const tenantId = nonEmptyText(value.tenantId);
   const actorUserId = nonEmptyText(value.actorUserId);
   const agentId = nonEmptyText(value.agentId);
+  const credentialEnv = nonEmptyText(value.credentialEnv);
+  if (value.credentialEnv !== undefined && (slot !== "knowledge" || !credentialEnv
+      || !/^[A-Z][A-Z0-9_]*$/.test(credentialEnv))) {
+    fatal(diagnostics, "MODULE_CREDENTIAL_ENV_INVALID",
+      `${path}.credentialEnv must name a server environment variable for Knowledge only.`, `${path}.credentialEnv`);
+  }
+  if (credentialEnv && slot === "knowledge") {
+    const targetPath = /^\/api\/v1\/agents\/([^/]+)\/knowledge-module\/v2\/module\/call$/.exec(callPath);
+    if (implementationId !== "staffdeck.knowledge"
+        || manifestPath !== "/api/v1/knowledge-module/module-manifest"
+        || !targetPath || !agentId || targetPath[1] !== encodeURIComponent(agentId)
+        || tenantId || actorUserId) {
+      fatal(diagnostics, "MODULE_AUTHENTICATED_KNOWLEDGE_BINDING_INVALID",
+        `${path} must bind the public Knowledge read endpoint and its fixed agentId without caller identity fields.`, path);
+    }
+  }
   if (slot === "tools" && (!tools || tools.length === 0)) {
     fatal(diagnostics, "MODULE_TOOL_CATALOG_REQUIRED", `${path}.catalog must declare at least one tool for the synchronous ToolPort list operation.`, `${path}.catalog`);
   }
@@ -175,6 +191,7 @@ function parseExternalModule(
     ...(tenantId ? { tenantId } : {}),
     ...(actorUserId ? { actorUserId } : {}),
     ...(agentId ? { agentId } : {}),
+    ...(credentialEnv && slot === "knowledge" ? { credentialEnv } : {}),
     ...(deployment ? { deployment } : {}),
   };
 }
