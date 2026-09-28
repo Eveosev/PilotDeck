@@ -10,8 +10,7 @@ import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
 import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
-import { PublicApprovalInboxMount } from './staffdeck/public-approval-inbox-mount';
-import FormalSopApprovalInbox from './staffdeck/vendor/FormalSopApprovalInbox';
+import { PublicApprovalInboxMount, type PublicApprovalInboxView } from './staffdeck/public-approval-inbox-mount';
 import { useCallback, useState } from 'react';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
@@ -29,7 +28,7 @@ function FormalSopDistillPage() {
   return <StaffDeckHostBinding><StaffDeckLocaleBoundary><PublishRuntimeProvider><PublishRuntimeStatus /><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></PublishRuntimeProvider></StaffDeckLocaleBoundary></StaffDeckHostBinding>;
 }
 
-type ApprovalHostInput = { readApproverBearer?: () => string };
+type ApprovalHostInput = { readApproverBearer?: () => string; Inbox?: PublicApprovalInboxView };
 
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError, host }: SurfaceProps) {
   const approvalInput = (host as typeof host & { approval?: ApprovalHostInput })?.approval;
@@ -40,7 +39,7 @@ function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled,
       disabled={disabled} onPrepared={onPrepared ?? noop} onError={onError ?? noop}
       allowedWaitKind="external_task" onWaitKind={onWaitKind} />
     {sessionId ? <PublicApprovalInboxMount scope={{ sessionKey: sessionId, projectKey }}
-      readApproverBearer={approvalInput?.readApproverBearer} Inbox={FormalSopApprovalInbox}
+      readApproverBearer={approvalInput?.readApproverBearer} Inbox={approvalInput?.Inbox}
       refreshKey={refreshKey} disabled={disabled} hidden={externalWait}
       onPrepared={onPrepared} onError={onError} /> : null}
   </>;
