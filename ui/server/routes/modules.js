@@ -33,7 +33,7 @@ const KNOWLEDGE_READ_OPERATIONS = new Set([
 const PUBLIC_SDK_OPERATIONS = new Set(PUBLIC_APPROVED_OPERATIONS);
 const PUBLIC_SDK_STREAM_OPERATIONS = new Set(['job_events', 'preview_job_events']);
 const PUBLIC_SDK_GLOBAL_OPERATIONS = new Set(['get_job', 'get_job_result', 'job_events', 'cancel_job']);
-const PUBLIC_FILE_OPERATIONS = new Set(['upload_knowledge_document', 'import_knowledge_okf']);
+const PUBLIC_FILE_OPERATIONS = new Set(['upload_knowledge_document', 'upload_knowledge_document_auto', 'import_knowledge_okf']);
 const SOP_MANAGEMENT_OPERATIONS = new Set([
   'list', 'create', 'get_draft', 'replace_draft', 'validate',
   'publish', 'archive', 'list_versions', 'get_version', 'rollback',
@@ -382,19 +382,22 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
   };
   route.post('/staffdeck-sdk/call', (req, res) => publicSdkCall(req, res));
   route.get('/staffdeck-sdk/events', (req, res) => publicSdkCall(req, res, true));
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 4 } }).single('file');
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5 } }).single('file');
   route.post('/staffdeck-sdk/file', (req, res) => upload(req, res, error => {
     if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: { code: error.code, message: error.message } });
     try {
       const fields = req.body ?? {};
       if (!req.file || !PUBLIC_FILE_OPERATIONS.has(fields.operation)
-        || Object.keys(fields).some(name => !['operation', 'scope', 'knowledgeBaseId', 'title'].includes(name))) {
+        || Object.keys(fields).some(name => !['operation', 'scope', 'knowledgeBaseId', 'title',
+          ...(fields.operation === 'upload_knowledge_document_auto' ? ['capability_scope'] : [])].includes(name))) {
         throw managementError(400, 'PUBLIC_FILE_INPUT_INVALID', 'A named Knowledge file operation and one file are required.');
       }
       const scope = JSON.parse(fields.scope);
       req.body = { operation: fields.operation, scope, input: { knowledgeBaseId: fields.knowledgeBaseId,
         body: { filename: req.file.originalname, content_base64: req.file.buffer.toString('base64'),
-          ...(fields.title !== undefined ? { title: fields.title } : {}), media_type: req.file.mimetype } } };
+          ...(fields.title !== undefined ? { title: fields.title } : {}),
+          ...(fields.capability_scope !== undefined ? { capability_scope: fields.capability_scope } : {}),
+          media_type: req.file.mimetype } } };
       return publicSdkCall(req, res, false, true);
     } catch (error) { return res.status(error.status || 400).json({ error: { code: error.code || 'PUBLIC_FILE_INPUT_INVALID', message: error.message } }); }
   }));
@@ -666,7 +669,7 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
       validatePublicSdkScope(operation, options.scope);
       if (options.scope.kind !== 'agent' || options.scope.agentId !== owner.agentId) throw managementError(403, 'PUBLIC_FIXED_TARGET_SCOPE_MISMATCH', 'File scope must match the configured target.');
       const plan = planPublicOperation(owner.agentId, operation, input);
-      const { filename, content_base64, title, media_type } = plan.body ?? {};
+      const { filename, content_base64, title, media_type, capability_scope } = plan.body ?? {};
       if (typeof filename !== 'string' || !filename || typeof content_base64 !== 'string'
         || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(content_base64)) {
         throw managementError(400, 'PUBLIC_FILE_INPUT_INVALID', 'A filename and original file bytes are required.');
@@ -676,6 +679,7 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
       const form = new FormData();
       form.append('file', new Blob([bytes], { type: typeof media_type === 'string' ? media_type : 'application/octet-stream' }), filename);
       if (title !== undefined) form.append('title', title);
+      if (capability_scope !== undefined) form.append('capability_scope', capability_scope);
       const response = await fetchStaffDeckOwner(management, { ...plan, body: form, signal: options.signal ?? signal });
       const rawBody = await response.text();
       let body = rawBody; try { body = JSON.parse(rawBody); } catch {}

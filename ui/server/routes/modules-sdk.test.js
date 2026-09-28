@@ -350,6 +350,38 @@ it('forwards real Knowledge multipart bytes and original ingest status without J
   expect((await f.call('upload_knowledge_document', { knowledgeBaseId: 'kb', body: { filename: 'x', content_base64: '' } }, { kind: 'agent', agentId: 'target' })).status).toBe(409);
 });
 
+it('forwards auto-create upload once without guessing a KB and preserves capability scope', async () => {
+  const uploads = [];
+  const parser = multer({ storage: multer.memoryStorage() }).single('file');
+  const f = await fixture((req, res) => parser(req, res, error => {
+    if (error) return res.status(400).json({ detail: error.message });
+    uploads.push({ url: req.url, bytes: [...req.file.buffer], fields: req.body });
+    res.status(200).set('x-request-id', 'original-auto-ingest').json({ id: 'native-ingest', knowledge_base_id: 'owner-created-kb', status: 'queued' });
+  }), { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:write'] });
+  const form = () => {
+    const value = new FormData();
+    value.set('operation', 'upload_knowledge_document_auto');
+    value.set('scope', JSON.stringify({ kind: 'agent', agentId: 'target' }));
+    value.set('title', 'original title');
+    value.set('capability_scope', 'sop_specific');
+    value.set('file', new Blob(['original text'], { type: 'text/plain' }), 'facts.txt');
+    return value;
+  };
+  const response = await f.file(form());
+  expect(response.status).toBe(200);
+  expect(response.headers.get('x-request-id')).toBe('original-auto-ingest');
+  expect(await response.json()).toMatchObject({ id: 'native-ingest', knowledge_base_id: 'owner-created-kb' });
+  expect(uploads).toEqual([{ url: '/agents/target/knowledge/documents:auto-create',
+    bytes: [...Buffer.from('original text')], fields: { title: 'original title', capability_scope: 'sop_specific' } }]);
+  for (const [field, value] of [['knowledgeBaseId', 'guessed'], ['capability_scope', 'invalid']]) {
+    const invalid = form(); invalid.set(field, value);
+    expect((await f.file(invalid)).status).toBe(400);
+  }
+  expect(uploads).toHaveLength(1);
+  expect((await f.call('upload_knowledge_document_auto', { body: { filename: 'facts.txt', content_base64: '' } },
+    { kind: 'agent', agentId: 'target' })).status).toBe(409);
+});
+
 it('forwards OKF FormData through the same named file route with its original response', async () => {
   const uploads = [];
   const parser = multer({ storage: multer.memoryStorage() }).single('file');
