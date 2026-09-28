@@ -65,6 +65,7 @@ const EDIT_RECONCILIATION_HINT = [
 //   · ComposerV2     — card textarea + paperclip/at + arrow-up send
 //   · NO provider picker empty state, NO pill bar, NO gradient bubbles
 function ChatInterfaceV2({
+  moduleHost,
   selectedProject: selectedProjectFromShell,
   selectedSession,
   ws,
@@ -849,7 +850,7 @@ function ChatInterfaceV2({
     <div data-chat-composer-slot className="min-h-0 shrink-0">
       {!sessionIsReadOnly ? getActiveAssembly()?.chatExtensions.map((extension) => {
         const Extension = extension.component;
-        return <Extension key={extension.id} sessionId={selectedSession?.id || currentSessionId || undefined} projectKey={selectedProject?.fullPath || selectedProject?.path || ''} refreshKey={`${chatMessages.length}:${isLoading ? 'running' : 'idle'}`} disabled={isLoading} onPrepared={handleSopContinuationPrepared} onError={handleSopControlError} />;
+        return <Extension key={extension.id} host={moduleHost} sessionId={selectedSession?.id || currentSessionId || undefined} projectKey={selectedProject?.fullPath || selectedProject?.path || ''} refreshKey={`${chatMessages.length}:${isLoading ? 'running' : 'idle'}`} disabled={isLoading} onPrepared={handleSopContinuationPrepared} onError={handleSopControlError} />;
       }) : null}
       {composer}
     </div>

@@ -250,6 +250,12 @@ export interface Question {
 }
 
 export interface ChatInterfaceProps {
+  moduleHost?: {
+    selectedProject?: unknown;
+    selectedSession?: unknown;
+    projects?: unknown[];
+    navigate?: (path: string) => void;
+  };
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
   ws: WebSocket | null;

@@ -86,6 +86,7 @@ export type MainContentProps = {
   onMisroutedFileUrlHandled?: () => void;
   /** Selected AgentLoop implementation; the shell does not import a chat client. */
   chatSurface?: ComponentType<ChatInterfaceProps> | null;
+  moduleHost?: ChatInterfaceProps['moduleHost'];
   /** Runtime capability verification is pending, so no module surface is active yet. */
   chatUnavailableMessage?: string | null;
 };

@@ -213,6 +213,7 @@ function MainContent({
   misroutedFileFromUrl,
   onMisroutedFileUrlHandled,
   chatSurface: ChatSurface,
+  moduleHost,
   chatUnavailableMessage,
 }: MainContentProps) {
   const { preferences } = useUiPreferences();
@@ -362,6 +363,7 @@ function MainContent({
           onFileDelete={handleFileDelete}
           onSelectProjectByName={onSelectProjectByName}
           chatSurface={ChatSurface}
+          moduleHost={moduleHost}
           chatUnavailableMessage={chatUnavailableMessage}
           isMobile={isMobile}
           editorSidebarProps={{
@@ -439,6 +441,7 @@ type SplitBodyProps = {
   onFileDelete: (deletedPath: string) => void;
   onSelectProjectByName?: (projectName: string) => void;
   chatSurface?: MainContentProps["chatSurface"];
+  moduleHost?: MainContentProps["moduleHost"];
   chatUnavailableMessage?: MainContentProps["chatUnavailableMessage"];
   isMobile: boolean;
   editorSidebarProps: React.ComponentProps<typeof EditorSidebar>;
@@ -487,6 +490,7 @@ function SplitBody(props: SplitBodyProps) {
     onFileDelete,
     onSelectProjectByName,
     chatSurface: ChatSurface,
+    moduleHost,
     chatUnavailableMessage,
     isMobile,
     editorSidebarProps,
@@ -1273,6 +1277,7 @@ function SplitBody(props: SplitBodyProps) {
           ) : null}
           <ErrorBoundary showDetails>
             {ChatSurface ? <ChatSurface
+              moduleHost={moduleHost}
               selectedProject={selectedProject}
               selectedSession={selectedSession}
               ws={ws}
