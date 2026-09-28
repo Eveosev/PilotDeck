@@ -285,19 +285,25 @@ it('an excluded non-target publish makes no publication, bundle write or refresh
 
 it('dispatches fixed-target Knowledge contracts with original conflict and accepted-job responses', async () => {
   const calls = [];
+  const catalogCalls = [];
   const f = await fixture((req, res) => {
     calls.push({ method: req.method, url: req.url, body: req.body, idempotency: req.get('Idempotency-Key') });
     if (req.body?.expected_updated_at === 'stale') return res.status(409).type('json').end('{"detail":"original conflict"}');
     if (req.url.endsWith('/entries')) return res.status(202).json({ id: 'job', status: 'queued' });
     res.json({ data: [], id: 'original' });
-  }, { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write', 'knowledge:publish'] });
+  }, { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write', 'knowledge:publish'],
+    getGateway: async () => ({ moduleHostCapabilities: { operations: ['list_model_catalog'],
+      call: async (operation, input, context) => {
+        catalogCalls.push({ operation, input, context });
+        return { status: 200, body: { data: [{ id: 'pd/model', provider: 'pd', model: 'model', available: true, is_default: true }] } };
+      } } }) });
   const scope = { kind: 'agent', agentId: 'target' };
   const root = '/agents/target/knowledge-bases';
   for (const [operation, input, method, path] of [
     ['create_knowledge_base', { body: { name: 'Base' } }, 'POST', root],
     ['update_knowledge_base', { knowledgeBaseId: 'kb/id', body: { name: 'Changed' } }, 'PATCH', root + '/kb%2Fid'],
     ['archive_knowledge_base', { knowledgeBaseId: 'kb/id' }, 'POST', root + '/kb%2Fid:archive'],
-    ['search_knowledge_base', { knowledgeBaseId: 'kb/id', body: { query: 'source' } }, 'POST', root + '/kb%2Fid:search'],
+    ['search_knowledge_base', { knowledgeBaseId: 'kb/id', selectedPdModelId: 'pd/model', body: { query: 'source' } }, 'POST', root + '/kb%2Fid:search'],
     ['upsert_knowledge_entries', { knowledgeBaseId: 'kb/id', body: { entries: [{ content: 'source' }] }, idempotencyKey: 'original-key' }, 'POST', root + '/kb%2Fid/entries'],
     ['list_knowledge_versions', { knowledgeBaseId: 'kb/id' }, 'GET', root + '/kb%2Fid/versions'],
     ['rollback_knowledge_base', { knowledgeBaseId: 'kb/id', version: '1.0.0' }, 'POST', root + '/kb%2Fid:rollback'],
@@ -309,10 +315,17 @@ it('dispatches fixed-target Knowledge contracts with original conflict and accep
     const response = await f.call(operation, input, scope);
     expect(response.status).toBe(operation === 'upsert_knowledge_entries' ? 202 : 200);
     if (operation === 'upsert_knowledge_entries') expect(await response.json()).toEqual({ id: 'job', status: 'queued' });
+    if (operation === 'search_knowledge_base') expect(await response.json()).toMatchObject({
+      host_model_selection: { id: 'pd/model', model_use: 'pilotdeck_dialogue_only', retrieval_mode: 'staffdeck_public_lexical' },
+    });
     expect(calls.at(-1)).toMatchObject({ method, url: path });
     if (input.body) expect(calls.at(-1).body).toEqual(input.body);
   }
   expect(calls[4].idempotency).toBe('original-key');
+  expect(catalogCalls).toHaveLength(1);
+  expect(catalogCalls[0]).toMatchObject({ operation: 'list_model_catalog', input: {},
+    context: { principal: { pilotDeckUserId: 'local', tenantId: 'tenant', actorUserId: 'actor', agentId: 'target' } } });
+  expect(catalogCalls[0].context.signal).toBeInstanceOf(AbortSignal);
   expect(calls[6].body).toEqual({ version: '1.0.0' });
   const conflict = await f.call('update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id',
     body: { content_md: 'draft', expected_updated_at: 'stale' } }, scope);
@@ -320,6 +333,31 @@ it('dispatches fixed-target Knowledge contracts with original conflict and accep
   const denied = await f.call('update_knowledge_document', { knowledgeBaseId: 'kb/id', documentId: 'doc/id', body: {} }, { kind: 'agent', agentId: 'other' });
   expect(denied.status).toBe(403);
   expect(calls).toHaveLength(12);
+});
+
+it('keeps host catalog errors and stale model selection ahead of StaffDeck search', async () => {
+  let searches = 0;
+  let hostStatus = 422;
+  const f = await fixture((_req, res) => { searches++; res.json({ okf_citations: [] }); }, {
+    scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read'],
+    getGateway: async () => ({ moduleHostCapabilities: { operations: ['list_model_catalog'],
+      call: async () => hostStatus === 422
+        ? { status: 422, body: { detail: 'original host error' }, rawBody: '{"detail":"original host error"}',
+          headers: { 'content-type': 'application/json', 'x-request-id': 'host-request' } }
+        : { status: 200, body: { data: [{ id: 'pd/current', provider: 'pd', model: 'current', available: true, is_default: true }] } },
+    } }),
+  });
+  const scope = { kind: 'agent', agentId: 'target' };
+  const input = { knowledgeBaseId: 'kb', selectedPdModelId: 'pd/current', body: { query: 'source' } };
+  const upstream = await f.call('search_knowledge_base', input, scope);
+  expect(upstream.status).toBe(422);
+  expect(upstream.headers.get('x-request-id')).toBe('host-request');
+  expect(await upstream.text()).toBe('{"detail":"original host error"}');
+  hostStatus = 200;
+  const stale = await f.call('search_knowledge_base', { ...input, selectedPdModelId: 'pd/old' }, scope);
+  expect(stale.status).toBe(409);
+  expect(await stale.json()).toMatchObject({ error: { code: 'PUBLIC_PD_MODEL_SELECTION_MISMATCH' } });
+  expect(searches).toBe(0);
 });
 
 it('forwards real Knowledge multipart bytes and original ingest status without JSON/APIJob substitution', async () => {

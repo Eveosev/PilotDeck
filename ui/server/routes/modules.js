@@ -344,7 +344,25 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
       const management = readSopManagement(config);
       const owner = await verifySopManagementIdentity(config, management, req.user, req.moduleRequestSignal,
         PUBLIC_OPERATION_CONTRACTS[operation][2]);
+      const hostModelCatalog = async ({ signal }) => {
+        const hostGateway = await getGateway();
+        const principal = { pilotDeckUserId: String(req.user.id), tenantId: owner.tenantId,
+          actorUserId: owner.actorUserId, agentId: owner.agentId };
+        const port = getHostCapabilities ? await getHostCapabilities({ gateway: hostGateway, principal, signal })
+          : hostGateway?.moduleHostCapabilities;
+        if (getHostCapabilities && !port) {
+          throw managementError(501, 'PILOTDECK_HOST_CAPABILITY_UNAVAILABLE', 'The selected host binding is unavailable.');
+        }
+        const result = await createPilotDeckHostCapabilityGateway({ gateway: hostGateway, port, principal })
+          .call('list_model_catalog', {}, { signal });
+        if (result.status < 200 || result.status >= 300) {
+          throw Object.assign(new Error('The selected PilotDeck model catalog rejected the request.'),
+            { status: result.status, upstreamResponse: result });
+        }
+        return result.body;
+      };
       const gateway = createStaffDeckPublicCapabilityGateway({ management, owner, signal: req.moduleRequestSignal,
+        hostModelCatalog,
         authorizedOperations: PUBLIC_APPROVED_OPERATIONS.filter(name => !PILOTDECK_HOST_UI_OPERATIONS.includes(name)) });
       const call = () => fileCall ? gateway.file(operation, input, { scope }) : gateway.call(operation, input, { scope });
       const result = operation === 'publish_sop'
@@ -369,11 +387,21 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
         await pipeline(Readable.fromWeb(result.body), res, { signal: req.moduleRequestSignal });
         return;
       }
-      return res.end(result.rawBody ?? JSON.stringify(result.body));
+      return res.end(operation === 'search_knowledge_base' && result.status >= 200 && result.status < 300
+        ? JSON.stringify(result.body) : result.rawBody ?? JSON.stringify(result.body));
     } catch (error) {
       if (res.headersSent || res.destroyed || req.moduleRequestSignal.aborted) {
         if (!res.destroyed) res.destroy();
         return;
+      }
+      if (error.upstreamResponse) {
+        const upstream = error.upstreamResponse;
+        const headers = new Headers(upstream.headers);
+        for (const header of ['content-type', 'retry-after', 'x-request-id']) {
+          if (headers.has(header)) res.setHeader(header, headers.get(header));
+        }
+        return res.status(upstream.status).end(upstream.rawBody ??
+          (typeof upstream.body === 'string' ? upstream.body : JSON.stringify(upstream.body)));
       }
       return res.status(Number.isInteger(error?.status) ? error.status : 502).json({
         error: { code: error?.code || 'PUBLIC_SDK_CALL_FAILED', message: error instanceof Error ? error.message : String(error) },
@@ -635,7 +663,7 @@ function fetchStaffDeckOwner(management, { method, path, headers, body, signal }
 
 /** Server-only typed transport, prepared after per-request owner verification.
  * Grants come from the route's fixed table; callers cannot supply a URL or key. */
-export function createStaffDeckPublicCapabilityGateway({ management, owner, signal, authorizedOperations = [] }) {
+export function createStaffDeckPublicCapabilityGateway({ management, owner, signal, authorizedOperations = [], hostModelCatalog }) {
   if (!owner?.tenantId || !owner?.actorUserId || !owner?.credentialId
     || owner.agentId !== management?.agentId || owner.credentialId !== management?.credentialId) {
     throw managementError(409, 'SOP_MANAGEMENT_TARGET_MISMATCH', 'Public capability transport requires the verified management owner.');
@@ -645,6 +673,7 @@ export function createStaffDeckPublicCapabilityGateway({ management, owner, sign
     agentId: owner.agentId,
     fixedTargetAgentId: owner.agentId,
     authorizedOperations: grants,
+    hostModelCatalog,
     transport: async plan => {
       const response = await fetchStaffDeckOwner(management, plan);
       if (plan.responseType === 'event-stream' && response.ok) {
