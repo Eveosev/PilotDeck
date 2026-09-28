@@ -10,7 +10,7 @@ import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
 import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
-import { PublicApprovalInboxMount, type PublicApprovalInboxView } from './staffdeck/public-approval-inbox-mount';
+import { PublicApprovalInboxMount } from './staffdeck/public-approval-inbox-mount';
 import { useCallback, useState } from 'react';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
@@ -28,10 +28,8 @@ function FormalSopDistillPage() {
   return <StaffDeckHostBinding><StaffDeckLocaleBoundary><PublishRuntimeProvider><PublishRuntimeStatus /><PilotDeckDistillPageProvider><SharedDistillPage currentUser={currentUser} /></PilotDeckDistillPageProvider></PublishRuntimeProvider></StaffDeckLocaleBoundary></StaffDeckHostBinding>;
 }
 
-type ApprovalHostInput = { readApproverBearer?: () => string; Inbox?: PublicApprovalInboxView };
-
 function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled, onPrepared, onError, host }: SurfaceProps) {
-  const approvalInput = (host as typeof host & { approval?: ApprovalHostInput })?.approval;
+  const approvalInput = host?.approval;
   const [externalWait, setExternalWait] = useState(false);
   const onWaitKind = useCallback((kind: 'handoff' | 'external_task' | null) => setExternalWait(kind === 'external_task'), []);
   return <>

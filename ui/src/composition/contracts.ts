@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { ChatInterfaceProps } from '../components/chat/types/types';
+import type { PublicApprovalHost } from './modules/staffdeck/public-approval-inbox-mount';
 
 export const slots = ['agentLoop', 'skills', 'tools', 'context', 'modelProvider', 'sop', 'knowledge'] as const;
 export type Slot = typeof slots[number];
@@ -40,6 +41,7 @@ export type SurfaceProps = {
     selectedSession?: unknown;
     projects?: unknown[];
     navigate?: (path: string) => void;
+    approval?: PublicApprovalHost;
   };
   children?: ReactNode;
   onPrepared?: (message: string) => void;

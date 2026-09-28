@@ -4,6 +4,7 @@ import type {
   SessionProvider,
 } from '../../../types/app';
 import type { ContentReference } from '../../../types/contentReference';
+import type { PublicApprovalHost } from '../../../composition/modules/staffdeck/public-approval-inbox-mount';
 
 export type Provider = SessionProvider;
 
@@ -255,6 +256,7 @@ export interface ChatInterfaceProps {
     selectedSession?: unknown;
     projects?: unknown[];
     navigate?: (path: string) => void;
+    approval?: PublicApprovalHost;
   };
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
