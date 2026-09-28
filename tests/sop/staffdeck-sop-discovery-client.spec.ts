@@ -22,6 +22,7 @@ test("StaffDeck discovery client sends the authenticated native route request", 
   assert.equal(request?.init?.headers && new Headers(request.init.headers).get("authorization"), "Bearer sd_live_secret");
   assert.deepEqual(JSON.parse(String(request?.init?.body)), {
     message: "buy something",
+    model_source: "pilotdeck_host",
     session_id: "session-1",
   });
 });

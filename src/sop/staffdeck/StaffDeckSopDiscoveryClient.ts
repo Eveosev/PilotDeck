@@ -44,6 +44,7 @@ export class StaffDeckSopDiscoveryClient implements DiscoveryClient {
           },
           body: JSON.stringify({
             message: input.message,
+            model_source: "pilotdeck_host",
             session_id: input.sessionId,
             ...(input.activeSopId ? { active_sop_id: input.activeSopId } : {}),
             ...(input.activeStepId ? { active_step_id: input.activeStepId } : {}),

@@ -107,8 +107,10 @@ function requireString(value: unknown, field: string): string {
 function modelSelection(config: ModelConfig, requestedModelId: string): PublicModelSelection {
   const matches: PublicModelSelection[] = [];
   for (const provider of Object.values(config.providers)) {
-    if (provider.models[requestedModelId]) {
-      matches.push({ requestedModelId, selectedModelId: requestedModelId, providerId: provider.id });
+    for (const model of Object.values(provider.models)) {
+      if (requestedModelId === `${provider.id}/${model.id}`) {
+        matches.push({ requestedModelId, selectedModelId: model.id, providerId: provider.id });
+      }
     }
   }
   if (matches.length !== 1) {
