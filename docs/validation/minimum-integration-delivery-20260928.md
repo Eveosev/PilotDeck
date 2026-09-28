@@ -14,7 +14,7 @@
 | SD root c762495c | 显式部署bind_pilotdeck_domain_client，正常Gatewaytokenpath/origin/response-derived PDuser/exact tenant/actor/target；缺配置启用失败，wrongtuple在transport前拒绝 |
 | 绑定准备91aed706 / 293a3250 | 允许同时省略延期approver响应；仍核fresh actor/PDuser/target/owned credential；部分env/configPatch不冒有效profile，正常部署token不mint、不复制 |
 | public SDd7f33288 / PD61cac7fc | SD1383e39a / PD17691edb；正常Knowledge query使用账户Bearer、原PEP、public_host_retrieval与正式module envelope，PD凭credentialEnv只从server进程取账户key；旧无认证module路径不作有限版绑定 |
-| 整合PD3aadf223 / b3e8d441 | 私有profile组合把准备好的copy、management、discovery与public limited renderer合一；target/key/bundle不一致拒绝。compiled-tree profile测试路径修正，不改生产协议 |
+| 整合PD3aadf223 / b3e8d441 / 88d84c29 | 私有profile组合把准备好的copy、management、discovery与public limited renderer合一；target/key/bundle不一致及相对bundle路径拒绝。compiled-tree profile测试路径修正，不改生产协议 |
 
 同源校验：SD packages/staffdeck-business-ui 与 PD vendor @staffdeck/business-ui 0.1.13 **41个canonical源逐字一致**，manifest无差异；本批无canonical、lock、vendor实现改写。
 
@@ -38,4 +38,4 @@
 - 当前PD b3e8d441 根tsc emit、前端typecheck/Vite均通过；另用limited renderer的离线fixture生成enabled入口后再跑前端typecheck/Vite，随后恢复原generated文件。fixture构建只证注册与打包，不证实际endpoint/model/key。
 - 当前SD1383e39a frontend tsc-b/Vite通过；仅借既有dependency路径，未运行install、未改锁，临时link已删除。Vite体积告警；PD CSS minify亦有既有warning，未导致构建失败。
 
-当前clean refs PD b3e8d441a37ff210cedc1b91e463c13a8ed68e93 / SD 1383e39a1aafc82b70a38c71401681bc0863a7ff。独立fresh流程先正常启动隔离Gateway与SD、取响应tuple及发布合法无审批bundle，再运行`prepare-staffdeck-bindings.mjs`和`compose-limited-staffdeck-profile.mjs`写同一个private enabled profile并令Gateway实际选中；准备工具不代业务结果。最终源码与准入结论见[DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
+最终clean refs记在[MINIMUM_SOURCE_FREEZE.json](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/MINIMUM_SOURCE_FREEZE.json)，SD认证入口整合ref为1383e39a。独立fresh流程先正常启动隔离Gateway与SD、取响应tuple及发布合法无审批bundle，再运行`prepare-staffdeck-bindings.mjs`和`compose-limited-staffdeck-profile.mjs`写同一个private enabled profile并令Gateway实际选中；准备工具不代业务结果。最终源码与准入结论见[DEPENDENCY_CLOSURE.md](/Users/a1/Documents/Codex/2026-09-27/g0-g6-integration-intake/DEPENDENCY_CLOSURE.md)。旧CLEANPAIR.json/原始失败保持。无push/merge/deploy/archive。
