@@ -215,7 +215,7 @@ async function copyPilotDeck(output) {
   const destination = join(output, "pilotdeck");
   const entries = [
     "Dockerfile", "docker-entrypoint.sh", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json",
-    "src", "scripts", "ui", "skills",
+    "src", "scripts", "ui", "skills", "packages/sdk",
   ];
   for (const entry of entries) await copyRequired(join(pilotdeckRoot, entry), join(destination, entry));
 }

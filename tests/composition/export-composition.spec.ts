@@ -29,6 +29,8 @@ test("export-composition emits one generic service for all seven managed slots",
   try {
     const output = join(root, "managed");
     await runExport(managedProfile, output);
+    assert.equal(existsSync(join(output, 'pilotdeck/packages/sdk/package.json')), true);
+    assert.equal(existsSync(join(output, 'pilotdeck/packages/sdk/src/index.ts')), true);
 
     const compose = YAML.parse(readFileSync(join(output, "compose.yaml"), "utf8")) as {
       services: Record<string, Record<string, unknown>>;
