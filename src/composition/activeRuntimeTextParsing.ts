@@ -17,8 +17,8 @@ export function createActiveRuntimeTextParsingPort() {
   return async (input: ActiveTextParseInput) => {
     if (input.signal?.aborted) throw parseError(499, "PUBLIC_HOST_CANCELLED", "File extraction aborted");
     const extension = extname(input.filename).toLowerCase();
-    if (![".txt", ".md", ".markdown"].includes(extension)) {
-      throw parseError(415, "PUBLIC_FILE_TYPE_UNSUPPORTED", "This PD text extractor accepts .txt and Markdown only");
+    if (![".txt", ".md", ".markdown", ".pdf"].includes(extension)) {
+      throw parseError(415, "PUBLIC_FILE_TYPE_UNSUPPORTED", "This PD text extractor accepts PDF, .txt and Markdown");
     }
     const declared = input.mediaType;
     if (declared !== undefined && declared !== null && typeof declared !== "string") {
@@ -32,13 +32,35 @@ export function createActiveRuntimeTextParsingPort() {
       throw parseError(413, "PUBLIC_FILE_TOO_LARGE", "File exceeds selected extraction limit");
     }
     let text: string;
-    try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(input.bytes);
-    } catch {
-      throw parseError(422, "PUBLIC_FILE_ENCODING_UNSUPPORTED", "File is not valid UTF-8");
+    if (extension === ".pdf") {
+      try {
+        const { Document } = await import("mupdf");
+        const document = Document.openDocument(input.bytes, "application/pdf");
+        try {
+          const pages: string[] = [];
+          for (let index = 0; index < document.countPages(); index++) {
+            if (input.signal?.aborted) throw parseError(499, "PUBLIC_HOST_CANCELLED", "File extraction aborted");
+            const page = document.loadPage(index);
+            try {
+              const content = page.toStructuredText();
+              try { pages.push(content.asText()); } finally { content.destroy(); }
+            } finally { page.destroy(); }
+          }
+          text = pages.join("\n");
+        } finally { document.destroy(); }
+      } catch (error) {
+        if (input.signal?.aborted) throw parseError(499, "PUBLIC_HOST_CANCELLED", "File extraction aborted");
+        throw parseError(422, "PUBLIC_FILE_PARSE_FAILED", "PDF text extraction failed");
+      }
+    } else {
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(input.bytes);
+      } catch {
+        throw parseError(422, "PUBLIC_FILE_ENCODING_UNSUPPORTED", "File is not valid UTF-8");
+      }
     }
     if (input.signal?.aborted) throw parseError(499, "PUBLIC_HOST_CANCELLED", "File extraction aborted");
-    return { filename: input.filename, text, mediaType: declared ?? "text/plain",
+    return { filename: input.filename, text, mediaType: declared ?? (extension === ".pdf" ? "application/pdf" : "text/plain"),
       metadata: { fileType: extension.slice(1), bytes: input.bytes.byteLength } };
   };
 }
