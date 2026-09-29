@@ -15,6 +15,7 @@ import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { stringify as stringifyYaml } from 'yaml';
+import { prepareG3FormalFixture } from './prepare-g3-formal-fixture.mjs';
 import { renderGeneratedEntrypoint } from './generate-frontend-modules.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
@@ -336,16 +337,18 @@ async function stop(processHandle) {
 }
 
 async function startStaffDeckServices(state, stateRoot, realModules) {
-  if (mode !== 'real') return [];
+  if (mode !== 'real') return { services: [] };
   const staffRoot = process.env.STAFFDECK_ROOT || resolve(root, '../StaffDeck-shared-business-ui');
   const python = process.env.STAFFDECK_PYTHON || '/tmp/staffdeck-shared-venv/bin/python';
   const services = [];
+  let formalOrigin;
+  const auxiliaryPortBase = Number(process.env.G3_AUX_PORT_BASE || 19990);
   const baseEnv = {
     ...process.env,
     PYTHONPATH: `${resolve(staffRoot, 'backend')}:${resolve(staffRoot, 'backend/src')}:${resolve(staffRoot, 'portable_sop/src')}`,
   };
   if (realModules.knowledge?.enabled && realModules.knowledge.frontendModule === 'fixture.knowledge-search') {
-    const port = 19993;
+    const port = auxiliaryPortBase + 3;
     const evidencePath = resolve(stateRoot, 'replacement-evidence.jsonl');
     const replacement = start(process.execPath, [resolve(root, 'products/pilotdeck-staffdeck-sop/fixtures/replacement-knowledge-runtime.mjs')], {
       ...process.env,
@@ -356,27 +359,29 @@ async function startStaffDeckServices(state, stateRoot, realModules) {
     await waitForHttp(`http://127.0.0.1:${port}/healthz`);
     realModules.knowledge.endpoint = `http://127.0.0.1:${port}`;
   } else if (realModules.knowledge?.enabled) {
-    const port = 19990;
+    const port = auxiliaryPortBase;
     const database = resolve(stateRoot, 'knowledge.db');
-    const knowledge = start(python, ['-m', 'uvicorn', 'app.module_knowledge_app:app', '--host', '127.0.0.1', '--port', String(port), '--log-level', 'warning'], {
+    const knowledge = start(python, ['-m', 'uvicorn', realModules.sop?.enabled ? 'app.main:app' : 'app.module_knowledge_app:app', '--host', '127.0.0.1', '--port', String(port), '--log-level', 'warning'], {
       ...baseEnv,
       DATABASE_URL: `sqlite:///${database}`,
       APP_SECRET: 'g3-real-browser-secret',
+      DEMO_SEED_ENABLED: 'true',
       STAFFDECK_KNOWLEDGE_SEED: 'true',
       STAFFDECK_KNOWLEDGE_USER_ID: 'admin',
     }, { cwd: resolve(staffRoot, 'backend') });
     services.push(knowledge);
     await waitForHttp(`http://127.0.0.1:${port}/api/health`);
     realModules.knowledge.endpoint = `http://127.0.0.1:${port}`;
+    if (realModules.sop?.enabled) formalOrigin = `http://127.0.0.1:${port}`;
   }
   if (realModules.sop?.enabled) {
-    const port = 19991;
+    const port = auxiliaryPortBase + 1;
     const sop = start(python, ['-m', 'uvicorn', 'staffdeck_sop_runtime.api:app', '--host', '127.0.0.1', '--port', String(port), '--log-level', 'warning'], baseEnv, { cwd: staffRoot });
     services.push(sop);
     await waitForHttp(`http://127.0.0.1:${port}/healthz`);
     realModules.sop.endpoint = `http://127.0.0.1:${port}`;
   }
-  return services;
+  return { services, formalOrigin };
 }
 
 async function runState(state, index, browser) {
@@ -419,7 +424,8 @@ async function runState(state, index, browser) {
     realModules.knowledge.tenantId = 'tenant_demo';
     realModules.knowledge.actorUserId = 'admin';
   }
-  auxiliaryServices.push(...await startStaffDeckServices(state, stateRoot, realModules));
+  const staffServices = await startStaffDeckServices(state, stateRoot, realModules);
+  auxiliaryServices.push(...staffServices.services);
   await writeFile(profilePath, stringifyYaml({
     schemaVersion: 1,
     agent: { model: 'smoke/operator' },
@@ -429,7 +435,8 @@ async function runState(state, index, browser) {
     router: { enabled: state.routingEnabled },
     frontend: state.frontend,
   }), 'utf8');
-  const service = mode === 'real'
+  let formalEnv = {};
+  let service = mode === 'real'
     ? start(process.execPath, [resolve(root, 'scripts/dev-launcher.mjs')], {
       ...process.env,
       NODE_OPTIONS: '',
@@ -486,6 +493,25 @@ async function runState(state, index, browser) {
         ? await registration.json()
         : await (await context.request.post(`${baseURL}/api/auth/login`, { data: credentials })).json();
       assert.equal(typeof account.token, 'string', `${state.id}: real authentication did not return JWT`);
+      if (staffServices.formalOrigin) {
+        const binding = await prepareG3FormalFixture({ origin: staffServices.formalOrigin, pdOrigin: baseURL, account,
+          gatewayUrl: `ws://127.0.0.1:${gatewayPort}/ws`, gatewayTokenPath: resolve(realRoot, 'server-token'),
+          definitionsPath: realModules.sop.definitionsPath, stateId: state.id });
+        formalEnv = binding.env;
+        const profile = (await import('yaml')).parse(await readFile(profilePath, 'utf8'));
+        profile.webui = { ...profile.webui, ...binding.configPatch.webui };
+        profile.modules.knowledge = { ...profile.modules.knowledge, ...binding.configPatch.modules.knowledge };
+        profile.modules.sop = { ...profile.modules.sop, ...binding.configPatch.modules.sop };
+        await writeFile(profilePath, stringifyYaml(profile), { mode: 0o600 });
+        await stop(service);
+        service = start(process.execPath, [resolve(root, 'scripts/dev-launcher.mjs')], {
+          ...process.env, ...formalEnv, NODE_OPTIONS: '', PILOT_HOME: realRoot,
+          PILOTDECK_CONFIG_PATH: profilePath, PILOTDECK_FRONTEND_PROFILE: profilePath,
+          PILOTDECK_DISABLE_LOCAL_AUTH: '0', SERVER_PORT: String(serverPort), VITE_PORT: String(port),
+          PILOTDECK_GATEWAY_PORT: String(gatewayPort), PILOTDECK_GATEWAY_URL: `ws://127.0.0.1:${gatewayPort}/ws`,
+        }, { detached: true });
+        await waitForHttp(`${baseURL}/api/auth/status`);
+      }
       await context.request.post(`${baseURL}/api/user/complete-onboarding`, { headers: { authorization: `Bearer ${account.token}` } });
       await page.addInitScript((token) => localStorage.setItem('auth-token', token), account.token);
     }
