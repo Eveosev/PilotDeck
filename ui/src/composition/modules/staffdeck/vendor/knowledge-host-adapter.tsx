@@ -135,6 +135,14 @@ export async function visibleKnowledgeDocuments(context: CopyContext, signal?: A
 
 async function callKnowledge<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, context?: CopyContext, signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
+  const requested = query(path);
+  const sourceAgentId = requested.searchParams.get('agent_id');
+  // Plaza source reads belong to the original authenticated copy facade, not
+  // the fixed writable target SDK scope. Its server still checks source access.
+  if (context && method === 'get' && requested.pathname === '/api/enterprise/knowledge-bases'
+    && sourceAgentId && sourceAgentId !== context.readScope()) {
+    return await staffDeckCopyClient.call<T>('list_knowledge_bases', { sourceAgentId }, { signal });
+  }
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), signal, context?.hostCapabilities) as T;

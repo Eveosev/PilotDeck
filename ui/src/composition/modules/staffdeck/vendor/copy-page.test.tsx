@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import KnowledgePage from './KnowledgePage';
 import SkillsPage from './SkillsPage';
@@ -25,6 +25,11 @@ Element.prototype.scrollIntoView = vi.fn();
 Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = () => {};
 Element.prototype.releasePointerCapture = () => {};
+
+beforeEach(() => {
+  vi.spyOn(staffDeckSopManagementClient, 'status').mockResolvedValue({ agentId: 'employee-real' } as never);
+  window.localStorage.setItem('ultrarag_enterprise_agent_scope', 'employee-real');
+});
 
 afterEach(() => {
   cleanup();
@@ -53,9 +58,9 @@ describe('PilotDeck shared plaza pages', () => {
     });
     const base = '/api/enterprise/skills/sop%2Fencoded/versions';
     expect(await pilotDeckSkillsPageHost.api.get(`${base}?tenant_id=x`)).toEqual([published]);
-    expect(await pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x&agent_id=target`)).toEqual(published);
+    expect(await pilotDeckSkillsPageHost.api.get(`${base}/1.1.0?tenant_id=x&agent_id=employee-real`)).toEqual(published);
     expect(call).toHaveBeenNthCalledWith(2, 'get_version', { sopId: 'sop/encoded', version: '1.1.0' });
-    const rolled: any = await pilotDeckSkillsPageHost.api.post(`${base}/1.1.0/rollback?tenant_id=x&agent_id=target`);
+    const rolled: any = await pilotDeckSkillsPageHost.api.post(`${base}/1.1.0/rollback?tenant_id=x&agent_id=employee-real`);
     expect(call).toHaveBeenNthCalledWith(3, 'rollback', { sopId: 'sop/encoded', version: '1.1.0' });
     expect(rolled).toMatchObject({ skill_id: 'sop/encoded', draft_id: 'rollback-draft', version: '1.1.0', status: 'draft', content: published.content });
     await expect(pilotDeckSkillsPageHost.api.get(`${base}/1.1.0/extra?tenant_id=x`)).rejects.toThrow('Unsupported');
@@ -148,17 +153,17 @@ describe('PilotDeck shared plaza pages', () => {
   it('loads a newly copied Knowledge document on its first desktop row click', async () => {
     const calls: Array<{ operation: string; input: Record<string, unknown> }> = [];
     vi.spyOn(staffDeckCopyClient, 'call').mockResolvedValue(agents as never);
-    vi.spyOn(staffDeckKnowledgeClient, 'call').mockImplementation(async (operation, input = {}) => {
-      calls.push({ operation, input });
-      if (operation === 'list_bases') return [
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_path, init) => {
+      const { operation, input = {}, scope } = JSON.parse(String(init?.body));
+      calls.push({ operation, input: { ...input, agentId: scope?.agentId } });
+      const data = operation === 'list_knowledge_bases' ? [
         { id: 'old-base', name: 'Existing guide', status: 'active' },
         { id: 'copied-base', name: 'Copied policy', status: 'active' },
-      ] as never;
-      if (operation === 'list_documents') return [
-        { id: 'old-document', knowledge_base_id: 'old-base', filename: 'old.md', title: 'Existing guide' },
-        { id: 'copied-document', knowledge_base_id: 'copied-base', filename: 'copied.md', title: 'Copied policy' },
-      ] as never;
-      return [] as never;
+      ] : operation === 'list_knowledge_documents' ? [input.knowledgeBaseId === 'copied-base'
+        ? { id: 'copied-document', knowledge_base_id: 'copied-base', filename: 'copied.md', title: 'Copied policy' }
+        : { id: 'old-document', knowledge_base_id: 'old-base', filename: 'old.md', title: 'Existing guide' }]
+        : [];
+      return new Response(JSON.stringify({ data }), { status: 200 });
     });
     render(<MemoryRouter><PilotDeckKnowledgePageProvider><KnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></MemoryRouter>);
 
@@ -166,11 +171,11 @@ describe('PilotDeck shared plaza pages', () => {
     fireEvent.click(await within(table).findByRole('row', { name: /Copied policy/ }));
     await waitFor(() => expect(calls).toContainEqual({
       operation: 'list_document_buckets',
-      input: { agentId: 'employee-real', documentId: 'copied-document', tenantId: 'tenant_demo' },
+      input: { agentId: 'employee-real', documentId: 'copied-document' },
     }));
     expect(calls).toContainEqual({
-      operation: 'list_okf_concepts',
-      input: { agentId: 'employee-real', knowledgeBaseId: 'copied-base', tenantId: 'tenant_demo' },
+      operation: 'list_knowledge_concepts',
+      input: { agentId: 'employee-real', knowledgeBaseId: 'copied-base' },
     });
   });
 
@@ -183,7 +188,7 @@ describe('PilotDeck shared plaza pages', () => {
       if (operation === 'import_resources') return { imported: [{ id: 'base-real' }], missing: [] } as any;
       throw new Error(`Unexpected copy operation: ${operation}`);
     });
-    vi.spyOn(staffDeckKnowledgeClient, 'call').mockResolvedValue([] as never);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ data: [] }), { status: 200 }));
     render(<MemoryRouter><PilotDeckKnowledgePageProvider><KnowledgePage currentUser={currentUser} /></PilotDeckKnowledgePageProvider></MemoryRouter>);
 
     fireEvent.keyDown(await screen.findByRole('button', { name: /新增/ }), { key: 'Enter' });
@@ -207,6 +212,7 @@ describe('PilotDeck shared plaza pages', () => {
       throw new Error(`Unexpected copy operation: ${operation}`);
     });
     vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue({ data: [], drafts: [] } as never);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ data: [], drafts: [] }), { status: 200 }));
     const nativeDefinitions = vi.spyOn(staffDeckSopClient, 'listDefinitions');
     render(<MemoryRouter><PilotDeckSkillsPageProvider><SkillsPage currentUser={currentUser} /></PilotDeckSkillsPageProvider></MemoryRouter>);
 

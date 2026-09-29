@@ -134,6 +134,10 @@ async function requireManagementScope(path: string, body: unknown, context?: Cop
 
 async function callSkillApi<T>(path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  const sourcePath = new URL(path, 'http://staffdeck.local').pathname.match(/^\/api\/enterprise\/agents\/([^/]+)\/skills$/);
+  if (method === 'get' && sourcePath) {
+    return await staffDeckCopyClient.call<T>('list_skills', { sourceAgentId: decodeURIComponent(sourcePath[1]) }, options);
+  }
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal, context?.hostCapabilities) as T;
@@ -233,6 +237,10 @@ function queryPathIsSkill(path: string): boolean {
 
 async function callDistillApi<T>(snapshots: Map<string, any>, path: string, method: 'get' | 'post' | 'put' | 'delete', body?: any, options?: ModuleRequestOptions, context?: CopyContext): Promise<T> {
   options?.signal?.throwIfAborted();
+  const sourcePath = new URL(path, 'http://staffdeck.local').pathname.match(/^\/api\/enterprise\/agents\/([^/]+)\/skills$/);
+  if (method === 'get' && sourcePath) {
+    return await staffDeckCopyClient.call<T>('list_skills', { sourceAgentId: decodeURIComponent(sourcePath[1]) }, options);
+  }
   context?.assertSelectedScope(selectedPublicScope(path, body, context.readScope));
   const publicPlan = planPublicHost(path, method, body);
   if (publicPlan) return await callPublicHost(publicPlan, selectedPublicScope(path, body, context?.readScope), options?.signal, context?.hostCapabilities) as T;
