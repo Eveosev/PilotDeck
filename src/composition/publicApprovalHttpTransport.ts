@@ -37,7 +37,11 @@ export async function handlePublicApprovalHttpRequest(req: IncomingMessage, res:
     send(200, result);
   } catch (error) {
     if (controller.signal.aborted || res.destroyed) { if (!res.destroyed) res.destroy(); }
-    else { const cause = error as { status?: number; code?: string }; send(cause.status ?? 502, { code: cause.code ?? 'PUBLIC_APPROVAL_BRIDGE_FAILED' }); }
+    else {
+      const cause = error as { status?: number; code?: string };
+      const status = cause.status ?? (cause.code === 'SOP_RESUME_REQUEST_CONFLICT' ? 409 : 502);
+      send(status, { code: cause.code ?? 'PUBLIC_APPROVAL_BRIDGE_FAILED' });
+    }
   } finally { req.removeListener('aborted', abort); res.removeListener('close', abort); }
   return true;
 }

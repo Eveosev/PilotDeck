@@ -61,6 +61,24 @@ test('actual Gateway HTTP bridge preserves pinned projection and reauthenticates
   assert.ok(!JSON.stringify(repeated).includes('fixture-approver'));
 }));
 
+test('original receipt conflict keeps its HTTP code and leaves the receipt unchanged', () => fixture(async f => {
+  const first = await f.call('resume', f.command);
+  assert.equal(first.status, 200);
+  const receipt = await first.json();
+  for (const changed of [
+    { ...f.command, message: 'Different approval' },
+    { ...f.command, expectedRevision: f.command.expectedRevision + 1 },
+  ]) {
+    const response = await f.call('resume', changed);
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { code: 'SOP_RESUME_REQUEST_CONFLICT' });
+  }
+  const replay = await f.call('resume', f.command);
+  assert.equal(replay.status, 200);
+  assert.deepEqual(await replay.json(), { ...receipt, duplicate: true });
+  assert.equal((await f.store.status('session'))!.revision, receipt.revision);
+}));
+
 test('service auth, forged authority, wrong scope and missing approver cannot reach the wait', () => fixture(async f => {
   assert.equal((await f.call('resume', f.command, { authorization: 'Bearer wrong-service' })).status, 401);
   assert.equal((await f.call('resume', { ...f.command, authority: { subject: { role: 'admin' } } })).status, 400);
