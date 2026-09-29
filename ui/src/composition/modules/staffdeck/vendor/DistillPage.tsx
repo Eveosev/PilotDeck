@@ -3700,7 +3700,7 @@ function SkillSource({
                         onChange={(value) => editStep(index, 'sub_sop_id', value)}
                       />
                     )}
-                    <SourceReadonlyLine label="节点状态" value={nodeState} />
+                    <SourceReadonlyLine label="节点状态" value={nodeState} staticLabels />
                     {isSubflow ? (
                       <SourceReadonlyLine label="执行职责" value="仅进入所选子 SOP；父子流程共享当前 TaskFrame 字段。" />
                     ) : (
@@ -5002,7 +5002,7 @@ function SkillFlowInspector({
                 onChange={(value) => onEditNode(nodeIndex, 'sub_sop_id', value)}
               />
             )}
-            <SourceReadonlyLine label="节点状态" value={nodeState} />
+            <SourceReadonlyLine label="节点状态" value={nodeState} staticLabels />
             {isSubflow ? (
               <SourceReadonlyLine label="执行职责" value="仅进入所选子 SOP；字段、动作和能力由子 SOP 自己定义。" />
             ) : (
@@ -6376,11 +6376,13 @@ function EditableConditionLine({
   );
 }
 
-function SourceReadonlyLine({ label, value }: { label: string; value: string }) {
+function SourceReadonlyLine({ label, value, staticLabels = false }: { label: string; value: string; staticLabels?: boolean }) {
   return (
     <div className={cn(SOURCE_LINE_CLASS, "readonly")}>
       <span className={SOURCE_KEY_CLASS}>{label}</span>
-      <span {...USER_CONTENT_ATTRIBUTES} className={cn(SOURCE_VALUE_CLASS, SOURCE_READONLY_VALUE_CLASS)}>{value || '-'}</span>
+      <span {...(staticLabels ? {} : USER_CONTENT_ATTRIBUTES)} className={cn(SOURCE_VALUE_CLASS, SOURCE_READONLY_VALUE_CLASS)}>
+        {staticLabels ? value.split(' · ').map((item, index) => <span key={item}>{index > 0 ? ' · ' : ''}<span>{item}</span></span>) : value || '-'}
+      </span>
     </div>
   );
 }
