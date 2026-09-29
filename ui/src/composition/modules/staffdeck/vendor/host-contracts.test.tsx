@@ -43,15 +43,18 @@ describe('formal Host audit regressions', () => {
     await expect(host.api.put('/api/enterprise/skills/sop/unknown', {})).rejects.toThrow('Unsupported');
     expect(call).not.toHaveBeenCalled();
   });
-  it('creates the first edited draft from its published snapshot while keeping move-to-draft blocked', async () => {
+  it('creates the first edited draft and dispatches move-to-draft through the selected public owner', async () => {
     const content = { skill_id: 'sop', name: 'Original', version: '1.0.0', nodes: [{ node_id: 'start' }], extensions: { preserved: true } };
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockImplementation(async operation => operation === 'list' ? { data: [{ id: 'sop', skill_id: 'sop', status: 'published', content }], drafts: [] } as any : { id: 'new-draft', sop_id: 'sop', content, draft_version: '1.0.1', etag: 'first-read' } as any);
+    vi.spyOn(staffDeckSopManagementClient, 'status').mockResolvedValue({ agentId: 'target' } as any);
     const host = createPilotDeckDistillPageHost();
     await host.api.get('/api/enterprise/skills/sop?agent_id=target');
     await host.api.put('/api/enterprise/skills/sop?agent_id=target', content);
     expect(call).toHaveBeenLastCalledWith('create', { sopId: 'sop', content });
     const requests = call.mock.calls.length;
-    await expect(pilotDeckSkillsPageHost.api.post('/api/enterprise/skills/sop/draft?agent_id=target')).rejects.toThrow('not equivalent');
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: { id: 'owner-draft' } })));
+    await pilotDeckSkillsPageHost.api.post('/api/enterprise/skills/sop/draft?agent_id=target');
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual({ operation: 'move_to_draft_sop', input: { sopId: 'sop' }, scope: { kind: 'agent', agentId: 'target' } });
     expect(call).toHaveBeenCalledTimes(requests);
   });
   it('preserves formal markdown blocks and pure scope/handoff contracts', () => {
