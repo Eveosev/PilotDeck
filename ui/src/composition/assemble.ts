@@ -65,7 +65,7 @@ export function assembleFrontend(
 ): Assembly {
   const bindings = resolveBindings(profile);
   const businessBindings = resolveBusinessBindings(profile);
-  const result: Assembly = { bindings, selections: [], businessBindings, businessSelections: [], pages: [], settings: [], chatSurface: null, approvalInbox: null, chatExtensions: [], permissionPanels: [], toolRenderers: [], artifactRenderers: [], fileRenderers: [], historyFallbacks: catalog.flatMap((module) => module.historyFallback ? [{ moduleId: module.id, contribution: module.historyFallback }] : []) };
+  const result: Assembly = { bindings, selections: [], businessBindings, businessSelections: [], pages: [], settings: [], chatSurface: null, approvalInbox: null, chatExtensions: [], permissionPanels: [], toolRenderers: [], artifactRenderers: [], fileRenderers: [], markdownLinkRenderers: [], historyFallbacks: catalog.flatMap((module) => module.historyFallback ? [{ moduleId: module.id, contribution: module.historyFallback }] : []) };
   const ids = new Set<string>();
   for (const module of catalog) {
     if (ids.has(module.id)) throw new Error(`Duplicate frontend module: ${module.id}`);
@@ -127,6 +127,12 @@ function addModuleContributions(result: Assembly, frontend: FrontendModule): voi
   if (frontend.approvalInbox) {
     if (result.approvalInbox) throw new Error('Duplicate approval inbox');
     result.approvalInbox = frontend.approvalInbox;
+  }
+  for (const link of frontend.markdownLinkRenderers ?? []) {
+    const links = result.markdownLinkRenderers ??= [];
+    if (!/^[a-z][a-z0-9+.-]*:$/.test(link.protocol) || ['javascript:', 'data:', 'vbscript:'].includes(link.protocol)) throw new Error('Invalid markdown link protocol');
+    if (links.some(existing => existing.id === link.id || existing.protocol === link.protocol)) throw new Error(`Duplicate markdown link renderer: ${link.id}`);
+    links.push(link);
   }
   for (const kind of ['pages', 'settings', 'chatExtensions', 'permissionPanels', 'toolRenderers', 'artifactRenderers', 'fileRenderers'] as const) {
     const contributions = frontend[kind] ?? [];

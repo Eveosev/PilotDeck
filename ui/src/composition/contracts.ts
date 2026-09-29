@@ -79,6 +79,11 @@ export type ChatSurfaceContribution = {
   id: string;
   component: ComponentType<ChatInterfaceProps>;
 };
+export type MarkdownLinkContribution = {
+  id: string;
+  protocol: string;
+  component: ComponentType<{ href: string; children?: ReactNode }>;
+};
 export type FrontendModule = {
   id: string;
   /** Backend-slot adapters have a slot; product capabilities have businessModuleId. */
@@ -102,6 +107,7 @@ export type FrontendModule = {
   toolRenderers?: Contribution[];
   artifactRenderers?: Contribution[];
   fileRenderers?: Contribution[];
+  markdownLinkRenderers?: MarkdownLinkContribution[];
   historyFallback?: Contribution;
 };
 export type Selection = { slot: Slot; binding: Binding; frontend: FrontendModule };
@@ -120,6 +126,7 @@ export type Assembly = {
   toolRenderers: Contribution[];
   artifactRenderers: Contribution[];
   fileRenderers: Contribution[];
+  markdownLinkRenderers?: MarkdownLinkContribution[];
   historyFallbacks: Array<{ moduleId: string; contribution: Contribution }>;
 };
 

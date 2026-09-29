@@ -86,6 +86,9 @@
     }
   },
   "knowledge": {
+    "source": "Source document",
+    "sourceUnavailable": "The exact cited source could not be loaded.",
+    "sourceLoading": "Loading source…",
     "bases": "Knowledge bases",
     "newBase": "New knowledge base",
     "createBase": "Create knowledge base",

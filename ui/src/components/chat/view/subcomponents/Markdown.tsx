@@ -1,5 +1,7 @@
 import React, { useMemo, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
+import { getActiveAssembly } from '../../../../composition/runtime';
+import type { MarkdownLinkContribution } from '../../../../composition/contracts';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -24,11 +26,16 @@ const fullRehypePlugins = [rehypeKatex];
 
 const linkClassName = 'text-blue-600 hover:underline dark:text-blue-400';
 
-function createMarkdownComponents(onFileOpen?: (filePath: string) => void): Components {
+function createMarkdownComponents(onFileOpen: ((filePath: string) => void) | undefined, links: MarkdownLinkContribution[]): Components {
   return {
     pre: MarkdownCodeBlock,
     table: MarkdownTable,
     a: ({ href, children, ...props }) => {
+      const renderer = links.find(link => href?.startsWith(`${link.protocol}//`));
+      if (renderer && href) {
+        const Link = renderer.component;
+        return <Link href={href}>{children}</Link>;
+      }
       const filePath = resolveMarkdownFileHref(href);
       if (filePath && onFileOpen) {
         return (
@@ -70,9 +77,10 @@ export const Markdown = React.memo(function Markdown({
 }: MarkdownProps) {
   const content = String(children ?? '');
 
+  const links = getActiveAssembly()?.markdownLinkRenderers ?? [];
   const components = useMemo(
-    () => createMarkdownComponents(onFileOpen),
-    [onFileOpen],
+    () => createMarkdownComponents(onFileOpen, links),
+    [onFileOpen, links],
   );
   const remarkPlugins = useMemo(() => {
     if (isStreaming) return [remarkGfm, remarkMath];
@@ -94,6 +102,7 @@ export const Markdown = React.memo(function Markdown({
           remarkPlugins={remarkPlugins}
           rehypePlugins={fullRehypePlugins}
           components={components}
+          urlTransform={(url) => links.some(link => url.startsWith(`${link.protocol}//`)) ? url : defaultUrlTransform(url)}
         >
           {content}
         </ReactMarkdown>

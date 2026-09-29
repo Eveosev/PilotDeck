@@ -7,6 +7,8 @@ import { PilotDeckKnowledgePageProvider } from './staffdeck/vendor/knowledge-hos
 import StaffDeckLocaleBoundary from './staffdeck/StaffDeckLocaleBoundary';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
 
+import { KnowledgeCitationLink } from './staffdeck/KnowledgeCitationLink';
+
 const BUILD_MARKER = 'staffdeck.knowledge.ui/v1';
 
 function KnowledgePage() {
@@ -35,6 +37,7 @@ const module: FrontendModule = {
     { id: 'knowledge-new', path: '/knowledge/new', label: 'New knowledge base', labelKey: 'staffdeck:nav.knowledge', component: KnowledgeAddPage },
   ],
   settings: [{ id: 'knowledge-default-base', settingsSection: 'knowledge', label: 'Knowledge', labelKey: 'staffdeck:nav.knowledge', component: () => <KnowledgeProfileSetting /> }],
+  markdownLinkRenderers: [{ id: 'staffdeck.knowledge-source-link', protocol: 'ultrarag:', component: KnowledgeCitationLink }],
   artifactRenderers: [{ id: 'staffdeck.knowledge-citation-artifact', label: 'Knowledge citation artifact', artifactMimeTypes: ['application/x-staffdeck-citation'], component: KnowledgeArtifactRenderer }],
 };
 export default module;

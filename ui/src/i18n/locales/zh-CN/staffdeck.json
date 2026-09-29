@@ -86,6 +86,9 @@
     }
   },
   "knowledge": {
+    "source": "来源文档",
+    "sourceUnavailable": "无法读取此精确引用对应的来源。",
+    "sourceLoading": "正在读取来源…",
     "bases": "知识库",
     "newBase": "新建知识库",
     "createBase": "创建知识库",
