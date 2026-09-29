@@ -29,6 +29,8 @@ export type StartPilotDeckServerOptions = {
   publicApprovals?: PublicApprovalBridge;
   port?: number;
   host?: string;
+  allowRemoteHost?: boolean;
+  token?: string;
   staticAssetsPath?: string;
   feishu?: FeishuChannel;
   weixin?: WeixinChannel;
@@ -262,6 +264,8 @@ export async function startPilotDeckServer(options: StartPilotDeckServerOptions)
     gateway: options.gateway,
     port: options.port,
     host: options.host,
+    allowRemoteHost: options.allowRemoteHost,
+    token: options.token,
     staticAssetsPath: options.staticAssetsPath,
     feishuWebhook: (request, response, body) =>
       activeFeishu?.handleWebhook(request, response, body) ?? false,
