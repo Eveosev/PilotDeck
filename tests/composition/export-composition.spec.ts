@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import YAML from "yaml";
 
 const execFile = promisify(execFileCallback);
@@ -31,6 +32,7 @@ test("export-composition emits one generic service for all seven managed slots",
     await runExport(managedProfile, output);
     assert.equal(existsSync(join(output, 'pilotdeck/packages/sdk/package.json')), true);
     assert.equal(existsSync(join(output, 'pilotdeck/packages/sdk/src/index.ts')), true);
+    await import(pathToFileURL(join(output, 'pilotdeck/scripts/run-minimum-staffdeck-startup.mjs')).href);
 
     const compose = YAML.parse(readFileSync(join(output, "compose.yaml"), "utf8")) as {
       services: Record<string, Record<string, unknown>>;

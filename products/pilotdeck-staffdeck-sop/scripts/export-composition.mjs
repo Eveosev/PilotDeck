@@ -216,6 +216,7 @@ async function copyPilotDeck(output) {
   const entries = [
     "Dockerfile", "docker-entrypoint.sh", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json",
     "src", "scripts", "ui", "skills", "packages/sdk",
+    "products/pilotdeck-staffdeck-sop/profiles/render-limited-20260928.mjs",
   ];
   for (const entry of entries) await copyRequired(join(pilotdeckRoot, entry), join(destination, entry));
 }
