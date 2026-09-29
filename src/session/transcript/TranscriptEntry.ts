@@ -412,7 +412,7 @@ export type AgentControlBoundaryTranscriptEntry = AgentTranscriptEntryBase & {
 
 export type SessionMetadataValue = {
   /** Host-recorded original admission scope; never accepted from SDK/browser metadata. */
-  staffDeckAdmission?: Readonly<{ tenantId: string; agentId: string; pilotDeckUserId: string; projectKey: string }>;
+  staffDeckAdmission?: Readonly<{ tenantId: string; agentId: string; pilotDeckUserId: string; projectKey: string; actorUserId: string; credentialId: string; staffDeckOrigin: string }>;
   /** Marks a metadata entry written by `reappendTail()` as a full snapshot. */
   isSnapshot?: true;
   title?: string;

@@ -46,7 +46,7 @@ import type { CompactionAutomaticTriggerObservation } from "../context/index.js"
 export type ProjectSessionFactoryRuntime = ProjectSessionRuntime;
 
 export type ProjectSessionFactoryOptions<Runtime extends ProjectSessionFactoryRuntime> = {
-  sessionAdmission?(runtime: Runtime): import('../session/transcript/TranscriptEntry.js').SessionMetadataValue['staffDeckAdmission'];
+  sessionAdmission?(runtime: Runtime): Promise<import('../session/transcript/TranscriptEntry.js').SessionMetadataValue['staffDeckAdmission']>;
   resolveRuntime(projectKey?: string): Runtime;
   acquireRuntimeLease(runtime: Runtime): () => Promise<void>;
   acquirePermissionRuleSet(input: {
@@ -127,12 +127,12 @@ export class ProjectSessionFactory<Runtime extends ProjectSessionFactoryRuntime>
         sessionKey: context.sessionKey,
         now: this.options.now,
       });
-      const admission = this.options.sessionAdmission?.(prepared.runtime);
-      if (admission) {
+      if (this.options.sessionAdmission) {
         const original = await storage.restore();
         // Only new original sessions receive admission facts. Never backfill old histories.
         if (original.entries.length === 0 && original.diagnostics.every(diagnostic => diagnostic.code === 'transcript_missing')) {
-          await storage.transcript.recordSessionMetadata(context.sessionKey, 'host-admission', { staffDeckAdmission: admission });
+          const admission = await this.options.sessionAdmission(prepared.runtime);
+          if (admission) await storage.transcript.recordSessionMetadata(context.sessionKey, 'host-admission', { staffDeckAdmission: admission });
         }
       }
       const resumed = await resumeAgentSession({

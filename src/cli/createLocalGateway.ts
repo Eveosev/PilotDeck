@@ -26,7 +26,7 @@ import {
 } from "../sop/staffdeck/index.js";
 import { createActiveRuntimeModelPorts } from "../composition/activeRuntimeModelPorts.js";
 import { createActiveRuntimeTextParsingPort } from "../composition/activeRuntimeTextParsing.js";
-import { createNativeApprovalSessionResolver, readNativeInstallationOwner, readNativeSessionAdmission } from "../composition/nativeApprovalSessionResolver.js";
+import { authenticateNativeStaffDeckAdmission, createNativeApprovalSessionResolver, readNativeInstallationOwner, readNativeSessionAdmission } from "../composition/nativeApprovalSessionResolver.js";
 import {
   createNodeAttachmentPort,
   type CompactionPort,
@@ -742,13 +742,14 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     autoElicitation: options.autoElicitation,
     telemetry,
     sessionCatalog,
-    sessionAdmission: (runtime) => {
+    sessionAdmission: async (runtime) => {
       const tenantId = env.STAFFDECK_COPY_TENANT_ID, agentId = env.STAFFDECK_COPY_TARGET_AGENT_ID;
       const pilotDeckUserId = env.STAFFDECK_COPY_PILOTDECK_USER_ID;
       const sop = runtime.snapshot.config.modules?.sop;
       if (!tenantId || !agentId || !pilotDeckUserId || !sop || sop.discoveryAgentId !== agentId
         || readNativeInstallationOwner(env.DATABASE_PATH || joinPath(pilotHome, "auth.db")) !== pilotDeckUserId) return undefined;
-      return { tenantId, agentId, pilotDeckUserId, projectKey: runtime.projectRoot };
+      return authenticateNativeStaffDeckAdmission({ env, projectKey: runtime.projectRoot, pilotDeckUserId,
+        discoveryEndpoint: sop.discoveryEndpoint, discoveryAgentId: sop.discoveryAgentId, discoveryApiKey: sop.discoveryApiKey });
     },
     storageProvider: sessionDataPlane.persistence,
     nativeSessionStorage: options.nativeSessionStorage,
@@ -910,8 +911,17 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       sessionAdmission: async (projectKey, sessionKey) => {
         const storage = registry.createPersistentSessionStorage(projectKey, sessionKey);
         try {
-          const { entries } = await storage.persistence.load();
-          return readNativeSessionAdmission(entries, sessionKey);
+          const { entries, diagnostics } = await storage.persistence.load();
+          if (diagnostics.length > 0) return undefined;
+          const original = readNativeSessionAdmission(entries, sessionKey);
+          if (!original) return undefined;
+          const sop = registry.resolve(projectKey).snapshot.config.modules?.sop;
+          const current = await authenticateNativeStaffDeckAdmission({ env, projectKey,
+            pilotDeckUserId: original.pilotDeckUserId, discoveryEndpoint: sop?.discoveryEndpoint,
+            discoveryAgentId: sop?.discoveryAgentId, discoveryApiKey: sop?.discoveryApiKey });
+          if (!current || current.actorUserId !== original.actorUserId || current.credentialId !== original.credentialId
+            || current.staffDeckOrigin !== original.staffDeckOrigin) return undefined;
+          return original;
         } finally { await storage.dispose(); }
       },
     }),
