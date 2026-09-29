@@ -147,6 +147,13 @@ test("native discovery routes two SOPs, leaves no-match ordinary, rejects invisi
               ...(prepared.systemPromptParts ?? []),
             ].join("\n");
             observations.push({ sessionId: runInput.sessionId, tools, prompt });
+            if (tools.includes('submit_step_result')) {
+              const results = await capabilities.toolExecution.executeAll([
+                { id: 'discovery-result', name: 'submit_step_result', input: { status: 'awaiting_user', replyFragment: 'Please provide the next input.' } },
+              ], { sessionId: runInput.sessionId, turnId: runInput.turnId, cwd: root } as never,
+              { sessionId: runInput.sessionId, turnId: runInput.turnId, runId: 'fixture-run', operationId: 'fixture-op' });
+              assert.equal(results[0]?.type, 'success');
+            }
             const result = {
               type: "success" as const,
               sessionId: runInput.sessionId,
