@@ -26,3 +26,26 @@
   color: #18181a;
   background-color: #fff;
 }
+
+/* The shell's dark textarea safeguard uses !important. Keep the formal light
+   surface's actual glyph, caret and focus colors together inside this boundary. */
+.dark .pilotdeck-knowledge-host section.bg-white textarea,
+.dark .pilotdeck-business-dialog textarea,
+.dark .pilotdeck-business-dialog textarea:focus {
+  color-scheme: light;
+  color: #18181a !important;
+  -webkit-text-fill-color: #18181a !important;
+  caret-color: #18181a !important;
+  background-color: #fff !important;
+}
+
+/* The shell also targets .bg-transparent textareas with a more specific
+   important rule. Details uses that utility on a white dialog surface. */
+html.dark .pilotdeck-business-dialog[data-slot='dialog-content'] textarea.bg-transparent,
+html.dark .pilotdeck-knowledge-host section.bg-white textarea.bg-transparent {
+  color-scheme: light;
+  color: #18181a !important;
+  -webkit-text-fill-color: #18181a !important;
+  caret-color: #18181a !important;
+  background-color: #fff !important;
+}
