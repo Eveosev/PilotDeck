@@ -9,26 +9,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package manifests first for layer caching.
-# Root and UI are the only workspaces needed by the Web image.
+# Root, UI, and SDK are the workspaces needed by the Web image.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 # NOTE: edgeclaw-memory-core is consumed via a local `file:` dependency.
 # Copy the full directory before install so pnpm snapshots complete sources/types.
 COPY src/context/memory/edgeclaw-memory-core/ src/context/memory/edgeclaw-memory-core/
 COPY ui/package.json ui/
+COPY packages/sdk/package.json packages/sdk/
 COPY ui/scripts/ ui/scripts/
 
-# Install only the Web/Gateway workspaces. The Electron workspace is kept out
+# Install the Web/Gateway and SDK workspaces. The Electron workspace is kept out
 # of the Docker context and must never add desktop dependencies to this image.
 # Pin pnpm so CI builds do not pick up stricter build-script policy changes
 # before the lockfile/workspace config is updated.
 RUN npm install -g pnpm@10.32.1 \
     && pnpm --version \
-    && HUSKY=0 pnpm install --frozen-lockfile --filter pilotdeck --filter pilotdeck-ui
+    && HUSKY=0 pnpm install --frozen-lockfile --filter pilotdeck --filter pilotdeck-ui --filter @pilotdeck/sdk
 
 # Copy all source files
 COPY src/ src/
 COPY scripts/ scripts/
 COPY ui/ ui/
+COPY packages/sdk/ packages/sdk/
 COPY skills/ skills/
 
 # Build edgeclaw-memory-core (src/ → lib/)
@@ -56,6 +58,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /build/package.json /build/pnpm-lock.yaml ./
 COPY --from=builder /build/tsconfig.json ./
 COPY --from=builder /build/node_modules/ node_modules/
+COPY --from=builder /build/packages/sdk/package.json packages/sdk/package.json
+COPY --from=builder /build/packages/sdk/dist/ packages/sdk/dist/
+COPY --from=builder /build/packages/sdk/node_modules/ packages/sdk/node_modules/
 COPY --from=builder /build/dist/ dist/
 COPY --from=builder /build/src/ src/
 COPY --from=builder /build/scripts/ scripts/
