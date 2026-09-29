@@ -1376,8 +1376,14 @@ test("SOP host control resumes handoff once and deduplicates the request", async
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-resume-"));
   try {
     const store = new SopStateStore(root);
-    await store.loadOrCreate("resume-session", BUNDLE, "onboarding");
-    await store.replace("resume-session", BUNDLE, {
+    const bundle: StaffDeckSopBundle = { sops: [{ id: 'onboarding', version: '1', content: {
+      nodes: [{ node_id: 'lookup', type: 'handoff', assignee_user_id: 'approver' }],
+    } }] };
+    const authority = { tenantId: 'tenant', sessionId: 'resume-session', subject: {
+      tenantId: 'tenant', userId: 'approver', source: 'web' as const, role: 'member' as const, disabled: false,
+    } };
+    await store.loadOrCreate("resume-session", bundle, "onboarding");
+    await store.replace("resume-session", bundle, {
       selected_skill_id: "onboarding",
       active_skill_id: "onboarding",
       active_step_id: "lookup",
@@ -1392,7 +1398,7 @@ test("SOP host control resumes handoff once and deduplicates the request", async
       sessionId: "resume-session",
       requestId: "human-reply-1",
       waitId: waiting!.wait!.id,
-      source: "human",
+      source: "human", authority,
       message: "Approved by the account owner.",
       expectedRevision: waiting!.revision,
       slotUpdates: { approved: true },
@@ -1402,19 +1408,20 @@ test("SOP host control resumes handoff once and deduplicates the request", async
       sessionId: "resume-session",
       requestId: "human-reply-1",
       waitId: waiting!.wait!.id,
-      source: "human",
+      source: "human", authority,
       message: "Approved by the account owner.",
       slotUpdates: { approved: true },
+      expectedRevision: waiting!.revision,
     });
     assert.equal(duplicate.duplicate, true);
     assert.equal(duplicate.revision, resumed.revision);
     await assert.rejects(() => store.resume({
       sessionId: "resume-session", requestId: "human-reply-1", waitId: "another-wait",
-      source: "human", message: "Approved by the account owner.", slotUpdates: { approved: true },
+      source: "human", authority, message: "Approved by the account owner.", slotUpdates: { approved: true },
     }), (error: unknown) => (error as { code?: string }).code === "SOP_RESUME_REQUEST_CONFLICT");
     await assert.rejects(() => store.resume({
       sessionId: "resume-session", requestId: "human-reply-1", waitId: waiting!.wait!.id,
-      source: "human", message: "Different answer", slotUpdates: { approved: true },
+      source: "human", authority, message: "Different answer", slotUpdates: { approved: true },
     }), (error: unknown) => (error as { code?: string }).code === "SOP_RESUME_REQUEST_CONFLICT");
 
     const status = await store.status("resume-session");
