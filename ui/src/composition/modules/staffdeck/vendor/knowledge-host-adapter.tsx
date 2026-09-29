@@ -41,6 +41,14 @@ function publicKnowledgeBody(body: unknown): Record<string, unknown> {
   return value;
 }
 
+function publicKnowledgeQuery(url: URL): Record<string, string | boolean> {
+  const input = optionalQueryInput(url);
+  // Public SDK identity is supplied by verified owner scope, never business input.
+  delete input.tenantId;
+  delete input.agentId;
+  return input;
+}
+
 /** Only map owner-equivalent operations; removal, unscoped documents and multi-base search retain their original contract. */
 export function planKnowledgePublic(path: string, method: string, body?: unknown): HostPlan | undefined {
   const url = query(path);
@@ -87,12 +95,12 @@ export function planKnowledgePublic(path: string, method: string, body?: unknown
   if (baseId === 'buckets' && action && parts.length === 5 && method === 'put') return plan('update_knowledge_bucket', { bucketId: action, body: inputBody });
   if (baseId === 'chunks' && action && parts.length === 5 && method === 'put') return plan('update_knowledge_chunk', { chunkId: action, body: inputBody });
   if (baseId === 'jobs') {
-    if (parts.length === 4 && method === 'get') return plan('list_knowledge_jobs', { limit: Number(url.searchParams.get('limit') || 20), ...optionalQueryInput(url) }, true);
+    if (parts.length === 4 && method === 'get') return plan('list_knowledge_jobs', { limit: Number(url.searchParams.get('limit') || 20), ...publicKnowledgeQuery(url) }, true);
     if (action && parts.length === 5 && method === 'get') return plan('get_knowledge_job', { jobId: action });
     if (action && parts.length === 6 && parts[5] === 'cancel' && method === 'post') return plan('cancel_knowledge_job', { jobId: action });
   }
   if (baseId === 'discoveries') {
-    if (parts.length === 4 && method === 'get') return plan('list_knowledge_discoveries', optionalQueryInput(url), true);
+    if (parts.length === 4 && method === 'get') return plan('list_knowledge_discoveries', publicKnowledgeQuery(url), true);
     if (action && parts.length === 6 && method === 'post') {
       if (parts[5] === 'confirm') return plan('confirm_knowledge_discovery', { suggestionId: action });
       if (parts[5] === 'reject') return plan('reject_knowledge_discovery', { suggestionId: action });

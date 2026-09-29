@@ -5,6 +5,15 @@ import { staffDeckCopyClient, staffDeckKnowledgeClient } from '../clients';
 import type { CopyContext } from './copy-scope';
 
 describe('fixed-target Knowledge public planning', () => {
+  it('lists persisted jobs and discoveries with business filters, keeping identity in owner scope', () => {
+    const query = '?tenant_id=tenant&agent_id=target&knowledge_base_id=base&status=cancelled';
+    expect(planKnowledgePublic('/api/enterprise/knowledge/jobs' + query + '&limit=8', 'get')).toEqual({
+      operation: 'list_knowledge_jobs', input: { limit: 8, knowledgeBaseId: 'base', status: 'cancelled' }, collection: true,
+    });
+    expect(planKnowledgePublic('/api/enterprise/knowledge/discoveries' + query, 'get')).toEqual({
+      operation: 'list_knowledge_discoveries', input: { knowledgeBaseId: 'base', status: 'cancelled' }, collection: true,
+    });
+  });
   it('collects every visible current document through its owner base with request-local scope and signal', async () => {
     const signal = new AbortController().signal;
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_path, init) => {
