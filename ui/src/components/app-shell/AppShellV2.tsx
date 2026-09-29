@@ -35,7 +35,6 @@ import SidebarV2 from './SidebarV2';
 import MainAreaV2 from './MainAreaV2';
 import { useModuleComposition } from '../../composition/runtime';
 import { generatedBusinessRoutePaths, generatedFrontendModules } from '../../composition/generated/frontend-modules';
-import FormalSopApprovalInbox from '../../composition/modules/staffdeck/vendor/FormalSopApprovalInbox';
 import {
   chooseDefaultProject,
   resolveHomeNewConversationProject,
@@ -770,8 +769,8 @@ export default function AppShellV2() {
           onMisroutedFileUrlHandled={handleMisroutedFileUrlHandled}
           modulePage={modulePage}
           moduleHost={{ selectedProject, selectedSession, projects: sidebarSharedProps.projects, navigate,
-            ...(composition.assembly?.chatExtensions.some((extension) => extension.id === 'sop-wait')
-              ? { approval: { Inbox: FormalSopApprovalInbox } } : {}) }}
+            ...(composition.assembly?.approvalInbox
+              ? { approval: { Inbox: composition.assembly.approvalInbox } } : {}) }}
           moduleChatSurface={composition.assembly?.chatSurface}
           moduleChatExtensions={composition.assembly?.chatExtensions}
           moduleCompositionError={composition.error}

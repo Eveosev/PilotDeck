@@ -95,6 +95,8 @@ export type FrontendModule = {
   pages?: PageContribution[];
   settings?: Contribution[];
   chatSurface?: ChatSurfaceContribution;
+  /** Optional host view supplied by the SOP module when that module is installed. */
+  approvalInbox?: PublicApprovalHost['Inbox'];
   chatExtensions?: Contribution[];
   permissionPanels?: Contribution[];
   toolRenderers?: Contribution[];
@@ -112,6 +114,7 @@ export type Assembly = {
   pages: PageContribution[];
   settings: Contribution[];
   chatSurface: ChatSurfaceContribution | null;
+  approvalInbox: PublicApprovalHost['Inbox'] | null;
   chatExtensions: Contribution[];
   permissionPanels: Contribution[];
   toolRenderers: Contribution[];

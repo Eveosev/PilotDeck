@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); setActiveAssembly(null); });
 
 function assembly(overrides: Partial<Assembly> = {}): Assembly {
   return {
-    selections: [], pages: [], settings: [], chatExtensions: [], toolRenderers: [], artifactRenderers: [], permissionPanels: [], historyFallbacks: [],
+    selections: [], pages: [], settings: [], chatSurface: null, approvalInbox: null, chatExtensions: [], toolRenderers: [], artifactRenderers: [], permissionPanels: [], historyFallbacks: [],
     ...overrides,
   } as Assembly;
 }

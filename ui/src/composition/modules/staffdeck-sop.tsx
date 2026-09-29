@@ -11,6 +11,7 @@ import { PublishRuntimeProvider } from './staffdeck/publish-runtime-context';
 import PublishRuntimeStatus from './staffdeck/PublishRuntimeStatus';
 import { StaffDeckHostBinding } from './staffdeck-host-binding';
 import { PublicApprovalInboxMount } from './staffdeck/public-approval-inbox-mount';
+import FormalSopApprovalInbox from './staffdeck/vendor/FormalSopApprovalInbox';
 import { useCallback, useState } from 'react';
 
 const BUILD_MARKER = 'staffdeck.sop.ui/v1';
@@ -69,6 +70,7 @@ const module: FrontendModule = {
   ],
   settings: [{ id: 'sop-default-workflow', settingsSection: 'sop', label: 'Workflow', labelKey: 'staffdeck:nav.workflow', component: () => <SopProfileSetting /> }],
   chatExtensions: [{ id: 'sop-wait', label: 'SOP wait state', component: SopExtension, requiresRuntime: true }],
+  approvalInbox: FormalSopApprovalInbox,
   permissionPanels: [{ id: 'sop-approval', label: 'SOP approval', toolNames: ['operator_approval'], component: SopPermissionPanel, requiresRuntime: true }],
 };
 export default module;
