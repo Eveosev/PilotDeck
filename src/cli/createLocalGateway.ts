@@ -26,6 +26,7 @@ import {
 } from "../sop/staffdeck/index.js";
 import { createActiveRuntimeModelPorts } from "../composition/activeRuntimeModelPorts.js";
 import { createActiveRuntimeTextParsingPort } from "../composition/activeRuntimeTextParsing.js";
+import { createNativeApprovalSessionResolver, readNativeInstallationOwner, readNativeSessionAdmission } from "../composition/nativeApprovalSessionResolver.js";
 import {
   createNodeAttachmentPort,
   type CompactionPort,
@@ -741,6 +742,14 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     autoElicitation: options.autoElicitation,
     telemetry,
     sessionCatalog,
+    sessionAdmission: (runtime) => {
+      const tenantId = env.STAFFDECK_COPY_TENANT_ID, agentId = env.STAFFDECK_COPY_TARGET_AGENT_ID;
+      const pilotDeckUserId = env.STAFFDECK_COPY_PILOTDECK_USER_ID;
+      const sop = runtime.snapshot.config.modules?.sop;
+      if (!tenantId || !agentId || !pilotDeckUserId || !sop || sop.discoveryAgentId !== agentId
+        || readNativeInstallationOwner(env.DATABASE_PATH || joinPath(pilotHome, "auth.db")) !== pilotDeckUserId) return undefined;
+      return { tenantId, agentId, pilotDeckUserId, projectKey: runtime.projectRoot };
+    },
     storageProvider: sessionDataPlane.persistence,
     nativeSessionStorage: options.nativeSessionStorage,
     userDialogStore: options.userDialogStore,
@@ -894,7 +903,18 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
           tenantId: env.STAFFDECK_COPY_TENANT_ID, approverUserId: env.STAFFDECK_APPROVAL_USER_ID }));
       return (await approvalAuthenticator).authenticate(input);
     },
-    resolveSession: options.resolveStaffDeckApprovalSession,
+    resolveSession: options.resolveStaffDeckApprovalSession ?? createNativeApprovalSessionResolver({
+      readOwner: () => readNativeInstallationOwner(env.DATABASE_PATH || joinPath(pilotHome, "auth.db")),
+      listProjects: dialog.projects.listProjectKeys,
+      listSessions: (projectKey) => sessionCatalog.list({ projectRoot: projectKey, pilotHome, includeInternal: true }),
+      sessionAdmission: async (projectKey, sessionKey) => {
+        const storage = registry.createPersistentSessionStorage(projectKey, sessionKey);
+        try {
+          const { entries } = await storage.persistence.load();
+          return readNativeSessionAdmission(entries, sessionKey);
+        } finally { await storage.dispose(); }
+      },
+    }),
     status: (input) => sopControl.status(input),
     resume: (input) => sopControl.resume(input),
   });

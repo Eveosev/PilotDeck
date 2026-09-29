@@ -138,6 +138,7 @@ type SdkTaskBudgetLedgerRecord =
 const DEFAULT_SDK_TASK_BUDGET_LEDGER_COMPACT_AFTER_RECORDS = 512;
 
 export type ProjectRuntimeRegistryOptions = {
+  sessionAdmission?(runtime: ProjectRuntime): import('../session/transcript/TranscriptEntry.js').SessionMetadataValue['staffDeckAdmission'];
   fallbackProjectRoot: string;
   pilotHome: string;
   builtinSkillsRoot?: string;
@@ -290,6 +291,7 @@ export class ProjectRuntimeRegistry {
       buildArgs: options.buildBrowserUseArgs,
     });
     this.sessionFactory = new ProjectSessionFactory<ProjectRuntime>({
+      sessionAdmission: options.sessionAdmission,
       resolveRuntime: (projectKey) => this.resolve(projectKey),
       acquireRuntimeLease: (runtime) => this.acquireRuntimeLease(runtime),
       acquirePermissionRuleSet: ({ sessionKey, permissionRules }) => {
