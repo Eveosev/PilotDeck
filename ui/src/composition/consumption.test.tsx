@@ -10,6 +10,8 @@ import type { Assembly } from './contracts';
 import { SopPermissionPanel } from './modules/staffdeck-sop';
 import KnowledgeGraphCanvas from './modules/staffdeck/vendor/KnowledgeGraphCanvas';
 import SopVersionDetailDialog from './modules/staffdeck/vendor/SopVersionDetailDialog';
+import { SkillsPageHostProvider } from './modules/staffdeck/vendor/SkillsPageHost';
+import { pilotDeckSkillsPageHost } from './modules/staffdeck/vendor/skills-host-adapter';
 import { normalizedToChatMessages } from '../components/chat/hooks/useChatMessages';
 import type { NormalizedMessage } from '../stores/useSessionStore';
 
@@ -141,12 +143,12 @@ describe('active composition consumers', () => {
 
   it('renders the original StaffDeck SOP version detail slice through the shared package', () => {
     const onClose = vi.fn();
-    render(<SopVersionDetailDialog detail={{
+    render(<SkillsPageHostProvider value={pilotDeckSkillsPageHost}><SopVersionDetailDialog detail={{
       id: 'v1', name: 'Review request', version: '3', business_domain: 'support', status: 'published',
       call_count: 4, positive_rate: 0.75, negative_rate: 0.25, updated_at: '2026-09-21T00:00:00Z',
       content: { nodes: [{ node_id: 'review', type: 'handoff' }] },
-    }} onClose={onClose} />);
-    expect(screen.getByRole('dialog', { name: '版本详情: Review request / 3' })).toBeTruthy();
+    }} onClose={onClose} /></SkillsPageHostProvider>);
+    expect(screen.getByRole('dialog', { name: '版本详情：Review request / 3' })).toBeTruthy();
     expect(screen.getByText('support')).toBeTruthy();
     expect(screen.getByText(/node_id/)).toBeTruthy();
     screen.getByRole('button', { name: 'Close' }).click();
