@@ -80,7 +80,7 @@ describe('module runtime route', () => {
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 
-  it('applies the saved Knowledge defaults to a real module query', async () => {
+  it('rejects a legacy Knowledge query without the formal identity binding', async () => {
     let received;
     const moduleApp = express();
     moduleApp.use(express.json());
@@ -105,15 +105,15 @@ describe('module runtime route', () => {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/query`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: 'handbook' }) });
-      expect(response.status).toBe(200);
-      expect(received.payload.input).toMatchObject({ query: 'handbook', baseId: 'published-base', knowledgeBaseIds: ['published-base'], tenantId: 'tenant-demo', actorUserId: 'operator', limit: 7 });
+      expect(response.status).toBe(501);
+      expect((await response.json()).error.code).toBe('COPY_UNAVAILABLE');
+      expect(received).toBeUndefined();
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));
     }
   });
-
-  it('uses only server-bound Knowledge identity when the browser submits forged tenant and actor values', async () => {
+  it('does not lend legacy Knowledge identity to an unbound browser submitting forged owner values', async () => {
     let received;
     const moduleApp = express();
     moduleApp.use(express.json());
@@ -139,14 +139,14 @@ describe('module runtime route', () => {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ query: 'handbook', tenantId: 'tenant-forged', tenant_id: 'tenant-forged-snake', actorUserId: 'user-forged', actor_user_id: 'user-forged-snake' }),
       });
-      expect(response.status).toBe(200);
-      expect(received.payload.input).toMatchObject({ query: 'handbook', tenantId: 'tenant-bound', tenant_id: 'tenant-bound', actorUserId: 'owner-bound', actor_user_id: 'owner-bound' });
+      expect(response.status).toBe(501);
+      expect((await response.json()).error.code).toBe('COPY_UNAVAILABLE');
+      expect(received).toBeUndefined();
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));
     }
   });
-
   it.each([
     'create_base', 'update_base', 'delete_base', 'sync_base', 'publish_version', 'rollback_version',
     'import_document', 'import_okf', 'update_document', 'delete_document', 'update_bucket',
@@ -175,7 +175,7 @@ describe('module runtime route', () => {
     }
   });
 
-  it('proxies declared Knowledge management operations through the module contract', async () => {
+  it('rejects legacy Knowledge management when formal owner binding is absent', async () => {
     let received;
     const moduleApp = express();
     moduleApp.use(express.json());
@@ -198,15 +198,14 @@ describe('module runtime route', () => {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/modules/knowledge/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ operation: 'list_bases', input: {} }) });
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ result: [{ id: 'kb-1', name: 'Handbook' }] });
-      expect(received.payload).toEqual({ operation: 'list_bases', input: { tenantId: 'tenant-demo', tenant_id: 'tenant-demo', actorUserId: 'operator', actor_user_id: 'operator' } });
+      expect(response.status).toBe(501);
+      expect((await response.json()).error.code).toBe('COPY_UNAVAILABLE');
+      expect(received).toBeUndefined();
     } finally {
       await new Promise(resolve => server.close(resolve));
       await new Promise(resolve => moduleServer.close(resolve));
     }
   });
-
   it('reads and saves deployment-owned SOP definitions without exposing the runtime endpoint', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pilotdeck-sop-definitions-'));
     const definitionsPath = join(root, 'definitions.yaml');
