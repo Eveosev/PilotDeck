@@ -76,6 +76,43 @@ test("full compaction can disable protected turn preservation", async () => {
   assert.match(summaryText(result.summaryMessage), /END OF CONTEXT SUMMARY/);
 });
 
+test("full compaction deterministically retains stable source anchors when the model omits them", async () => {
+  const requests: CanonicalModelRequest[] = [];
+  const engine = new CompactionEngine({
+    model: {
+      async *stream(request: CanonicalModelRequest): AsyncIterable<CanonicalModelEvent> {
+        requests.push(request);
+        yield { type: "text_delta", text: "## Objective\nContinue.\n\n## Files And Artifacts\nNone." };
+        yield { type: "message_end", finishReason: "stop" };
+      },
+    },
+    provider: "local",
+    model_: "local-chat",
+  });
+  const result = await engine.run({
+    trigger: "auto",
+    messages: [
+      ...Array.from({ length: 12 }, (_, index) => ({ role: "user" as const, content: [{ type: "text" as const, text: `history-${index} `.repeat(80) }] })),
+      { role: "user", content: [{ type: "text", text: "Collect evidence." }] },
+      { role: "assistant", content: [{ type: "tool_call", id: "skill-call", name: "read_skill", input: { skill_id: "r63-approval-guide" } }] },
+      { role: "user", content: [{ type: "tool_result", toolCallId: "skill-call", content: [{ type: "text", text: "R63-SKILL-EARLY-20260930" }] }] },
+      { role: "assistant", content: [{ type: "tool_call", id: "knowledge-call", name: "knowledge_query", input: { document_id: "kdoc_d14c567235f348f0" } }] },
+      { role: "user", content: [{ type: "tool_result", toolCallId: "knowledge-call", content: [{ type: "text", text: "R63-KNOWLEDGE-FACT-20260930" }] }] },
+      { role: "user", content: [{ type: "text", text: "Proceed." }] },
+    ],
+    keepTailRatio: 0.2,
+    targetPostTokens: 50,
+  });
+  const prompt = summaryPromptText(requests[0]!);
+  assert.match(prompt, /<stable-source-anchors>/);
+  assert.match(prompt, /r63-approval-guide/);
+  assert.match(prompt, /kdoc_d14c567235f348f0/);
+  const summary = summaryText(result.summaryMessage);
+  assert.match(summary, /## Source Anchors/);
+  assert.match(summary, /R63-SKILL-EARLY-20260930/);
+  assert.match(summary, /R63-KNOWLEDGE-FACT-20260930/);
+});
+
 test("four rolling compactions replace the previous checkpoint with one summary", async () => {
   let sequence = 0;
   const summaryRequests: CanonicalModelRequest[] = [];
