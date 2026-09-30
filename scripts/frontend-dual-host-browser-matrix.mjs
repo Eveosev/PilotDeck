@@ -65,7 +65,6 @@ try {
       row.themeApplied = await page.evaluate(() => document.documentElement.classList.contains('dark')) === (theme === 'dark');
       if (host === 'sd') row.themeSwitchVisible = await page.getByRole('button', { name: /切换到浅色主题|切换到深色主题|Switch to light theme|Switch to dark theme/i }).count() > 0;
       await page.goto(new URL(routes[host][0], origin).href);
-      await page.getByText(knowledgeTitle, { exact: true }).filter({ visible: true }).first().click();
       const menu = page.getByRole('button', { name: /知识库操作|Knowledge base actions/i }).filter({ visible: true }).first();
       await menu.click();
       await page.getByRole('menuitem', { name: /详情|Details/ }).first().click();
