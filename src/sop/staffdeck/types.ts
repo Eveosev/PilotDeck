@@ -153,6 +153,13 @@ export type StaffDeckSopStatusSnapshot = Readonly<{
   approvalError?: Readonly<{ code: string; message: string }>;
 }>;
 
+/** Host-owned facts that may be projected into the model context. */
+export type StaffDeckSopModelContext = Readonly<{
+  sopId?: string;
+  stepId?: string;
+  assigneeUserId?: string;
+}>;
+
 export type StaffDeckSopResumeInput = Readonly<{
   sessionId: string;
   requestId: string;

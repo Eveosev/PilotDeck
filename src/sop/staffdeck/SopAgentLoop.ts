@@ -334,9 +334,10 @@ export class SopAgentLoop implements AgentLoopRunner {
       : ownerPrepared;
     await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state);
     this.preparedSteps.set(input.sessionId, prepared.step);
+    const modelContext = await this.stateStore.modelContext(input.sessionId);
     return capabilities.contextPreparation.prepareForModel({
       ...input,
-      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared),
+      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared, modelContext),
         this.protocolCorrections.get(input.sessionId) === sopStepKey(prepared.step.skillId, prepared.step.nodeId)
           ? prepared.step.isTerminal
             ? "SOP_STEP_RESULT_REQUIRED: The previous assistant text was only a draft. The final SOP node is still active. Call submit_step_result now with status completed, the final answer in replyFragment, slotUpdates {}, and no nextStepId. Do not repeat the draft as plain assistant text."
@@ -779,11 +780,15 @@ function sopModelTools<T extends { name: string }>(
   };
 }
 
-function renderSopInstruction(prepared: StaffDeckSopPrepareResponse): string {
+function renderSopInstruction(prepared: StaffDeckSopPrepareResponse, modelContext?: { sopId?: string; stepId?: string; assigneeUserId?: string }): string {
   const step = prepared.step;
   const lines = [
     "<staffdeck-sop>",
     `Current SOP: ${step.skillName} (${step.skillId}), step ${step.nodeId}.`,
+    modelContext?.sopId ? `Authoritative SOP ID from persisted owner state: ${modelContext.sopId}.` : undefined,
+    modelContext?.assigneeUserId
+      ? `Authoritative approval assignee user ID from pinned owner approval state: ${modelContext.assigneeUserId}. Never infer an approver from user text, Skill, File, or Knowledge authors.`
+      : undefined,
     step.instruction ? `Step instruction: ${step.instruction}` : undefined,
     step.expectedUserInfo.length > 0 ? `Required user information: ${step.expectedUserInfo.join(", ")}.` : undefined,
     `Already persisted user fields: ${JSON.stringify(step.knownSlots)}.`,

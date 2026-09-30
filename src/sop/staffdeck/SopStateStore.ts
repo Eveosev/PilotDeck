@@ -13,6 +13,7 @@ import type {
   StaffDeckSopState,
   StaffDeckSopSubmitResult,
   StaffDeckSopStatusSnapshot,
+  StaffDeckSopModelContext,
   StaffDeckSopWait,
 } from "./types.js";
 
@@ -143,6 +144,14 @@ export class SopStateStore {
     return this.withSessionLock(sessionId, async () => {
       const persisted = await this.read(sessionId);
       return persisted ? toStatusSnapshot(persisted) : undefined;
+    });
+  }
+
+  /** Return only authority facts owned by the persisted SOP/approval state. */
+  async modelContext(sessionId: string): Promise<StaffDeckSopModelContext | undefined> {
+    return this.withSessionLock(sessionId, async () => {
+      const persisted = await this.read(sessionId);
+      return persisted ? modelContextProjection(persisted) : undefined;
     });
   }
 
@@ -409,6 +418,28 @@ function toStatusSnapshot(value: PersistedSopState): StaffDeckSopStatusSnapshot 
     state: structuredClone(value.state),
     ...(value.wait ? { wait: structuredClone(value.wait) } : {}),
     ...projection,
+  };
+}
+
+function modelContextProjection(value: PersistedSopState): StaffDeckSopModelContext {
+  const sopId = typeof value.state.active_skill_id === "string"
+    ? value.state.active_skill_id
+    : typeof value.state.selected_skill_id === "string" ? value.state.selected_skill_id : undefined;
+  let assigneeUserId: string | undefined;
+  if (value.wait?.kind === "handoff") {
+    try { assigneeUserId = pinnedApproval(value).assigneeUserId; } catch { /* status exposes the validation error */ }
+  }
+  if (!assigneeUserId) {
+    const receipts = Object.values(value.resumeRequests).reverse();
+    for (const receipt of receipts) {
+      const candidate = receipt.authorization?.approval.assigneeUserId;
+      if (candidate) { assigneeUserId = candidate; break; }
+    }
+  }
+  return {
+    ...(sopId ? { sopId } : {}),
+    ...(typeof value.state.active_step_id === "string" ? { stepId: value.state.active_step_id } : {}),
+    ...(assigneeUserId ? { assigneeUserId } : {}),
   };
 }
 
