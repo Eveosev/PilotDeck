@@ -20,6 +20,7 @@ import { DEFAULT_MODEL_CAPABILITIES } from "../../src/model/protocol/capabilitie
 import { loadPilotConfig } from "../../src/pilot/config/loadPilotConfig.js";
 import { createAgentProjectSessionStorage, readTranscript } from "../../src/session/index.js";
 import { createFormalApprovalFixture, type FormalApprovalFixture } from "./formal-approval-fixture.js";
+import { observePreviousCitation } from "./citation-lifecycle-observation.js";
 
 const STAFFDECK_ROOT = process.env.STAFFDECK_SOP_ROOT ?? "/Users/a1/Desktop/claw/openbmb/StaffDeck-portable-sop";
 const PYTHON = process.env.STAFFDECK_PYTHON ?? join(STAFFDECK_ROOT, "backend/.venv/bin/python");
@@ -959,6 +960,10 @@ sops:
     assert.notEqual(updatedCitationId, citationId);
     const updatedCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", agentId: KNOWLEDGE_AGENT_ID, chunkId: updatedCitationId });
     assert.match(textField(updatedCitation, "content").toLowerCase(), /security review/);
+    const previousCitationObservation = await observePreviousCitation(
+      input => knowledgePort.call("resolve_citation", input),
+      { tenantId: "tenant_demo", agentId: KNOWLEDGE_AGENT_ID, chunkId: citationId },
+    );
     const archived = await knowledgePort.call("delete_document", {
       tenantId: "tenant_demo",
       actorUserId: "admin",
@@ -1298,7 +1303,8 @@ sops:
         },
         documentLifecycle: {
           update: { title: "Updated approval policy", content: updatedPolicyContent },
-          previousCitationRejected: false,
+          previousCitationRejected: previousCitationObservation.rejected,
+          previousCitationObservation,
           updatedQuery: updatedQueryRequest,
           updatedCitation: { content: textField(updatedCitation, "content") },
           archive: { status: textField(archived, "status"), evidenceCount: (archivedEvidence as unknown[]).length },
