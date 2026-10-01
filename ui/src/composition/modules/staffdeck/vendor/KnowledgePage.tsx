@@ -2186,7 +2186,7 @@ type KnowledgeOverviewItem = {
   bucket?: KnowledgeBucketRead;
 };
 
-function 目录索引Overview({
+export function 目录索引Overview({
   document,
   knowledgeBase,
   buckets,
@@ -2444,8 +2444,8 @@ function 目录索引Overview({
                           : '查看详情'
                     }
                   >
-                    <strong>{entry.title}</strong>
-                    <small>{entry.summary}</small>
+                    <strong {...(entry.indexGroup || entry.concept || entry.bucket?.title || entry.bucket?.bucket_key || (!entry.bucket && entry.key !== 'chunk-total') ? USER_CONTENT_ATTRIBUTES : {})}>{entry.title}</strong>
+                    <small {...(entry.bucket && bucketContentMarkdown(entry.bucket).trim() ? USER_CONTENT_ATTRIBUTES : {})}>{entry.summary}</small>
                   </button>
                 ))
               )}
@@ -2567,7 +2567,7 @@ function 目录索引Overview({
                           {bucketStatusTag(bucket)}
                           <KTag>{bucket.chunk_count} 个切片</KTag>
                         </div>
-                        <h5 className="mt-[6px] mb-0 text-[15px] font-semibold text-foreground">
+                        <h5 {...(bucket.title || bucket.bucket_key ? USER_CONTENT_ATTRIBUTES : {})} className="mt-[6px] mb-0 text-[15px] font-semibold text-foreground">
                           {bucket.title || bucket.bucket_key || '引用来源'}
                         </h5>
                       </div>

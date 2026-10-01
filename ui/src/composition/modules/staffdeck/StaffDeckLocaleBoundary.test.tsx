@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 let currentLanguage = 'zh-CN';
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { resolvedLanguage: currentLanguage } }) }));
 import StaffDeckLocaleBoundary from './StaffDeckLocaleBoundary';
+import { 目录索引Overview as KnowledgeOverview } from './vendor/KnowledgePage';
 import { PilotDeckDialog, PilotDeckDialogContent, PilotDeckDialogTitle } from './vendor/dialog-primitives';
 
 afterEach(() => { cleanup(); currentLanguage = 'zh-CN'; });
@@ -23,6 +24,25 @@ function Fixture() {
 }
 
 describe('formal StaffDeck locale boundary', () => {
+  it('protects production source headings without suppressing the system fallback', async () => {
+    function Overview({ title }: { title: string }) {
+      return <StaffDeckLocaleBoundary><KnowledgeOverview
+        document={{ id: 'document', filename: 'source.md', title: 'Source', file_type: 'md', metadata: {}, chunk_count: 1 } as any}
+        knowledgeBase={null} buckets={[{ id: 'bucket', title, bucket_key: '', chunk_count: 1, metadata: {}, summary: 'Original material' } as any]}
+        okfConcepts={[]} canEdit={false} onEditDocument={vi.fn()} onEditBucket={vi.fn()} onViewConcept={vi.fn()} onEditConcept={vi.fn()}
+      /></StaffDeckLocaleBoundary>;
+    }
+    currentLanguage = 'en';
+    const { rerender } = render(<Overview title="规范化 Source" />);
+    expect(screen.getByText('规范化 Source').tagName).toBe('STRONG');
+    expect(screen.queryByText('Normalize Source')).toBeNull();
+    rerender(<Overview title="" />);
+    await waitFor(() => expect(screen.queryByText('引用来源')).toBeNull());
+    expect(screen.getAllByText('Citation sources').length).toBeGreaterThan(0);
+    currentLanguage = 'zh-CN';
+    rerender(<Overview title="写入 OKF Wiki" />);
+    expect(screen.getByText('写入 OKF Wiki')).toBeTruthy();
+  });
   it('translates ingestion system metadata and dynamic stats while preserving document names', async () => {
     currentLanguage = 'en';
     const { rerender } = render(<StaffDeckLocaleBoundary>
