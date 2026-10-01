@@ -23,6 +23,25 @@ function Fixture() {
 }
 
 describe('formal StaffDeck locale boundary', () => {
+  it('translates ingestion system metadata and dynamic stats while preserving document names', async () => {
+    currentLanguage = 'en';
+    const { rerender } = render(<StaffDeckLocaleBoundary>
+      <span>规范化 Source</span><span>写入 Source Document</span><span>规划 Wiki 页面</span>
+      <span>写入 OKF Wiki</span><span>刷新 PageIndex</span>
+      <span>完成入库：3 个 Wiki 页面，2 个内部索引，7 个引用来源</span>
+      <span data-i18n-ignore translate="no">规划 Wiki 页面</span>
+    </StaffDeckLocaleBoundary>);
+    expect(await screen.findByText('Normalize Source')).toBeTruthy();
+    expect(screen.getByText('Write Source Document')).toBeTruthy();
+    expect(screen.getByText('Plan Wiki pages')).toBeTruthy();
+    expect(screen.getByText('Write OKF Wiki')).toBeTruthy();
+    expect(screen.getByText('Refresh PageIndex')).toBeTruthy();
+    expect(screen.getByText('Ingestion complete: 3 Wiki pages, 2 internal indexes, 7 citation sources')).toBeTruthy();
+    expect(screen.getByText('规划 Wiki 页面')).toBeTruthy();
+    currentLanguage = 'zh-CN';
+    rerender(<StaffDeckLocaleBoundary><span>刷新 PageIndex</span></StaffDeckLocaleBoundary>);
+    expect(await screen.findByText('刷新 PageIndex')).toBeTruthy();
+  });
   it('localizes only formal labels inside the page and its Portal while keeping user text and attributes unchanged', async () => {
     const { rerender } = render(<Fixture />);
     const dialog = screen.getByRole('dialog');

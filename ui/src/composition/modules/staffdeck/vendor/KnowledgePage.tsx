@@ -2016,7 +2016,7 @@ function KnowledgeJobCard({
     <div className="knowledge-job">
       <div className="knowledge-job-head">
         <div>
-          <strong className="text-[14px] font-semibold text-foreground">{job.filename}</strong>
+          <strong {...USER_CONTENT_ATTRIBUTES} className="text-[14px] font-semibold text-foreground">{job.filename}</strong>
           <span className="text-[13px] text-[#858b9c]"> · {stageLabel}</span>
         </div>
         <div className="flex shrink-0 items-center gap-[8px]">
