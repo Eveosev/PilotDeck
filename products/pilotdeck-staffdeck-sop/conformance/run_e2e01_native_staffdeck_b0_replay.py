@@ -41,6 +41,12 @@ def main() -> None:
     try:
         with tempfile.TemporaryDirectory(prefix="staffdeck-e2e01-b0-replay-") as temp_dir:
             result = run_worker(trace_path, Path(temp_dir) / "knowledge.sqlite")
+        result_path = os.environ.get("STAFFDECK_E2E_REPLAY_RESULT_PATH")
+        if result_path:
+            Path(result_path).write_text(json.dumps({
+                "schema": "e2e01-tenant-agent-owner-observation/v1",
+                "trace": str(trace_path), "baseline": str(BASELINE_ROOT), "actual": result,
+            }, indent=2, ensure_ascii=False))
         compare(trace, result)
         if os.environ.get("STAFFDECK_E2E_REPLAY_INJECT_MISMATCH") == "1":
             result["knowledge"]["documentLifecycle"]["updatedCitation"]["content"] = "injected mismatch"
@@ -86,6 +92,14 @@ def validate_trace(trace: dict[str, Any]) -> None:
     lifecycle = trace.get("knowledge", {}).get("documentLifecycle", {})
     if not isinstance(lifecycle.get("update"), dict) or not isinstance(lifecycle.get("updatedQuery"), dict):
         raise ValueError("trace schema v3 with knowledge.documentLifecycle is required")
+    query = trace["knowledge"]["queryRequests"][0]
+    old_request = lifecycle.get("previousCitationObservation", {}).get("request", {})
+    if not query.get("agentId") or any(
+        old_request.get(key) != query.get(key) for key in ("tenantId", "agentId")
+    ):
+        raise ValueError("matched tenant/agent old citation observation is required; global replay is invalid")
+    if any(lifecycle["updatedQuery"].get(key) != query.get(key) for key in ("tenantId", "agentId")):
+        raise ValueError("updated query must retain the original tenant/agent context")
 
 
 def b0_python() -> str:
@@ -149,9 +163,10 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
         if actor is None:
             raise RuntimeError(f"B0 seed does not contain actor {actor_id}")
         tenant_id = str(query_request["tenantId"])
+        agent_id = str(query_request["agentId"])
         created = create_knowledge_base(
             KnowledgeBaseCreateRequest(tenant_id=tenant_id, name=knowledge["createBase"]["name"]),
-            None,
+            agent_id,
             db,
             actor,
         )
@@ -163,16 +178,17 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
                 title=imported["title"],
                 content_base64=base64.b64encode(imported["content"].encode()).decode(),
             ),
-            None,
+            agent_id,
             db,
             actor,
         )
         start_async_jobs()
         try:
-            final_job = wait_for_job(db, job.id, tenant_id, get_job)
+            final_job = wait_for_job(db, job.id, tenant_id, get_job, agent_id)
             response = search_knowledge(
                 KnowledgeSearchRequest(
                     tenant_id=tenant_id,
+                    agent_id=agent_id,
                     knowledge_base_ids=[created.id],
                     query=query_request["query"],
                     query_type=query_request["queryType"],
@@ -194,7 +210,7 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
             raise AssertionError("B0 query returned an unresolvable citation")
         initial_citation_content = citation.content
 
-        documents = list_documents(tenant_id, created.id, None, False, db)
+        documents = list_documents(tenant_id, created.id, agent_id, False, db)
         source_document = next((item for item in documents if item.filename == imported["filename"]), None)
         if source_document is None:
             raise AssertionError("B0 import did not produce the saved document")
@@ -209,12 +225,14 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
             ),
             db,
             actor,
+            agent_id,
         )
         stale_citation = db.get(KnowledgeChunk, citation_id) is None
         updated_query_request = lifecycle["updatedQuery"]
         updated_response = search_knowledge(
             KnowledgeSearchRequest(
                 tenant_id=tenant_id,
+                agent_id=agent_id,
                 knowledge_base_ids=[created.id],
                 query=updated_query_request["query"],
                 query_type=updated_query_request["queryType"],
@@ -237,10 +255,12 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
             KnowledgeDocumentUpdateRequest(tenant_id=tenant_id, status="archived"),
             db,
             actor,
+            agent_id,
         )
         archived_response = search_knowledge(
             KnowledgeSearchRequest(
                 tenant_id=tenant_id,
+                agent_id=agent_id,
                 knowledge_base_ids=[created.id],
                 query=updated_query_request["query"],
                 query_type=updated_query_request["queryType"],
@@ -274,6 +294,8 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
                 },
                 "citation": {"content": initial_citation_content},
                 "documentLifecycle": {
+                    "comparisonSurface": "tenant-agent-scoped-bare-chunk-not-persisted-snapshot",
+                    "scope": {"tenantId": tenant_id, "agentId": agent_id},
                     "updatedCitation": {"content": updated_citation.content},
                     "previousCitationRejected": stale_citation,
                     "archive": {
@@ -293,10 +315,10 @@ def worker(root: Path, trace_path: Path, database: Path) -> None:
         }, ensure_ascii=False))
 
 
-def wait_for_job(db: Any, job_id: str, tenant_id: str, get_job: Any) -> Any:
+def wait_for_job(db: Any, job_id: str, tenant_id: str, get_job: Any, agent_id: str) -> Any:
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
-        job = get_job(job_id, tenant_id, None, db)
+        job = get_job(job_id, tenant_id, agent_id, db)
         if job.status in {"succeeded", "failed", "cancelled"}:
             if job.status != "succeeded":
                 raise AssertionError(f"B0 ingest job finished as {job.status}")

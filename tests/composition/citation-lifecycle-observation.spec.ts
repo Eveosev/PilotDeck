@@ -13,6 +13,7 @@ test('old citation observation records actual rejection or resolution under the 
   assert.deepEqual(rejected.request, input);
   const resolved = await observePreviousCitation(async () => ({ id: input.chunkId, content: 'original' }), input);
   assert.equal(resolved.rejected, false);
+  assert.deepEqual(resolved.result, { id: input.chunkId, content: 'original' });
 });
 test('auth, outage, other 404 and invalid responses cannot prove old citation rejection', async () => {
   for (const [code, message] of [['STAFFDECK_HTTP_401', 'Unauthorized'], ['STAFFDECK_HTTP_503', 'Unavailable'],

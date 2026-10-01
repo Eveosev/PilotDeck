@@ -8,7 +8,7 @@ export async function observePreviousCitation(
     if (!result || typeof result !== 'object' || (result as { id?: unknown }).id !== input.chunkId) {
       throw new Error('Old citation lookup returned an invalid owner response.');
     }
-    return { rejected: false, request: input, result: { id: input.chunkId } };
+    return { rejected: false, request: input, result: structuredClone(result) as Record<string, unknown> };
   } catch (error) {
     if ((error as { code?: unknown }).code !== 'STAFFDECK_HTTP_404'
       || !(error instanceof Error) || error.message !== 'Knowledge citation not found') throw error;
