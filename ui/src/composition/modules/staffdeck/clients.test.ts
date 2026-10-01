@@ -2,9 +2,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './vendor/DistillPageHost';
 import { staffDeckCopyClient, staffDeckKnowledgeClient, staffDeckSopManagementClient } from './clients';
 import { staffDeckNotify } from './host-notify';
+import i18n from 'i18next';
+import en from '../../../i18n/locales/en/staffdeck.json';
+import zh from '../../../i18n/locales/zh-CN/staffdeck.json';
 vi.mock('../../../utils/api', () => ({ authenticatedFetch: (...args: any[]) => fetch(...args as [string, RequestInit]) }));
 afterEach(() => vi.unstubAllGlobals());
 describe('module transport contract', () => {
+  it.each([
+    [404, 'SOP_MANAGEMENT_UPSTREAM_FAILED', 'SOP draft not found.', 'SOP 草稿不存在。'],
+    [401, 'SOP_MANAGEMENT_CREDENTIAL_INACTIVE', 'The StaffDeck account credential is inactive.', 'StaffDeck 账户凭据已失效。'],
+    [412, 'SOP_MANAGEMENT_UPSTREAM_FAILED', 'The SOP draft changed since it was read.', 'SOP 草稿在读取后已发生变化。'],
+  ])('localizes known system error %s without changing transport or retrying', async (status, code, message, translated) => {
+    await i18n.init({ lng: 'zh-CN', resources: { en: { staffdeck: en }, 'zh-CN': { staffdeck: zh } } });
+    const raw = JSON.stringify({ error: { code, message } });
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(raw, { status })));
+    vi.stubGlobal('fetch', fetch);
+    await expect(staffDeckSopManagementClient.call('get_draft')).rejects.toMatchObject({ status, code, body: raw, message: translated });
+    await i18n.changeLanguage('en');
+    await expect(staffDeckSopManagementClient.call('get_draft')).rejects.toMatchObject({ status, code, body: raw, message });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
   it('preserves class, status, code and raw wire body without retry', async () => {
     const raw = JSON.stringify({ error: { code: 'CONFLICT', message: 'Original draft changed' } });
     const fetch = vi.fn().mockResolvedValue(new Response(raw, { status: 412 }));

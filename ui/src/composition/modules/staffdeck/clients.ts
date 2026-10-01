@@ -1,8 +1,20 @@
 import { authenticatedFetch } from '../../../utils/api';
+import i18n from 'i18next';
 
 import { ApiError } from './vendor/DistillPageHost';
 
 export type ModuleRequestOptions = { signal?: AbortSignal; onManagementEnvelope?: (envelope: { result: unknown; runtime?: unknown }) => void };
+
+function localizedSystemError(status: number, code: string | undefined, message: string): string {
+  const known = [
+    [404, 'SOP_MANAGEMENT_UPSTREAM_FAILED', 'SOP draft not found.', 'draftNotFound'],
+    [401, 'SOP_MANAGEMENT_CREDENTIAL_INACTIVE', 'The StaffDeck account credential is inactive.', 'credentialInactive'],
+    [412, 'SOP_MANAGEMENT_UPSTREAM_FAILED', 'The SOP draft changed since it was read.', 'draftChanged'],
+  ] as const;
+  const entry = known.find(([expectedStatus, expectedCode, expectedMessage]) =>
+    status === expectedStatus && code === expectedCode && message === expectedMessage);
+  return entry ? String(i18n.t(`errors.${entry[3]}`, { ns: 'staffdeck', defaultValue: message })) : message;
+}
 
 // Preserve the original error payload contract and shared UI class identity.
 export function moduleApiError(status: number, body: string, statusText: string): ApiError {
@@ -37,7 +49,7 @@ export function moduleApiError(status: number, body: string, statusText: string)
   Object.assign(error, {
     name: 'ApiError', status, body,
     code: html ? 'UPSTREAM_INVALID_RESPONSE' : code,
-    message: html ? `服务暂时不可用，请稍后重试 (HTTP ${status})` : message || statusText || `HTTP ${status}`,
+    message: html ? `服务暂时不可用，请稍后重试 (HTTP ${status})` : localizedSystemError(status, code, message || statusText || `HTTP ${status}`),
   });
   return error;
 }

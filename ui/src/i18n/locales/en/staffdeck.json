@@ -1,4 +1,9 @@
 {
+  "errors": {
+    "draftNotFound": "SOP draft not found.",
+    "credentialInactive": "The StaffDeck account credential is inactive.",
+    "draftChanged": "The SOP draft changed since it was read."
+  },
   "nav": {
     "workflow": "Workflow",
     "knowledge": "Knowledge"

@@ -1,4 +1,9 @@
 {
+  "errors": {
+    "draftNotFound": "SOP 草稿不存在。",
+    "credentialInactive": "StaffDeck 账户凭据已失效。",
+    "draftChanged": "SOP 草稿在读取后已发生变化。"
+  },
   "nav": {
     "workflow": "工作流",
     "knowledge": "知识库"
