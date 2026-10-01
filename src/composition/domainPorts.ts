@@ -21,6 +21,7 @@ import type {
 import type { PilotDeckToolDefinition } from "../tool/index.js";
 import { HttpModuleClient } from "./HttpModuleClient.js";
 import type { ExternalModuleBinding } from "./types.js";
+import { currentKnowledgeAuthority } from "./sopCapabilityAuthority.js";
 
 export type { SkillManagementPort } from "../extension/skills/types.js";
 
@@ -114,7 +115,7 @@ export function createKnowledgeModulePort(binding: ExternalModuleBinding): Knowl
         operationId: "knowledge",
         requestId: `knowledge-${operation}-${++sequence}`,
         module: "knowledge",
-        payload: { operation, input },
+        payload: { operation, input, ...(currentKnowledgeAuthority() ? { authorityContext: currentKnowledgeAuthority() } : {}) },
       });
       if (!response.ok) throw moduleFailure(response, `Knowledge module ${operation} failed.`);
       return response.payload?.result;

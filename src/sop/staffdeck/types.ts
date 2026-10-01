@@ -1,4 +1,5 @@
 import type { ModuleDeployment } from "../../composition/types.js";
+import type { SopAuthorityProjection } from "../../composition/sopCapabilityAuthority.js";
 
 export const STAFFDECK_SOP_PROTOCOL_VERSION = "2.0" as const;
 export const STAFFDECK_SOP_MODULE_ID = "sop.runtime" as const;
@@ -204,6 +205,9 @@ export type StaffDeckSopStep = Readonly<{
   isTerminal: boolean;
   declaresHandoff: boolean;
   subSopId?: string | null;
+  /** Host-only projection; never accepted from portable evaluator/model input. */
+  optionalKnowledge?: SopAuthorityProjection;
+  optionalKnowledgeUnavailable?: string;
 }>;
 
 export type StaffDeckSopPrepareResponse = Readonly<{

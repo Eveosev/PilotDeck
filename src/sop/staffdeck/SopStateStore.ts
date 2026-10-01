@@ -54,8 +54,30 @@ export class SopStateStore {
     sessionId: string,
     bundle: StaffDeckSopBundle,
     state: StaffDeckSopState,
+    expectedRevision?: number,
   ): Promise<PersistedSopState> {
-    return this.withSessionLock(sessionId, () => this.replaceUnlocked(sessionId, bundle, state));
+    return this.withSessionLock(sessionId, async () => {
+      if (expectedRevision !== undefined && (await this.read(sessionId))?.revision !== expectedRevision) {
+        throw sopStateError("SOP_REVISION_CONFLICT", "The SOP changed during preparation.");
+      }
+      return this.replaceUnlocked(sessionId, bundle, state);
+    });
+  }
+
+  async authority(sessionId: string, expectedRevision: number) {
+    return this.withSessionLock(sessionId, async () => {
+      const current = await this.read(sessionId);
+      if (!current) throw sopStateError("SOP_AUTHORITY_STATE_MISSING", "No admitted SOP state exists.");
+      if (current.revision !== expectedRevision) throw sopStateError("SOP_REVISION_CONFLICT", "The SOP authority is stale.");
+      if (current.wait || current.state.status !== "active") throw sopStateError("SOP_AUTHORITY_STATE_INACTIVE", "The SOP is not executing.");
+      const id = current.state.active_skill_id ?? current.state.selected_skill_id;
+      const matches = current.bundle.sops.filter(sop => (sop.skill_id ?? sop.id) === id);
+      const sop = matches.length === 1 ? matches[0] : undefined;
+      if (!sop || typeof sop.version !== "string" || !isRecord(sop.content)
+        || typeof current.state.active_step_id !== "string") throw sopStateError("SOP_AUTHORITY_PIN_INVALID", "The exact SOP pin is unavailable.");
+      return { sopId: id as string, sopVersion: sop.version,
+        nodeId: current.state.active_step_id, content: structuredClone(sop.content) };
+    });
   }
 
   async commitSubmission(

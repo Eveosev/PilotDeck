@@ -27,6 +27,7 @@ export const PUBLIC_HOST_WIRE_OPERATIONS = Object.freeze([
   'list_general_skills', 'import_general_skill', 'publish_general_skill', 'archive_general_skill', 'test_general_skill',
   'list_model_catalog', 'extract_sop_text', 'model_prepare', 'model_stream', 'file_parse',
   'task_start', 'task_status', 'task_result', 'task_cancel', 'task_events',
+  'read_sop_authority',
 ]);
 
 export const PUBLIC_HOST_WIRE_HEADERS = Object.freeze([

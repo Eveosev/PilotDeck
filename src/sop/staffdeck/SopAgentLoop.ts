@@ -25,6 +25,8 @@ import { StaffDeckSopClient, StaffDeckSopClientError } from "./StaffDeckSopClien
 import { StaffDeckSopDiscoveryClient } from "./StaffDeckSopDiscoveryClient.js";
 import { loadStaffDeckSopDefinitions } from "./StaffDeckSopDefinitions.js";
 import { SopStateStore } from "./SopStateStore.js";
+import { OPTIONAL_KNOWLEDGE_SCHEMA, authorityError, validateOptionalKnowledgeInput,
+  validateSopAuthorityProjection, withKnowledgeAuthority, type SopCapabilityAuthorityPort } from "../../composition/sopCapabilityAuthority.js";
 import type {
   StaffDeckSopBundle,
   StaffDeckSopPrepareResponse,
@@ -48,6 +50,7 @@ type SopAgentLoopOptions = Readonly<{
   bundle: StaffDeckSopBundle;
   client?: StaffDeckSopRuntimeClient;
   stateStore?: SopStateStore;
+  authorityPort?: SopCapabilityAuthorityPort;
   /** Optional externally deployed loop. SOP remains a host-side decorator. */
   runnerFactory?: AgentLoopRuntimeFactory;
   sidecarModules?: SidecarModuleComposition;
@@ -110,6 +113,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       delegate: capabilities.toolExecution,
       client: this.client,
       stateStore: this.stateStore,
+      authorityPort: options.authorityPort,
       bundle: options.bundle,
       defaultSopId: options.profile.defaultSopId,
       selectedSopId: (sessionId) => this.selectedSops.get(sessionId),
@@ -328,11 +332,30 @@ export class SopAgentLoop implements AgentLoopRunner {
     });
     // The owner exposes a knowledge_query node without mapping its domain
     // binding to the PilotDeck tool name. Keep that host mapping here.
-    const prepared = ownerPrepared.step.node.type === "knowledge_query"
+    let prepared = ownerPrepared.step.node.type === "knowledge_query"
       ? { ...ownerPrepared, step: { ...ownerPrepared.step,
           requiredToolNames: [...new Set([...ownerPrepared.step.requiredToolNames, "knowledge_query"])] } }
       : ownerPrepared;
-    await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state);
+    // Portable output supplies no authority, even if it contains additional fields.
+    const { optionalKnowledge: _untrusted, optionalKnowledgeUnavailable: _reason, ...ownerStep } = prepared.step;
+    prepared = { ...prepared, step: ownerStep };
+    const saved = await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state, persisted.revision);
+    if (this.options.authorityPort && prepared.step.node.type === "response"
+      && capabilities.toolExecution.list().some(tool => tool.name === "knowledge_query")) {
+      const context = { sessionKey: input.sessionId, projectKey: input.cwd,
+        expectedRevision: saved.revision, requestId: `sop.authority:${input.sessionId}:${input.turnId}:${saved.revision}` };
+      try {
+        const projection = validateSopAuthorityProjection(await this.options.authorityPort.resolve(context, input.abortSignal), context);
+        if (projection.sopId !== prepared.step.skillId || projection.sopVersion !== prepared.step.version
+          || projection.nodeId !== prepared.step.nodeId) throw authorityError("SOP_AUTHORITY_PIN_MISMATCH");
+        await this.stateStore.authority(input.sessionId, saved.revision);
+        if (projection.optionalCapabilities.length > 0) prepared = { ...prepared, step: { ...prepared.step, optionalKnowledge: projection } };
+      } catch (error) {
+        if (input.abortSignal?.aborted || (error as { code?: string }).code === "SOP_REVISION_CONFLICT") throw error;
+        prepared = { ...prepared, step: { ...prepared.step, optionalKnowledgeUnavailable:
+          (error as { code?: string }).code ?? "SOP_AUTHORITY_UNAVAILABLE" } };
+      }
+    }
     this.preparedSteps.set(input.sessionId, prepared.step);
     const modelContext = await this.stateStore.modelContext(input.sessionId);
     return capabilities.contextPreparation.prepareForModel({
@@ -382,6 +405,7 @@ export function createStaffDeckSopAgentLoop(
   input: AgentLoopRuntimeFactoryInput,
   profile: SopRuntimeConfig,
   runnerFactory?: AgentLoopRuntimeFactory,
+  authorityPort?: SopCapabilityAuthorityPort,
 ): SopAgentLoop {
   const bundle = loadStaffDeckSopDefinitions(profile.definitionsPath);
   if (!bundle.sops.some((definition) => sopId(definition) === profile.defaultSopId)) {
@@ -390,6 +414,7 @@ export function createStaffDeckSopAgentLoop(
   return new SopAgentLoop(input.config, input.capabilities, input.seedState, {
     profile,
     bundle,
+    ...(authorityPort ? { authorityPort } : {}),
     ...(runnerFactory ? { runnerFactory } : {}),
     ...(input.sidecarModules ? { sidecarModules: input.sidecarModules } : {}),
     ...(input.sidecarTransportContext ? { sidecarTransportContext: input.sidecarTransportContext } : {}),
@@ -439,6 +464,7 @@ type SopControlToolPortOptions = Readonly<{
   delegate: ToolPort;
   client: StaffDeckSopRuntimeClient;
   stateStore: SopStateStore;
+  authorityPort?: SopCapabilityAuthorityPort;
   bundle: StaffDeckSopBundle;
   defaultSopId: string;
   selectedSopId(sessionId: string): string | undefined;
@@ -461,7 +487,8 @@ class SopControlToolPort implements ToolPort {
     if (!this.options.selectedSopForTools()) return tools;
     const step = this.options.currentStepForTools();
     return step && step.requiredToolNames.length === 0
-      ? [submitSopStepResultTool()]
+      ? [...(step.optionalKnowledge ? tools.filter(tool => tool.name === "knowledge_query")
+          .map(tool => ({ ...tool, inputSchema: OPTIONAL_KNOWLEDGE_SCHEMA })) : []), submitSopStepResultTool()]
       : [...tools, submitSopStepResultTool()];
   }
 
@@ -472,9 +499,31 @@ class SopControlToolPort implements ToolPort {
   ): Promise<PilotDeckToolResult[]> {
     const controls = calls.filter((call) => call.name === SUBMIT_SOP_STEP_RESULT_TOOL);
     const ordinary = calls.filter((call) => call.name !== SUBMIT_SOP_STEP_RESULT_TOOL);
-    const ordinaryResults = ordinary.length > 0
-      ? await this.options.delegate.executeAll(ordinary, context, execution)
-      : [];
+    const step = this.options.currentStep(execution.sessionId);
+    let ordinaryResults: PilotDeckToolResult[] = [];
+    if (ordinary.length > 0 && this.options.selectedSopId(execution.sessionId) && (!step || step.requiredToolNames.length === 0)) {
+      for (const call of ordinary) {
+        try {
+          const projection = step?.optionalKnowledge;
+          if (call.name !== "knowledge_query" || !projection || !this.options.authorityPort) throw authorityError("SOP_AUTHORITY_TOOL_UNAVAILABLE");
+          validateOptionalKnowledgeInput(call.input);
+          await this.options.stateStore.authority(execution.sessionId, projection.context.expectedRevision);
+          const fresh = validateSopAuthorityProjection(await this.options.authorityPort.resolve(projection.context, execution.abortSignal), projection.context);
+          if (fresh.snapshotId !== projection.snapshotId || fresh.sopId !== projection.sopId
+            || fresh.sopVersion !== projection.sopVersion || fresh.nodeId !== projection.nodeId
+            || fresh.registryGeneration !== projection.registryGeneration || fresh.optionalCapabilities.length === 0) throw authorityError("SOP_AUTHORITY_STALE");
+          await this.options.stateStore.authority(execution.sessionId, projection.context.expectedRevision);
+          const results = await withKnowledgeAuthority({ ...projection.context, snapshotId: projection.snapshotId,
+            registryGeneration: projection.registryGeneration }, () => this.options.delegate.executeAll([call], context, execution));
+          ordinaryResults.push(...results);
+        } catch (error) {
+          const code = (error as { code?: string }).code ?? "SOP_AUTHORITY_UNAVAILABLE";
+          ordinaryResults.push({ ...controlError(call, code), toolName: call.name });
+        }
+      }
+    } else if (ordinary.length > 0) {
+      ordinaryResults = await this.options.delegate.executeAll(ordinary, context, execution);
+    }
     const resultByCallId = new Map(ordinaryResults.map((result) => [result.toolCallId, result]));
 
     const selectedSopId = this.options.selectedSopId(execution.sessionId);
@@ -761,10 +810,8 @@ function controlError(
 
 function sopToolChoice(step: StaffDeckSopPrepareResponse["step"] | undefined) {
   if (!step) return {};
-  // Collection, approval and final response nodes have only a lifecycle
-  // submission to perform. Require that named function rather than leaving
-  // unrelated optional tools eligible to satisfy the protocol boundary.
-  return { toolChoice: step.node.type === "knowledge_query" || step.requiredToolNames.length > 0
+  // Only the owner-attested response Knowledge Port extends lifecycle-only nodes.
+  return { toolChoice: step.node.type === "knowledge_query" || step.requiredToolNames.length > 0 || step.optionalKnowledge
     ? "required" as const : { type: "tool" as const, name: SUBMIT_SOP_STEP_RESULT_TOOL } };
 }
 
@@ -775,7 +822,8 @@ function sopModelTools<T extends { name: string }>(
   return {
     ...sopToolChoice(step),
     ...(step && step.requiredToolNames.length === 0 && tools
-      ? { tools: tools.filter((tool) => tool.name === SUBMIT_SOP_STEP_RESULT_TOOL) }
+      ? { tools: tools.filter((tool) => tool.name === SUBMIT_SOP_STEP_RESULT_TOOL
+        || (step.optionalKnowledge && tool.name === "knowledge_query")) }
       : {}),
   };
 }

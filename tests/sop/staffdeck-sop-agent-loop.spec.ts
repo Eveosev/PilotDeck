@@ -18,6 +18,7 @@ import type { AgentTranscriptWriter } from "../../src/session/transcript/Transcr
 import { SopAgentLoop } from "../../src/sop/staffdeck/SopAgentLoop.js";
 import { StaffDeckSopClientError } from "../../src/sop/staffdeck/StaffDeckSopClient.js";
 import { SopStateStore } from "../../src/sop/staffdeck/SopStateStore.js";
+import { currentKnowledgeAuthority, type SopCapabilityAuthorityPort } from "../../src/composition/sopCapabilityAuthority.js";
 import type { ModelInvokerPort, ToolPort } from "../../src/agent/modules/protocol.js";
 import type { CanonicalModelEvent } from "../../src/model/index.js";
 import type { PilotDeckToolDefinition, PilotDeckToolResult } from "../../src/tool/index.js";
@@ -1551,6 +1552,8 @@ function createSopSession(input: {
   tools?: ToolPort;
   context?: import("../../src/context/ContextRuntime.js").AgentContextRuntime;
   transcript?: AgentTranscriptWriter;
+  authorityPort?: SopCapabilityAuthorityPort;
+  bundle?: StaffDeckSopBundle;
 }) {
   const profile: StaffDeckSopRuntimeConfig = {
     provider: "staffdeck",
@@ -1579,10 +1582,99 @@ function createSopSession(input: {
     transcript: input.transcript,
     agentLoopFactory: (factoryInput) => new SopAgentLoop(factoryInput.config, factoryInput.capabilities, factoryInput.seedState, {
       profile,
-      bundle: BUNDLE,
+      bundle: input.bundle ?? BUNDLE,
       client: input.client,
       stateStore: new SopStateStore(join(input.root, "sessions")),
+      authorityPort: input.authorityPort,
     }),
+  });
+}
+
+test("overlapping owner prepare cannot overwrite the concurrently saved SOP state", async () => {
+  const root = mkdtempSync(join(tmpdir(), "r150-prepare-race-"));
+  console.log(`prepare-race-evidence=${root}`);
+  const store = new SopStateStore(join(root, "sessions"));
+  const base = acceptingClient();
+  let models = 0;
+  const client = { ...base, prepare: async (input: Parameters<StaffDeckSopRuntimeClient["prepare"]>[0]) => {
+    const current = (await store.status("race-session"))!;
+    await store.replace("race-session", BUNDLE, { ...current.state, active_step_id: "concurrently-resumed" }, current.revision);
+    return base.prepare(input);
+  } };
+  const session = createSopSession({ root, sessionId: "race-session", client,
+    model: modelFromStream(async function* () { models++; yield* yieldText("must not execute"); }),
+    context: new DefaultContextRuntime() });
+  const events = await collectSessionTurn(session, "Start", "race-turn");
+  assert.equal(models, 0);
+  assert.equal((await store.status("race-session"))?.state.active_step_id, "concurrently-resumed");
+  assert.ok(events.some(event => event.type === "turn_failed"));
+  await session.dispose();
+});
+
+for (const mode of ["allow", "revoke", "stale", "empty", "invalid", "hidden", "untrusted"] as const) {
+  test(`response optional Knowledge uses one authorized view across model/list/preflight: ${mode}`, async () => {
+    const root = mkdtempSync(join(tmpdir(), "r150-optional-response-"));
+    console.log(`optional-response-evidence=${root}`);
+    const store = new SopStateStore(join(root, "sessions"));
+    const optionalBundle = { sops: [{ id: "onboarding", version: "1", content: { nodes: [{ node_id: "response", type: "response" }] } }] };
+    let resolves = 0, searches = 0, modelCalls = 0;
+    let revoked = false;
+    let receipts: readonly string[] | undefined;
+    const authorityPort: SopCapabilityAuthorityPort = { resolve: async context => {
+      resolves++;
+      assert.deepEqual(await store.authority(context.sessionKey, context.expectedRevision), {
+        sopId: "onboarding", sopVersion: "1", nodeId: "response", content: optionalBundle.sops[0].content,
+      });
+      return { context, sopId: "onboarding", sopVersion: "1", nodeId: "response", snapshotId: "snapshot",
+        registryGeneration: 1, optionalCapabilities: mode === "empty" || revoked ? [] : [
+          { operation: "knowledge.search/v1", resourceType: "knowledge_base", resourceId: "base",
+            required: false, providerModuleId: "knowledge.local", providerVersion: "1", selectionMode: "current" }] };
+    } };
+    const base = acceptingClient(names => { receipts = names; });
+    const client: StaffDeckSopRuntimeClient = { ...base, prepare: async input => {
+      const p = await base.prepare(input);
+      return { ...p, state: { ...p.state, active_step_id: "response" }, step: { ...p.step,
+        nodeId: "response", node: { type: "response" }, requiredToolNames: [], allowedActions: ["answer_user"],
+        ...(mode === "untrusted" ? { optionalKnowledge: { optionalCapabilities: [{ resourceId: "base" }] } as never } : {}) } };
+    } };
+    const query = { ...lookupTool(), name: "knowledge_query" };
+    const tools: ToolPort = { list: () => [lookupTool(), query], executeAll: async calls => {
+      searches++;
+      const hostContext = currentKnowledgeAuthority(); assert.ok(hostContext);
+      assert.equal(hostContext.expectedRevision, (await store.status("optional-session"))?.revision);
+      return toolPort(query).executeAll(calls, {} as never, {} as never);
+    } };
+    const model = modelFromStream(async function* (prepared) {
+      const request = (prepared as { request: { tools?: { name: string }[]; toolChoice: unknown } }).request;
+      modelCalls++;
+      assert.ok(!request.tools?.some(tool => tool.name === "lookup_account"));
+      if (modelCalls === 1) {
+        const hidden = mode === "empty" || mode === "untrusted";
+        assert.deepEqual(request.tools?.map(tool => tool.name), hidden ? ["submit_step_result"] : ["knowledge_query", "submit_step_result"]);
+        assert.deepEqual(request.toolChoice, hidden ? { type: "tool", name: "submit_step_result" } : "required");
+        if (mode === "stale") {
+          const p = (await store.status("optional-session"))!;
+          await store.replace("optional-session", optionalBundle, p.state, p.revision);
+        }
+        if (mode === "revoke") revoked = true;
+        yield* yieldToolCall("optional-query", mode === "hidden" ? "lookup_account" : "knowledge_query",
+          { query: "fact", ...(mode === "invalid" ? { actorUserId: "forged" } : {}) });
+      } else {
+        yield* yieldToolCall("optional-submit", "submit_step_result", { status: "completed", replyFragment: "Final answer", slotUpdates: {} });
+      }
+    });
+    const session = createSopSession({ root, sessionId: "optional-session", model, client, tools,
+      authorityPort: mode === "untrusted" ? undefined : authorityPort, bundle: optionalBundle, context: new DefaultContextRuntime() });
+    const events = await collectSessionTurn(session, "Answer with available evidence", "optional-turn");
+    if (receipts === undefined) console.log(JSON.stringify({ mode, events }));
+    assert.equal(searches, mode === "allow" ? 1 : 0);
+    assert.deepEqual(receipts, mode === "allow" ? ["knowledge_query"] : []);
+    const result = events.find(event => event.type === "tool_result" && event.result.toolCallId === "optional-query");
+    assert.ok(result && result.type === "tool_result");
+    assert.equal(result.result.type, mode === "allow" ? "success" : "error");
+    assert.equal((await store.status("optional-session"))?.state.status, "completed");
+    assert.equal(currentKnowledgeAuthority(), undefined);
+    await session.dispose();
   });
 }
 

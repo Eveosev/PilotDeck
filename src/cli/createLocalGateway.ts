@@ -134,6 +134,8 @@ import {
 } from "../extension/skills/index.js";
 import { createSkillManagementPort, isDisabledModuleBinding, isExternalModuleBinding } from "../composition/index.js";
 import { createRuntimeHostCapabilityProvider } from "../composition/publicHostRuntimeAdapter.js";
+import { createNativeSopAuthorityReader } from "../composition/nativeSopAuthority.js";
+import { createSopCapabilityAuthorityPort } from "../composition/sopCapabilityAuthority.js";
 import type { PublicHostCapabilityProvider } from "../composition/nativeHostCapabilityProvider.js";
 import { createPublicApprovalBridge, type PublicApprovalBridge, type PublicApprovalSessionResolver } from "../composition/publicApprovalBridge.js";
 import { getPilotDeckInstallCommand } from "../mcp/runtime/projectMcpSpec.js";
@@ -612,6 +614,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     deploymentProfile,
     { transportObserver: options.agentLoopTransportObserver },
   );
+  let registry!: ProjectRuntimeRegistry;
   const agentLoopFactory: AgentLoopRuntimeFactory = (input) => {
     const sop = input.config.staffDeckSop;
     const bindingFactory = createAgentLoopBindingFactory(input.config.agentLoopBinding, {
@@ -619,7 +622,13 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     });
     const selectedFactory = bindingFactory ?? configuredAgentLoopFactory;
     if (sop && input.config.isSubagent !== true) {
-      return createStaffDeckSopAgentLoop(input, sop, selectedFactory);
+      const knowledge = registry.resolve(input.config.cwd).snapshot.config.modules?.knowledge;
+      const authority = isExternalModuleBinding(knowledge) && knowledge.implementationId === "staffdeck.knowledge"
+        && knowledge.contract === "staffdeck.knowledge/v1" && knowledge.credentialEnv && knowledge.agentId
+        && knowledge.agentId === sop.discoveryAgentId && sop.discoveryEndpoint
+        && new URL(knowledge.endpoint).origin === new URL(sop.discoveryEndpoint).origin
+        ? createSopCapabilityAuthorityPort(knowledge) : undefined;
+      return createStaffDeckSopAgentLoop(input, sop, selectedFactory, authority);
     }
     return selectedFactory?.(input)
       ?? new AgentLoop(input.config, input.capabilities, input.seedState);
@@ -688,7 +697,6 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   bootResources.ownSubagentRuntime(subagentRuntime);
   const liveAgents = subagentRuntime.agents;
   const continuations: GatewaySubagentContinuations = subagentRuntime.continuations;
-  let registry!: ProjectRuntimeRegistry;
   let router: SessionRouter | undefined;
   const extensionWatchManager = new ExtensionWatchManager({
     pilotHome,
@@ -890,6 +898,31 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   const sopControl = new StaffDeckSopControlPlane(
     (requestedProjectKey) => registry.resolve(requestedProjectKey).snapshot.config.modules?.sop,
   );
+  const sessionAdmission = async (projectKey: string, sessionKey: string) => {
+    const storage = registry.createPersistentSessionStorage(projectKey, sessionKey);
+    try {
+      const { entries, diagnostics } = await storage.persistence.load();
+      if (diagnostics.length > 0) return undefined;
+      const original = readNativeSessionAdmission(entries, sessionKey);
+      if (!original) return undefined;
+      const sop = registry.resolve(projectKey).snapshot.config.modules?.sop;
+      const current = await authenticateNativeStaffDeckAdmission({ env, projectKey,
+        pilotDeckUserId: original.pilotDeckUserId, discoveryEndpoint: sop?.discoveryEndpoint,
+        discoveryAgentId: sop?.discoveryAgentId, discoveryApiKey: sop?.discoveryApiKey });
+      if (!current || current.actorUserId !== original.actorUserId || current.credentialId !== original.credentialId
+        || current.staffDeckOrigin !== original.staffDeckOrigin || current.tenantId !== original.tenantId
+        || current.agentId !== original.agentId || current.pilotDeckUserId !== original.pilotDeckUserId
+        || current.projectKey !== original.projectKey) return undefined;
+      return original;
+    } finally { await storage.dispose(); }
+  };
+  const readSopAuthority = createNativeSopAuthorityReader({
+    readOwner: () => readNativeInstallationOwner(env.DATABASE_PATH || joinPath(pilotHome, "auth.db")),
+    listProjects: dialog.projects.listProjectKeys,
+    listSessions: projectKey => sessionCatalog.list({ projectRoot: projectKey, pilotHome, includeInternal: true }),
+    sessionAdmission,
+    readState: input => sopControl.authority(input),
+  });
   let approvalAuthenticator: Promise<{ authenticate(input: { bearer: string; signal?: AbortSignal }): Promise<import("../composition/publicApprovalBridge.js").PublicApprovalSubject> }> | undefined;
   const publicApprovals = createPublicApprovalBridge({
     binding: { tenantId: env.STAFFDECK_COPY_TENANT_ID ?? "", agentId: env.STAFFDECK_COPY_TARGET_AGENT_ID ?? "",
@@ -908,22 +941,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       readOwner: () => readNativeInstallationOwner(env.DATABASE_PATH || joinPath(pilotHome, "auth.db")),
       listProjects: dialog.projects.listProjectKeys,
       listSessions: (projectKey) => sessionCatalog.list({ projectRoot: projectKey, pilotHome, includeInternal: true }),
-      sessionAdmission: async (projectKey, sessionKey) => {
-        const storage = registry.createPersistentSessionStorage(projectKey, sessionKey);
-        try {
-          const { entries, diagnostics } = await storage.persistence.load();
-          if (diagnostics.length > 0) return undefined;
-          const original = readNativeSessionAdmission(entries, sessionKey);
-          if (!original) return undefined;
-          const sop = registry.resolve(projectKey).snapshot.config.modules?.sop;
-          const current = await authenticateNativeStaffDeckAdmission({ env, projectKey,
-            pilotDeckUserId: original.pilotDeckUserId, discoveryEndpoint: sop?.discoveryEndpoint,
-            discoveryAgentId: sop?.discoveryAgentId, discoveryApiKey: sop?.discoveryApiKey });
-          if (!current || current.actorUserId !== original.actorUserId || current.credentialId !== original.credentialId
-            || current.staffDeckOrigin !== original.staffDeckOrigin) return undefined;
-          return original;
-        } finally { await storage.dispose(); }
-      },
+      sessionAdmission,
     }),
     status: (input) => sopControl.status(input),
     resume: (input) => sopControl.resume(input),
@@ -1442,6 +1460,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
           })) };
         }, prepare: modelPorts.prepare, stream: modelPorts.stream },
         file: { parse: textParse },
+        sopAuthority: { read: readSopAuthority },
         skills: isDisabledModuleBinding(runtime.snapshot.config.modules?.skills) ? {} : { list: async () => {
           const result = await skillManager.list({ projectKey: runtime.projectRoot });
           return { ...result, items: result.items.map(item => ({ ...item, id: item.slug })) };

@@ -36,6 +36,7 @@ export type PublicRuntimePortSelection = {
     test?: PortMethod;
   };
   file?: { parse?: PortMethod };
+  sopAuthority?: { read?: PortMethod };
   task?: {
     start?: PortMethod;
     status?: PortMethod;
@@ -57,6 +58,7 @@ const METHOD_PORTS = {
   list_model_catalog: ["model", "catalog"], model_prepare: ["model", "prepare"], model_stream: ["model", "stream"],
   file_parse: ["file", "parse"], task_start: ["task", "start"], task_status: ["task", "status"],
   task_result: ["task", "result"], task_cancel: ["task", "cancel"], task_events: ["task", "events"],
+  read_sop_authority: ["sopAuthority", "read"],
 } as const;
 
 function unavailable(operation: string, port: string): PublicCapabilityResponse {
@@ -99,6 +101,8 @@ export function createRuntimeHostCapabilityProvider(selection: PublicRuntimePort
     if (!input) return invalid("input must be an object.");
     try {
       switch (operation) {
+        case "read_sop_authority":
+          return { status: 200, body: await method(input, options.principal) };
         case "list_tools": {
           const result = await method({ profileId: selection.profile.id, principal: options.principal, signal: options.signal });
           return { status: 200, body: { data: result.data ?? result.items ?? result } };

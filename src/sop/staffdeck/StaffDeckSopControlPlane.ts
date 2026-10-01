@@ -27,6 +27,10 @@ export class StaffDeckSopControlPlane {
     return this.store(input.projectKey).status(input.sessionKey);
   }
 
+  async authority(input: StaffDeckSopControlInput & { expectedRevision: number }) {
+    return this.store(input.projectKey).authority(input.sessionKey, input.expectedRevision);
+  }
+
   async resume(input: StaffDeckSopControlResumeInput): Promise<StaffDeckSopResumeResult> {
     return this.store(input.projectKey).resume({
       sessionId: input.sessionKey,
