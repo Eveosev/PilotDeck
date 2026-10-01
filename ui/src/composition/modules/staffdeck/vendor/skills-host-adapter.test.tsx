@@ -7,6 +7,16 @@ const draft = (id: string, updated: string) => ({ id, sop_id: 'sop', draft_versi
 afterEach(() => vi.restoreAllMocks());
 
 describe('PilotDeck SOP editor lifecycle', () => {
+  it('uses the selected publication as first-edit base independently of editable content version', async () => {
+    const call = vi.spyOn(staffDeckSopManagementClient, 'call')
+      .mockResolvedValueOnce({ id: 'published', version: '2.3.4', status: 'published', content: { ...content, version: '2.3.4' } })
+      .mockResolvedValueOnce({ ...draft('first-edit', ''), draft_version: '2.3.5' });
+    const host = createPilotDeckDistillPageHost();
+    await host.api.get('/api/enterprise/skills/sop?published_version=2.3.4');
+    await host.api.put('/api/enterprise/skills/sop', { name: 'Reviewed', version: '99.0.0' });
+    expect(call.mock.calls[1][1]).toMatchObject({ sopId: 'sop', baseVersion: '2.3.4', content: { version: '99.0.0', name: 'Reviewed' } });
+    expect(call.mock.calls.map(([operation]) => operation)).toEqual(['get_version', 'create']);
+  });
   it('projects the first create and replaces that same draft with its original ETag', async () => {
     const created = draft('new-draft', '2026-09-27T01:00:00Z');
     const call = vi.spyOn(staffDeckSopManagementClient, 'call').mockResolvedValue(created);

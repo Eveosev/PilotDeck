@@ -294,7 +294,7 @@ async function callDistillApi<T>(snapshots: Map<string, any>, path: string, meth
     }
     // A published management row may not have a draft yet. Create it with
     // the same owner; lack of management must remain an explicit failure.
-    const saved = await management('create', { sopId: skillId, content }, options);
+    const saved = await management('create', { sopId: skillId, content, baseVersion: current.version }, options);
     const next = selectedDraft(saved, skillId);
     snapshots.set(skillId, structuredClone(next));
     return next as T;

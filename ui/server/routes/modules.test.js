@@ -309,10 +309,14 @@ describe('module runtime route', () => {
       res.setHeader('ETag', 'etag-next');
       return res.json({ id: 'draft-1' });
     });
+    managementApp.post('/api/v1/agents/agent-1/sops', (req, res) => {
+      received.push({ createBody: req.body });
+      return res.status(201).json({ id: 'first-draft' });
+    });
     const managementServer = http.createServer(managementApp);
     await new Promise(resolve => managementServer.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${managementServer.address().port}`;
-    const config = { webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin, tenantId: 'tenant-1', actorUserId: 'actor-1', targetAgentId: 'agent-1', pilotDeckUserId: '1', userTokenEnv: 'TEST_COPY_LOGIN_TOKEN' } }, modules: { sop: { enabled: true, management: { enabled: true, endpoint: `${origin}/api/v1`, apiKeyEnv: 'TEST_SOP_ACCOUNT_KEY', credentialId: 'credential-1', agentId: 'agent-1', methods: ['list', 'replace_draft'] } } } };
+    const config = { webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin, tenantId: 'tenant-1', actorUserId: 'actor-1', targetAgentId: 'agent-1', pilotDeckUserId: '1', userTokenEnv: 'TEST_COPY_LOGIN_TOKEN' } }, modules: { sop: { enabled: true, management: { enabled: true, endpoint: `${origin}/api/v1`, apiKeyEnv: 'TEST_SOP_ACCOUNT_KEY', credentialId: 'credential-1', agentId: 'agent-1', methods: ['list', 'replace_draft', 'create'] } } } };
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => { req.user = { id: state.pilotUserId }; next(); });
@@ -327,6 +331,8 @@ describe('module runtime route', () => {
       expect(saved.status).toBe(200);
       expect(await saved.json()).toEqual({ result: { id: 'draft-1', etag: 'etag-next' } });
       expect(received.at(-1)).toEqual({ etag: 'etag-current', body: { content: { skill_id: 'review' } } });
+      expect((await call('create', { sopId: 'review', baseVersion: '2.3.4', content: { skill_id: 'review', version: '99.0.0' } })).status).toBe(201);
+      expect(received.at(-1)).toMatchObject({ createBody: { base_version: '2.3.4', content: { version: '99.0.0' } } });
       expect((await call('publish')).status).toBe(409);
 
       config.webui.staffdeckCopy.enabled = false;

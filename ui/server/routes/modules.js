@@ -618,6 +618,10 @@ async function callSopManagement(management, operation, value, signal) {
         throw managementError(400, 'SOP_ID_MISMATCH', 'SOP content must match the selected SOP.');
       }
       body = { content: staffDeckCreateContent(input) };
+      if (input.baseVersion !== undefined) {
+        required(text(input.baseVersion), 'baseVersion');
+        body.base_version = text(input.baseVersion);
+      }
       break;
     case 'get_draft':
       required(sopId, 'sopId'); required(draftId, 'draftId'); target = `agents/${path(management.agentId)}/sops/${path(sopId)}/drafts/${path(draftId)}`; break;
