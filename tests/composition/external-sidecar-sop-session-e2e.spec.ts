@@ -12,6 +12,7 @@ import {
 import { createSidecarExecution } from "../../src/cli/pilotdeck-agent-loop-default-factory.js";
 import { createLocalGateway } from "../../src/cli/createLocalGateway.js";
 import { createKnowledgeModulePort } from "../../src/composition/domainPorts.js";
+import { createFormalApprovalFixture } from "./formal-approval-fixture.js";
 
 const KNOWLEDGE_METHODS = [
   "list_bases",
@@ -136,14 +137,18 @@ test("YAML-composed external AgentLoop runs SOP with external core modules", asy
   });
 
   await mkdir(projectRoot, { recursive: true });
+  const approval = await createFormalApprovalFixture({ root, projectRoot });
+  t.after(() => approval.close());
   await writeFile(join(projectRoot, "approval.yaml"), `
 sops:
   - id: approval
+    version: "1"
     name: Approval
     content:
       start_node_id: only
       nodes:
         - node_id: only
+          assignee_user_id: ${approval.assigneeUserId}
           instruction: Read the approval guide and knowledge record.
           allowed_actions:
             - call_tool:remote_lookup
@@ -234,7 +239,9 @@ modules:
     manifestPath: /manifest/sop
     definitionsPath: approval.yaml
     defaultSopId: approval
+${approval.discoveryYaml}
 `, "utf8");
+  await approval.publishDefinition();
 
   const knowledge = createKnowledgeModulePort({
     enabled: true,
@@ -257,12 +264,16 @@ modules:
   }
 
   const local = createLocalGateway({
+    env: approval.env,
+    __testModelFactory: () => approval.routingModel(),
     projectRoot,
     pilotHome: projectRoot,
     fallbackProjectRoot: projectRoot,
     permissionMode: "bypassPermissions",
   });
   t.after(() => local.dispose());
+  approval.attach(local);
+  await approval.checkDiscovery();
 
   const events: unknown[] = [];
   for await (const event of local.gateway.submitTurn({
@@ -313,14 +324,17 @@ modules:
   assert.match(JSON.stringify(waitingEvents), /External sidecar waiting for approval/);
   assert.equal(waitSubmitted, true);
   const waiting = await local.gateway.sopStatus!({
+    ...approval.approver,
     sessionKey: "external-sidecar-wait",
     projectKey: projectRoot,
   });
   assert.equal(waiting?.state.status, "handoff", JSON.stringify(waiting));
   assert.equal(waiting?.wait?.kind, "handoff", JSON.stringify(waiting));
+  await approval.assertOtherSubjectDenied(local, "external-sidecar-wait", waiting!);
 
   await restartSidecar();
   const resumed = await local.gateway.resumeSop!({
+    ...approval.approver,
     sessionKey: "external-sidecar-wait",
     projectKey: projectRoot,
     requestId: "external-sidecar-resume-1",
@@ -331,12 +345,15 @@ modules:
     slotUpdates: { approved: true },
   });
   const duplicateResume = await local.gateway.resumeSop!({
+    ...approval.approver,
     sessionKey: "external-sidecar-wait",
     projectKey: projectRoot,
     requestId: "external-sidecar-resume-1",
     waitId: waiting!.wait!.id,
     source: "human",
     message: "Human approved the external request.",
+    expectedRevision: waiting!.revision,
+    slotUpdates: { approved: true },
   });
   assert.equal(resumed.duplicate, false, JSON.stringify(resumed));
   assert.equal(duplicateResume.duplicate, true, JSON.stringify(duplicateResume));
@@ -351,6 +368,7 @@ modules:
   })) resumedEvents.push(event);
   assert.match(JSON.stringify(resumedEvents), /External sidecar resumed and completed/);
   const resumedState = await local.gateway.sopStatus!({
+    ...approval.approver,
     sessionKey: "external-sidecar-wait",
     projectKey: projectRoot,
   });
@@ -369,6 +387,7 @@ modules:
   })();
   await knowledgeFaultReached;
   const rpcStateBefore = await local.gateway.sopStatus!({
+    ...approval.approver,
     sessionKey: "external-sidecar-rpc-failure",
     projectKey: projectRoot,
   });
@@ -386,6 +405,7 @@ modules:
   await rpcFailureTurn;
 
   const rpcStateAfter = await local.gateway.sopStatus!({
+    ...approval.approver,
     sessionKey: "external-sidecar-rpc-failure",
     projectKey: projectRoot,
   });
@@ -431,6 +451,8 @@ modules:
     "utf8",
   )) as { state?: { status?: string } };
   assert.equal(state.state?.status, "completed");
+  assert.ok(approval.routingRequests.length > 0, "Formal discovery must call the bound PD model Port");
+  await approval.assertRevokedAdmissionDenied(local, "external-sidecar-wait", waiting!);
 });
 
 test("SOP-only profile enters a live handoff without Skill or Knowledge fallback", async (t) => {
@@ -461,14 +483,18 @@ test("SOP-only profile enters a live handoff without Skill or Knowledge fallback
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(projectRoot, { recursive: true });
+  const approval = await createFormalApprovalFixture({ root, projectRoot });
+  t.after(() => approval.close());
   await writeFile(join(projectRoot, "approval.yaml"), `
 sops:
   - id: approval
+    version: "1"
     name: Approval
     content:
       start_node_id: only
       nodes:
         - node_id: only
+          assignee_user_id: ${approval.assigneeUserId}
           instruction: Request a human approval.
           allowed_actions: []
 `, "utf8");
@@ -505,10 +531,14 @@ modules:
     manifestPath: /manifest/sop
     definitionsPath: approval.yaml
     defaultSopId: approval
+${approval.discoveryYaml}
 `, "utf8");
+  await approval.publishDefinition();
 
-  const local = createLocalGateway({ projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot, permissionMode: "bypassPermissions" });
+  const local = createLocalGateway({ env: approval.env, __testModelFactory: () => approval.routingModel(), projectRoot, pilotHome: projectRoot, fallbackProjectRoot: projectRoot, permissionMode: "bypassPermissions" });
   t.after(() => local.dispose());
+  approval.attach(local);
+  await approval.checkDiscovery();
   const events: unknown[] = [];
   for await (const event of local.gateway.submitTurn({
     sessionKey: "sop-only-session",
@@ -525,8 +555,10 @@ modules:
   assert.ok(moduleCalls.includes("modelProvider:stream"), evidence);
   assert.equal(moduleCalls.some((call) => call.startsWith("skills:") || call.startsWith("knowledge:")), false, evidence);
   assert.match(evidence, /SOP-only profile waiting for approval/);
-  const state = await local.gateway.sopStatus!({ sessionKey: "sop-only-session", projectKey: projectRoot });
+  const state = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop-only-session", projectKey: projectRoot });
   assert.equal(state?.state.status, "handoff", JSON.stringify(state));
+  await approval.assertOtherSubjectDenied(local, "sop-only-session", state!);
+  await approval.assertRevokedAdmissionDenied(local, "sop-only-session", state!);
 });
 
 test("Gateway rejects an SOP-required Tool that the selected profile does not bind", async (t) => {

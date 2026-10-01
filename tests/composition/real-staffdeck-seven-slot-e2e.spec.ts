@@ -19,6 +19,7 @@ import { createModelRuntime, type CanonicalModelEvent, type CanonicalModelReques
 import { DEFAULT_MODEL_CAPABILITIES } from "../../src/model/protocol/capabilities.js";
 import { loadPilotConfig } from "../../src/pilot/config/loadPilotConfig.js";
 import { createAgentProjectSessionStorage, readTranscript } from "../../src/session/index.js";
+import { createFormalApprovalFixture, type FormalApprovalFixture } from "./formal-approval-fixture.js";
 
 const STAFFDECK_ROOT = process.env.STAFFDECK_SOP_ROOT ?? "/Users/a1/Desktop/claw/openbmb/StaffDeck-portable-sop";
 const PYTHON = process.env.STAFFDECK_PYTHON ?? join(STAFFDECK_ROOT, "backend/.venv/bin/python");
@@ -106,6 +107,8 @@ test("seven-slot YAML composition uses real StaffDeck Knowledge and SOP processe
   const root = await mkdtemp(join(tmpdir(), "pilotdeck-real-staffdeck-seven-slot-"));
   const projectRoot = join(root, "project");
   const database = join(root, "knowledge.sqlite");
+  const approval = await createFormalApprovalFixture({ root, projectRoot, staffDeckRoot: STAFFDECK_ROOT, python: PYTHON });
+  t.after(() => approval.close());
   const moduleCalls: string[] = [];
   const knowledgeQueries: Record<string, unknown>[] = [];
   let phase: "initial" | "waiting" | "resumed" = "initial";
@@ -199,6 +202,7 @@ sops:
       nodes:
         - node_id: approval
           type: handoff
+          assignee_user_id: ${approval.assigneeUserId}
           instruction: Check the approval policy and wait for an operator decision.
           allowed_actions:
             - call_tool:remote_lookup
@@ -206,6 +210,7 @@ sops:
       terminal_node_ids: [approval]
 `, "utf8");
   await writeFile(join(projectRoot, "pilotdeck.yaml"), sevenSlotConfig({
+    approval,
     moduleEndpoint,
     knowledgeEndpoint: knowledgeProxy.url,
     sopEndpoint: sop.url,
@@ -213,6 +218,7 @@ sops:
     sidecarPort: sidecar.address.port,
     definitionsPath: join(projectRoot, "approval.yaml"),
   }), "utf8");
+  await approval.publishDefinition();
 
   const knowledgePort = createKnowledgeModulePort({
     enabled: true,
@@ -253,11 +259,15 @@ sops:
   // closure after the owner has created the durable resource.
   moduleOptions.baseId = baseId;
   const local = createLocalGateway({
+    env: approval.env,
+    __testModelFactory: () => approval.routingModel(realModel?.runtime, Boolean(realModel)),
     projectRoot,
     pilotHome: projectRoot,
     fallbackProjectRoot: projectRoot,
     permissionMode: "bypassPermissions",
   });
+  approval.attach(local);
+  await approval.checkDiscovery();
   try {
     const events: unknown[] = [];
     for await (const event of local.gateway.submitTurn({
@@ -268,16 +278,19 @@ sops:
       mode: "bypassPermissions",
     })) events.push(event);
     phase = "waiting";
-    const waiting = await local.gateway.sopStatus!({ sessionKey: "real-seven-slot", projectKey: projectRoot });
+    const waiting = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "real-seven-slot", projectKey: projectRoot });
     assert.equal(waiting?.state.status, "handoff", JSON.stringify({ events, waiting }));
+    await approval.assertOtherSubjectDenied(local, "real-seven-slot", waiting!);
     await assert.rejects(
       () => local.gateway.resumeSop!({
+        ...approval.approver,
         sessionKey: "real-seven-slot-other-session",
         projectKey: projectRoot,
         requestId: "stale-cross-session-resume",
         waitId: waiting!.wait!.id,
         source: "human",
         message: "Stale approval must not cross session boundaries.",
+        expectedRevision: waiting!.revision,
       }),
     );
     assert.ok(moduleCalls.includes("skills:list"), JSON.stringify(moduleCalls));
@@ -321,7 +334,7 @@ sops:
         needEvidencePack: true,
       }),
     );
-    const waitDuringKnowledgeOutage = await local.gateway.sopStatus!({ sessionKey: "real-seven-slot", projectKey: projectRoot });
+    const waitDuringKnowledgeOutage = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "real-seven-slot", projectKey: projectRoot });
     assert.equal(waitDuringKnowledgeOutage?.state.status, "handoff");
     await knowledge.restart();
     const recoveredQuery = await knowledgePort.call("query", {
@@ -341,6 +354,7 @@ sops:
 
     await restartSidecar();
     const resumed = await local.gateway.resumeSop!({
+      ...approval.approver,
       sessionKey: "real-seven-slot",
       projectKey: projectRoot,
       requestId: "real-seven-slot-resume-1",
@@ -352,6 +366,7 @@ sops:
     });
     assert.equal(resumed.duplicate, false, JSON.stringify(resumed));
     const duplicate = await local.gateway.resumeSop!({
+      ...approval.approver,
       sessionKey: "real-seven-slot",
       projectKey: projectRoot,
       requestId: "real-seven-slot-resume-1",
@@ -371,7 +386,7 @@ sops:
       message: resumed.message,
       mode: "bypassPermissions",
     })) completedEvents.push(event);
-    const completed = await local.gateway.sopStatus!({ sessionKey: "real-seven-slot", projectKey: projectRoot });
+    const completed = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "real-seven-slot", projectKey: projectRoot });
     assert.equal(completed?.state.status, "completed", JSON.stringify({ completedEvents, completed }));
     assert.ok(moduleCalls.includes("context:apply_tool_results"), JSON.stringify(moduleCalls));
     const manual: unknown[] = [];
@@ -453,6 +468,7 @@ sops:
       needEvidencePack: true,
     });
     assert.ok(Array.isArray((deletedQuery as { evidence_pack?: unknown }).evidence_pack));
+    await approval.assertRevokedAdmissionDenied(local, "real-seven-slot", waiting!);
   } finally {
     await local.dispose();
   }
@@ -462,6 +478,8 @@ test("native PilotDeck owners compose real StaffDeck Knowledge and SOP through G
   const root = await mkdtemp(join(tmpdir(), "pilotdeck-native-owner-seven-slot-"));
   const projectRoot = join(root, "project");
   const database = join(root, "knowledge.sqlite");
+  const approval = await createFormalApprovalFixture({ root, projectRoot, staffDeckRoot: STAFFDECK_ROOT, python: PYTHON });
+  t.after(() => approval.close());
   const knowledgeQueries: Record<string, unknown>[] = [];
   const automaticCompactionTriggers: CompactionAutomaticTriggerObservation[] = [];
   const model = new NativeOwnerScenarioModel();
@@ -527,6 +545,7 @@ test("native PilotDeck owners compose real StaffDeck Knowledge and SOP through G
       nodes: [{
         node_id: "approval",
         type: "handoff",
+        assignee_user_id: approval.assigneeUserId,
         instruction: "Read the approval file and policy before requesting approval.",
         allowed_actions: ["call_tool:read_file", "call_tool:knowledge_query"],
       }],
@@ -544,6 +563,7 @@ sops:
       nodes:
         - node_id: approval
           type: handoff
+          assignee_user_id: ${approval.assigneeUserId}
           instruction: Read the approval file and policy before requesting approval.
           allowed_actions:
             - call_tool:read_file
@@ -551,6 +571,7 @@ sops:
       terminal_node_ids: [approval]
 `, "utf8");
   await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+    approval,
     knowledgeEndpoint: knowledgeProxy.url,
     sopEndpoint: sop.url,
     definitionsPath: join(projectRoot, "approval.yaml"),
@@ -558,6 +579,7 @@ sops:
     actorUserId: "admin",
     agentId: KNOWLEDGE_AGENT_ID,
   }), "utf8");
+  await approval.publishDefinition();
 
   const knowledgePort = createKnowledgeModulePort({
     enabled: true,
@@ -596,6 +618,7 @@ sops:
 
   if (realModel) {
     await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      approval,
       knowledgeEndpoint: knowledgeProxy.url,
       sopEndpoint: sop.url,
       definitionsPath: join(projectRoot, "approval.yaml"),
@@ -606,12 +629,14 @@ sops:
       modelName: realModel.model,
     }), "utf8");
     const realGateway = createLocalGateway({
+      env: approval.env,
       projectRoot,
       pilotHome: projectRoot,
       fallbackProjectRoot: projectRoot,
       permissionMode: "bypassPermissions",
       __testModelFactory: () => realModel.runtime,
     });
+    approval.attach(realGateway);
     try {
       const firstRealEvents: unknown[] = [];
       for await (const event of realGateway.gateway.submitTurn({
@@ -670,17 +695,23 @@ sops:
     return;
   }
 
-  const createNativeOwnerGateway = (runtimeModel = model) => createLocalGateway({
-    projectRoot,
-    pilotHome: projectRoot,
-    fallbackProjectRoot: projectRoot,
-    permissionMode: "bypassPermissions",
-    __testModelFactory: () => runtimeModel,
-    __testOnAutomaticCompactionTrigger: (observation) => {
-      automaticCompactionTriggers.push(observation);
-    },
-  });
+  const createNativeOwnerGateway = (runtimeModel = model) => {
+    const gateway = createLocalGateway({
+      env: approval.env,
+      projectRoot,
+      pilotHome: projectRoot,
+      fallbackProjectRoot: projectRoot,
+      permissionMode: "bypassPermissions",
+      __testModelFactory: () => approval.routingModel(runtimeModel),
+      __testOnAutomaticCompactionTrigger: (observation) => {
+        automaticCompactionTriggers.push(observation);
+      },
+    });
+    approval.attach(gateway);
+    return gateway;
+  };
   let local = createNativeOwnerGateway();
+  await approval.checkDiscovery();
   try {
     const firstEvents: unknown[] = [];
     for await (const event of local.gateway.submitTurn({
@@ -691,8 +722,9 @@ sops:
       mode: "bypassPermissions",
       allowedTools: [...B0_NATIVE_TOOL_SURFACE],
     })) firstEvents.push(event);
-    const waiting = await local.gateway.sopStatus!({ sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
+    const waiting = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
     assert.equal(waiting?.state.status, "handoff", JSON.stringify({ firstEvents, waiting }));
+    await approval.assertOtherSubjectDenied(local, "native-owner-seven-slot", waiting!);
     assert.equal(knowledgeQueries.length, 1, JSON.stringify({ knowledgeQueries, firstEvents }));
     assert.deepEqual(knowledgeQueries[0]?.knowledgeBaseIds, [baseId]);
     assert.equal(knowledgeQueries[0]?.tenantId, "tenant_demo");
@@ -766,6 +798,7 @@ sops:
     // tool path, keeping direct module calls above as native-owner references.
     await local.dispose();
     await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      approval,
       knowledgeEndpoint: knowledgeProxy.url,
       sopEndpoint: sop.url,
       definitionsPath: join(projectRoot, "approval.yaml"),
@@ -793,6 +826,7 @@ sops:
       await wrongAgentGateway.dispose();
     }
     await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      approval,
       knowledgeEndpoint: knowledgeProxy.url,
       sopEndpoint: sop.url,
       definitionsPath: join(projectRoot, "approval.yaml"),
@@ -853,21 +887,25 @@ sops:
       allowedTools: [...B0_NATIVE_TOOL_SURFACE],
     })) secondSessionEvents.push(event);
     const secondSessionWaiting = await local.gateway.sopStatus!({
+      ...approval.approver,
       sessionKey: "native-owner-seven-slot-second",
       projectKey: projectRoot,
     });
     assert.equal(secondSessionWaiting?.state.status, "handoff", JSON.stringify(secondSessionEvents));
     await assert.rejects(
       () => local.gateway.resumeSop!({
+        ...approval.approver,
         sessionKey: "native-owner-seven-slot-second",
         projectKey: projectRoot,
         requestId: "native-owner-cross-session-stale-resume",
         waitId: waiting!.wait!.id,
         source: "human",
         message: "This stale resume must not affect the first session.",
+        expectedRevision: secondSessionWaiting!.revision,
       }),
     );
     const firstSessionAfterStaleResume = await local.gateway.sopStatus!({
+      ...approval.approver,
       sessionKey: "native-owner-seven-slot",
       projectKey: projectRoot,
     });
@@ -888,7 +926,7 @@ sops:
         needEvidencePack: true,
       }),
     );
-    const sopDuringKnowledgeOutage = await local.gateway.sopStatus!({ sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
+    const sopDuringKnowledgeOutage = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
     assert.deepEqual(projectSopState(sopDuringKnowledgeOutage), sopBeforeKnowledgeOutage);
     await knowledge.restart();
     const recoveredCitation = await knowledgePort.call("resolve_citation", { tenantId: "tenant_demo", agentId: KNOWLEDGE_AGENT_ID, chunkId: citationId });
@@ -961,6 +999,7 @@ sops:
     assert.equal(recoveredLostDocuments.length, 1, JSON.stringify(documentsAfterLostResponse));
 
     const resumed = await local.gateway.resumeSop!({
+      ...approval.approver,
       sessionKey: "native-owner-seven-slot",
       projectKey: projectRoot,
       requestId: "native-owner-seven-slot-resume",
@@ -980,7 +1019,7 @@ sops:
       mode: "bypassPermissions",
       allowedTools: [...B0_NATIVE_TOOL_SURFACE],
     })) completedEvents.push(event);
-    const completed = await local.gateway.sopStatus!({ sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
+    const completed = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "native-owner-seven-slot", projectKey: projectRoot });
     assert.equal(completed?.state.status, "completed", JSON.stringify({ completedEvents, completed }));
     model.phase = "completed";
     const automaticCompaction: unknown[] = [];
@@ -1153,6 +1192,7 @@ sops:
     const disabledSkillModel = new NativeOwnerScenarioModel();
     disabledSkillModel.baseId = baseId;
     await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+      approval,
       knowledgeEndpoint: knowledgeProxy.url,
       sopEndpoint: sop.url,
       definitionsPath: join(projectRoot, "approval.yaml"),
@@ -1172,6 +1212,7 @@ sops:
       allowedTools: [...B0_NATIVE_TOOL_SURFACE],
     })) disabledSkillEvents.push(event);
     const disabledSkillWaiting = await local.gateway.sopStatus!({
+      ...approval.approver,
       sessionKey: "native-owner-skills-disabled",
       projectKey: projectRoot,
     });
@@ -1190,6 +1231,7 @@ sops:
       ["native-owner-knowledge-absent", "absent"],
     ] as const) {
       await writeFile(join(projectRoot, "pilotdeck.yaml"), nativeOwnerConfig({
+        approval,
         knowledgeEndpoint: knowledgeProxy.url,
         sopEndpoint: sop.url,
         definitionsPath: join(projectRoot, "approval.yaml"),
@@ -1312,6 +1354,8 @@ sops:
       },
       portAuditAtArtifactWrite: portAuditSnapshot(),
     }, root);
+    local = createNativeOwnerGateway();
+    await approval.assertRevokedAdmissionDenied(local, "native-owner-seven-slot", waiting!);
   } finally {
     await local.dispose();
   }
@@ -1636,7 +1680,7 @@ function createRealModelFixture(pilotHome: string): RealModelFixture {
   };
 }
 
-function sevenSlotConfig(input: { moduleEndpoint: string; knowledgeEndpoint: string; sopEndpoint: string; sidecarHost: string; sidecarPort: number; definitionsPath: string }): string {
+function sevenSlotConfig(input: { approval: FormalApprovalFixture; moduleEndpoint: string; knowledgeEndpoint: string; sopEndpoint: string; sidecarHost: string; sidecarPort: number; definitionsPath: string }): string {
   return `schemaVersion: 1
 agent:
   model: real/default
@@ -1718,10 +1762,12 @@ modules:
     manifestPath: /healthz
     definitionsPath: ${input.definitionsPath}
     defaultSopId: approval
+${input.approval.discoveryYaml}
 `;
 }
 
 function nativeOwnerConfig(input: {
+  approval: FormalApprovalFixture;
   knowledgeEndpoint: string;
   sopEndpoint: string;
   definitionsPath: string;
@@ -1768,6 +1814,7 @@ ${knowledgeBlock}
     manifestPath: /healthz
     definitionsPath: ${input.definitionsPath}
     defaultSopId: approval
+${input.approval.discoveryYaml}
 `;
 }
 
