@@ -21,7 +21,7 @@ export type PublicApprovalInboxMountProps = {
   onError?: (message: string) => void;
 };
 
-export type PublicApprovalHost = Pick<PublicApprovalInboxMountProps, 'Inbox' | 'readApproverBearer'>;
+export type PublicApprovalHost = Pick<PublicApprovalInboxMountProps, 'Inbox' | 'readApproverBearer' | 'refreshKey'>;
 
 /** Browser adapter mount; the root injects the single canonical view and normal approver login. */
 export function PublicApprovalInboxMount({ scope, readApproverBearer, Inbox, refreshKey, disabled, hidden, onPrepared, onError }: PublicApprovalInboxMountProps) {

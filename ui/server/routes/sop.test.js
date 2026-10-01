@@ -28,6 +28,34 @@ const approvalHeader = { 'x-staffdeck-approver-authorization': 'Bearer fixture-a
 const boundPilotDeckUserId = () => 'pd-owner';
 
 describe('SOP routes', () => {
+  it('consumes a separate normal SD login session and preserves its auth denials', async () => {
+    const { createSopRouter } = await import('./sop.js');
+    const native = express(); native.use(express.json());
+    const state = { disabled: false, foreign: false };
+    native.post('/api/auth/login', (req, res) => req.body.password === 'normal-password'
+      ? res.json({ token: 'normal-sd-session', user: { id: 'approver' } }) : res.status(401).json({ detail: 'Invalid credentials' }));
+    native.get('/api/auth/me', (req, res) => {
+      if (req.headers.authorization !== 'Bearer normal-sd-session') return res.status(401).json({ detail: 'Invalid session' });
+      if (state.disabled) return res.status(403).json({ detail: { code: 'USER_DISABLED' } });
+      return res.json({ id: 'approver', tenant_id: state.foreign ? 'foreign' : 'tenant', source: 'web', role: 'member', username: 'Approver' });
+    });
+    const service = native.listen(0, '127.0.0.1');
+    await new Promise(resolve => service.once('listening', resolve));
+    const app = approvalApp();
+    app.use('/api/sop', createSopRouter({ boundPilotDeckUserId,
+      readApproverBinding: () => ({ origin: `http://127.0.0.1:${service.address().port}`, tenantId: 'tenant', userId: 'approver' }) }));
+    const login = () => request(app, '/api/sop/approver/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'Approver', password: 'normal-password' }) });
+    const me = (token) => request(app, '/api/sop/approver/session', { headers: { 'x-staffdeck-approver-authorization': `Bearer ${token}` } });
+    try {
+      expect(await login()).toMatchObject({ status: 200, body: { token: 'normal-sd-session', user: { id: 'approver' } } });
+      expect((await me('normal-sd-session')).status).toBe(200);
+      expect((await me('management-account-key')).status).toBe(401);
+      state.foreign = true;
+      expect((await me('normal-sd-session')).status).toBe(403);
+      state.foreign = false; state.disabled = true;
+      expect(await me('normal-sd-session')).toMatchObject({ status: 403, body: { detail: { code: 'USER_DISABLED' } } });
+    } finally { await new Promise(resolve => service.close(resolve)); }
+  });
   it('forwards status through the read retry helper', async () => {
     const status = { sessionId: 'session-1', revision: 2, state: { status: 'handoff' }, wait: { id: 'wait-1' } };
     const readRetry = vi.fn(async (operation) => operation({ sopStatus: vi.fn(async () => status) }));

@@ -34,6 +34,8 @@ import { ConnectionBanner } from '../ui/ConnectionBanner';
 import SidebarV2 from './SidebarV2';
 import MainAreaV2 from './MainAreaV2';
 import { useModuleComposition } from '../../composition/runtime';
+import { useApproverSession } from '../../composition/modules/staffdeck/useApproverSession';
+import { ApproverAccount } from '../../composition/modules/staffdeck/ApproverAccount';
 import { generatedBusinessRoutePaths, generatedFrontendModules } from '../../composition/generated/frontend-modules';
 import {
   chooseDefaultProject,
@@ -108,6 +110,7 @@ export default function AppShellV2() {
   const { ws, sendMessage, latestMessage, isConnected, subscribe } = useWebSocket();
   const wasConnectedRef = useRef(false);
   const { user } = useAuth();
+  const approverSession = useApproverSession(user ? String(user.id) : null);
   const [readySessionId, setReadySessionId] = useState<string | null>(null);
 
   const {
@@ -723,6 +726,7 @@ export default function AppShellV2() {
         onTouchMoveCapture={acknowledge}
         className="app-main flex min-h-0 min-w-0 flex-1 flex-col bg-white dark:bg-neutral-950"
       >
+        {composition.assembly?.approvalInbox && <ApproverAccount session={approverSession} />}
         <MainAreaV2
           projects={sidebarSharedProps.projects}
           selectedProject={selectedProject}
@@ -770,7 +774,9 @@ export default function AppShellV2() {
           modulePage={modulePage}
           moduleHost={{ selectedProject, selectedSession, projects: sidebarSharedProps.projects, navigate,
             ...(composition.assembly?.approvalInbox
-              ? { approval: { Inbox: composition.assembly.approvalInbox } } : {}) }}
+              ? { approval: { Inbox: composition.assembly.approvalInbox,
+                readApproverBearer: approverSession.readApproverBearer,
+                refreshKey: String(approverSession.revision) } } : {}) }}
           moduleChatSurface={composition.assembly?.chatSurface}
           moduleChatExtensions={composition.assembly?.chatExtensions}
           moduleCompositionError={composition.error}

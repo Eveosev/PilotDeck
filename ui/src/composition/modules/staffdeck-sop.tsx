@@ -39,7 +39,7 @@ function SopExtension({ sessionId, projectKey = 'general', refreshKey, disabled,
       allowedWaitKind="external_task" onWaitKind={onWaitKind} />
     {sessionId ? <PublicApprovalInboxMount scope={{ sessionKey: sessionId, projectKey }}
       readApproverBearer={approvalInput?.readApproverBearer} Inbox={approvalInput?.Inbox}
-      refreshKey={refreshKey} disabled={disabled} hidden={externalWait}
+      refreshKey={`${refreshKey ?? ''}:${approvalInput?.refreshKey ?? ''}`} disabled={disabled} hidden={externalWait}
       onPrepared={onPrepared} onError={onError} /> : null}
   </>;
 }
