@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { compactReplacementMessages } from "../../../tools/agent-loop-parity/compact-snapshot.mjs";
 
 const b0Root = process.env.PILOTDECK_B0_ROOT
   ?? "/tmp/pilotdeck-staffdeck-m0.j4voeS/pilotdeck-b0";
@@ -213,8 +214,7 @@ async function replayPostCompactionGateway({ root, traceValue, createLocalGatewa
     && entry.boundary?.kind === "compact"
     && entry.boundary?.subtype === "compact_boundary"
     && entry.boundary?.compactMetadata?.trigger === "auto"
-    && Array.isArray(entry.boundary?.replacementMessages)
-    && entry.boundary.replacementMessages.length > 0).length;
+    && compactReplacementMessages(entry.boundary).length > 0).length;
   assert.ok(autoReplacementBoundaryCount > 0, "candidate did not persist an automatic replacement compact boundary before restart");
   assert.equal(typeof restart.postMessage, "string", "saved automatic compaction has no post-restart message");
   assert.ok(restart.postRequest && typeof restart.postRequest === "object", "saved automatic compaction has no post-restart request");
@@ -338,13 +338,14 @@ function projectLegacyCompactReplacement(entries) {
   const projected = [];
   for (const entry of entries) {
     if (entry?.type !== "control_boundary" || entry.boundary?.kind !== "compact"
-      || entry.boundary?.subtype !== "compact_boundary" || !Array.isArray(entry.boundary.replacementMessages)) {
+      || entry.boundary?.subtype !== "compact_boundary") {
       projected.push(entry);
       continue;
     }
-    const { replacementMessages, ...legacyBoundary } = entry.boundary;
+    const messages = compactReplacementMessages(entry.boundary);
+    const { replacementMessages: _legacy, snapshot: _snapshot, ...legacyBoundary } = entry.boundary;
     projected.push({ ...entry, boundary: legacyBoundary });
-    for (const message of replacementMessages) {
+    for (const message of messages) {
       projected.push({
         type: "durable_message",
         sessionId: entry.sessionId,
@@ -553,7 +554,7 @@ async function replayOneAutomaticCompaction(root, traceValue, attempt) {
   }
   assert.deepEqual(
     normalizeCompactReplacementMessages(replacementMessages),
-    normalizeCompactReplacementMessages(boundary.replacementMessages),
+    normalizeCompactReplacementMessages(compactReplacementMessages(boundary)),
     "B0 compaction replacement surface differs from the saved candidate boundary",
   );
   if (process.env.PILOTDECK_E2E_COMPACTION_TRIGGER_INJECT_MISMATCH === "1") {
@@ -704,7 +705,7 @@ function normalizeCompactReplacementMessages(value) {
 }
 
 function summaryMessageFromBoundary(boundary) {
-  const message = boundary.replacementMessages?.find((value) => value?.role === "assistant"
+  const message = compactReplacementMessages(boundary).find((value) => value?.role === "assistant"
     && value?.content?.some((block) => block?.type === "text" && String(block.text).includes("[CONTEXT COMPACTION - REFERENCE ONLY]")));
   assert.ok(message, "saved compact boundary has no summary replacement message");
   return message;

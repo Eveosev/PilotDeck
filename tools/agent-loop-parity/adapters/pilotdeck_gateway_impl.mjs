@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
+import { compactReplacementMessages } from "../compact-snapshot.mjs";
 
 const sourceRoot = process.env.PARITY_SOURCE_ROOT;
 const sidecarRoot = process.env.PARITY_PILOTDECK_ROOT ?? sourceRoot;
@@ -486,7 +487,7 @@ function createObservedPersistenceProvider() {
               push("compact.boundary", {
                 agentScope,
                 compactionId,
-                messages: entry.boundary.replacementMessages,
+                messages: compactReplacementMessages(entry.boundary),
                 metadata: entry.boundary.compactMetadata,
               });
             }
