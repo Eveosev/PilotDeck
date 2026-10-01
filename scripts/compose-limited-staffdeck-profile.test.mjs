@@ -38,7 +38,8 @@ test('limited profile consumes one verified target, credential and published bun
     assert.equal(profile.modules.sop.discoveryAgentId, 'target');
     assert.equal(profile.modules.sop.endpoint, 'http://127.0.0.1:16401');
     assert.equal(profile.modules.knowledge.credentialEnv, 'STAFFDECK_KNOWLEDGE_READ_KEY');
-    assert.equal(profile.modules.sop.discoveryApiKey, key);
+    assert.equal(profile.modules.sop.discoveryApiKey, '${STAFFDECK_SOP_MANAGEMENT_API_KEY}');
+    assert.equal(JSON.stringify(profile).includes(key), false);
     const verified = await composeVerifiedLimitedStaffDeckProfile(prepared, env, async () => ({
       ok: true, json: async () => ({ status: 'ok', moduleId: 'sop.runtime',
         contract: 'sop.lifecycle/v2', protocolVersion: '2.0', operations: ['prepare', 'submit'] }),

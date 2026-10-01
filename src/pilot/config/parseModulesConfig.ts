@@ -1,6 +1,7 @@
 import { isAbsolute, join, resolve } from "node:path";
 
 import { isRecord } from "../../model/config/schema.js";
+import { resolveApiKey, type CredentialEnv } from "../../model/config/resolveCredentials.js";
 import {
   STAFFDECK_SOP_CONTRACT,
   STAFFDECK_SOP_TRANSPORT,
@@ -27,6 +28,7 @@ export function parseModulesConfig(
   raw: unknown,
   pilotHome: string,
   diagnostics: PilotConfigDiagnostic[],
+  env: CredentialEnv = process.env,
 ): PilotModulesConfig | undefined {
   if (raw === undefined || raw === null) return undefined;
   if (!isRecord(raw)) {
@@ -54,7 +56,7 @@ export function parseModulesConfig(
       );
     }
   }
-  const sop = parseSopModule(raw.sop, pilotHome, diagnostics);
+  const sop = parseSopModule(raw.sop, pilotHome, diagnostics, env);
   return {
     ...(core.agentLoop ? { agentLoop: core.agentLoop } : {}),
     ...(core.skills ? { skills: core.skills } : {}),
@@ -241,6 +243,7 @@ function parseSopModule(
   value: unknown,
   pilotHome: string,
   diagnostics: PilotConfigDiagnostic[],
+  env: CredentialEnv,
 ): SopRuntimeConfig | undefined {
   if (value === undefined || value === null) return undefined;
   const path = "modules.sop";
@@ -287,7 +290,11 @@ function parseSopModule(
   const timeoutMs = optionalPositiveInteger(value.timeoutMs);
   const discoveryEndpoint = nonEmptyText(value.discoveryEndpoint);
   const discoveryAgentId = nonEmptyText(value.discoveryAgentId);
-  const discoveryApiKey = nonEmptyText(value.discoveryApiKey);
+  let discoveryApiKey: string | undefined;
+  if (value.discoveryApiKey !== undefined) {
+    try { discoveryApiKey = resolveApiKey(value.discoveryApiKey, env); }
+    catch { /* The standard missing-credential diagnostic below contains no secret. */ }
+  }
   const discoveryPath = nonEmptyText(value.discoveryPath);
   const discoveryTimeoutMs = optionalPositiveInteger(value.discoveryTimeoutMs);
   const discoveryConfigured = value.discoveryEndpoint !== undefined

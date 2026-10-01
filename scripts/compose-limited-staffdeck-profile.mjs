@@ -45,6 +45,7 @@ export function composeLimitedStaffDeckProfile(prepared, environment = process.e
       ...profile.modules,
       knowledge: { ...profile.modules.knowledge },
       sop: { ...profile.modules.sop, ...binding.modules.sop,
+        discoveryApiKey: '${STAFFDECK_SOP_MANAGEMENT_API_KEY}',
         endpoint: profile.modules.sop.endpoint,
         definitionsPath: profile.modules.sop.definitionsPath,
         defaultSopId: profile.modules.sop.defaultSopId },

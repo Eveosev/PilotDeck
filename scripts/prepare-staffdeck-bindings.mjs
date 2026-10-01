@@ -83,7 +83,7 @@ export function prepareStaffDeckBindings(input, { now = Date.now() } = {}) {
         knowledge: { tenantId: tenant, actorUserId: actorId, agentId: target.id },
         sop: {
           definitionsPath: input.definitionsPath, defaultSopId: input.defaultSopId,
-          discoveryEndpoint: endpoint, discoveryAgentId: target.id, discoveryApiKey: credentialCreated.api_key,
+          discoveryEndpoint: endpoint, discoveryAgentId: target.id, discoveryApiKey: '${STAFFDECK_SOP_MANAGEMENT_API_KEY}',
           management: {
             enabled: true, endpointEnv: 'STAFFDECK_SOP_MANAGEMENT_ENDPOINT',
             apiKeyEnv: 'STAFFDECK_SOP_MANAGEMENT_API_KEY', credentialIdEnv: 'STAFFDECK_SOP_MANAGEMENT_CREDENTIAL_ID',
