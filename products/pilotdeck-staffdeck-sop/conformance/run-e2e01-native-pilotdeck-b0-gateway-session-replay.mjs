@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compactReplacementMessages } from "../../../tools/agent-loop-parity/compact-snapshot.mjs";
+import { assertAuthorizedSourceIncrement, SOURCE_INCREMENT_SCHEMA } from "./authorized-source-increment.mjs";
 
 const b0Root = process.env.PILOTDECK_B0_ROOT
   ?? "/tmp/pilotdeck-staffdeck-m0.j4voeS/pilotdeck-b0";
@@ -87,7 +88,8 @@ try {
       compareGatewayCalls(expectedCalls, altered);
     }
     report = {
-      status: "PASS",
+      status: "PASS_WITH_AUTHORIZED_INCREMENT",
+      comparisonSchema: SOURCE_INCREMENT_SCHEMA,
       baseline: b0Root,
       trace: tracePath,
       replayed: [
@@ -530,7 +532,7 @@ async function replayOneAutomaticCompaction(root, traceValue, attempt) {
   });
   assert.equal(budgetEvaluationIndex, budgetEvaluations.length, "B0 Context skipped a saved budget evaluation");
   assert.equal(requests.length, 1, "B0 compaction replay did not make exactly one summary request");
-  compareCompactionRequest(request, requests[0]);
+  const sourceIncrement = compareCompactionRequest(request, requests[0], triggerInput.messages);
   assert.equal(replay.type, "compacted");
   assert.equal(replay.result?.trigger, compactionTrigger);
   assert.equal(replay.result?.messagesSummarized, boundary.compactMetadata.messagesSummarized);
@@ -544,7 +546,7 @@ async function replayOneAutomaticCompaction(root, traceValue, attempt) {
   if (process.env.PILOTDECK_E2E_COMPACTION_REPLAY_INJECT_MISMATCH === "1") {
     const altered = structuredClone(requests[0]);
     altered.maxOutputTokens = Number(altered.maxOutputTokens) + 1;
-    compareCompactionRequest(request, altered);
+    compareCompactionRequest(request, altered, triggerInput.messages);
   }
   if (process.env.PILOTDECK_E2E_COMPACTION_REPLACEMENT_INJECT_MISMATCH === "1") {
     replacementMessages[0] = {
@@ -565,6 +567,7 @@ async function replayOneAutomaticCompaction(root, traceValue, attempt) {
 
   return {
     index,
+    sourceIncrement,
     compared: ["policy decision under the saved trigger snapshot", "Context branch and message candidates under the saved budget-evaluation sequence", "compaction outcome", "summary request", "messages summarized", "summary message", "replacement surface"],
     b0PostCompactMessageCount: replay.messages.length,
     unverified: ["durable boundary persistence", "next Gateway model request"],
@@ -678,11 +681,9 @@ function replaceWorkspaceMarker(value, workspacePath) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceWorkspaceMarker(item, workspacePath)]));
 }
 
-function compareCompactionRequest(expected, actual) {
-  assert.deepEqual(
-    normalizeJsonSurface(actual),
-    normalizeJsonSurface(expected),
-    "B0 automatic summary request differs from the saved candidate request",
+function compareCompactionRequest(expected, actual, sourceMessages) {
+  return assertAuthorizedSourceIncrement(
+    normalizeJsonSurface(expected), normalizeJsonSurface(actual), normalizeJsonSurface(sourceMessages),
   );
 }
 
