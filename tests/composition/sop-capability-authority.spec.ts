@@ -10,6 +10,7 @@ import { createSopCapabilityAuthorityPort, currentKnowledgeAuthority, validateSo
   withKnowledgeAuthority, type SopAuthorityContext, type SopAuthorityProjection } from "../../src/composition/sopCapabilityAuthority.js";
 import { createKnowledgeModulePort } from "../../src/composition/domainPorts.js";
 import { SopStateStore } from "../../src/sop/staffdeck/SopStateStore.js";
+import { createRuntimeHostCapabilityProvider } from "../../src/composition/publicHostRuntimeAdapter.js";
 import type { ExternalModuleBinding } from "../../src/composition/types.js";
 
 const bundle = { sops: [{ id: "sop", version: "1", content: { nodes: [{ node_id: "response", type: "response" }] } }] };
@@ -19,6 +20,36 @@ const admission = { ...principal, projectKey: "/project", credentialId: "credent
 const projection = (input = context): SopAuthorityProjection => ({ context: input, sopId: "sop", sopVersion: "1", nodeId: "response",
   snapshotId: "snapshot", registryGeneration: 3, optionalCapabilities: [{ operation: "knowledge.search/v1", resourceType: "knowledge_base",
     resourceId: "base", required: false, providerModuleId: "knowledge.local", providerVersion: "1", selectionMode: "current" }] });
+
+test("owner callback maps only stale and inactive state refusals, preserving ordinary errors and state", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r160-owner-status-"));
+  console.log(`owner-status-state-evidence=${root}`);
+  const store = new SopStateStore(root);
+  const reader = createNativeSopAuthorityReader({ readOwner: () => "owner", listProjects: async () => ["/project"],
+    listSessions: async () => [{ sessionId: "session" }], sessionAdmission: async () => admission,
+    readState: input => store.authority(input.sessionKey, input.expectedRevision) });
+  const provider = createRuntimeHostCapabilityProvider({ profile: { id: "test" }, model: {}, tools: {}, skills: {},
+    context: { forTool: () => ({}) }, sopAuthority: { read: reader },
+    file: { parse: () => { throw Object.assign(new Error("ordinary"), { code: "SOP_REVISION_CONFLICT" }); } } });
+  const call = (revision: number) => provider.call("read_sop_authority", { ...context, expectedRevision: revision,
+    admissionCredentialId: "credential" }, { principal });
+  assert.equal((await call(1)).status, 502);
+  assert.equal(((await call(1)).body as { code: string }).code, "SOP_AUTHORITY_STATE_MISSING");
+  assert.equal(await store.status("session"), undefined);
+  const initial = await store.loadOrCreate("session", bundle, "sop");
+  const saved = await store.replace("session", bundle, { status: "active", active_skill_id: "sop", active_step_id: "response" });
+  assert.equal((await call(saved.revision)).status, 200);
+  const stale = await call(initial.revision);
+  assert.equal(stale.status, 409); assert.equal((stale.body as { code: string }).code, "SOP_REVISION_CONFLICT");
+  assert.equal((await store.status("session"))?.revision, saved.revision);
+  const inactive = await store.replace("session", bundle, { status: "completed", active_skill_id: "sop", active_step_id: "response" });
+  const refused = await call(inactive.revision);
+  assert.equal(refused.status, 403); assert.equal((refused.body as { code: string }).code, "SOP_AUTHORITY_STATE_INACTIVE");
+  const invalid = await store.replace("session", bundle, { status: "active", active_skill_id: "wrong", active_step_id: "response" });
+  assert.equal((await call(invalid.revision)).status, 502);
+  assert.equal(((await call(invalid.revision)).body as { code: string }).code, "SOP_AUTHORITY_PIN_INVALID");
+  assert.equal((await provider.call("file_parse", { filename: "x", content_base64: "eA==" }, { principal })).status, 502);
+});
 
 test("owner attestation rejects absent/foreign/ambiguous admission without reading or creating state", async () => {
   let reads = 0;

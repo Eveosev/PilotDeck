@@ -22,6 +22,13 @@ export function createNativeSopAuthorityReader(options: {
       || admission.tenantId !== principal.tenantId || admission.actorUserId !== principal.actorUserId
       || admission.agentId !== principal.agentId || admission.credentialId !== input.admissionCredentialId) throw authorityError("SOP_AUTHORITY_ADMISSION_MISMATCH");
     const { admissionCredentialId: _credential, ...context } = input;
-    return { ...context, admission, ...await options.readState(context) };
+    try {
+      return { ...context, admission, ...await options.readState(context) };
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      // These owner-read refusals are expected public outcomes, not upstream failures.
+      if (code === "SOP_REVISION_CONFLICT" || code === "SOP_AUTHORITY_STATE_INACTIVE") throw authorityError(code);
+      throw error;
+    }
   };
 }
