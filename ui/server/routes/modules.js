@@ -410,7 +410,8 @@ export function createModuleRuntimeRouter({ loadConfig, getGateway = getPilotDec
   };
   route.post('/staffdeck-sdk/call', (req, res) => publicSdkCall(req, res));
   route.get('/staffdeck-sdk/events', (req, res) => publicSdkCall(req, res, true));
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5 } }).single('file');
+  // Browser multipart filenames use UTF-8, matching the native StaffDeck parser.
+  const upload = multer({ defParamCharset: 'utf8', storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5 } }).single('file');
   route.post('/staffdeck-sdk/file', (req, res) => upload(req, res, error => {
     if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: { code: error.code, message: error.message } });
     try {

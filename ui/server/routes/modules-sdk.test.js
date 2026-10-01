@@ -388,6 +388,71 @@ it('forwards real Knowledge multipart bytes and original ingest status without J
   expect((await f.call('upload_knowledge_document', { knowledgeBaseId: 'kb', body: { filename: 'x', content_base64: '' } }, { kind: 'agent', agentId: 'target' })).status).toBe(409);
 });
 
+it.each(['upload_knowledge_document', 'upload_knowledge_document_auto'].flatMap(operation =>
+  ['规划 Wiki 页面-pd-en.md', 'résumé-资料-🚀.md', 'original.md'].map(filename => [operation, filename])
+))('preserves UTF-8 filename for %s: %s through actual multipart HTTP', async (operation, filename) => {
+  const uploads = [];
+  // The native Starlette owner decodes unqualified filename headers as UTF-8.
+  const parser = multer({ defParamCharset: 'utf8', storage: multer.memoryStorage() }).single('file');
+  const job = { id: 'native-ingest', knowledge_base_id: 'kb/id', status: 'queued', filename };
+  const f = await fixture((req, res) => parser(req, res, error => {
+    if (error) return res.status(400).json({ detail: error.message });
+    uploads.push({ url: req.url, filename: req.file.originalname, bytes: [...req.file.buffer],
+      title: req.body.title, mediaType: req.file.mimetype, capabilityScope: req.body.capability_scope });
+    res.status(200).set('x-request-id', 'utf8-ingest').json({ ...job, filename: req.file.originalname });
+  }), { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:read', 'knowledge:write'] });
+  const form = new FormData();
+  form.set('operation', operation);
+  form.set('scope', JSON.stringify({ kind: 'agent', agentId: 'target' }));
+  form.set('title', '原始标题：规划 Wiki 页面');
+  if (operation === 'upload_knowledge_document') form.set('knowledgeBaseId', 'kb/id');
+  else form.set('capability_scope', 'sop_specific');
+  form.set('file', new Blob([new Uint8Array([0, 255, 10, 13])], { type: 'text/markdown' }), filename);
+  const response = await f.file(form);
+  expect(response.status).toBe(200);
+  expect(response.headers.get('x-request-id')).toBe('utf8-ingest');
+  expect(await response.json()).toEqual(job);
+  expect(uploads).toEqual([{
+    url: operation === 'upload_knowledge_document' ? '/agents/target/knowledge-bases/kb%2Fid/documents' : '/agents/target/knowledge/documents:auto-create',
+    filename, bytes: [0, 255, 10, 13], title: '原始标题：规划 Wiki 页面', mediaType: 'text/markdown',
+    capabilityScope: operation === 'upload_knowledge_document_auto' ? 'sop_specific' : undefined,
+  }]);
+});
+
+it.each(['upload_knowledge_document', 'upload_knowledge_document_auto'])('retains multipart limits and scope rejection for %s', async operation => {
+  let businessCalls = 0;
+  const f = await fixture((_req, res) => { businessCalls++; res.json({}); }, { scopes: ['sops:read', 'sops:write', 'sops:publish', 'knowledge:write'] });
+  const form = () => {
+    const value = new FormData();
+    value.set('operation', operation);
+    value.set('scope', JSON.stringify({ kind: 'agent', agentId: 'target' }));
+    if (operation === 'upload_knowledge_document') value.set('knowledgeBaseId', 'kb/id');
+    value.set('file', new Blob(['original bytes']), '规划 Wiki 页面.md');
+    return value;
+  };
+  for (const scope of [{ kind: 'team' }, { kind: 'agent', agentId: 'other' }]) {
+    const denied = form(); denied.set('scope', JSON.stringify(scope));
+    expect((await f.file(denied)).status).toBe(403);
+  }
+  const oversized = form();
+  oversized.set('file', new Blob([new Uint8Array(20 * 1024 * 1024 + 1)]), '规划 Wiki 页面.md');
+  const sizeResponse = await f.file(oversized);
+  expect(sizeResponse.status).toBe(413);
+  expect(await sizeResponse.json()).toMatchObject({ error: { code: 'LIMIT_FILE_SIZE' } });
+  const multiple = form(); multiple.append('file', new Blob(['second']), 'second.md');
+  const multipleResponse = await f.file(multiple);
+  expect(multipleResponse.status).toBe(400);
+  expect(await multipleResponse.json()).toMatchObject({ error: { code: 'LIMIT_FILE_COUNT' } });
+  const tooManyFields = form();
+  for (let index = 0; index < 5; index++) tooManyFields.set(`extra${index}`, 'not permitted');
+  const fieldsResponse = await f.file(tooManyFields);
+  expect(fieldsResponse.status).toBe(400);
+  expect(await fieldsResponse.json()).toMatchObject({ error: { code: 'LIMIT_FIELD_COUNT' } });
+  const unknown = form(); unknown.set('unexpected', 'not permitted');
+  expect((await f.file(unknown)).status).toBe(400);
+  expect(businessCalls).toBe(0);
+});
+
 it('forwards auto-create upload once without guessing a KB and preserves capability scope', async () => {
   const uploads = [];
   const parser = multer({ storage: multer.memoryStorage() }).single('file');
