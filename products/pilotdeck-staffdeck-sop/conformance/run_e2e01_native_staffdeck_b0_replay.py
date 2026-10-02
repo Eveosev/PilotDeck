@@ -345,8 +345,8 @@ def compare(trace: dict[str, Any], actual: dict[str, Any]) -> None:
         raise AssertionError("B0 durable citation lookup differs from saved E2E trace")
     lifecycle = knowledge["documentLifecycle"]
     actual_lifecycle = actual["knowledge"]["documentLifecycle"]
-    if not actual_lifecycle["previousCitationRejected"] or not lifecycle["previousCitationRejected"]:
-        raise AssertionError("B0 updated document retained the saved stale citation")
+    if actual_lifecycle["previousCitationRejected"] != lifecycle["previousCitationRejected"]:
+        raise AssertionError("B0 updated-document stale-citation rejection differs from saved E2E trace")
     if actual_lifecycle["updatedCitation"]["content"] != lifecycle["updatedCitation"]["content"]:
         raise AssertionError("B0 updated-document citation differs from saved E2E trace")
     if actual_lifecycle["archive"] != lifecycle["archive"]:
