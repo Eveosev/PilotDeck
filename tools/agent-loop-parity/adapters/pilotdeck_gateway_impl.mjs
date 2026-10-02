@@ -965,9 +965,11 @@ try {
     });
     if (observedChildRequests >= 2) {
       await waitForScopedModelResponses({ timeoutMs, agentScope: "child", count: 2 });
-      if (scenario.scenarioId === "sidecar_continuable_followup_live") {
-        await waitForScopedModelResponses({ timeoutMs, agentScope: "parent", count: 4 });
-      }
+      // Child settlement enqueues a durable parent notice after the original
+      // turn may already have reached its terminal event. Wait for that
+      // follow-up in both live and cold paths before disposing the Gateway so
+      // the trace observes the same parent lifecycle boundary.
+      await waitForScopedModelResponses({ timeoutMs, agentScope: "parent", count: 4 });
     }
   }
   const mockState = await post("/control/state", { runKey });
