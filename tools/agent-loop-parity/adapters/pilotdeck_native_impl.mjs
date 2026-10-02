@@ -85,6 +85,38 @@ const cancelTimer = limits.cancelAfterMs ? setTimeout(() => { cancelled = true; 
 const deadlineTimer = limits.deadlineMs ? setTimeout(() => { deadlineExceeded = true; session.abort("deadline_exceeded"); }, limits.deadlineMs) : undefined;
 try {
   for await (const event of session.submit(input, { turnId: "turn-parity", maxTurns: limits.maxTurns, permissionMode, permissionRules: permissionContext.rules })) {
+    if (event.type === "context_budget") {
+      const snapshot = event.snapshot;
+      const reservedOutputTokens = snapshot.reservedOutputTokens ?? snapshot.maxOutputTokens ?? 0;
+      const totalContextTokens = snapshot.effectiveContextTokens !== undefined
+        ? snapshot.totalContextTokens ?? snapshot.effectiveContextTokens + reservedOutputTokens
+        : snapshot.totalContextTokens ?? snapshot.maxContextTokens + reservedOutputTokens;
+      push("context.budget", {
+        used: snapshot.tokens,
+        displayUsed: snapshot.tokens,
+        ...(snapshot.localEstimateTokens !== undefined ? { localEstimateTokens: snapshot.localEstimateTokens } : {}),
+        ...(snapshot.displayTokens !== undefined ? { displayTokens: snapshot.displayTokens } : {}),
+        ...(snapshot.estimateSource !== undefined ? { estimateSource: snapshot.estimateSource } : {}),
+        ...(snapshot.usageTokens !== undefined ? { usageTokens: snapshot.usageTokens } : {}),
+        ...(snapshot.calibrationActualInputTokens !== undefined ? { calibrationActualInputTokens: snapshot.calibrationActualInputTokens } : {}),
+        ...(snapshot.calibrationEstimatedInputTokens !== undefined ? { calibrationEstimatedInputTokens: snapshot.calibrationEstimatedInputTokens } : {}),
+        total: totalContextTokens,
+        ...(snapshot.totalContextTokens !== undefined ? { totalContextTokens: snapshot.totalContextTokens } : {}),
+        maxContextTokens: snapshot.maxContextTokens,
+        effectiveTotal: snapshot.effectiveContextTokens ?? snapshot.maxContextTokens,
+        ...(snapshot.effectiveContextTokens !== undefined ? { effectiveContextTokens: snapshot.effectiveContextTokens } : {}),
+        ...(snapshot.maxOutputTokens !== undefined ? { maxOutputTokens: snapshot.maxOutputTokens } : {}),
+        reservedOutputTokens,
+        warningRatio: snapshot.warningRatio,
+        blockingRatio: snapshot.blockingRatio,
+        ratio: snapshot.ratio,
+        state: snapshot.state,
+        ...(snapshot.source !== undefined ? { source: snapshot.source } : {}),
+        ...(snapshot.exact !== undefined ? { exact: snapshot.exact } : {}),
+        ...(snapshot.estimatorError !== undefined ? { estimatorError: snapshot.estimatorError } : {}),
+        ...(snapshot.breakdown !== undefined ? { breakdown: snapshot.breakdown } : {}),
+      });
+    }
     if (event.type === "turn_completed") push("terminal", { outcome: outcome(event.result.type, { cancelled, deadlineExceeded }), code: deadlineExceeded ? "DEADLINE_EXCEEDED" : event.result.errors?.[0]?.code, stopReason: event.result.stopReason, structuredResult: event.result.structuredOutput, output: textOf(event.result.finalMessage) });
   }
 } catch (error) {
