@@ -7,6 +7,7 @@ import unittest
 from trace import (
     canonicalize,
     compare_baseline_trace_details,
+    compare_continuable_trace_details,
     compare_trace_details,
     compare_traces,
     validate_production_sidecar_proof,
@@ -836,6 +837,89 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             [parent_request, child_request, parent_response, child_response],
             [parent_request, parent_response, child_request, changed_child],
         ))
+
+    def test_continuable_contract_allows_only_actor_order_and_reviewed_state_insertions(self) -> None:
+        def request(scope: str, attempt: int, text: str) -> dict[str, object]:
+            return {
+                "kind": "model.request",
+                "agentScope": scope,
+                "attempt": attempt,
+                "invocationId": f"invocation-{scope}-{attempt}",
+                "sequence": attempt,
+                "modelView": {
+                    "systemPrompt": "stable system",
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": text}]}],
+                    "tools": [{"name": "subagent", "inputSchema": {"type": "object"}}],
+                },
+            }
+
+        def response(scope: str, block_id: str) -> dict[str, object]:
+            record: dict[str, object] = {
+                "kind": "model.response",
+                "agentScope": scope,
+                "startedAt": "2026-01-01T00:00:00.000Z",
+                "completedAt": "2026-01-01T00:00:00.010Z",
+                "modelView": {
+                    "content": [{"type": "text", "text": "same report"}],
+                },
+            }
+            if scope == "child":
+                record["modelView"] = {
+                    "content": [{
+                        "type": "text",
+                        "text": "same report",
+                        "blockId": block_id,
+                        "timeline": {"id": block_id},
+                    }],
+                }
+            return record
+
+        budget = {
+            "kind": "context.budget",
+            "used": 10,
+            "total": 100,
+            "state": "ok",
+        }
+        continued = {"kind": "agent.status", "event": "turn_continued", "detail": {"reason": "next_turn"}}
+        durable = {"kind": "durable.status", "event": "context_budget", "statusKind": "status", "text": "context_budget", "agentScope": "parent"}
+        terminal = {"kind": "terminal", "outcome": "completed", "output": "done"}
+        left = [
+            request("parent", 1, "parent"),
+            response("parent", "11111111-1111-4111-8111-111111111111:text:0"),
+            budget,
+            continued,
+            durable,
+            request("child", 1, "child"),
+            response("child", "22222222-2222-4222-8222-222222222222:text:0"),
+            terminal,
+        ]
+        right = [
+            durable,
+            request("child", 1, "child"),
+            response("child", "33333333-3333-4333-8333-333333333333:text:0"),
+            request("parent", 1, "parent"),
+            response("parent", "44444444-4444-4444-8444-444444444444:text:0"),
+            continued,
+            budget,
+            terminal,
+        ]
+        self.assertEqual(compare_continuable_trace_details(left, right).semantic, [])
+
+        generated = json.loads(json.dumps(right))
+        generated[3].update(invocationId="different-invocation", sequence=999)
+        generated[4].update(startedAt="2026-01-02T00:00:00.000Z", completedAt="2026-01-02T00:00:00.010Z")
+        self.assertEqual(compare_continuable_trace_details(left, generated).semantic, [])
+
+        for mutate in (
+            lambda trace: trace[3]["modelView"]["messages"][0]["content"][0].update(text="changed"),
+            lambda trace: trace[3]["modelView"]["tools"][0]["inputSchema"].update(required=["script"]),
+            lambda trace: trace[-1].update(outcome="failed"),
+            lambda trace: trace[0].update(event="turn_timeout"),
+            lambda trace: trace[6].update(used=99),
+        ):
+            changed = json.loads(json.dumps(right))
+            mutate(changed)
+            self.assertTrue(compare_continuable_trace_details(left, changed).semantic)
 
     def test_continuable_subagent_settlement_normalizes_identity_but_not_status(self) -> None:
         left = {"text": f"Continuable subagent {FIRST_SUBAGENT} settled: completed."}

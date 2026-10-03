@@ -16,6 +16,7 @@ from typing import Any
 from trace import (
     Difference,
     compare_baseline_trace_details,
+    compare_continuable_trace_details,
     compare_trace_details,
     load_trace,
     validate_production_sidecar_proof,
@@ -103,6 +104,30 @@ SAME_VERSION_COMPARISONS: dict[str, dict[str, Any]] = {
         {"pathSuffix": "durableStopReason", "baseline": "aborted_streaming", "current": None},
         {"pathSuffix": "resultType", "baseline": "aborted", "current": None},
     ]},
+    # Native and stdio sidecar continuable runs share model-visible behavior
+    # but independently observe parent/child actors. The dedicated comparator
+    # keeps actor-local core order and all semantic values strict while allowing
+    # only the reviewed generated metadata and state insertion positions.
+    "sidecar_continuable_followup_live": {
+        "mode": "extension",
+        "comparator": "continuable_actor_v1",
+        "allowedGeneratedMetadata": [
+            "invocationId", "sequence", "startedAt", "completedAt",
+            "child.blockId", "child.timeline.id",
+        ],
+        "allowIndependentActorOrdering": True,
+        "allowedStateInsertionKinds": ["context.budget", "agent.status:turn_continued", "durable.status:context_budget"],
+    },
+    "sidecar_continuable_followup_cold": {
+        "mode": "extension",
+        "comparator": "continuable_actor_v1",
+        "allowedGeneratedMetadata": [
+            "invocationId", "sequence", "startedAt", "completedAt",
+            "child.blockId", "child.timeline.id",
+        ],
+        "allowIndependentActorOrdering": True,
+        "allowedStateInsertionKinds": ["context.budget", "agent.status:turn_continued", "durable.status:context_budget"],
+    },
 }
 
 # These are SDK-only Gateway controls, not scenario-authored tools. Their
@@ -220,6 +245,11 @@ def declared_extension_matches(
     comparison = comparison or baseline_comparison(scenario)
     if not differences and comparison.get("allowEvidencedBudgetDrift") is True:
         return True
+    if comparison.get("comparator") == "continuable_actor_v1":
+        # compare_continuable_trace_details has already enforced the narrow
+        # actor/state contract and returns no semantic differences only when
+        # every non-waived field passed strict comparison.
+        return not differences
     per_adapter = comparison.get("allowedDifferencesByAdapter")
     allowed = per_adapter.get(adapter) if isinstance(per_adapter, dict) and adapter else comparison.get("allowedDifferences")
     if not isinstance(allowed, list):
@@ -517,6 +547,7 @@ def main() -> int:
                     for label, left_name, right_name, is_baseline in comparisons:
                         if left_name not in traces or right_name not in traces:
                             continue
+                        same_version_contract = SAME_VERSION_COMPARISONS.get(sid, {"mode": "shared"})
                         comparison = (
                             compare_baseline_trace_details(
                                 load_trace(traces[left_name]),
@@ -524,13 +555,19 @@ def main() -> int:
                                 {**scenario, "baselineComparison": baseline_comparison(scenario)},
                             )
                             if is_baseline
-                            else compare_trace_details(load_trace(traces[left_name]), load_trace(traces[right_name]))
+                            else (
+                                compare_continuable_trace_details(
+                                    load_trace(traces[left_name]),
+                                    load_trace(traces[right_name]),
+                                )
+                                if same_version_contract.get("comparator") == "continuable_actor_v1"
+                                else compare_trace_details(load_trace(traces[left_name]), load_trace(traces[right_name]))
+                            )
                         )
                         report = args.output / f"{sid}-{label.lower().replace(' ', '-')}.md"
                         write_report(report, f"{sid} {label}", traces[left_name], traces[right_name], comparison)
                         if comparison.format_warnings:
                             warnings.append(f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)")
-                        same_version_contract = SAME_VERSION_COMPARISONS.get(sid, {"mode": "shared"})
                         if not is_baseline and same_version_contract.get("mode") == "extension":
                             if declared_extension_matches(scenario, comparison.semantic, comparison=same_version_contract):
                                 expected_extensions.append(

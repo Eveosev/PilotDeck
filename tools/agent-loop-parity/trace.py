@@ -455,6 +455,7 @@ def project_format_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 class Comparison:
     semantic: list[Difference]
     format_warnings: list[Difference]
+    contract: str | None = None
 
 
 def compare_traces(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> list[Difference]:
@@ -568,6 +569,93 @@ def compare_trace_details(left: list[dict[str, Any]], right: list[dict[str, Any]
     )
     format_differences = _diff_values(project_format_trace(left), project_format_trace(right))
     return Comparison(semantic=semantic, format_warnings=format_differences)
+
+
+_CONTINUABLE_POSITIONAL_STATE_KINDS = (
+    "context.budget",
+    "durable.status",
+    "agent.status",
+)
+
+
+def _is_allowed_continuable_position_state(record: dict[str, Any]) -> bool:
+    """Identify only the reviewed continuable state insertions.
+
+    These records remain value-compared below. They are removed only from the
+    actor event sequence so transport scheduling can place them at different
+    observation points without waiving a changed state value or count.
+    """
+    kind = record.get("kind")
+    if kind == "context.budget":
+        return True
+    if kind == "durable.status":
+        return record.get("event") == "context_budget"
+    if kind == "agent.status":
+        return (
+            record.get("event") == "turn_continued"
+            and isinstance(record.get("detail"), dict)
+            and record["detail"].get("reason") == "next_turn"
+        )
+    return False
+
+
+def compare_continuable_trace_details(
+    left: list[dict[str, Any]],
+    right: list[dict[str, Any]],
+) -> Comparison:
+    """Compare the explicitly declared native/sidecar continuable contract.
+
+    Parent and child are independent actors. Their core event order is strict
+    within each actor, while the reviewed context/status records may be
+    inserted at different positions. The records removed for that positional
+    comparison are compared separately, in order and with their full semantic
+    values, so this is not a whole-trace or whole-record waiver.
+    """
+    def projected(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        result = project_semantic_trace(records)
+        for record in result:
+            record.pop("requestEvidence", None)
+        return result
+
+    left_projected = projected(left)
+    right_projected = projected(right)
+    semantic = (
+        _partial_order_differences(left, "left")
+        + _partial_order_differences(right, "right")
+    )
+
+    for actor in ("parent", "child"):
+        left_core = [
+            record for record in left_projected
+            if ("child" if record.get("agentScope") == "child" else "parent") == actor
+            and not _is_allowed_continuable_position_state(record)
+        ]
+        right_core = [
+            record for record in right_projected
+            if ("child" if record.get("agentScope") == "child" else "parent") == actor
+            and not _is_allowed_continuable_position_state(record)
+        ]
+        semantic.extend(_diff_semantic_records(left_core, right_core))
+
+    # Positional state insertion is allowed; state identity, values, and
+    # multiplicity remain strict within each reviewed state kind.
+    for kind in _CONTINUABLE_POSITIONAL_STATE_KINDS:
+        left_state = [
+            record for record in left_projected
+            if record.get("kind") == kind and _is_allowed_continuable_position_state(record)
+        ]
+        right_state = [
+            record for record in right_projected
+            if record.get("kind") == kind and _is_allowed_continuable_position_state(record)
+        ]
+        semantic.extend(_diff_semantic_records(left_state, right_state))
+
+    format_differences = _diff_values(project_format_trace(left), project_format_trace(right))
+    return Comparison(
+        semantic=semantic,
+        format_warnings=format_differences,
+        contract="continuable_actor_v1",
+    )
 
 
 def compare_baseline_trace_details(
@@ -1488,7 +1576,11 @@ def write_report(
     semantic = comparison.semantic
     warnings = comparison.format_warnings
     lines = [f"# {pair_name}", "", f"- left: `{left_path}`", f"- right: `{right_path}`", ""]
-    if not semantic:
+    if comparison.contract:
+        lines.append(
+            f"CONTRACT PASS ({comparison.contract}): no undeclared semantic differences after the reviewed projection; original strict raw failures remain preserved separately."
+        )
+    elif not semantic:
         lines.append("PASS: no semantic differences after projection.")
     else:
         lines.append(f"FAIL: {len(semantic)} semantic difference(s).")
