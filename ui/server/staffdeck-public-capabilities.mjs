@@ -86,6 +86,7 @@ export const PUBLIC_OPERATION_CONTRACTS = Object.freeze({
   remove_tool: ['DELETE', 'agents/{agent}/tools/{tool}', 'tools:write', 'hidden/deleted'],
   extract_sop_text: ['POST', 'agents/{agent}/sops:extract-file', 'sops:write', 'filename/text'],
   list_model_catalog: ['GET', 'agents/{agent}/model-catalog', 'sops:read', 'data[] metadata'],
+  list_staffdeck_model_catalog: ['GET', 'agents/{agent}/model-catalog', 'sops:read', 'data[] metadata'],
   list_handoff_users: ['GET', 'agents/{agent}/handoff-users', 'agents:read', 'data[] users'],
 });
 export const PUBLIC_APPROVED_OPERATIONS = Object.freeze(Object.keys(PUBLIC_OPERATION_CONTRACTS));
@@ -345,7 +346,8 @@ export function planPublicOperation(agentId, operation, input = {}) {
     case 'probe_unsaved_tool': plan.method = 'POST'; plan.path = `${agent}/tools:probe`; plan.body = publicBody(input); rejectMaskedCredentials(plan.body); break;
     case 'remove_tool': plan.method = 'DELETE'; plan.path = `${agent}/tools/${id(input.toolId)}`; break;
     case 'extract_sop_text': plan.method = 'POST'; plan.path = `${agent}/sops:extract-file`; plan.body = publicBody(input); break;
-    case 'list_model_catalog': plan.path = `${agent}/model-catalog`; plan.shape = 'collection'; break;
+    case 'list_model_catalog':
+    case 'list_staffdeck_model_catalog': plan.path = `${agent}/model-catalog`; plan.shape = 'collection'; break;
     case 'list_handoff_users': plan.path = `${agent}/handoff-users`; plan.shape = 'collection'; break;
     default: fail('PUBLIC_OPERATION_UNSUPPORTED', `Unsupported public operation: ${operation}`, 400);
   }

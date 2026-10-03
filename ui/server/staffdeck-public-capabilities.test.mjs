@@ -92,6 +92,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     ['remove_tool', { toolId: 't' }, 'DELETE', 'agents/a/tools/t'],
     ['extract_sop_text', { body: { filename: 'a.txt', content_base64: 'YQ==' } }, 'POST', 'agents/a/sops:extract-file'],
     ['list_model_catalog', {}, 'GET', 'agents/a/model-catalog'],
+    ['list_staffdeck_model_catalog', {}, 'GET', 'agents/a/model-catalog'],
     ['list_handoff_users', {}, 'GET', 'agents/a/handoff-users'],
     ['cancel_job', { jobId: 'j' }, 'POST', 'jobs/j:cancel'],
   ];
@@ -100,7 +101,7 @@ test('approved facade plans remain fixed by name, method, path and input', () =>
     assert.equal(planned.method, method, operation);
     assert.equal(planned.path, path, operation);
   }
-  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 68);
+  assert.equal(PUBLIC_APPROVED_OPERATIONS.length, 69);
   for (const operation of PUBLIC_APPROVED_OPERATIONS) {
     assert.equal(typeof PUBLIC_OPERATION_CONTRACTS[operation][2], 'string');
   }

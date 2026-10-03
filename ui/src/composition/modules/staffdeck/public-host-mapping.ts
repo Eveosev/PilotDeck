@@ -30,7 +30,7 @@ export function planPublicHost(path: string, method: string, body?: unknown): Ho
   if (parts[0] !== 'api' || parts[1] !== 'enterprise') return;
   const resource = parts[2], id = parts[3], action = parts[4];
   if (parts.length === 3 && method === 'get') {
-    const op = ({ tools: 'list_tools', 'general-skills': 'list_general_skills', 'model-configs': 'list_model_catalog' } as Record<string, string>)[resource];
+    const op = ({ tools: 'list_tools', 'general-skills': 'list_general_skills', 'model-configs': 'list_staffdeck_model_catalog' } as Record<string, string>)[resource];
     if (op) return plan(op, {}, true);
   }
   if (resource === 'tools') {

@@ -84,6 +84,22 @@ it('preserves real target 202/JSON/ETag and rejects excluded scopes before busin
   expect(f.checks()).toBe(2);
 });
 
+it('keeps StaffDeck model row IDs separate from the PilotDeck host model catalog', async () => {
+  const requests = [];
+  let hostCalls = 0;
+  const f = await fixture((req, res) => {
+    requests.push({ url: req.url, body: req.body });
+    res.json({ data: [{ id: 'sd-row-id', name: 'StaffDeck model', provider: 'provider1', model: 'qwen', enabled: true }] });
+  }, {
+    getGateway: async () => ({ modelCatalogList: async () => { hostCalls++; return { items: [], defaultSelection: {} }; } }),
+  });
+  const response = await f.call('list_staffdeck_model_catalog', {}, { kind: 'agent', agentId: 'target' });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ data: [{ id: 'sd-row-id', name: 'StaffDeck model', provider: 'provider1', model: 'qwen', enabled: true }] });
+  expect(requests).toEqual([{ url: '/agents/target/model-catalog', body: {} }]);
+  expect(hostCalls).toBe(0);
+});
+
 it('rejects unknown operations, scope overrides and missing cancel scope before business fetch', async () => {
   let businessCalls = 0;
   const f = await fixture((_req, res) => { businessCalls++; res.json({}); }, { scopes: ['sops:read', 'sops:write', 'sops:publish'] });

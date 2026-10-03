@@ -75,6 +75,7 @@ export type PublicOperationInput = {
   remove_tool: { toolId: string };
   extract_sop_text: { body: { filename: string; content_base64: string } };
   list_model_catalog: {};
+  list_staffdeck_model_catalog: {};
   list_handoff_users: {};
 };
 export type PublicOperation = keyof PublicOperationInput;
@@ -127,7 +128,7 @@ export type PublicOperationOutput = {
   sync_sop_from_overall: PublicRecord; promote_sop_to_overall: PublicRecord;
   delete_sop_version: PublicRecord; probe_unsaved_tool: PublicRecord;
   remove_tool: PublicRecord; extract_sop_text: { filename: string; text: string };
-  list_model_catalog: PublicCollection; list_handoff_users: PublicCollection;
+  list_model_catalog: PublicCollection; list_staffdeck_model_catalog: PublicCollection; list_handoff_users: PublicCollection;
 };
 export type PublicResponse<T = unknown> = { status: number; body: T; headers?: Headers | Record<string, string> };
 export type PublicTransportPlan = {

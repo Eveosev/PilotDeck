@@ -11,6 +11,7 @@ it('retains selected employee/team and never defaults to a target', () => {
   expect(() => selectedPublicScope('/api/enterprise/tools')).toThrow('PUBLIC_SELECTED_SCOPE_REQUIRED');
 });
 it.each([
+  ['/api/enterprise/model-configs', 'get', 'list_staffdeck_model_catalog', {}],
   ['/api/enterprise/agents/employee/skills/sop%2Fid/sync-from-overall', 'post', 'sync_sop_from_overall', { sopId: 'sop/id' }],
   ['/api/enterprise/agents/employee/skills/sop/promote-to-overall', 'post', 'promote_sop_to_overall', { sopId: 'sop' }],
   ['/api/enterprise/skills/sop/versions/v%2F1', 'delete', 'delete_sop_version', { sopId: 'sop', version: 'v/1' }],
