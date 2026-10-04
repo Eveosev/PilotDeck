@@ -24,6 +24,8 @@ import {
   RightOutlined, TeamOutlined,
 } from './KnowledgePageHost';
 import type { AgentProfileRead, CapabilityScope, EnterpriseAuthUser, KnowledgeBaseRead, KnowledgeBucketRead, KnowledgeChunkRead, KnowledgeConceptRead, KnowledgeDiscoveryRead, KnowledgeDocumentRead, KnowledgeIngestJobRead, KnowledgeSearchResponse, ModelConfigRead } from './KnowledgePageHost';
+import { usePilotDeckHostCapabilities } from '../pilotdeck-host-capabilities';
+import { readPilotDeckModelCatalog } from '../public-host-mapping';
 
 const KNOWLEDGE_PAGE_SIZE = 10;
 const KNOWLEDGE_SEARCH_MODEL_STORAGE_KEY = 'knowledge-search-model';
@@ -97,6 +99,7 @@ function effectiveKnowledgeAgentId(rows: AgentProfileRead[], agentId: string): s
 
 export default function KnowledgeManagePage({ currentUser, onLogout }: KnowledgePageProps = {}) {
   const { api, navigate, notify, tenantId: TENANT_ID, loadEmployeeDirectory, isEnterpriseAdmin, canManageEmployeeAgent, visibleEmployeeAgents, openGalleryAgentId, openGalleryImportSourceOptions, resourceCreatorName, getDateLocale, agentScope } = useKnowledgePageHost();
+  const hostCapabilities = usePilotDeckHostCapabilities();
   const readEmployeeScope = agentScope.read;
   const persistSharedAgentScope = agentScope.persist;
   const clearSharedAgentScope = agentScope.clear;
@@ -243,9 +246,10 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
   }, [agentScopeLoaded, agentId, agents, currentUser?.id]);
 
   useEffect(() => {
-    api
-      .get<ModelConfigRead[]>(`/api/enterprise/model-configs?tenant_id=${TENANT_ID}`)
-      .then((items) => {
+    const catalog = hostCapabilities
+      ? readPilotDeckModelCatalog(hostCapabilities, { kind: 'agent', agentId: effectiveAgentId || agentId || 'overall' })
+      : api.get<ModelConfigRead[]>(`/api/enterprise/model-configs?tenant_id=${TENANT_ID}`);
+    catalog.then((items) => {
         const enabled = items.filter((item) => item.enabled);
         setModelConfigs(enabled);
         setSelectedSearchModelId((current) => {
@@ -258,7 +262,7 @@ export default function KnowledgeManagePage({ currentUser, onLogout }: Knowledge
         });
       })
       .catch(() => setModelConfigs([]));
-  }, []);
+  }, [TENANT_ID, agentId, api, effectiveAgentId, hostCapabilities]);
 
   useEffect(() => {
     if (searchParams.get('add') !== 'plaza') return;

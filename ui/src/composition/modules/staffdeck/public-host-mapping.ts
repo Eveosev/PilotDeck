@@ -20,6 +20,7 @@ function cleanBody(body: unknown) {
   return result;
 }
 export type HostPlan = { operation: string; input: Record<string, unknown>; collection?: boolean };
+export type PublicModelCatalogItem = Record<string, unknown> & { id: string };
 export function planPublicHost(path: string, method: string, body?: unknown): HostPlan | undefined {
   const url = new URL(path, 'http://host.local');
   if (!/^\/api\/(?:auth\/users$|enterprise\/(?:tools|general-skills|model-configs|skills|agents)(?:\/|$))/.test(url.pathname)) return;
@@ -71,6 +72,12 @@ export async function callPublicHost(plan: HostPlan, scope: PublicSelectedScope,
     return body.data;
   }
   return response.body;
+}
+
+/** Read the authenticated PilotDeck catalog used by host-owned Knowledge search. */
+export async function readPilotDeckModelCatalog(hostCapabilities: PilotDeckHostCapabilityPort, scope: PublicSelectedScope, signal?: AbortSignal): Promise<PublicModelCatalogItem[]> {
+  const rows = await callPublicHost({ operation: 'list_model_catalog', input: {}, collection: true }, scope, signal, hostCapabilities) as unknown[];
+  return rows.filter((row): row is PublicModelCatalogItem => Boolean(row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string'));
 }
 
 /** Consume the module gateway's real SSE; preview seq stays in data, never becomes an APIJob ID. */

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { planPublicHost, selectedPublicScope } from './public-host-mapping';
+import { planPublicHost, readPilotDeckModelCatalog, selectedPublicScope } from './public-host-mapping';
 import { authenticatedFetch } from '../../../utils/api';
 import { createPilotDeckDistillPageHost } from './vendor/skills-host-adapter';
 vi.mock('../../../utils/api', () => ({ authenticatedFetch: vi.fn() }));
@@ -20,6 +20,16 @@ it.each([
   ['/api/enterprise/skills/sop', 'delete', 'remove_sop', { sopId: 'sop' }],
 ])('maps exact path IDs %s', (path, method, operation, input) => {
   expect(planPublicHost(path, method)).toMatchObject({ operation, input });
+});
+it('reads the PilotDeck host catalog without converting its model IDs', async () => {
+  const call = vi.fn().mockResolvedValue({ status: 200, body: { data: [{ id: 'pd-model-id', name: 'PD model', enabled: true }] } });
+  const rows = await readPilotDeckModelCatalog({ call }, { kind: 'agent', agentId: 'employee' });
+  expect(rows).toEqual([{ id: 'pd-model-id', name: 'PD model', enabled: true }]);
+  expect(call).toHaveBeenCalledWith('list_model_catalog', {}, { signal: undefined });
+});
+it('preserves host catalog failures instead of falling back to StaffDeck rows', async () => {
+  const call = vi.fn().mockResolvedValue({ status: 503, body: { code: 'HOST_MODEL_UNAVAILABLE' } });
+  await expect(readPilotDeckModelCatalog({ call }, { kind: 'agent', agentId: 'employee' })).rejects.toMatchObject({ status: 503, code: 'HOST_MODEL_UNAVAILABLE' });
 });
 it('keeps dirty preview content/conversation with explicit scope and consumes real seq', async () => {
   const call = vi.mocked(authenticatedFetch);
