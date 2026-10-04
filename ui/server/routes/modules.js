@@ -656,13 +656,16 @@ async function callSopManagement(management, operation, value, signal) {
 
 // Server-only transport shared by the existing management calls and the gated
 // public protocol client. Paths are planned locally, never supplied by a browser.
-function fetchStaffDeckOwner(management, { method, path, headers, body, signal }) {
+function fetchStaffDeckOwner(management, { method, path, headers, body, signal, responseType }) {
   const ownerHeaders = { ...headers, authorization: `Bearer ${management.apiKey}` };
   if (body !== undefined && !(body instanceof FormData)) ownerHeaders['content-type'] = 'application/json';
   return fetch(new URL(path, management.endpoint), {
     method, headers: ownerHeaders,
     body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
-    redirect: 'error', signal: moduleUpstreamSignal(signal, management.timeoutMs),
+    redirect: 'error',
+    // Long-running preview/job streams remain bounded by browser disconnect;
+    // ordinary owner calls keep the configured management timeout.
+    signal: moduleUpstreamSignal(signal, responseType === 'event-stream' ? undefined : management.timeoutMs),
   });
 }
 

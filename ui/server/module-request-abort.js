@@ -13,6 +13,7 @@ export function bindModuleRequestAbort(req, res) {
 }
 
 export function moduleUpstreamSignal(signal, timeoutMs) {
-  const timeout = AbortSignal.timeout(timeoutMs);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined;
+  if (signal && timeout) return AbortSignal.any([signal, timeout]);
+  return signal ?? timeout;
 }

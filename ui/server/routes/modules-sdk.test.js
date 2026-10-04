@@ -27,7 +27,7 @@ async function listen(app) {
   servers.push(server);
   return `http://127.0.0.1:${server.address().port}`;
 }
-async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publish', 'sops:cancel', 'tools:read', 'skills:read', 'knowledge:read'], identity, binding, getGateway } = {}) {
+async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publish', 'sops:cancel', 'tools:read', 'skills:read', 'knowledge:read'], identity, binding, management = {}, getGateway } = {}) {
   const key = 'sdak_sdk_owned_account_123456789';
   const native = express();
   native.disable('etag');
@@ -46,7 +46,7 @@ async function fixture(handle, { scopes = ['sops:read', 'sops:write', 'sops:publ
     webui: { staffdeckCopy: { enabled: true, contract: 'staffdeck.enterprise-copy/v1', endpoint: origin,
       tenantId: 'tenant', actorUserId: 'actor', targetAgentId: 'target', pilotDeckUserId: 'local', userTokenEnv: 'SDK_TEST_LOGIN' } },
     modules: { sop: { enabled: true, ...binding, ...(binding ? { discoveryEndpoint: origin + '/api/v1/' } : {}), management: { enabled: true, endpoint: origin + '/api/v1/',
-      apiKeyEnv: 'SDK_TEST_KEY', credentialId: 'owned', agentId: 'target', methods: ['list'] } } },
+      apiKeyEnv: 'SDK_TEST_KEY', credentialId: 'owned', agentId: 'target', methods: ['list'], ...management } } },
   };
   const app = express(); app.use(express.json());
   app.use((req, _res, next) => { req.user = { id: 'local' }; next(); });
@@ -140,6 +140,21 @@ it('preserves raw SSE bytes and keeps APIJob cursor separate from preview sequen
   const preview = await f.events('operation=preview_job_events&jobId=preview&scope=agent&agentId=target&afterSeq=9', { 'Last-Event-ID': '999' });
   expect(await preview.text()).toBe(raw);
   expect(calls).toEqual([{ url: '/jobs/api/events', cursor: '7' }, { url: '/agents/target/sop-preview-jobs/preview/events?after_seq=9', cursor: undefined }]);
+});
+
+it('does not apply the short management timeout to a live preview event stream', async () => {
+  const f = await fixture((req, res) => {
+    if (req.url === '/agents/target/sop-preview-jobs/preview/events') {
+      setTimeout(() => {
+        res.type('text/event-stream').end('event: job_complete\ndata: {"status":"succeeded"}\n\n');
+      }, 40);
+      return;
+    }
+    res.json({});
+  }, { management: { timeoutMs: 10 } });
+  const events = await f.events('operation=preview_job_events&jobId=preview&scope=agent&agentId=target');
+  expect(events.status).toBe(200);
+  expect(await events.text()).toBe('event: job_complete\ndata: {"status":"succeeded"}\n\n');
 });
 
 it('returns original pre-stream error status/body rather than SSE success', async () => {
