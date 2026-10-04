@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
   onMisroutedFileUrlHandled: vi.fn(),
 }));
 
+const TestChatSurface = ({ onFileOpen }: { onFileOpen: (filePath: string) => void }) => (
+  <button type="button" onClick={() => onFileOpen('/workspace/PilotDeck/generated.pptx')}>
+    Open workspace file
+  </button>
+);
+
 vi.mock('../../../contexts/TaskMasterContext', () => ({
   useTaskMaster: () => ({
     currentProject: { name: 'pilotdeck' },
@@ -135,6 +141,7 @@ function propsFor(activeTab: AppTab, setActiveTab = vi.fn()) {
     onStartNewSession: vi.fn(),
     onShowSettings: vi.fn(),
     externalMessageUpdate: 0,
+    chatSurface: TestChatSurface,
   } as unknown as ComponentProps<typeof MainContent>;
 }
 

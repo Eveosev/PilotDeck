@@ -50,7 +50,7 @@ describe('formal Host audit regressions', () => {
     const host = createPilotDeckDistillPageHost();
     await host.api.get('/api/enterprise/skills/sop?agent_id=target');
     await host.api.put('/api/enterprise/skills/sop?agent_id=target', content);
-    expect(call).toHaveBeenLastCalledWith('create', { sopId: 'sop', content });
+    expect(call).toHaveBeenLastCalledWith('create', { sopId: 'sop', content, baseVersion: '1.0.0' });
     const requests = call.mock.calls.length;
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: { id: 'owner-draft' } })));
     await pilotDeckSkillsPageHost.api.post('/api/enterprise/skills/sop/draft?agent_id=target');
