@@ -7,7 +7,10 @@ import { ConfirmProvider } from '../ui/ConfirmDialog';
 import { MessageFileCard } from './MessageFileCards';
 
 const mocks = vi.hoisted(() => ({ sha: vi.fn() }));
-vi.mock('../../utils/api', () => ({ api: { fileContentSha256: mocks.sha } }));
+vi.mock('../../utils/api', () => ({
+  api: { fileContentSha256: mocks.sha },
+  authenticatedFetch: vi.fn(),
+}));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('changed file preview confirmation', () => {
