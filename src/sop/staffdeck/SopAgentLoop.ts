@@ -575,6 +575,24 @@ class SopControlToolPort implements ToolPort {
       if (proposal.status === "awaiting_user" && currentStep && currentStep.nodeId === persisted.state.active_step_id && currentStep.declaresHandoff) {
         return controlError(call, "HANDOFF_REQUIRED: this node declares a resumable human approval handoff. Submit handoff to wait for the responsible person's reply; awaiting_user cannot create that approval wait.", "invalid_tool_input");
       }
+      if (proposal.nextStepId
+        && currentStep
+        && currentStep.nodeId === persisted.state.active_step_id
+        && !currentStep.allowedNextStepIds.includes(proposal.nextStepId)) {
+        const allowed = currentStep.allowedNextStepIds.length > 0
+          ? currentStep.allowedNextStepIds.join(", ")
+          : "none (this node is terminal or must remain active)";
+        return controlError(
+          call,
+          `SOP_INVALID_TRANSITION: nextStepId '${proposal.nextStepId}' is not declared from '${currentStep.nodeId}'. Allowed nextStepId values: ${allowed}. Do not invent a transition; preserve the current state and submit the declared result or ask for the missing information.`,
+          "invalid_tool_input",
+          {
+            activeStepId: currentStep.nodeId,
+            requestedNextStepId: proposal.nextStepId,
+            allowedNextStepIds: currentStep.allowedNextStepIds,
+          },
+        );
+      }
       if (proposal.status === "awaiting_user") {
         if (proposal.nextStepId) return controlError(call, "AWAITING_USER_CANNOT_ADVANCE: remove nextStepId and retain the current step.", "invalid_tool_input");
         if (currentStep && currentStep.nodeId === persisted.state.active_step_id) {

@@ -351,6 +351,57 @@ test("approval node rejects awaiting_user and requires a real handoff submission
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("rejects an undeclared nextStepId locally without calling the SOP owner", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-invalid-transition-"));
+  try {
+    let submitCalls = 0;
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      ...base,
+      async submit(input) {
+        submitCalls += 1;
+        return base.submit(input);
+      },
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        return {
+          ...prepared,
+          state: { ...prepared.state, active_step_id: "confirm_scope", status: "active" },
+          step: {
+            ...prepared.step,
+            nodeId: "confirm_scope",
+            node: { type: "handoff" },
+            allowedNextStepIds: ["finalize_plan"],
+            allowedActions: ["handoff_human"],
+            declaresHandoff: true,
+            isTerminal: false,
+          },
+        };
+      },
+    };
+    const model = modelFromStream(async function* () {
+      yield* yieldToolCall("invalid-transition", "submit_step_result", {
+        status: "completed",
+        replyFragment: "Placeholder plan",
+        slotUpdates: {},
+        nextStepId: "execute",
+      });
+    });
+    const session = createSopSession({ root, sessionId: "invalid-transition", model, client });
+    const events = await collectSessionTurn(session, "负责人已确认变更，请继续", "invalid-transition-turn");
+    const rejection = events.find((event) => event.type === "tool_result"
+      && event.result.type === "error"
+      && event.result.error.code === "invalid_tool_input");
+    assert.ok(rejection && rejection.type === "tool_result" && rejection.result.type === "error");
+    assert.match(rejection.result.error.message, /SOP_INVALID_TRANSITION/);
+    assert.match(rejection.result.error.message, /finalize_plan/);
+    assert.equal(submitCalls, 0);
+    const persisted = await new SopStateStore(join(root, "sessions")).status("invalid-transition");
+    assert.equal(persisted?.state.active_step_id, "confirm_scope");
+    assert.equal(persisted?.state.status, "active");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("evidence step without missing fields routes approval to its declared next node", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-evidence-prompt-"));
   try {
