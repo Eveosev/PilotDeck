@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { assertAuthorizedSourceIncrement } from '../../products/pilotdeck-staffdeck-sop/conformance/authorized-source-increment.mjs';
 
-test('approved source schema preserves full original request and exact tool/ID relationships', async (t) => {
+test('approved source schema compares the full request without transforming baseline', async (t) => {
   const fixture = process.env.PILOTDECK_SOURCE_INCREMENT_FIXTURE;
   if (!fixture) return t.skip('set PILOTDECK_SOURCE_INCREMENT_FIXTURE to the original full request evidence');
   const { expected, actual } = JSON.parse(await readFile(fixture, 'utf8'));
@@ -20,7 +20,8 @@ test('approved source schema preserves full original request and exact tool/ID r
   }
   const sourceMessages = restore(attempt.trigger.input.messages);
   const result = assertAuthorizedSourceIncrement(expected, actual, sourceMessages);
-  assert.equal(result.schema, 'e2e01-approved-source-anchors/v1');
+  assert.equal(result.schema, 'e2e01-approved-source-anchors/v2');
+  assert.equal(result.strictB0Equality, true);
   assert.ok(result.relationships.some(row => row.toolName === 'knowledge_query'));
   for (const mutate of [
     (value) => { value.maxOutputTokens += 1; },
