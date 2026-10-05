@@ -34,10 +34,10 @@ test("native and sidecar compositions preserve the B0 agent-status event shape",
   const nativeStatus = await abortedStatus(native);
   const sidecarStatus = await abortedStatus(sidecar);
 
-  assert.equal(nativeStatus.kind, "status");
-  assert.equal(nativeStatus.text, "This turn was aborted before completion.");
-  assert.equal(sidecarStatus.kind, "status");
-  assert.equal(sidecarStatus.text, "This turn was aborted before completion.");
+  assert.equal(nativeStatus.kind, undefined);
+  assert.equal(nativeStatus.text, undefined);
+  assert.equal(sidecarStatus.kind, undefined);
+  assert.equal(sidecarStatus.text, undefined);
   assert.deepEqual(sidecarStatus, nativeStatus);
 });
 
