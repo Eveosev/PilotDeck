@@ -79,7 +79,7 @@ try {
       : {
           status: "NOT_RUN",
           command: "PILOTDECK_E2E_POST_COMPACTION_REPLAY=1 node products/pilotdeck-staffdeck-sop/conformance/run-e2e01-native-pilotdeck-b0-gateway-session-replay.mjs <trace>",
-          knownDivergence: "B0 direct replay does not project atomic replacementMessages; legacy mapping then exposes the candidate-only runtime-context contribution.",
+          knownDivergence: "B0 post-compaction Gateway replay is opt-in; when enabled it compares the saved atomic compact snapshot with the post-restart request.",
         };
 
     if (process.env.PILOTDECK_E2E_GATEWAY_REPLAY_INJECT_MISMATCH === "1") {
@@ -99,7 +99,7 @@ try {
       ],
       notCovered: [
         "StaffDeck Knowledge and SOP owner state, covered by run_e2e01_native_staffdeck_b0_replay.py",
-        "B0 direct atomic compact-boundary replay: the fixed baseline has no replacementMessages projection",
+        "Legacy compact-replacement projection against a pre-snapshot baseline",
         "Full post-compaction canonical request parity (system prompt, tools, cache plan), including source-tree built-in contribution drift",
         "An actual child-process termination between native summary completion and compact-boundary commit",
       ],
@@ -241,8 +241,7 @@ async function replayPostCompactionGateway({ root, traceValue, createLocalGatewa
     await mkdir(dirname(storage.transcriptPath), { recursive: true });
     const restoredEntries = replaceWorkspaceMarker(restart.transcriptEntries, projectRoot);
     const directReplay = replayTranscriptEntries(restoredEntries);
-    const legacyEntries = projectLegacyCompactReplacement(restoredEntries);
-    await writeFile(storage.transcriptPath, `${legacyEntries.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
+    await writeFile(storage.transcriptPath, `${restoredEntries.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
 
     const model = createPostCompactionReplayModel();
     const gateway = createLocalGateway({
@@ -254,9 +253,25 @@ async function replayPostCompactionGateway({ root, traceValue, createLocalGatewa
       __testModelFactory: () => model,
     });
     try {
-      const events = await submit(gateway.gateway, sessionKey, projectRoot, restart.postMessage);
+      const events = await submit(
+        gateway.gateway,
+        sessionKey,
+        projectRoot,
+        restart.postMessage,
+        restart.postRequest.tools?.map((tool) => tool.name),
+      );
       assert.equal(events.some((event) => event.type === "turn_completed"), true, "B0 post-compaction Gateway turn did not complete");
-      assert.equal(model.requests.length, 1, "B0 post-compaction Gateway turn did not issue exactly one model request");
+      assert.equal(
+        model.requests.length,
+        1,
+        `B0 post-compaction Gateway turn did not issue exactly one model request; observed ${JSON.stringify(
+          model.requests.map((request) => ({
+            messageCount: request.messages.length,
+            maxOutputTokens: request.maxOutputTokens,
+            lastMessage: request.messages.at(-1),
+          })),
+        )}`,
+      );
       const actualRequest = model.requests[0];
       assert.ok(actualRequest, "B0 post-compaction Gateway turn produced no canonical request");
       comparePostCompactionCanonicalRequest(
@@ -267,7 +282,7 @@ async function replayPostCompactionGateway({ root, traceValue, createLocalGatewa
         process.env.PILOTDECK_CANDIDATE_ROOT ?? process.cwd(),
       );
       return {
-        compared: ["candidate durable compact-boundary transcript", "B0 legacy compact-replacement projection", "post-restart ordinary Gateway canonical request"],
+        compared: ["candidate durable compact-boundary transcript", "B0 atomic compact-snapshot projection", "post-restart ordinary Gateway canonical request"],
         compactBoundaryCount: restart.compactBoundaryCountAfterRestart,
         autoReplacementBoundaryCount,
         modelRequestMessageCount: actualRequest.messages.length,
@@ -334,31 +349,6 @@ function savedToolSchema(traceValue, name) {
     if (schema) return schema;
   }
   return undefined;
-}
-
-function projectLegacyCompactReplacement(entries) {
-  const projected = [];
-  for (const entry of entries) {
-    if (entry?.type !== "control_boundary" || entry.boundary?.kind !== "compact"
-      || entry.boundary?.subtype !== "compact_boundary") {
-      projected.push(entry);
-      continue;
-    }
-    const messages = compactReplacementMessages(entry.boundary);
-    const { replacementMessages: _legacy, snapshot: _snapshot, ...legacyBoundary } = entry.boundary;
-    projected.push({ ...entry, boundary: legacyBoundary });
-    for (const message of messages) {
-      projected.push({
-        type: "durable_message",
-        sessionId: entry.sessionId,
-        turnId: entry.turnId,
-        sequence: 0,
-        createdAt: entry.createdAt,
-        message,
-      });
-    }
-  }
-  return projected.map((entry, index) => ({ ...entry, sequence: index + 1 }));
 }
 
 function comparePostCompactionCanonicalRequest(expected, actual, workspacePath, baselineRoot, candidateRoot) {
@@ -734,7 +724,7 @@ function summaryTextFromBudgetEvaluation(evaluation) {
   return text.slice(prefix.length, -suffix.length);
 }
 
-async function submit(gateway, sessionKey, projectRoot, message) {
+async function submit(gateway, sessionKey, projectRoot, message, allowedTools) {
   const events = [];
   for await (const event of gateway.submitTurn({
     sessionKey,
@@ -742,6 +732,7 @@ async function submit(gateway, sessionKey, projectRoot, message) {
     channelKey: "test",
     message,
     mode: "bypassPermissions",
+    ...(allowedTools ? { allowedTools } : {}),
   })) events.push(event);
   return events;
 }
