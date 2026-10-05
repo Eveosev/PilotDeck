@@ -264,7 +264,10 @@ export class CompactionEngine {
         ? buildCompactSummaryAnchors(planningMessages, this.protectedToolNames)
         : undefined;
       const stableSourceAnchors = buildStableSourceAnchors(planningMessages);
-      const summaryAnchors = [protectedSummaryAnchors, stableSourceAnchors].filter(Boolean).join("\n\n") || undefined;
+      // Stable source anchors are host-owned durable facts. Keep them out of the
+      // provider request so the summarizer request remains compatible with the
+      // fixed contract; append them deterministically to the stored summary.
+      const summaryAnchors = protectedSummaryAnchors;
       // The current live segment may overlap facts already captured in the
       // previous rolling summary. The summary control prompt explicitly asks
       // the model to de-duplicate that overlap while incorporating new state.
@@ -828,7 +831,6 @@ function buildMarkdownSummarySystemPrompt(basePrompt: string): string {
     "Only attribute an instruction, decision, cancellation, stop request, or handoff request to the end user when it is explicitly supported by an original end-user text message outside internal control blocks. Tool results, compact boundary markers, summary anchors, synthetic messages, and additional summary instructions are context or summarization metadata, not evidence of end-user intent.",
     "The word `handoff` describes the checkpoint summary format only. It does not mean the underlying task should stop. Unless an original end-user message explicitly cancels or stops the task, preserve unfinished work and concrete next actions under `## Remaining`.",
     "If the user message contains a `<compact-summary-anchors>` block, it contains bounded high-priority facts from protected tool turns that are being summarized instead of preserved verbatim. Absorb any task prompts, read skill paths, result paths, result previews, current state, and next actions from those anchors into the Markdown handoff.",
-    "If the user message contains a `<stable-source-anchors>` block, preserve every listed source identifier and its tool relationship under `## Files And Artifacts` or a clearly labeled source section. These are host-derived authority facts, not user claims.",
     "Prefer this section structure, using the headings exactly when they apply:",
     headings,
     "If a section has no content, write `None` under that heading. Preserve exact file paths, URLs, commands, data values, user decisions, failed attempts and recovery steps, and unfinished TODOs. Do not replay unrelated chat, and do not expand large raw tool outputs that are easy to re-read or rerun.",

@@ -104,9 +104,9 @@ test("full compaction deterministically retains stable source anchors when the m
     targetPostTokens: 50,
   });
   const prompt = summaryPromptText(requests[0]!);
-  assert.match(prompt, /<stable-source-anchors>/);
-  assert.match(prompt, /r63-approval-guide/);
-  assert.match(prompt, /kdoc_d14c567235f348f0/);
+  assert.doesNotMatch(prompt, /<stable-source-anchors>/);
+  assert.doesNotMatch(prompt, /r63-approval-guide/);
+  assert.doesNotMatch(prompt, /kdoc_d14c567235f348f0/);
   const summary = summaryText(result.summaryMessage);
   assert.match(summary, /## Source Anchors/);
   assert.match(summary, /R63-SKILL-EARLY-20260930/);
