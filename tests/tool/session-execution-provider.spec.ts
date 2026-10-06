@@ -5,13 +5,13 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
-  SessionExecutionLease,
   SessionExecutionProviderError,
   SessionExecutionProviderRegistry,
   type SessionExecutionHandle,
   type SessionExecutionProvider,
   type TrustedSessionBinding,
-} from "../../src/tool/index.js";
+} from "../../src/sandbox/SessionExecutionProvider.js";
+import { SessionExecutionLease } from "../../src/sandbox/SessionExecutionLease.js";
 import { createNsjailSandboxModule, NsjailSessionExecutionProvider } from "../../src/sandbox/nsjail/index.js";
 import { createNodeFsPort } from "../../src/tool/execution-world/NodeFsPort.js";
 import { createNodeSandboxedFsPort } from "../../src/tool/execution-world/SandboxedFsPort.js";

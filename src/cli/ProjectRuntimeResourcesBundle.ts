@@ -34,14 +34,12 @@ import {
   type ToolRegistry,
 } from "../tool/index.js";
 import { join } from "node:path";
-import {
-  SessionExecutionLease,
-} from "../tool/execution-world/SessionExecutionLease.js";
+import { SessionExecutionLease } from "../sandbox/SessionExecutionLease.js";
 import {
   SessionExecutionProviderError,
   type SessionExecutionProvider,
   type SessionExecutionHandle,
-} from "../tool/execution-world/SessionExecutionProvider.js";
+} from "../sandbox/SessionExecutionProvider.js";
 import {
   createNativeSessionTitleProvider,
   type SessionTitlePort,

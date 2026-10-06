@@ -1,4 +1,4 @@
-import type { ExecutionWorldBundle } from "./ExecutionWorldBundle.js";
+import type { ExecutionWorldBundle } from "../tool/execution-world/ExecutionWorldBundle.js";
 
 export type SessionIsolationPolicy = {
   network: "deny" | "allow";
@@ -8,7 +8,12 @@ export type SessionIsolationPolicy = {
   workspaceBytes?: number;
 };
 
-/** Trusted, host-side binding. Never construct this from model/tool input. */
+/**
+ * Trusted, host-side binding. Never construct this from model/tool input.
+ *
+ * This is an internal PilotDeck composition value. It is not a Gateway wire
+ * payload and is intentionally not part of the @pilotdeck/sdk API.
+ */
 export type TrustedSessionBinding = {
   sessionKey: string;
   sandboxKey: string;
@@ -33,6 +38,13 @@ export type SessionExecutionHandle = {
   dispose(): Promise<void>;
 };
 
+/**
+ * Host composition Port implemented by an execution-sandbox module.
+ *
+ * The Gateway owns session identity, leases and lifecycle; a provider module
+ * owns the OS/process implementation. SDK callers can request tool-policy
+ * restrictions, but cannot select or construct this provider.
+ */
 export interface SessionExecutionProvider {
   readonly id: string;
   readonly contractVersion: 1;

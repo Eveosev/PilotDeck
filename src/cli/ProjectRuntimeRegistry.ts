@@ -82,7 +82,7 @@ import type {
   PilotDeckUnavailableToolDiagnostic,
   SandboxMode,
 } from "../tool/index.js";
-import type { SessionExecutionProvider } from "../tool/execution-world/SessionExecutionProvider.js";
+import type { SessionExecutionProvider } from "../sandbox/SessionExecutionProvider.js";
 import type { TelemetryClient } from "../telemetry/index.js";
 import type { ProjectContextStorageBundleOptions } from "./ProjectContextStorageBundle.js";
 import type { ProjectMemoryProviderFactory } from "./ProjectMemoryBundle.js";

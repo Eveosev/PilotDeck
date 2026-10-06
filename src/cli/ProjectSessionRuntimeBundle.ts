@@ -88,7 +88,7 @@ import type { PilotDeckRuntimeProfile } from "./PilotDeckRuntimeProfile.js";
 import type { InteractionProfile } from "../interaction/index.js";
 import type { BackgroundSubagentRuntime } from "../agent/sub/BackgroundSubagentRuntime.js";
 import type { ResolvedGatewayOrganizationPolicy } from "./createLocalGateway.js";
-import type { SessionExecutionHandle } from "../tool/execution-world/SessionExecutionProvider.js";
+import type { SessionExecutionHandle } from "../sandbox/SessionExecutionProvider.js";
 import {
   createKnowledgeModulePort,
   createKnowledgeQueryTool,

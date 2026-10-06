@@ -177,16 +177,6 @@ export {
   seatbeltProfileArgs,
   type CreateNodeSandboxPortOptions,
 } from "./execution-world/NodeSandboxPort.js";
-export {
-  SessionExecutionProviderError,
-  SessionExecutionProviderRegistry,
-  type ProviderReadiness,
-  type SessionExecutionHandle,
-  type SessionExecutionProvider,
-  type SessionIsolationPolicy,
-  type TrustedSessionBinding,
-} from "./execution-world/SessionExecutionProvider.js";
-export { SessionExecutionLease } from "./execution-world/SessionExecutionLease.js";
 export { createNodeSandboxedSubprocessPort, type CreateNodeSandboxedSubprocessPortOptions } from "./execution-world/SandboxedSubprocessPort.js";
 export {
   createNodePlanStoragePort,

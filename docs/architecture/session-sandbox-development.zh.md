@@ -71,7 +71,7 @@ flowchart TB
 | --- | --- | --- |
 | ProviderRegistry | 项目装配层；注册受信 provider、校验版本与能力 | 接受 agent 指定代码入口 |
 | SessionExecutionLease | 核心 session 生命周期；身份、引用计数、generation、关闭门禁 | 生成 nsjail 命令行 |
-| SessionExecutionProvider | 对外契约；创建 session 执行环境和返回能力 | 修改 transcript 或结束 turn |
+| SessionExecutionProvider | **宿主内部的模块 Port**；创建 session 执行环境和返回能力 | 不是 SDK API、不是 Gateway wire payload；不修改 transcript 或结束 turn |
 | nsjail adapter / launcher | rootfs、namespace、挂载、进程/cgroup、资源限制 | 重新实现模型调用、权限审批 |
 | worker 与 RPC adapter | 沙箱内文件与进程执行，协议映射、输出流和取消 | 提供任意宿主文件 RPC |
 | ArtifactBridge | 可信导入导出，绑定 session，有限流与取消 | 将任意宿主绝对路径透传给模型 |
@@ -80,8 +80,8 @@ flowchart TB
 建议新增位置：
 
 ```text
-src/tool/execution-world/SessionExecutionProvider.ts
-src/tool/execution-world/SessionExecutionProviderRegistry.ts
+src/sandbox/SessionExecutionProvider.ts       # 宿主定义的模块 Port
+src/sandbox/SessionExecutionLease.ts          # 宿主 session lease
 src/cli/SessionExecutionLeaseBundle.ts
 src/extension/execution-providers/       # 受信插件注册与配置解析
 packages/sandbox-nsjail/                 # 首个实现，最终包结构由构建方案确定
@@ -95,6 +95,17 @@ packages/sandbox-nsjail/                 # 首个实现，最终包结构由构�
 这些是计划路径，目前不要求存在。进程内优先直接调用 Port；worker 因隔离需要跨进程。若复用 Module Protocol，必须显式注册 sandbox 契约和方法；不能假定已有 modules YAML 支持任意新插槽。
 
 ## 4. Provider 契约草案
+
+这里的“对外”只表示对宿主 composition root 和执行沙箱模块实现方可见，不表示对 `@pilotdeck/sdk` 或远程 Gateway client 公开。契约分层如下：
+
+| 层 | 角色 | 是否公开给 SDK |
+| --- | --- | --- |
+| PilotDeck core | 定义 `SessionExecutionProvider` Port、分配 trusted binding、持有 session lease 和最终生命周期 | 否 |
+| Sandbox module | 实现该 Port，例如 `src/sandbox/nsjail/`；拥有 nsjail、rootfs、worker、挂载和 provider 资源 | 否，宿主装配时使用 |
+| Gateway protocol | 只传 session/run/tool 的业务请求和结果；不传 provider 对象、宿主路径或 sandbox handle | 不适用 |
+| `@pilotdeck/sdk` | 可提交 `sandbox.tool_policy` 收紧工具面 | 仅公开 tool policy，不公开 provider 选择或 OS 隔离句柄 |
+
+因此 `SessionExecutionProvider` 应被视为 **PilotDeck 内部的模块 Port**。它不属于 SDK 类型，也不应新增到 `packages/sdk/src/types.ts`、SDK WebSocket 方法或用户可控的 session payload。若将来需要独立部署沙箱服务，应另立 `pilotdeck.session-execution/v1` 模块契约和 transport adapter；当前 nsjail 实现是宿主内 opt-in module，不提前伪装成 SDK 能力。
 
 下面是 TypeScript 设计草案，字段及公开导出需在实现阶段定稿。
 
@@ -251,7 +262,7 @@ execution:
 
 新增 schema/解析器、配置优先级和公开文档必须与 consumer 一起落地。未知 provider、未知字段、非法目录、无法落实的限额及配置冲突应明确拒绝。`maxActiveSessions` 采用有界排队或明确返回容量错误，策略需固定并验收。
 
-OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：tool_policy 可以进一步缩小工具能力，不能解除 session 隔离。旧部署未启用新机制时保持原行为；管理员要求隔离的部署不能被 session 请求或 permission mode 降级。
+OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：tool_policy 可以进一步缩小工具能力，不能解除 session 隔离，也不能选择或配置 OS provider。旧部署未启用新机制时保持原行为；管理员要求隔离的部署不能被 session 请求或 permission mode 降级。
 
 nsjail 是独立的可选模块；核心 Gateway 只依赖通用 `SessionExecutionProvider` 契约，不导入 nsjail 实现。宿主显式创建模块并把它的 provider 和存储根交给 Gateway；同一个 provider 实例由一个 PilotDeck Gateway 共享，session 目录由 `sessionExecutionStorageRoot/<sandboxKey>` 稳定生成：
 
@@ -295,7 +306,7 @@ createLocalGateway({
 
 分支 `codex/session-sandbox-nsjail` 已完成 M1 和部分 M2：
 
-- `SessionExecutionProvider`、`SessionExecutionProviderRegistry` 和 `SessionExecutionLease` 已实现，并覆盖重复注册、并发 acquire、幂等释放。
+- `src/sandbox/SessionExecutionProvider.ts` 定义宿主侧 `SessionExecutionProvider` Port、registry 和错误；`src/sandbox/SessionExecutionLease.ts` 负责 session lease，并覆盖重复注册、并发 acquire、幂等释放。
 - `src/sandbox/nsjail/` 提供独立的 `createNsjailSandboxModule()`；模块内部实现 Linux readiness、session 目录创建、generation/binding 校验和固定 nsjail argv 构造。核心 `src/tool/` 只保留通用 execution provider 契约，不暴露 nsjail 类型。
 - `ExecutionWorldBundle` 支持注入 sandbox port；session world 的 shell、detached shell、execute_code 和直接 subprocess 均可以复用同一个 policy。
 - session 绑定的 `FsPort` 对 stat、目录读取、文件读取、范围读取和写入执行 workspace 边界检查。

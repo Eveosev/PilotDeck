@@ -11,7 +11,7 @@ import {
   type SessionExecutionHandle,
   type SessionExecutionProvider,
   type TrustedSessionBinding,
-} from "../../tool/execution-world/SessionExecutionProvider.js";
+} from "../SessionExecutionProvider.js";
 
 export type NsjailProviderOptions = {
   executable?: string;

@@ -112,7 +112,7 @@ import {
 import type {
   PilotDeckToolDefinition,
 } from "../tool/index.js";
-import type { SessionExecutionProvider } from "../tool/execution-world/SessionExecutionProvider.js";
+import type { SessionExecutionProvider } from "../sandbox/SessionExecutionProvider.js";
 import {
   SkillManager,
   migrateLegacyBundledSkillCopies,

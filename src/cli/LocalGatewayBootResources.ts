@@ -1,6 +1,6 @@
 import { LocalGatewayBootstrapBundle } from "./LocalGatewayBootstrapBundle.js";
 import { LocalGatewayLifecycleBundle } from "./LocalGatewayLifecycleBundle.js";
-import type { SessionExecutionProvider } from "../tool/execution-world/SessionExecutionProvider.js";
+import type { SessionExecutionProvider } from "../sandbox/SessionExecutionProvider.js";
 
 type LocalGatewayTelemetry = {
   dispose(): Promise<void>;
