@@ -37,7 +37,11 @@ import { join } from "node:path";
 import {
   SessionExecutionLease,
 } from "../tool/execution-world/SessionExecutionLease.js";
-import type { SessionExecutionProvider, SessionExecutionHandle } from "../tool/execution-world/SessionExecutionProvider.js";
+import {
+  SessionExecutionProviderError,
+  type SessionExecutionProvider,
+  type SessionExecutionHandle,
+} from "../tool/execution-world/SessionExecutionProvider.js";
 import {
   createNativeSessionTitleProvider,
   type SessionTitlePort,
@@ -270,6 +274,13 @@ export class ProjectRuntimeResourcesBundle {
       const storageRoot = this.options.sessionExecutionStorageRoot;
       this.resources.sessionExecutionProvider = provider;
       this.resources.createSessionExecution = async ({ sessionKey, generation }) => {
+        const readiness = await provider.probe();
+        if (!readiness.ready) {
+          throw new SessionExecutionProviderError(
+            readiness.reason ?? `Execution provider is not ready: ${readiness.providerId}`,
+            "provider_unavailable",
+          );
+        }
         const sandboxKey = Buffer.from(sessionKey, "utf8").toString("base64url");
         const nextGeneration = Math.max(
           generation,
