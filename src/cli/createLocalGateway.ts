@@ -112,6 +112,7 @@ import {
 import type {
   PilotDeckToolDefinition,
 } from "../tool/index.js";
+import type { SessionExecutionProvider } from "../tool/execution-world/SessionExecutionProvider.js";
 import {
   SkillManager,
   migrateLegacyBundledSkillCopies,
@@ -222,6 +223,10 @@ export type CreateLocalGatewayOptions = {
     now: () => Date;
     sandboxMode: SandboxMode;
   }) => ExecutionWorldBundle;
+  /** Application-selected provider for per-session isolated execution worlds. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  /** Stable host root for per-session persistent workspace/home/tmp directories. */
+  sessionExecutionStorageRoot?: string;
   /** Application-selected MCP runtime provider factory. */
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for each project generation. */
@@ -684,6 +689,8 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     modelInvocationProviderFactory:
       options.modelInvocationProviderFactory ?? options.__testModelInvocationProviderFactory,
     executionWorldBundleFactory: options.executionWorldBundleFactory ?? options.__testExecutionWorldBundleFactory,
+    sessionExecutionProvider: options.sessionExecutionProvider,
+    sessionExecutionStorageRoot: options.sessionExecutionStorageRoot,
     mcpRuntimeFactory: options.mcpRuntimeFactory ?? options.__testMcpRuntimeFactory,
     contextStorage: options.contextStorage ?? options.__testContextStorage,
     memoryProviderFactory: options.memoryProviderFactory,

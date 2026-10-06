@@ -110,9 +110,14 @@ export type ProjectSessionRuntime = {
   router: RouterRuntime;
   routerSessionCustomRouters: RouterSessionCustomRouterPort;
   tools: ToolRegistry;
+  createSessionTools?: (executionWorld: ExecutionWorldBundle) => ToolRegistry;
+  createSessionExecution?: (input: {
+    sessionKey: string;
+    generation: number;
+  }) => Promise<{ handle: import("../tool/execution-world/SessionExecutionProvider.js").SessionExecutionHandle; release: () => Promise<void> }>;
   mcpProvider: ProjectMcpRuntimeProvider;
   pluginRuntime: Pick<PluginRuntime, "refresh" | "acquireSessionContributions" | "getOutputStyle">;
-  executionWorld: Pick<ExecutionWorldBundle, "shell" | "planStorage" | "backgroundTasks">;
+  executionWorld: ExecutionWorldBundle;
   backgroundSubagents: BackgroundSubagentRuntime;
   instructionStorage: InstructionStoragePort;
   toolResultSpill: ToolResultSpillPort;
@@ -209,6 +214,15 @@ export class ProjectSessionRuntimeBundle {
       const permissionRuleSet = this.options.acquirePermissionRuleSet();
       resources.add("permission rule-set lease", async () => permissionRuleSet.release());
 
+      const sessionExecution = runtime.createSessionExecution
+        ? await runtime.createSessionExecution({ sessionKey: context.sessionKey, generation: 1 })
+        : undefined;
+      if (sessionExecution) resources.add("session execution lease", sessionExecution.release);
+      const executionWorld = sessionExecution?.handle.world ?? runtime.executionWorld;
+      const baseTools = sessionExecution && runtime.createSessionTools
+        ? runtime.createSessionTools(executionWorld)
+        : runtime.tools;
+
       await runtime.pluginRuntime.refresh();
       const extensionLease = runtime.pluginRuntime.acquireSessionContributions(this.options.sdkSessionPlugins);
       resources.add("plugin contribution lease", extensionLease.release);
@@ -237,7 +251,7 @@ export class ProjectSessionRuntimeBundle {
       const sessionToolComposition = await new SessionToolCompositionBundle({
         composeMcpTools: () => new SessionMcpRuntimeBundle({
           sessionKey: context.sessionKey,
-          baseTools: runtime.tools,
+          baseTools,
           mcpProvider: runtime.mcpProvider,
           mcpServers: { ...contributions.mcpServers, ...this.options.sdkMcpServers },
           resources,
@@ -338,7 +352,7 @@ export class ProjectSessionRuntimeBundle {
         hookSettings: contributions.hooks,
         sdkHooks: this.options.sdkSessionConfig?.hooks,
         includeHookEvents: this.options.sdkSessionConfig?.includeHookEvents,
-        shell: runtime.executionWorld.shell,
+        shell: executionWorld.shell,
         projectRoot: runtime.projectRoot,
         permissionTimeoutMs: this.options.permissionTimeoutMs,
         questionTimeoutMs: this.options.elicitationTimeoutMs,
@@ -564,7 +578,7 @@ export class ProjectSessionRuntimeBundle {
           sessionKey: context.sessionKey,
           projectRoot: runtime.projectRoot,
           storage,
-          planStorage: runtime.executionWorld.planStorage,
+          planStorage: executionWorld.planStorage,
         }).compose();
         const goal = new SessionGoalBundle({
           sessionKey: context.sessionKey,
@@ -608,7 +622,7 @@ export class ProjectSessionRuntimeBundle {
             sessionKey: context.sessionKey,
             hookExecutionEvents: lifecycle,
             hookEventFormat: this.options.sdkSessionConfig?.includeHookEvents === true ? "sdk" : "agent_status",
-            backgroundTaskCompletionEvents: runtime.executionWorld.backgroundTasks,
+            backgroundTaskCompletionEvents: executionWorld.backgroundTasks,
             emit: this.options.gateway.emit,
           }).attach();
         }

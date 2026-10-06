@@ -33,6 +33,11 @@ import {
   type SandboxMode,
   type ToolRegistry,
 } from "../tool/index.js";
+import { join } from "node:path";
+import {
+  SessionExecutionLease,
+} from "../tool/execution-world/SessionExecutionLease.js";
+import type { SessionExecutionProvider, SessionExecutionHandle } from "../tool/execution-world/SessionExecutionProvider.js";
 import {
   createNativeSessionTitleProvider,
   type SessionTitlePort,
@@ -76,6 +81,14 @@ export type ProjectRuntimeResources = {
   routerSessionCustomRouters: RouterSessionCustomRouterPort;
   pluginRuntime: PluginRuntime;
   tools: ToolRegistry;
+  /** Creates session-local tool closures for a session execution world. */
+  createSessionTools: (executionWorld: ExecutionWorldBundle) => ToolRegistry;
+  /** Optional session provider used to bind one execution world per session. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  createSessionExecution?: (input: {
+    sessionKey: string;
+    generation: number;
+  }) => Promise<{ handle: SessionExecutionHandle; release: () => Promise<void> }>;
   mcpProvider: ProjectMcpRuntimeProvider;
   executionWorld: ExecutionWorldBundle;
   instructionStorage: InstructionStoragePort;
@@ -105,6 +118,10 @@ export type ProjectRuntimeResourcesBundleOptions = {
     now: () => Date;
     sandboxMode: SandboxMode;
   }) => ExecutionWorldBundle;
+  /** Optional project-scoped provider for per-session execution worlds. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  /** Stable host root containing one directory per session sandbox key. */
+  sessionExecutionStorageRoot?: string;
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for each published generation. */
   contextStorage?: ProjectContextStorageBundleOptions;
@@ -162,6 +179,7 @@ export class ProjectRuntimeResourcesBundle {
   private memoryBundle?: ProjectMemoryBundle;
   private modelRuntime?: ProjectModelRuntimeBundle;
   private routerRuntime?: ProjectRouterRuntimeBundle;
+  private readonly sessionGenerations = new Map<string, number>();
   private staged = false;
   private disposePromise?: Promise<void>;
 
@@ -246,6 +264,34 @@ export class ProjectRuntimeResourcesBundle {
     this.executionWorldBundle = executionWorldBundle;
     const { executionWorld, tools } = executionWorldBundle.stage();
     this.resources.executionWorld = executionWorld;
+    this.resources.createSessionTools = (sessionWorld) => executionWorldBundle.createTools(sessionWorld);
+    if (this.options.sessionExecutionProvider && this.options.sessionExecutionStorageRoot) {
+      const provider = this.options.sessionExecutionProvider;
+      const storageRoot = this.options.sessionExecutionStorageRoot;
+      this.resources.sessionExecutionProvider = provider;
+      this.resources.createSessionExecution = async ({ sessionKey, generation }) => {
+        const sandboxKey = Buffer.from(sessionKey, "utf8").toString("base64url");
+        const nextGeneration = Math.max(
+          generation,
+          (this.sessionGenerations.get(sessionKey) ?? 0) + 1,
+        );
+        this.sessionGenerations.set(sessionKey, nextGeneration);
+        const sessionRoot = join(storageRoot, sandboxKey);
+        const lease = new SessionExecutionLease(provider, {
+          sessionKey,
+          sandboxKey,
+          generation: nextGeneration,
+          storage: {
+            workspace: join(sessionRoot, "workspace"),
+            home: join(sessionRoot, "home"),
+            temp: join(sessionRoot, "tmp"),
+          },
+          policy: { network: "deny" },
+        });
+        const handle = await lease.acquire();
+        return { handle, release: () => lease.release() };
+      };
+    }
 
     const contextStorage = new ProjectContextStorageBundle(this.options.contextStorage).stage();
     const compaction = this.options.compactionProviderFactory?.({
@@ -290,6 +336,8 @@ export class ProjectRuntimeResourcesBundle {
       tools,
       mcpProvider,
       executionWorld,
+      ...(this.resources.sessionExecutionProvider ? { sessionExecutionProvider: this.resources.sessionExecutionProvider } : {}),
+      ...(this.resources.createSessionExecution ? { createSessionExecution: this.resources.createSessionExecution } : {}),
       ...contextStorage,
       ...(compaction ? { compaction } : {}),
       ...(promptCacheCoordinator ? { promptCacheCoordinator } : {}),
@@ -333,6 +381,7 @@ export class ProjectRuntimeResourcesBundle {
       Promise.resolve((this.resources.sessionTitleProvider ?? this.sessionTitleProvider)?.dispose?.()),
       Promise.resolve((this.resources.lsp ?? this.lspService)?.dispose()),
       this.executionWorldBundle?.dispose() ?? Promise.resolve(),
+      this.resources.sessionExecutionProvider?.dispose() ?? Promise.resolve(),
       this.routerRuntime?.dispose() ?? Promise.resolve(),
       this.modelRuntime?.dispose() ?? Promise.resolve(),
     ]);

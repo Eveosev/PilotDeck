@@ -98,6 +98,24 @@ test("nsjail provider emits a fixed isolated command shape", () => {
   assert.equal(command.args.at(-3), "/bin/sh");
   const networkCommand = provider.buildCommand({ executable: "/bin/true", args: [], cwd: "/workspace", env: {} }, "/usr/bin/nsjail", "allow");
   assert.ok(networkCommand.args.includes("--disable_clone_newnet"));
+
+  const sessionCommand = provider.buildCommand({
+    executable: "/bin/sh",
+    args: ["-c", "env"],
+    cwd: "/var/lib/pilotdeck/sessions/a/workspace",
+    env: { PATH: "/usr/bin" },
+  }, "/usr/bin/nsjail", "deny", {
+    workspace: "/var/lib/pilotdeck/sessions/a/workspace",
+    home: "/var/lib/pilotdeck/sessions/a/home",
+    temp: "/var/lib/pilotdeck/sessions/a/tmp",
+  });
+  assert.ok(sessionCommand.args.includes("/var/lib/pilotdeck/sessions/a/home:/home/agent"));
+  assert.ok(sessionCommand.args.includes("/var/lib/pilotdeck/sessions/a/tmp:/tmp"));
+  assert.equal(sessionCommand.args.includes("--tmpfsmount"), false);
+  assert.equal(sessionCommand.env.HOME, "/home/agent");
+  assert.equal(sessionCommand.env.TMPDIR, "/tmp");
+  assert.equal(sessionCommand.env.PYTHONUSERBASE, "/home/agent/.local");
+  assert.equal(sessionCommand.env.PIP_CACHE_DIR, "/home/agent/.cache/pip");
 });
 
 test("nsjail provider rejects a workspace outside its session root", async () => {
@@ -109,6 +127,18 @@ test("nsjail provider rejects a workspace outside its session root", async () =>
   await assert.rejects(provider.createSession({
     ...binding("sandbox-a"),
     storage: { ...binding("sandbox-a").storage, workspace: "/var/lib/pilotdeck/sessions-other/workspace" },
+  }), (error: unknown) => error instanceof SessionExecutionProviderError && error.code === "session_conflict");
+});
+
+test("nsjail provider rejects a home or temp path outside its session root", async () => {
+  const provider = new NsjailSessionExecutionProvider({
+    rootfs: "/opt/pilotdeck/rootfs",
+    sessionsRoot: "/var/lib/pilotdeck/sessions",
+    probe: false,
+  });
+  await assert.rejects(provider.createSession({
+    ...binding("sandbox-a"),
+    storage: { ...binding("sandbox-a").storage, home: "/var/lib/pilotdeck/sessions-other/home" },
   }), (error: unknown) => error instanceof SessionExecutionProviderError && error.code === "session_conflict");
 });
 

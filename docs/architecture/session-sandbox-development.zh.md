@@ -2,7 +2,7 @@
 
 状态：第一版 provider 已实现；Gateway session 生命周期的完整接入仍在进行。日期：2026-10-06。
 
-本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。当前分支已实现 provider、lease、session 文件边界和 execution-world 注入；Gateway 完整生命周期接入与扩展工具覆盖仍按验收文档推进。
+本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。当前分支已实现 provider、lease、session 文件边界、execution-world 注入和 Gateway session composition 接入；完整生命周期运维与扩展工具覆盖仍按验收文档推进。
 
 配套文档：[验收规范](../testing/session-sandbox-acceptance.zh.md)。架构原则参考：[通用模块接入指南](../module-development-integration-guide.zh.md)、[模块通信 SOP](../pilotdeck-module-communication-sop.zh.md)。
 
@@ -150,8 +150,8 @@ interface SessionExecutionHandle {
 
 沙箱：/
   workspace/                       # 当前 session workspace，读写
-  home/agent/                      # 当前 session home，读写
-  tmp/                             # 当前 session 私有 tmpfs/目录
+  home/agent/                      # 当前 session home，读写且跨 resume 保留
+  tmp/                             # 当前 session 私有持久目录
   usr/ lib/ ...                    # 最小运行 rootfs，只读
   proc/                            # 当前 PID namespace 的 proc
 ```
@@ -160,7 +160,7 @@ interface SessionExecutionHandle {
 
 模型可见 cwd 为 `/workspace`，系统提示、工具返回路径和 LSP URI 使用 guest 路径。宿主 projectRoot 用于配置与控制面身份，不能无区别替换为 guest cwd。给 worker 注入的 rg/Python/Node 路径也必须在 rootfs 中存在。
 
-项目初始化采用独立复制或独立 CoW 快照，不使用可写硬链接。Git worktree 的共享 `.git`/对象库不能直接引出其他 workspace；首版推荐独立仓库副本。插件、依赖及缓存只读共享时必须只包含公共内容；安装、构建缓存使用 session 私有可写目录。
+项目初始化采用独立复制或独立 CoW 快照，不使用可写硬链接。Git worktree 的共享 `.git`/对象库不能直接引出其他 workspace；首版推荐独立仓库副本。插件、依赖及缓存只读共享时必须只包含公共内容；安装、构建缓存使用 session 私有可写目录。当前 nsjail provider 将 session `home` 和 `tmp` 作为可写 bind mount，`HOME`、`TMPDIR`、`PYTHONUSERBASE` 和 `PIP_CACHE_DIR` 指向 guest 私有路径，因此用户配置、`pip --user` 包和缓存不会进入其他 session。
 
 ### 5.2 nsjail 启动策略
 
@@ -270,7 +270,7 @@ OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：t
 
 功能完成须同时提交实现、配置说明、支持工具清单、Linux 实测结果及验收证据。仅有 nsjail 启动成功、单 session shell 成功或路径前缀检查，均不算满足要求。
 
-本次文档交付不包含代码实现或 Linux 实测；验收项的初始状态为 NOT_RUN。具体测试步骤和报告模板见配套验收规范。
+代码实现和 Linux 受限实测已完成；完整验收项的状态和证据见配套验收规范。
 
 ## 11. 当前分支实现状态
 
@@ -280,6 +280,7 @@ OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：t
 - `NsjailSessionExecutionProvider` 已实现 Linux readiness、session 目录创建、generation/binding 校验和固定 nsjail argv 构造；非 Linux 或 provider 未就绪时拒绝创建。
 - `ExecutionWorldBundle` 支持注入 sandbox port；session world 的 shell、detached shell、execute_code 和直接 subprocess 均可以复用同一个 policy。
 - session 绑定的 `FsPort` 对 stat、目录读取、文件读取、范围读取和写入执行 workspace 边界检查。
-- 聚焦测试覆盖 13 项执行 world、provider、lease 和文件边界行为。
+- `ProjectSessionRuntimeBundle` 在配置 provider 时为每个 session 获取独立 lease、execution world 和工具闭包；同一个 session 重新创建会复用稳定目录并递增 generation。
+- 聚焦测试覆盖 provider、lease、session world、持久挂载和文件边界行为。
 
 Linux worker 的真实常驻 RPC、MCP/LSP/hooks 的逐项 session 绑定、cgroup/磁盘配额和完整 E2E 仍按第 9 节的 M2-M4 继续实现。未完成的能力不能因为 provider 已注册而自动向隔离 session 开放。

@@ -82,6 +82,7 @@ import type {
   PilotDeckUnavailableToolDiagnostic,
   SandboxMode,
 } from "../tool/index.js";
+import type { SessionExecutionProvider } from "../tool/execution-world/SessionExecutionProvider.js";
 import type { TelemetryClient } from "../telemetry/index.js";
 import type { ProjectContextStorageBundleOptions } from "./ProjectContextStorageBundle.js";
 import type { ProjectMemoryProviderFactory } from "./ProjectMemoryBundle.js";
@@ -161,6 +162,10 @@ export type ProjectRuntimeRegistryOptions = {
     now: () => Date;
     sandboxMode: SandboxMode;
   }) => ExecutionWorldBundle;
+  /** Optional provider that creates one isolated execution world per session. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  /** Stable host root used for persistent per-session workspace/home/tmp. */
+  sessionExecutionStorageRoot?: string;
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for published project generations. */
   contextStorage?: ProjectContextStorageBundleOptions;
@@ -1599,6 +1604,8 @@ export class ProjectRuntimeRegistry {
       modelFactory: this.options.modelFactory,
       modelInvocationProviderFactory: this.options.modelInvocationProviderFactory,
       executionWorldBundleFactory: this.options.executionWorldBundleFactory,
+      sessionExecutionProvider: this.options.sessionExecutionProvider,
+      sessionExecutionStorageRoot: this.options.sessionExecutionStorageRoot,
       mcpRuntimeFactory: this.options.mcpRuntimeFactory,
       contextStorage: this.options.contextStorage,
       memoryProviderFactory: this.options.memoryProviderFactory,

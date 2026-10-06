@@ -12,10 +12,11 @@
 - A、B 两个 session 在同一 provider 实例中并发创建。
 - `qwen3.5-27b` 返回 `write_file` 工具调用；PilotDeck builtin `write_file` 使用 A 的 execution world 写入 `e2e-marker.txt`，内容为 `SESSION_A_OK`。
 - A 的 nsjail shell 检查退出码为 `0`；B 的 nsjail shell 检查 `/workspace/e2e-marker.txt` 不可见并输出 `B_OK`，退出码为 `0`。
-- provider 聚焦测试 `tests/tool/session-execution-provider.spec.ts`：5/5 通过。
+- A 释放后以 generation `2` 重新创建，原 workspace marker 和 home 文件均可见，resume shell 输出 `RESUME_OK`。
+- provider 聚焦测试 `tests/tool/session-execution-provider.spec.ts`：6/6 通过。
 - 结果：本次受限 E2E `PASS`；完整验收仍为 `受限预览`。
 
-本次使用的临时测试 rootfs 只包含 `/bin/sh` 和动态链接 libc，因此该结果覆盖 shell、builtin 文件工具和 session workspace 边界，不代表 Python、rg、MCP、LSP、资源限额或恢复场景已经验收。
+本次使用的临时测试 rootfs 只包含 `/bin/sh` 和动态链接 libc，因此该结果覆盖 shell、builtin 文件工具、持久 home/tmp 挂载、generation resume 和 session workspace 边界，不代表 Python、rg、MCP、LSP、资源限额或主服务崩溃恢复场景已经验收。
 
 完整 Gateway CLI 链路当前在模型调用前仍会被 `gateway_dialog_recovery_cleanup_failed` 阻断；该问题与模型 endpoint 和 nsjail provider E2E 分开记录，不能据此声明 Gateway 全链路通过。
 
@@ -203,4 +204,4 @@ case ID | PASS/FAIL/BLOCKED/NOT_RUN/N/A | 证据路径 | 失败原因/范围
 发布结论：不通过 / 受限预览通过（明确范围）/ 完整通过
 ```
 
-当前分支结论：**受限预览通过**。已执行真实 Linux nsjail execution-world E2E 和 5 项 provider 聚焦测试；TypeScript 全量 `--noEmit` 仍受源码副本中既有 model streaming 测试类型错误影响。Gateway CLI dialog recovery、Python/rg/MCP/LSP/hooks、cgroup、磁盘配额、主服务崩溃恢复和完整 CORE/ISO/LIFE/EXT 矩阵仍保持 `BLOCKED` 或 `NOT_RUN`，不能声明完整通过。
+当前分支结论：**受限预览通过**。已执行真实 Linux nsjail execution-world E2E、同路径 generation=2 resume 检查和 6 项 provider 聚焦测试；TypeScript 全量 `--noEmit` 仍受源码副本中既有 model streaming 测试类型错误影响。Gateway CLI dialog recovery、Python/rg/MCP/LSP/hooks、cgroup、磁盘配额、主服务崩溃恢复和完整 CORE/ISO/LIFE/EXT 矩阵仍保持 `BLOCKED` 或 `NOT_RUN`，不能声明完整通过。

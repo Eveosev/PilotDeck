@@ -23,6 +23,8 @@ export type NsjailProviderOptions = {
   worldFactory?: (options: { projectRoot: string; sandboxMode: SandboxMode; sandboxPort: SandboxPort; workspaceRoot: string }) => ExecutionWorldBundle;
 };
 
+type SessionStorageMounts = TrustedSessionBinding["storage"];
+
 /**
  * Host-side nsjail provider. It owns readiness, session binding, policy
  * validation, exact argv construction, and session execution-world creation.
@@ -68,7 +70,7 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
       mkdir(binding.storage.home, { recursive: true }),
       mkdir(binding.storage.temp, { recursive: true }),
     ]);
-    const sandboxPort = this.createSandboxPort();
+    const sandboxPort = this.createSandboxPort(binding.storage);
     const sandboxMode = this.options.sandboxMode ?? "workspace-write";
     const world = (this.options.worldFactory ?? createNodeExecutionWorldBundle)({
       projectRoot: binding.storage.workspace,
@@ -92,22 +94,32 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
     return Promise.resolve();
   }
 
-  createSandboxPort(): SandboxPort {
+  createSandboxPort(storage?: SessionStorageMounts): SandboxPort {
     return {
-      prepare: async (request) => this.buildCommand(request, this.options.executable ?? "nsjail", request.policy.network ?? "deny"),
+      prepare: async (request) => this.buildCommand(
+        storage ? { ...request, cwd: validateCommandCwd(request.cwd, storage) } : request,
+        this.options.executable ?? "nsjail",
+        request.policy.network ?? "deny",
+        storage,
+      ),
     };
   }
 
   /** Construct the fixed nsjail argv used by the future worker launcher. */
-  buildCommand(command: SandboxedCommand, nsjailExecutable = this.options.executable ?? "nsjail", network: "deny" | "allow" = "deny"): SandboxedCommand {
+  buildCommand(
+    command: SandboxedCommand,
+    nsjailExecutable = this.options.executable ?? "nsjail",
+    network: "deny" | "allow" = "deny",
+    storage?: SessionStorageMounts,
+  ): SandboxedCommand {
     const args = [
         "--quiet",
         "--mode", "o",
         "--cwd", "/workspace",
         "--bindmount_ro", `${this.options.rootfs}:/`,
         "--bindmount", `${command.cwd}:/workspace`,
-        "--bindmount", `${command.cwd}:/home/agent`,
-        "--tmpfsmount", "/tmp",
+        "--bindmount", `${storage?.home ?? command.cwd}:/home/agent`,
+        ...(storage ? ["--bindmount", `${storage.temp}:/tmp`] : ["--tmpfsmount", "/tmp"]),
         "--disable_proc",
         "--user", "65532",
         "--group", "65532",
@@ -120,7 +132,14 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
       executable: nsjailExecutable,
       args,
       cwd: command.cwd,
-      env: command.env,
+      env: {
+        ...command.env,
+        HOME: "/home/agent",
+        TMPDIR: "/tmp",
+        PYTHONUSERBASE: "/home/agent/.local",
+        PIP_CACHE_DIR: "/home/agent/.cache/pip",
+        PATH: command.env.PATH ?? "/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin",
+      },
     };
   }
 }
@@ -148,9 +167,30 @@ function validateBinding(binding: TrustedSessionBinding, sessionsRoot: string): 
     throw new SessionExecutionProviderError("Invalid session generation", "session_conflict");
   }
   const sessionRoot = resolve(sessionsRoot, binding.sandboxKey);
-  const workspace = resolve(binding.storage.workspace);
-  const workspaceRelative = relative(sessionRoot, workspace);
-  if (!isAbsolute(workspace) || (workspaceRelative !== "" && (workspaceRelative.startsWith("..") || isAbsolute(workspaceRelative)))) {
-    throw new SessionExecutionProviderError("Workspace is outside the session storage root", "session_conflict");
+  const seen = new Set<string>();
+  for (const [name, value] of Object.entries(binding.storage)) {
+    const storagePath = resolve(value);
+    const storageRelative = relative(sessionRoot, storagePath);
+    if (!isAbsolute(storagePath) || (storageRelative !== "" && (storageRelative.startsWith("..") || isAbsolute(storageRelative)))) {
+      throw new SessionExecutionProviderError(`${name} is outside the session storage root`, "session_conflict");
+    }
+    if (seen.has(storagePath)) {
+      throw new SessionExecutionProviderError(`Session storage paths must be distinct: ${name}`, "session_conflict");
+    }
+    seen.add(storagePath);
   }
+}
+
+function validateCommandCwd(cwd: string, storage: SessionStorageMounts): string {
+  const target = resolve(cwd);
+  const allowed = Object.values(storage).some((root) => isPathWithin(target, resolve(root)));
+  if (!allowed) {
+    throw new SessionExecutionProviderError("Command cwd is outside the session storage", "session_conflict");
+  }
+  return target;
+}
+
+function isPathWithin(candidate: string, root: string): boolean {
+  const child = relative(root, candidate);
+  return child === "" || (!child.startsWith("..") && !isAbsolute(child));
 }

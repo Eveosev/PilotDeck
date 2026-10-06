@@ -62,6 +62,12 @@ export class ProjectExecutionWorldBundle {
       sandboxMode: this.options.profile.sandboxMode,
     });
     this.executionWorld = executionWorld;
+    const tools = this.createTools(executionWorld);
+    return { executionWorld, tools };
+  }
+
+  /** Build a registry whose closures all point at the supplied execution world. */
+  createTools(executionWorld: ExecutionWorldBundle): ToolRegistry {
     const tools = createBuiltinRegistry({
       fs: executionWorld.fs,
       subprocess: executionWorld.subprocess,
@@ -81,7 +87,7 @@ export class ProjectExecutionWorldBundle {
     for (const tool of this.options.extraTools) {
       tools.register(tool);
     }
-    return { executionWorld, tools };
+    return tools;
   }
 
   dispose(): Promise<void> {
