@@ -43,3 +43,23 @@ test('registration lookup supports current and legacy IDs and revalidates cached
 
   } finally { await rm(root, {recursive: true, force: true}); }
 });
+
+test('Gateway project root is accepted even before it has a persisted project registration', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pilotdeck-default-project-'));
+  try {
+    const pilotHome = join(root, 'home');
+    const projectRoot = join(root, 'workspace');
+    await mkdir(projectRoot, { recursive: true });
+    const registry = createDialogProjectRegistry({
+      pilotHome,
+      defaultProjectKey: projectRoot,
+      listProjects: async () => [],
+    });
+
+    assert.equal(await registry.resolveProjectKey(projectRoot), projectRoot);
+    assert.deepEqual(await registry.listProjectKeys(), [pilotHome, projectRoot]);
+    await assert.rejects(registry.resolveProjectKey(join(root, 'other')), { code: 'PROJECT_NOT_FOUND' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
