@@ -139,7 +139,7 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
         TMPDIR: "/tmp",
         PYTHONUSERBASE: "/home/agent/.local",
         PIP_CACHE_DIR: "/home/agent/.cache/pip",
-        PATH: command.env.PATH ?? "/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin",
+        PATH: `/home/agent/.local/bin:${command.env.PATH ?? "/usr/local/bin:/usr/bin:/bin"}`,
       },
     };
   }

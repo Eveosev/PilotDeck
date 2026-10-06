@@ -116,6 +116,7 @@ test("nsjail provider emits a fixed isolated command shape", () => {
   assert.equal(sessionCommand.env.TMPDIR, "/tmp");
   assert.equal(sessionCommand.env.PYTHONUSERBASE, "/home/agent/.local");
   assert.equal(sessionCommand.env.PIP_CACHE_DIR, "/home/agent/.cache/pip");
+  assert.equal(sessionCommand.env.PATH, "/home/agent/.local/bin:/usr/bin");
 });
 
 test("nsjail provider rejects a workspace outside its session root", async () => {
