@@ -111,7 +111,7 @@ export function getSettingsPathFromTab(tab?: string): string {
 }
 
 export function getModelReferenceTab(path: string): string | null {
-  const page = path === "agent.model" ? "agent-model"
+  const page = path === "agent.model" ? "models"
     : path === "agent.subagents.default" || path.startsWith("router.") ? "agent-route"
     : path === "memory.model" ? "agent-memory" : null;
   return page ? `${page}?${new URLSearchParams({ reference: path })}` : null;
