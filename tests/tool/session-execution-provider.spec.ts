@@ -5,7 +5,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
-  NsjailSessionExecutionProvider,
   SessionExecutionLease,
   SessionExecutionProviderError,
   SessionExecutionProviderRegistry,
@@ -13,6 +12,7 @@ import {
   type SessionExecutionProvider,
   type TrustedSessionBinding,
 } from "../../src/tool/index.js";
+import { createNsjailSandboxModule, NsjailSessionExecutionProvider } from "../../src/sandbox/nsjail/index.js";
 import { createNodeFsPort } from "../../src/tool/execution-world/NodeFsPort.js";
 import { createNodeSandboxedFsPort } from "../../src/tool/execution-world/SandboxedFsPort.js";
 
@@ -62,6 +62,17 @@ test("provider registry rejects duplicate ids and disposes providers once", asyn
   await registry.dispose();
   await registry.dispose();
   assert.equal(registry.list().length, 0);
+});
+
+test("nsjail integration is exposed as an opt-in module", async () => {
+  const module = createNsjailSandboxModule({
+    rootfs: "/opt/pilotdeck/rootfs",
+    sessionsRoot: "/var/lib/pilotdeck/sessions",
+    probe: false,
+  });
+  assert.equal(module.provider.id, "nsjail");
+  assert.equal(module.sessionExecutionStorageRoot, "/var/lib/pilotdeck/sessions");
+  await module.dispose();
 });
 
 test("session lease coalesces concurrent acquire and releases one handle", async () => {

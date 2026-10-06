@@ -1,9 +1,9 @@
 import { access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawnSync } from "node:child_process";
-import type { SandboxMode, SandboxPort, SandboxedCommand } from "./SandboxPort.js";
-import type { ExecutionWorldBundle } from "./ExecutionWorldBundle.js";
-import { createNodeExecutionWorldBundle } from "./ExecutionWorldBundle.js";
+import type { SandboxMode, SandboxPort, SandboxedCommand } from "../../tool/execution-world/SandboxPort.js";
+import type { ExecutionWorldBundle } from "../../tool/execution-world/ExecutionWorldBundle.js";
+import { createNodeExecutionWorldBundle } from "../../tool/execution-world/ExecutionWorldBundle.js";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   SessionExecutionProviderError,
@@ -11,7 +11,7 @@ import {
   type SessionExecutionHandle,
   type SessionExecutionProvider,
   type TrustedSessionBinding,
-} from "./SessionExecutionProvider.js";
+} from "../../tool/execution-world/SessionExecutionProvider.js";
 
 export type NsjailProviderOptions = {
   executable?: string;

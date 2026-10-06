@@ -253,22 +253,24 @@ execution:
 
 OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：tool_policy 可以进一步缩小工具能力，不能解除 session 隔离。旧部署未启用新机制时保持原行为；管理员要求隔离的部署不能被 session 请求或 permission mode 降级。
 
-当前代码通过 Gateway 装配选项启用 nsjail；同一个 provider 实例由一个 PilotDeck Gateway 共享，session 目录由 `sessionExecutionStorageRoot/<sandboxKey>` 稳定生成：
+nsjail 是独立的可选模块；核心 Gateway 只依赖通用 `SessionExecutionProvider` 契约，不导入 nsjail 实现。宿主显式创建模块并把它的 provider 和存储根交给 Gateway；同一个 provider 实例由一个 PilotDeck Gateway 共享，session 目录由 `sessionExecutionStorageRoot/<sandboxKey>` 稳定生成：
 
 ```ts
-const provider = new NsjailSessionExecutionProvider({
+import { createNsjailSandboxModule } from "./src/sandbox/nsjail/index.js";
+
+const sandbox = createNsjailSandboxModule({
   executable: "/usr/local/bin/nsjail",
   rootfs: "/var/lib/pilotdeck/rootfs",
   sessionsRoot: "/var/lib/pilotdeck/sessions",
 });
 
 createLocalGateway({
-  sessionExecutionProvider: provider,
-  sessionExecutionStorageRoot: "/var/lib/pilotdeck/sessions",
+  sessionExecutionProvider: sandbox.provider,
+  sessionExecutionStorageRoot: sandbox.sessionExecutionStorageRoot,
 });
 ```
 
-未传 `sessionExecutionProvider` 时保持原有 project-scoped execution world；要求隔离的部署必须在启动时注入 provider，并在 `probe()` 未 ready 时拒绝启动对应 session。
+未传 `sessionExecutionProvider` 时保持原有 project-scoped execution world；要求隔离的部署必须在启动时显式装配该模块，并在 `probe()` 未 ready 时拒绝启动对应 session。宿主关闭 Gateway 时调用 `sandbox.dispose()`。
 
 联网 profile 如有需求，单独定义出口代理及目标限制，不允许访问其他沙箱网络或宿主管理 API。仅设置 network namespace 不等于落实出口策略；DNS、代理及下载都需验证。
 
@@ -294,7 +296,7 @@ createLocalGateway({
 分支 `codex/session-sandbox-nsjail` 已完成 M1 和部分 M2：
 
 - `SessionExecutionProvider`、`SessionExecutionProviderRegistry` 和 `SessionExecutionLease` 已实现，并覆盖重复注册、并发 acquire、幂等释放。
-- `NsjailSessionExecutionProvider` 已实现 Linux readiness、session 目录创建、generation/binding 校验和固定 nsjail argv 构造；非 Linux 或 provider 未就绪时拒绝创建。
+- `src/sandbox/nsjail/` 提供独立的 `createNsjailSandboxModule()`；模块内部实现 Linux readiness、session 目录创建、generation/binding 校验和固定 nsjail argv 构造。核心 `src/tool/` 只保留通用 execution provider 契约，不暴露 nsjail 类型。
 - `ExecutionWorldBundle` 支持注入 sandbox port；session world 的 shell、detached shell、execute_code 和直接 subprocess 均可以复用同一个 policy。
 - session 绑定的 `FsPort` 对 stat、目录读取、文件读取、范围读取和写入执行 workspace 边界检查。
 - `ProjectSessionRuntimeBundle` 在配置 provider 时为每个 session 获取独立 lease、execution world 和工具闭包；同一个 session 重新创建会复用稳定目录并递增 generation。

@@ -187,7 +187,6 @@ export {
   type TrustedSessionBinding,
 } from "./execution-world/SessionExecutionProvider.js";
 export { SessionExecutionLease } from "./execution-world/SessionExecutionLease.js";
-export { NsjailSessionExecutionProvider, type NsjailProviderOptions } from "./execution-world/NsjailProvider.js";
 export { createNodeSandboxedSubprocessPort, type CreateNodeSandboxedSubprocessPortOptions } from "./execution-world/SandboxedSubprocessPort.js";
 export {
   createNodePlanStoragePort,

@@ -19,7 +19,7 @@
 
 本次使用的临时测试 rootfs 只包含 `/bin/sh` 和动态链接 libc，因此该结果覆盖 shell、builtin 文件工具、持久 home/tmp 挂载、generation resume 和 session workspace 边界，不代表 Python、rg、MCP、LSP、资源限额或主服务崩溃恢复场景已经验收。
 
-完整 Gateway CLI 链路当前在模型调用前仍会被 `gateway_dialog_recovery_cleanup_failed` 阻断；该问题与模型 endpoint 和 nsjail provider E2E 分开记录，不能据此声明 Gateway 全链路通过。
+完整 Gateway CLI 链路已在 `jinan40` 上通过真实模型调用验证；未显式指定 `--project` 时 CLI 使用 Gateway workspace，避免把客户端 cwd 当作远端项目而触发 `gateway_dialog_recovery_cleanup_failed`。该验证与 nsjail provider E2E 分开记录。
 
 ## 1. 验收结论规则
 
