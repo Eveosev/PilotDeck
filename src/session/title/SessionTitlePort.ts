@@ -6,6 +6,11 @@ export type SessionTitleInput = {
   signal: AbortSignal;
   /** Durable transcript sequence(s) represented by this title input. */
   messageSequences?: readonly number[];
+  /** Optional model selected for the active conversation. */
+  model?: {
+    provider: string;
+    model: string;
+  };
 };
 
 export type SessionTitleModelProvenance = {

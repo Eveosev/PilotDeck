@@ -260,7 +260,7 @@ export class UploadStore implements UploadLifecyclePort {
     const { record, attachments } = await this.getVerifiedAttachments(uploadId, projectKey, attachmentIds);
     const leaseDir = this.leaseDir(record, randomUUID());
     const leaseExpiresAt = new Date(
-      this.now().getTime() + (this.options.leaseRetentionMs ?? DEFAULTS.leaseRetentionMs),
+      this.now().getTime() + (this.options.leaseRetentionMs ?? DEFAULT_UPLOAD_LIMITS.leaseRetentionMs),
     ).toISOString();
     await mkdir(leaseDir, { recursive: true });
     try {
