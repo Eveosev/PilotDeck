@@ -392,7 +392,6 @@ export class ProjectRuntimeResourcesBundle {
       Promise.resolve((this.resources.sessionTitleProvider ?? this.sessionTitleProvider)?.dispose?.()),
       Promise.resolve((this.resources.lsp ?? this.lspService)?.dispose()),
       this.executionWorldBundle?.dispose() ?? Promise.resolve(),
-      this.resources.sessionExecutionProvider?.dispose() ?? Promise.resolve(),
       this.routerRuntime?.dispose() ?? Promise.resolve(),
       this.modelRuntime?.dispose() ?? Promise.resolve(),
     ]);

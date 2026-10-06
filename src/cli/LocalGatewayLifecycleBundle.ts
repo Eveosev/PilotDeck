@@ -14,6 +14,7 @@ export type LocalGatewayLifecycleBundleOptions = {
     disposeSessionMcpRuntimes(): Promise<void>;
     disposeProjectRuntimes(): Promise<void>;
   };
+  sessionExecutionProvider?: { dispose(): Promise<void> };
   telemetry: { dispose(): Promise<void> };
   stopConfigWatching: () => void;
   stopExtensionWatching: () => void;
@@ -64,6 +65,10 @@ export class LocalGatewayLifecycleBundle {
     await this.disposeStep(
       "[pilotdeck] failed to dispose project runtimes:",
       () => this.options.registry.disposeProjectRuntimes(),
+    );
+    await this.disposeStep(
+      "[pilotdeck] failed to dispose session execution provider:",
+      () => this.options.sessionExecutionProvider?.dispose(),
     );
     await this.disposeStep(
       "[pilotdeck] failed to dispose Gateway telemetry:",

@@ -716,6 +716,9 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     onProjectActivated: (activeProjectRoot) => extensionWatchManager.watchProject(activeProjectRoot),
   });
   bootResources.ownRegistry(registry);
+  if (options.sessionExecutionProvider) {
+    bootResources.ownSessionExecutionProvider(options.sessionExecutionProvider);
+  }
   const defaultRuntime = registry.resolve();
   const memoryDiagnosticsEnabled = isGatewayMemoryDiagnosticsEnabled(
     env,
