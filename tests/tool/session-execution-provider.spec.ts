@@ -90,13 +90,14 @@ test("nsjail provider emits a fixed isolated command shape", () => {
     env: { PATH: "/usr/bin" },
   }, "/usr/bin/nsjail");
   assert.equal(command.executable, "/usr/bin/nsjail");
-  assert.ok(command.args.includes("--clone_newpid"));
-  assert.ok(command.args.includes("--clone_newnet"));
+  assert.equal(command.args.includes("--clone_newpid"), false);
+  assert.equal(command.args.includes("--clone_newnet"), false);
+  assert.ok(command.args.includes("--disable_proc"));
   assert.ok(command.args.includes("--tmpfsmount"));
   assert.ok(command.args.includes("/workspace"));
   assert.equal(command.args.at(-3), "/bin/sh");
   const networkCommand = provider.buildCommand({ executable: "/bin/true", args: [], cwd: "/workspace", env: {} }, "/usr/bin/nsjail", "allow");
-  assert.equal(networkCommand.args.includes("--clone_newnet"), false);
+  assert.ok(networkCommand.args.includes("--disable_clone_newnet"));
 });
 
 test("nsjail provider rejects a workspace outside its session root", async () => {
