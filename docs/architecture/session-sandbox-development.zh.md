@@ -253,6 +253,23 @@ execution:
 
 OS provider 选择与已有 SDK `sandbox: { type: tool_policy, ... }` 独立：tool_policy 可以进一步缩小工具能力，不能解除 session 隔离。旧部署未启用新机制时保持原行为；管理员要求隔离的部署不能被 session 请求或 permission mode 降级。
 
+当前代码通过 Gateway 装配选项启用 nsjail；同一个 provider 实例由一个 PilotDeck Gateway 共享，session 目录由 `sessionExecutionStorageRoot/<sandboxKey>` 稳定生成：
+
+```ts
+const provider = new NsjailSessionExecutionProvider({
+  executable: "/usr/local/bin/nsjail",
+  rootfs: "/var/lib/pilotdeck/rootfs",
+  sessionsRoot: "/var/lib/pilotdeck/sessions",
+});
+
+createLocalGateway({
+  sessionExecutionProvider: provider,
+  sessionExecutionStorageRoot: "/var/lib/pilotdeck/sessions",
+});
+```
+
+未传 `sessionExecutionProvider` 时保持原有 project-scoped execution world；要求隔离的部署必须在启动时注入 provider，并在 `probe()` 未 ready 时拒绝启动对应 session。
+
 联网 profile 如有需求，单独定义出口代理及目标限制，不允许访问其他沙箱网络或宿主管理 API。仅设置 network namespace 不等于落实出口策略；DNS、代理及下载都需验证。
 
 ## 9. 实施里程碑
