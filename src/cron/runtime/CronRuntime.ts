@@ -26,7 +26,7 @@ import { resolveCronPaths, type CronPaths } from "../storage/CronPaths.js";
 import { isValidCronTimezone, resolveCronTimezone } from "../CronTimezone.js";
 import { createCronToolDefinitions } from "../tool/createCronToolDefinitions.js";
 import { CronFire, type CronActiveRun, type CronTurnEventHandler } from "./CronFire.js";
-import { computeNextRunAt } from "./CronSchedule.js";
+import { computeNextRunAt, CRON_SCHEDULE_COMPUTATION_VERSION } from "./CronSchedule.js";
 import { CronScheduler } from "./CronScheduler.js";
 import type { TelemetryClient } from "../../telemetry/index.js";
 import type { CronControlPort } from "./CronControlPort.js";
@@ -254,7 +254,7 @@ export class CronRuntime implements CronControlPort {
       updatedAt: now.toISOString(),
       nextRunAt: nextRunAt.toISOString(),
       revision: 0,
-      scheduleComputationVersion: schedule.type === "cron" ? 2 : undefined,
+      scheduleComputationVersion: schedule.type === "cron" ? CRON_SCHEDULE_COMPUTATION_VERSION : undefined,
     };
     this.registerTaskSession(task);
     try {
@@ -340,7 +340,7 @@ export class CronRuntime implements CronControlPort {
         nextRunAt: nextRunAt.toISOString(),
         updatedAt: now.toISOString(),
         revision: (current.revision ?? 0) + 1,
-        scheduleComputationVersion: schedule.type === "cron" ? 2 : undefined,
+        scheduleComputationVersion: schedule.type === "cron" ? CRON_SCHEDULE_COMPUTATION_VERSION : undefined,
       };
     });
 
@@ -551,7 +551,7 @@ export class CronRuntime implements CronControlPort {
         status: "scheduled",
         nextRunAt: computeNextRunAt(schedule, now, timezone)?.toISOString(),
         revision: (task.revision ?? 0) + 1,
-        scheduleComputationVersion: 2,
+        scheduleComputationVersion: CRON_SCHEDULE_COMPUTATION_VERSION,
         updatedAt: now.toISOString(),
       });
     }

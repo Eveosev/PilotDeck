@@ -146,7 +146,7 @@ export type PilotGatewayConfig = {
   maxPerSessionMcpInstances?: number;
 };
 
-export type PilotWebSearchProvider = "glm" | "tavily" | "custom" | "serper" | "brave";
+export type PilotWebSearchProvider = import("./webSearchProviders.js").WebSearchProvider;
 export type PilotWebSearchCustomAuth = "bearer" | "bodyApiKey" | "queryApiKey" | "none";
 export type PilotWebSearchCustomMethod = "GET" | "POST";
 
@@ -172,6 +172,7 @@ export type PilotWebSearchConfig = {
   /** Missing webSearch section is off; legacy sections without this flag remain enabled. */
   enabled?: boolean;
   provider?: PilotWebSearchProvider;
+  searchEngine?: import("./webSearchProviders.js").SerpApiEngine;
   apiKey?: string;
   endpoint?: string;
   customProvider?: PilotWebSearchCustomProviderConfig;

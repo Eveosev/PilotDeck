@@ -3,6 +3,7 @@ import { resolveCronTimezone } from "../CronTimezone.js";
 import { computeNextRunAt } from "./CronSchedule.js";
 import type { CronAgentGatewayPort, GatewayEvent } from "./CronAgentGatewayPort.js";
 import type { CronTaskStorePort } from "./CronProjectStorageProvider.js";
+import { CRON_SCHEDULE_COMPUTATION_VERSION } from "./CronSchedule.js";
 
 export type CronActiveRun = {
   runId: string;
@@ -271,7 +272,7 @@ export class CronFire {
         status: "scheduled",
         nextRunAt,
         revision: (current.revision ?? 0) + 1,
-        scheduleComputationVersion: 2,
+        scheduleComputationVersion: CRON_SCHEDULE_COMPUTATION_VERSION,
         updatedAt: finishedAt.toISOString(),
       };
     });

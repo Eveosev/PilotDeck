@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { SettingsMenuKey } from "../types";
 import type { SettingsProject } from "../shared/types";
 import { SETTINGS_CONFIG_ICON } from "./navIcons";
 import type { Contribution, SurfaceProps } from "../../../composition/contracts";
+import { useModelReferenceFocus } from "../shared/hooks/useModelReferenceFocus";
 
 type SettingsContentProps = {
   selectedKey: SettingsMenuKey;
@@ -98,6 +100,9 @@ export default function SettingsContent({
   host,
 }: SettingsContentProps) {
   const { t } = useTranslation("settings");
+  const { search } = useLocation();
+  const reference = new URLSearchParams(search).get("reference");
+  useModelReferenceFocus(reference, selectedKey);
   const moduleSection = selectedKey.startsWith('module:') ? selectedKey.slice('module:'.length) : null;
   const selectedModuleSetting = moduleSettings.find((setting) => (setting.settingsSection || setting.id) === moduleSection);
   const moduleLabel = selectedModuleSetting

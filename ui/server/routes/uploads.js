@@ -8,6 +8,7 @@ import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { UploadStore } from '../../../src/gateway/dialog/UploadStore.js';
 import { getPilotDeckGateway } from '../pilotdeck-bridge.js';
 import { resolvePilotHome } from '../utils/pilotPaths.js';
+import { readUploadLimits } from '../services/uploadLimits.js';
 
 // Allow a full supported 500-file batch, but bound repeated disk/hash work.
 export const previewRateLimiter = rateLimit({
@@ -63,12 +64,7 @@ function createNativeUploadStore() {
     return match;
   },
   listProjects: listProjectRoots,
-  maxFileBytes: envNumber('PILOTDECK_UPLOAD_MAX_FILE_BYTES'),
-  maxTaskBytes: envNumber('PILOTDECK_UPLOAD_MAX_TASK_BYTES'),
-  maxFiles: envNumber('PILOTDECK_UPLOAD_MAX_FILES'),
-  maxConcurrentPerProject: envNumber('PILOTDECK_UPLOAD_MAX_CONCURRENT'),
-  retentionMs: envNumber('PILOTDECK_UPLOAD_RETENTION_MS'),
-  leaseRetentionMs: envNumber('PILOTDECK_UPLOAD_LEASE_RETENTION_MS'),
+  ...readUploadLimits(),
   });
 }
 
@@ -102,6 +98,8 @@ export function createUploadRoutes(lifecycle = store) {
     _removeFile(_req, _file, callback) { callback(null); },
   };
   const uploadContent = multer({ storage, limits: { files: 500, fields: 20 } }).any();
+
+  router.get('/limits', (_req, res) => res.json(readUploadLimits()));
 
   router.post('/', async (req, res) => {
     try {

@@ -32,6 +32,7 @@ import MainContentStateView from "./subcomponents/MainContentStateView";
 import ConversationSwitcher from "./subcomponents/ConversationSwitcher";
 import ErrorBoundary from "./ErrorBoundary";
 import ToolSidePanel from "./subcomponents/ToolSidePanel";
+import type { WorkspaceUploadController } from "../../main-content-v2/useWorkspaceUpload";
 
 const FilesV2 = React.lazy(() => import("../../main-content-v2/FilesV2"));
 const ShellV2 = React.lazy(() => import("../../main-content-v2/ShellV2"));
@@ -181,6 +182,7 @@ function readStoredToolPanelWidth(): number {
 }
 
 function MainContent({
+  workspaceUpload,
   projects,
   selectedProject,
   selectedSession,
@@ -320,9 +322,10 @@ function MainContent({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div className="pd-workspace-body relative flex h-full min-h-0 flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <SplitBody
+          workspaceUpload={workspaceUpload}
           projects={projects}
           selectedProject={selectedProject}
           selectedSession={selectedSession}
@@ -393,6 +396,7 @@ function MainContent({
 // V2 split body: chat is the persistent primary surface, Files is a dedicated
 // workbench, and the management dashboards open in a resizable side panel.
 type SplitBodyProps = {
+  workspaceUpload: WorkspaceUploadController;
   projects: Project[];
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
@@ -450,6 +454,7 @@ type SplitBodyProps = {
 function SplitBody(props: SplitBodyProps) {
   const { t } = useTranslation();
   const {
+    workspaceUpload,
     projects,
     selectedProject,
     selectedSession,
@@ -536,6 +541,8 @@ function SplitBody(props: SplitBodyProps) {
   const [assistantCollapsed, setAssistantCollapsed] = useState(false);
   const [assistantOverlayOpen, setAssistantOverlayOpen] = useState(false);
   const [workbenchWidth, setWorkbenchWidth] = useState(0);
+  const [workbenchHeight, setWorkbenchHeight] = useState(0);
+  const [activeDockPanel, setActiveDockPanel] = useState<FilesDockPanel>("assistant");
   const [toolPanelWidth, setToolPanelWidth] = useState(
     readStoredToolPanelWidth,
   );
@@ -564,8 +571,11 @@ function SplitBody(props: SplitBodyProps) {
     const container = filesSplitContainerRef.current;
     if (!container) return undefined;
 
-    const updateWidth = () =>
-      setWorkbenchWidth(container.getBoundingClientRect().width);
+    const updateWidth = () => {
+      const rect = container.getBoundingClientRect();
+      setWorkbenchWidth(rect.width);
+      setWorkbenchHeight(rect.height);
+    };
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
     observer.observe(container);
@@ -631,12 +641,12 @@ function SplitBody(props: SplitBodyProps) {
         : FILES_ASSISTANT_MAX_WIDTH;
       const availableWidth =
         workbenchWidth > 0
-          ? workbenchWidth - FILES_PANEL_RAIL_WIDTH - FILES_ARTIFACT_MIN_WIDTH
+          ? workbenchWidth - FILES_PANEL_RAIL_WIDTH - (isNarrowWorkbench ? 0 : FILES_ARTIFACT_MIN_WIDTH)
           : layoutMax;
-      const maxWidth = Math.max(minWidth, Math.min(layoutMax, availableWidth));
-      return Math.min(Math.max(width, minWidth), maxWidth);
+      const maxWidth = Math.max(0, Math.min(layoutMax, availableWidth));
+      return Math.min(Math.max(width, Math.min(minWidth, maxWidth)), maxWidth);
     },
-    [dockedHorizontally, workbenchWidth],
+    [dockedHorizontally, workbenchWidth, isNarrowWorkbench],
   );
 
   const handleFilesAssistantResizeBy = useCallback(
@@ -699,7 +709,7 @@ function SplitBody(props: SplitBodyProps) {
   const clampFilesPanelSplitRatio = useCallback(
     (ratio: number) => {
       const rect = filesSidePanelRef.current?.getBoundingClientRect();
-      if (filesPanelLayout === "horizontal") {
+      if (dockedHorizontally) {
         const availableWidth = Math.max(
           1,
           (rect?.width ?? 0) - FILES_PANEL_SPLITTER_WIDTH,
@@ -722,8 +732,12 @@ function SplitBody(props: SplitBodyProps) {
       const maxRatio = Math.max(0.5, 1 - minRatio);
       return Math.min(Math.max(ratio, minRatio), maxRatio);
     },
-    [filesPanelLayout],
+    [dockedHorizontally],
   );
+
+  useEffect(() => {
+    setFilesPanelSplitRatio(clampFilesPanelSplitRatio);
+  }, [clampFilesPanelSplitRatio, filesAssistantWidth, workbenchHeight]);
 
   useEffect(() => {
     if (!filesPanelSplitResizing) return undefined;
@@ -733,7 +747,7 @@ function SplitBody(props: SplitBodyProps) {
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const pointerRatio =
-        filesPanelLayout === "horizontal"
+        dockedHorizontally
           ? (event.clientX - rect.left) /
             Math.max(1, rect.width - FILES_PANEL_SPLITTER_WIDTH)
           : (event.clientY - rect.top) /
@@ -752,7 +766,7 @@ function SplitBody(props: SplitBodyProps) {
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
     document.body.style.cursor =
-      filesPanelLayout === "horizontal" ? "col-resize" : "row-resize";
+      dockedHorizontally ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
 
     return () => {
@@ -764,7 +778,7 @@ function SplitBody(props: SplitBodyProps) {
     };
   }, [
     clampFilesPanelSplitRatio,
-    filesPanelLayout,
+    dockedHorizontally,
     filesPanelOrder,
     filesPanelSplitResizing,
   ]);
@@ -857,12 +871,15 @@ function SplitBody(props: SplitBodyProps) {
   const showFullScreenTool =
     isFullScreenTool && (activeTab !== "tasks" || shouldShowTasksTab);
   const showChat = !showFullScreenTool;
+  const singlePanelMode = !dockedHorizontally && workbenchHeight > 0
+    && workbenchHeight < FILES_PANEL_SECTION_MIN_HEIGHT * 2 + FILES_PANEL_SPLITTER_HEIGHT;
   const explorerVisible =
     isFiles &&
     showChat &&
     !editorExpanded &&
     !isMobile &&
     !explorerCollapsed &&
+    (!singlePanelMode || assistantCollapsed || activeDockPanel === "explorer") &&
     (!isNarrowWorkbench || assistantOverlayOpen);
   const assistantVisible =
     isFiles &&
@@ -870,6 +887,7 @@ function SplitBody(props: SplitBodyProps) {
     !editorExpanded &&
     !isMobile &&
     !assistantCollapsed &&
+    (!singlePanelMode || explorerCollapsed || activeDockPanel === "assistant") &&
     (!isNarrowWorkbench || assistantOverlayOpen);
   const filesPanelVisible = explorerVisible || assistantVisible;
   const assistantIsOverlay = filesPanelVisible && isNarrowWorkbench;
@@ -880,6 +898,12 @@ function SplitBody(props: SplitBodyProps) {
     !assistantIsOverlay;
 
   const toggleExplorer = () => {
+    setActiveDockPanel("explorer");
+    if (singlePanelMode && !explorerVisible) {
+      setExplorerCollapsed(false);
+      if (isNarrowWorkbench) setAssistantOverlayOpen(true);
+      return;
+    }
     if (isNarrowWorkbench && !assistantOverlayOpen && !explorerCollapsed) {
       setAssistantOverlayOpen(true);
       return;
@@ -892,6 +916,12 @@ function SplitBody(props: SplitBodyProps) {
   };
 
   const toggleAssistant = () => {
+    setActiveDockPanel("assistant");
+    if (singlePanelMode && !assistantVisible) {
+      setAssistantCollapsed(false);
+      if (isNarrowWorkbench) setAssistantOverlayOpen(true);
+      return;
+    }
     if (isNarrowWorkbench && !assistantOverlayOpen && !assistantCollapsed) {
       setAssistantOverlayOpen(true);
       return;
@@ -997,11 +1027,12 @@ function SplitBody(props: SplitBodyProps) {
 
       {/* Mobile keeps the existing full-width explorer flow. */}
       {isFiles && showChat && !editorExpanded && isMobile && !hasEditor ? (
-        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-white dark:bg-neutral-950">
+        <div className="pd-workspace-body flex h-full w-full min-w-0 flex-col overflow-hidden bg-white dark:bg-neutral-950">
           <Suspense fallback={<TabSkeleton />}>
             <FilesV2
               key={selectedProject?.name ?? ""}
               selectedProject={selectedProject}
+              workspaceUpload={workspaceUpload}
               onFileOpen={handleFileOpen}
               activeFilePath={activeFilePath}
               onFileRename={onFileRename}
@@ -1038,7 +1069,7 @@ function SplitBody(props: SplitBodyProps) {
         ref={filesSidePanelRef}
         key="agent-surface"
         className={cn(
-          "flex min-h-0 min-w-0 bg-white dark:bg-neutral-950",
+          "pd-workspace-body flex min-h-0 min-w-0 bg-white dark:bg-neutral-950",
           stackedHorizontally ? "flex-row" : "flex-col",
           !showChat && "invisible absolute h-0 w-0 overflow-hidden",
           showChat && !isFiles && "flex-1",
@@ -1104,6 +1135,7 @@ function SplitBody(props: SplitBodyProps) {
               <FilesV2
                 key={selectedProject?.name ?? ""}
                 selectedProject={selectedProject}
+                workspaceUpload={workspaceUpload}
                 onFileOpen={handleFileOpen}
                 activeFilePath={activeFilePath}
                 onFileRename={onFileRename}
@@ -1380,7 +1412,7 @@ function SplitBody(props: SplitBodyProps) {
 
       {isFiles && showChat && !editorExpanded && !isMobile ? (
         <nav
-          className="right-rail flex h-full w-[40px] flex-shrink-0 flex-col items-center gap-2 border-l border-neutral-200 bg-[#f7f5ff] px-1.5 py-3 dark:border-neutral-800 dark:bg-neutral-950"
+          className="right-rail flex h-full w-[40px] flex-shrink-0 flex-col items-center gap-2 border-l border-neutral-200 bg-[var(--pd-accent-soft,#f7f5ff)] px-1.5 py-3 dark:border-neutral-800 dark:bg-neutral-950"
           aria-label={t("filesWorkbench.panelControls", {
             defaultValue: "Workbench panels",
           })}
@@ -1390,9 +1422,9 @@ function SplitBody(props: SplitBodyProps) {
             aria-label={t("filesWorkbench.fileDirectory", {
               defaultValue: "Files",
             })}
-            aria-pressed={!explorerCollapsed}
+            aria-pressed={singlePanelMode ? explorerVisible : !explorerCollapsed}
             onClick={toggleExplorer}
-            className={cn(!explorerCollapsed && "active")}
+            className={cn((singlePanelMode ? explorerVisible : !explorerCollapsed) && "active")}
           >
             <span>
               {t("filesWorkbench.fileDirectory", { defaultValue: "Files" })}
@@ -1403,9 +1435,9 @@ function SplitBody(props: SplitBodyProps) {
             aria-label={t("filesWorkbench.smartChat", {
               defaultValue: "Smart Chat",
             })}
-            aria-pressed={!assistantCollapsed}
+            aria-pressed={singlePanelMode ? assistantVisible : !assistantCollapsed}
             onClick={toggleAssistant}
-            className={cn(!assistantCollapsed && "active")}
+            className={cn((singlePanelMode ? assistantVisible : !assistantCollapsed) && "active")}
           >
             <span>
               {t("filesWorkbench.smartChat", { defaultValue: "Smart Chat" })}

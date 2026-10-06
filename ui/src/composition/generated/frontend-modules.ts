@@ -15,12 +15,13 @@ import module12 from '../modules/tools-mcp';
 import module13 from '../modules/context-memory';
 import module14 from '../modules/workspace-office-preview';
 import module15 from '../modules/system-advanced';
-import module16 from '../modules/tools-permissions';
-import module17 from '../modules/system-telemetry';
-import module18 from '../modules/system-updates';
-import module19 from '../modules/host-preferences';
-import module20 from '../modules/chat-preferences';
-import module21 from '../modules/workspace-editor-preferences';
+import module16 from '../modules/system-appearance';
+import module17 from '../modules/tools-permissions';
+import module18 from '../modules/system-telemetry';
+import module19 from '../modules/system-updates';
+import module20 from '../modules/host-preferences';
+import module21 from '../modules/chat-preferences';
+import module22 from '../modules/workspace-editor-preferences';
 
 export const generatedFrontendModules = [
   Object.assign({ slot: 'agentLoop' }, module0),
@@ -45,6 +46,7 @@ export const generatedFrontendModules = [
   module19,
   module20,
   module21,
+  module22,
 ] as const;
 
 export const generatedBusinessPaths = [
@@ -121,6 +123,9 @@ export const generatedFrontendProfile = {
         "enabled": true
       },
       "system.advanced": {
+        "enabled": true
+      },
+      "system.appearance": {
         "enabled": true
       },
       "tools.permissions": {

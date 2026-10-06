@@ -26,7 +26,14 @@ Bad (wrong case): {"title": "Fix Login Button On Mobile"}
 
 Do not output Markdown, code fences, explanations, analysis, thinking text, <think> tags, or extra fields.`;
 
-export type SessionTitleGeneratorInput = SessionTitleInput;
+export type SessionTitleGeneratorInput = SessionTitleInput & {
+  text: string;
+  sessionId: string;
+  turnId: string;
+  signal: AbortSignal;
+  /** Use the model selected for this turn when it differs from the agent default. */
+  model?: Pick<PilotAgentModelSelection, "provider" | "model">;
+};
 
 export type SessionTitleGenerator = (input: SessionTitleGeneratorInput) => Promise<string | null>;
 
@@ -53,7 +60,7 @@ export function createNativeSessionTitleProvider(
   return {
     providerId: "native-llm",
     modelProvenance: { provider: options.agentModel.provider, model: options.agentModel.model },
-    generate: async ({ text, sessionId, turnId, signal }) => {
+    generate: async ({ text, sessionId, turnId, signal, model }) => {
     const prompt = normalizeSessionTitleInput(text);
     if (!prompt) {
       return null;
@@ -61,12 +68,13 @@ export function createNativeSessionTitleProvider(
 
     const timeoutSignal = AbortSignal.timeout(timeoutMs);
     const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+    const selectedModel = model ?? options.agentModel;
 
     try {
       const response = await options.modelRuntime.complete(
         {
-          provider: options.agentModel.provider,
-          model: options.agentModel.model,
+          provider: selectedModel.provider,
+          model: selectedModel.model,
           systemPrompt: `${SESSION_TITLE_SYSTEM_PROMPT}\n\nSystem language: ${systemLanguage}`,
           messages: [
             {
