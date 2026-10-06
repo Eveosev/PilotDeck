@@ -33,6 +33,8 @@ import { getSettingsPathFromTab } from '../settings/navigation';
 import { ConnectionBanner } from '../ui/ConnectionBanner';
 import SidebarV2 from './SidebarV2';
 import MainAreaV2 from './MainAreaV2';
+import { useDesktopCommands } from '../desktop/useDesktopCommands';
+import { useWorkspaceUpload } from '../main-content-v2/useWorkspaceUpload';
 import { useModuleComposition } from '../../composition/runtime';
 import { useApproverSession } from '../../composition/modules/staffdeck/useApproverSession';
 import { ApproverAccount } from '../../composition/modules/staffdeck/ApproverAccount';
@@ -158,6 +160,7 @@ export default function AppShellV2() {
     activeSessions,
   });
   const workspaceTab = activeTab === 'cron' || activeTab === 'skills' || activeTab === 'memory' || activeTab === 'always-on' ? 'chat' : activeTab;
+  const workspaceUpload = useWorkspaceUpload(selectedProject?.name);
   const shellActiveTab = dedicatedTab ?? workspaceTab;
   const { processingSessions: remoteProcessingSessions, unreadSessionIds, markRead, acknowledge, selectSession: acknowledgeNavigation } = useSessionIndicators({
     scope: String(user?.id ?? 'local'),
@@ -620,6 +623,36 @@ export default function AppShellV2() {
     [bumpSessionActivity],
   );
 
+  useDesktopCommands({
+    canNewConversation: !isLoadingProjects && Boolean(resolveHomeNewConversationProject({
+      selectedProject, selectedSession, projectNameParam, projects: sidebarSharedProps.projects,
+    })),
+    hasProject: Boolean(selectedProject && selectedProject.capabilities?.files !== false && selectedProject.kind !== 'general' && selectedProject.name !== 'general'),
+    canFind: !isSettingsRoute,
+    sidebarVisible: desktopSidebarOpen && !isSettingsRoute,
+    integrateMacCaption: desktopSidebarOpen && !isMobile && !isSettingsRoute && isConnected,
+    execute: command => {
+      switch (command) {
+        case 'new-conversation': handleHomeNewConversation(); break;
+        case 'new-project': handleOpenNewProject(); break;
+        case 'settings': onShowSettings(); break;
+        case 'check-updates':
+          if (isSettingsRoute) window.dispatchEvent(new Event('pilotdeck:check-updates'));
+          navigate(`${SETTINGS_PATH}/about`);
+          break;
+        case 'find': window.dispatchEvent(new Event('pilotdeck:find')); break;
+        case 'toggle-sidebar':
+          if (isSettingsRoute) onCloseSettings();
+          setDesktopSidebarOpen(value => isSettingsRoute ? true : !value);
+          break;
+        case 'chat': handleSelectTab('chat'); break;
+        case 'files': handleSelectTab('files'); break;
+        case 'skills': handleSelectTab('skills'); break;
+        case 'scheduled-tasks': handleSelectTab('cron'); break;
+      }
+    },
+  });
+
   // Wrap the two session-lifecycle callbacks coming out of useSessionProtection
   // so they also reconcile the optimistic placeholder rows in the sidebar:
   //  · `session_created` → swap `new-session-*` in projects.sessions for the
@@ -728,6 +761,7 @@ export default function AppShellV2() {
       >
         {composition.assembly?.approvalInbox && <ApproverAccount session={approverSession} />}
         <MainAreaV2
+          workspaceUpload={workspaceUpload}
           projects={sidebarSharedProps.projects}
           selectedProject={selectedProject}
           selectedSession={selectedSession}

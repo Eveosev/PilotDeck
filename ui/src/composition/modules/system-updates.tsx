@@ -52,7 +52,13 @@ function SystemUpdatesSettings({ onClose }: SurfaceProps) {
     void checkVersion();
   }, [checkVersion]);
 
-  return <AboutSections title="About" versionInfo={versionInfo} checkingVersion={checkingVersion} onRestartConfirmed={onClose} />;
+  useEffect(() => {
+    const checkFromMenu = () => { void checkVersion(); };
+    window.addEventListener('pilotdeck:check-updates', checkFromMenu);
+    return () => window.removeEventListener('pilotdeck:check-updates', checkFromMenu);
+  }, [checkVersion]);
+
+  return <AboutSections title="About" versionInfo={versionInfo} checkingVersion={checkingVersion} onCheckUpdates={checkVersion} onRestartConfirmed={onClose} />;
 }
 
 const module: FrontendModule = {

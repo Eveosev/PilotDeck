@@ -41,6 +41,7 @@ const moduleOwnership = {
   'context.memory': ['ui/src/composition/modules/context-memory.tsx'],
   'workspace.office-preview': ['ui/src/composition/modules/workspace-office-preview.tsx'],
   'system.advanced': ['ui/src/composition/modules/system-advanced.tsx'],
+  'system.appearance': ['ui/src/composition/modules/system-appearance.tsx'],
   'tools.permissions': ['ui/src/composition/modules/tools-permissions.tsx'],
   'system.telemetry': ['ui/src/composition/modules/system-telemetry.tsx'],
   'system.updates': ['ui/src/composition/modules/system-updates.tsx'],

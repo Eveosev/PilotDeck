@@ -51,32 +51,16 @@ export function rewriteProviderRefs(
 ): PilotDeckConfig {
   let next = config;
 
-  const agentModel = rewriteProviderRef(
-    next.agent?.model,
-    oldProviderId,
-    newProviderId,
-  );
-  if (agentModel !== next.agent?.model) {
-    next = patch(next, ["agent", "model"], agentModel);
-  }
+  const agentModel = rewriteProviderRef(next.agent?.model, oldProviderId, newProviderId);
+  if (agentModel !== next.agent?.model) next = patch(next, ["agent", "model"], agentModel);
 
-  const subagentDefault = rewriteProviderRef(
-    next.agent?.subagents?.default,
-    oldProviderId,
-    newProviderId,
-  );
+  const subagentDefault = rewriteProviderRef(next.agent?.subagents?.default, oldProviderId, newProviderId);
   if (subagentDefault !== next.agent?.subagents?.default) {
     next = patch(next, ["agent", "subagents", "default"], subagentDefault);
   }
 
-  const memoryModel = rewriteProviderRef(
-    next.memory?.model,
-    oldProviderId,
-    newProviderId,
-  );
-  if (memoryModel !== next.memory?.model) {
-    next = patch(next, ["memory", "model"], memoryModel);
-  }
+  const memoryModel = rewriteProviderRef(next.memory?.model, oldProviderId, newProviderId);
+  if (memoryModel !== next.memory?.model) next = patch(next, ["memory", "model"], memoryModel);
 
   const scenarios = next.router?.scenarios;
   if (scenarios) {
@@ -86,9 +70,7 @@ export function rewriteProviderRefs(
         rewriteProviderRef(value, oldProviderId, newProviderId) as string,
       ]),
     );
-    if (
-      Object.entries(scenarios).some(([key, value]) => rewritten[key] !== value)
-    ) {
+    if (Object.entries(scenarios).some(([key, value]) => rewritten[key] !== value)) {
       next = patch(next, ["router", "scenarios"], rewritten);
     }
   }
@@ -98,51 +80,26 @@ export function rewriteProviderRefs(
     const rewritten = Object.fromEntries(
       Object.entries(fallback).map(([key, refs]) => [
         key,
-        refs.map((ref) =>
-          rewriteProviderRef(ref, oldProviderId, newProviderId),
-        ) as string[],
+        refs.map((ref) => rewriteProviderRef(ref, oldProviderId, newProviderId)) as string[],
       ]),
     );
-    if (
-      Object.entries(fallback).some(
-        ([key, refs]) =>
-          refs.length !== rewritten[key].length ||
-          refs.some((ref, idx) => rewritten[key][idx] !== ref),
-      )
-    ) {
+    if (Object.entries(fallback).some(([key, refs]) => refs.some((ref, idx) => rewritten[key][idx] !== ref))) {
       next = patch(next, ["router", "fallback"], rewritten);
     }
   }
 
-  const judge = rewriteProviderRef(
-    next.router?.tokenSaver?.judge,
-    oldProviderId,
-    newProviderId,
-  );
-  if (judge !== next.router?.tokenSaver?.judge) {
-    next = patch(next, ["router", "tokenSaver", "judge"], judge);
-  }
+  const judge = rewriteProviderRef(next.router?.tokenSaver?.judge, oldProviderId, newProviderId);
+  if (judge !== next.router?.tokenSaver?.judge) next = patch(next, ["router", "tokenSaver", "judge"], judge);
 
   const tiers = next.router?.tokenSaver?.tiers;
   if (tiers) {
     const rewritten = Object.fromEntries(
       Object.entries(tiers).map(([key, tier]) => [
         key,
-        {
-          ...tier,
-          model: rewriteProviderRef(
-            tier.model,
-            oldProviderId,
-            newProviderId,
-          ) as string | undefined,
-        },
+        { ...tier, model: rewriteProviderRef(tier.model, oldProviderId, newProviderId) as string | undefined },
       ]),
     );
-    if (
-      Object.entries(tiers).some(
-        ([key, tier]) => rewritten[key].model !== tier.model,
-      )
-    ) {
+    if (Object.entries(tiers).some(([key, tier]) => rewritten[key].model !== tier.model)) {
       next = patch(next, ["router", "tokenSaver", "tiers"], rewritten);
     }
   }

@@ -2,7 +2,6 @@ import type { SettingsMenuKey } from "../types";
 import aboutIcon from "../assets/nav/about.svg?raw";
 import advancedIcon from "../assets/nav/advanced.svg?raw";
 import agentMemoryIcon from "../assets/nav/agent-memory.svg?raw";
-import agentModelIcon from "../assets/nav/agent-model.svg?raw";
 import agentResidentIcon from "../assets/nav/agent-resident.svg?raw";
 import agentRouteIcon from "../assets/nav/agent-route.svg?raw";
 import agentScheduleIcon from "../assets/nav/agent-schedule.svg?raw";
@@ -22,7 +21,6 @@ export const SETTINGS_CONFIG_ICON = configIcon;
 export const SETTINGS_NAV_ICONS: Partial<Record<SettingsMenuKey, string>> = {
   general: generalIcon,
   modelPool: modelPoolIcon,
-  agentModel: agentModelIcon,
   agentRoute: agentRouteIcon,
   agentMemory: agentMemoryIcon,
   agentResident: agentResidentIcon,

@@ -118,6 +118,7 @@ const project: Project = {
 
 function propsFor(activeTab: AppTab, setActiveTab = vi.fn()) {
   return {
+    workspaceUpload: { upload: null, busy: false, start: vi.fn(), cancel: vi.fn(), retry: vi.fn(), dismiss: vi.fn() },
     projects: [project],
     selectedProject: project,
     selectedSession: null,

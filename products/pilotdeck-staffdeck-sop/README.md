@@ -1,5 +1,7 @@
 # PilotDeck + StaffDeck SOP
 
+七槽生产部署请先阅读 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)。
+
 Seven-slot external example: `profiles/example-seven-external.yaml` binds every
 slot to an unregistered implementation. The exporter preserves these bindings
 and lists the required external endpoints in the generated README.
@@ -39,6 +41,34 @@ provider host out of any Docker-inherited outbound proxy, so in-network SOP
 requests and direct provider access remain routable. For the non-exported
 local Compose profile, set `PILOTDECK_NO_PROXY` when using a non-OpenAI
 provider endpoint.
+
+### Native-five + StaffDeck one-command deployment
+
+For the seven-slot composition in `profiles/native-five-staffdeck.yaml`, the
+exporter bundles the validated StaffDeck backend and generates both
+`sop-runtime` and `knowledge-runtime`. Knowledge data is persisted in its own
+Compose volume and the service is reachable only on the internal Compose
+network. The current StaffDeck `origin/main` does not yet contain the
+Knowledge module API; use the validated `codex/portable-sop-runtime` checkout
+or pass a compatible `--staffdeck-root`.
+
+```bash
+export PILOTDECK_REAL_MODEL_BASE_URL=https://your-provider.example/v1
+node products/pilotdeck-staffdeck-sop/scripts/export-composition.mjs \
+  --profile products/pilotdeck-staffdeck-sop/profiles/native-five-staffdeck.yaml \
+  --out /opt/pilotdeck-seven
+cd /opt/pilotdeck-seven
+cp .env.example .env
+# Set PILOTDECK_API_KEY, PILOTDECK_REAL_MODEL_API_KEY and STAFFDECK_APP_SECRET in .env.
+docker compose --env-file .env up -d --build
+```
+
+The generated `.env.example` defaults `STAFFDECK_PYTHON_BASE_IMAGE` to the
+Huawei Cloud mirror `swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.11-slim`, which avoids Docker Hub access problems in mainland China. Replace that value with an Alibaba Cloud or private registry image when your environment provides one.
+
+The generated deployment starts `pilotdeck`, `sop-runtime` on port 8091 and
+`knowledge-runtime` on port 8090, then waits for both StaffDeck health checks
+before admitting PilotDeck traffic.
 
 Set `PILOTDECK_API_KEY` in `.env`. The default `STAFFDECK_SOP_RUNTIME_CONTEXT`
 expects the `codex/portable-sop-runtime` checkout beside the PilotDeck

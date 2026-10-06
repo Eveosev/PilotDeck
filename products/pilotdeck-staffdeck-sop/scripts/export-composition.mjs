@@ -36,7 +36,12 @@ await assertEmptyDirectory(output);
 await mkdir(output, { recursive: true });
 await copyPilotDeck(output);
 await writeGeneratedFrontend(output, profile);
-await copyStaffDeck(resolve(options.staffdeckRoot ?? defaults.staffdeckRoot), output, assembly.sop?.kind === "legacy");
+await copyStaffDeck(
+  resolve(options.staffdeckRoot ?? defaults.staffdeckRoot),
+  output,
+  assembly.sop?.kind === "legacy" || assembly.sop?.builtin === "staffdeck-sop",
+  externalModulesNeedStaffDeck(assembly.externalModules),
+);
 await writeDeploymentFiles(output, profile, profilePath, assembly);
 
 console.log(JSON.stringify({
@@ -75,6 +80,10 @@ function validateProfile(profile) {
     .filter(Boolean);
   const sop = readSopBinding(modules.sop);
   return { sop, externalModules };
+}
+
+function externalModulesNeedStaffDeck(modules) {
+  return modules.some((module) => module.builtin === "staffdeck-knowledge");
 }
 
 function materializeRuntimeReferences(profile) {
@@ -118,6 +127,23 @@ function readExternalModule(slot, value) {
   if (value.contract !== contracts[slot]) {
     throw new Error(`modules.${slot}.contract is not supported by this exporter.`);
   }
+  if (slot === "knowledge" && value.implementationId === "staffdeck.knowledge") {
+    return {
+      slot,
+      implementationId: value.implementationId.trim(),
+      target: value.endpoint,
+      builtin: "staffdeck-knowledge",
+      deployment: {
+        mode: "build",
+        context: "__staffdeck__",
+        dockerfile: "knowledge.Dockerfile",
+        port: 8090,
+        healthPath: "/module-manifest",
+        serviceName: "knowledge-runtime",
+        builtin: "staffdeck-knowledge",
+      },
+    };
+  }
   if (slot === "agentLoop") {
     if (!["module-stdio-v2", "module-tcp-v2"].includes(value.transport)) {
       throw new Error("modules.agentLoop.transport must be module-stdio-v2 or module-tcp-v2.");
@@ -155,7 +181,27 @@ function readSopBinding(value) {
   if (value.contract !== "sop.lifecycle/v2" || value.transport !== "sop-http-v2") {
     throw new Error("Unsupported SOP contract or transport for this exporter.");
   }
-  return { kind: "external", ...value, definitionsPath, defaultSopId, deployment: readDeployment(value.deployment, "sop") };
+  const builtin = value.implementationId === "staffdeck.portable-sop";
+  return {
+    kind: "external",
+    ...value,
+    definitionsPath,
+    defaultSopId,
+    ...(builtin
+      ? {
+          builtin: "staffdeck-sop",
+          deployment: {
+            mode: "build",
+            context: "__staffdeck__",
+            dockerfile: "portable_sop/Dockerfile",
+            port: 8091,
+            healthPath: "/healthz",
+            serviceName: "sop-runtime",
+            builtin: "staffdeck-sop",
+          },
+        }
+      : { deployment: readDeployment(value.deployment, "sop") }),
+  };
 }
 
 function readDeployment(value, slot) {
@@ -231,11 +277,43 @@ async function writeGeneratedFrontend(output, profile) {
   ), "utf8");
 }
 
-async function copyStaffDeck(source, output, includeSop) {
-  if (!includeSop) return;
+async function copyStaffDeck(source, output, includeSop, includeKnowledge) {
+  if (!includeSop && !includeKnowledge) return;
   const destination = join(output, "staffdeck");
   await copyRequired(join(source, "backend"), join(destination, "backend"));
   await copyRequired(join(source, "portable_sop"), join(destination, "portable_sop"));
+  if (includeSop) {
+    const dockerfile = join(destination, "portable_sop", "Dockerfile");
+    const text = await readFile(dockerfile, "utf8");
+    await writeFile(dockerfile, text.replace(/^FROM python:3\.11-slim/m, "ARG PYTHON_BASE_IMAGE=python:3.11-slim\nFROM ${PYTHON_BASE_IMAGE}"), "utf8");
+  }
+  if (includeKnowledge) {
+    await writeFile(join(destination, "knowledge_runtime.py"), `"""Standalone Knowledge module entrypoint for the exported deployment."""
+
+import staffdeck_harness.runtime as harness_runtime
+
+# The exported Knowledge service owns the data facade only. The current
+# StaffDeck checkout's app.main startup hook unconditionally boots the optional
+# Harness v3 worker, whose Node engine is not part of this service image.
+harness_runtime.start_harness_runtime = lambda _settings: {"disabled": True}
+
+from app.main import app  # noqa: E402
+`, "utf8");
+    await writeFile(join(destination, "knowledge.Dockerfile"), `ARG PYTHON_BASE_IMAGE=python:3.11-slim
+FROM \${PYTHON_BASE_IMAGE}
+
+WORKDIR /app
+COPY backend ./backend
+COPY portable_sop/src ./portable_sop/src
+COPY knowledge_runtime.py ./knowledge_runtime.py
+RUN env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \\
+    pip install --no-cache-dir --no-build-isolation ./backend
+ENV PYTHONPATH=/app/backend:/app/backend/src:/app/portable_sop/src
+
+EXPOSE 8090
+CMD ["python", "-m", "uvicorn", "knowledge_runtime:app", "--host", "0.0.0.0", "--port", "8090"]
+`, "utf8");
+  }
 }
 
 async function copyRequired(source, destination) {
@@ -277,7 +355,12 @@ async function writeDeploymentFiles(output, profile, profilePath, assembly) {
   await mkdir(join(output, "config"), { recursive: true });
   await mkdir(join(output, "sops"), { recursive: true });
   await writeFile(join(output, "config", "pilotdeck.yaml"), YAML.stringify(deployment), "utf8");
-  await writeFile(join(output, ".env.example"), "PILOTDECK_API_KEY=\nPILOTDECK_REAL_MODEL_API_KEY=\nPILOTDECK_REAL_MODEL_BASE_URL=\nPILOTDECK_PORT=3001\n", "utf8");
+  const needsKnowledgeSecret = externalModules.some((module) => module.builtin === "staffdeck-knowledge");
+  await writeFile(
+    join(output, ".env.example"),
+    `PILOTDECK_API_KEY=\nPILOTDECK_REAL_MODEL_API_KEY=\nPILOTDECK_REAL_MODEL_BASE_URL=\n${needsKnowledgeSecret ? "STAFFDECK_APP_SECRET=change-me\nSTAFFDECK_PYTHON_BASE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.11-slim\n" : ""}PILOTDECK_PORT=3001\n`,
+    "utf8",
+  );
   await writeFile(join(output, "compose.yaml"), YAML.stringify(compose(sop, providerNoProxyHosts(profile), externalModules)), "utf8");
   await writeFile(join(output, "README.md"), readme(sop, externalModules), "utf8");
 }
@@ -289,6 +372,7 @@ async function materializeDeploymentSources(output, profilePath, externalModules
   ];
   for (const entry of entries) {
     if (entry.deployment.mode !== "build") continue;
+    if (entry.deployment.context === "__staffdeck__") continue;
     const source = resolve(dirname(profilePath), entry.deployment.context);
     await copyRequired(source, join(output, "modules", entry.slot));
   }
@@ -303,11 +387,13 @@ function rewriteManagedBindings(modules, externalModules, sop) {
 
 function rewriteManagedBinding(binding, slot, deployment) {
   if (!binding || deployment.mode === "external") return;
-  const service = deploymentServiceName(slot);
+  const service = deploymentServiceName(slot, deployment);
   const endpoint = `http://${service}:${deployment.port}`;
   binding.deployment = {
     ...deployment,
-    ...(deployment.mode === "build" ? { context: `./modules/${slot}` } : {}),
+    ...(deployment.mode === "build" && deployment.context !== "__staffdeck__"
+      ? { context: `./modules/${slot}` }
+      : {}),
   };
   if (slot === "agentLoop") {
     binding.host = service;
@@ -325,7 +411,7 @@ function compose(sop, providerHosts, externalModules) {
     .map((module) => urlHost(module.target) ?? module.target);
   const managedSop = sop?.kind === "external" && sop.deployment?.mode !== "external" ? [{ slot: "sop", deployment: sop.deployment }] : [];
   const managed = [...managedModules, ...managedSop];
-  const managedHosts = managed.map((module) => deploymentServiceName(module.slot));
+  const managedHosts = managed.map((module) => deploymentServiceName(module.slot, module.deployment));
   const noProxy = [...sopHosts, ...externalHosts, ...managedHosts, ...providerHosts, "localhost", "127.0.0.1"]
     .filter(Boolean).join(",");
   const pilotdeck = {
@@ -347,7 +433,7 @@ function compose(sop, providerHosts, externalModules) {
   };
   const services = { pilotdeck };
   const dependencies = {};
-  if (sop?.kind === "legacy") {
+  if (sop?.kind === "legacy" && !sop.deployment) {
     services["sop-runtime"] = {
       build: { context: "./staffdeck", dockerfile: "portable_sop/Dockerfile" }, image: "staffdeck-sop-runtime:exported",
       healthcheck: { test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8091/healthz')"], interval: "5s", timeout: "3s", retries: 12 },
@@ -355,18 +441,22 @@ function compose(sop, providerHosts, externalModules) {
     dependencies["sop-runtime"] = { condition: "service_healthy" };
   }
   for (const module of managed) {
-    const service = deploymentServiceName(module.slot);
+    const service = deploymentServiceName(module.slot, module.deployment);
     services[service] = deploymentService(module.slot, module.deployment);
     dependencies[service] = {
       condition: module.deployment.healthPath ? "service_healthy" : "service_started",
     };
   }
   if (Object.keys(dependencies).length > 0) pilotdeck.depends_on = dependencies;
-  return { services, volumes: { "pilotdeck-home": {} } };
+  const volumes = { "pilotdeck-home": {} };
+  if (managed.some((module) => module.slot === "knowledge" && module.deployment.builtin === "staffdeck-knowledge")) {
+    volumes["staffdeck-knowledge-data"] = {};
+  }
+  return { services, volumes };
 }
 
-function deploymentServiceName(slot) {
-  return `module-${slot.replaceAll(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
+function deploymentServiceName(slot, deployment) {
+  return deployment?.serviceName ?? `module-${slot.replaceAll(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 }
 
 function deploymentService(slot, deployment) {
@@ -378,8 +468,9 @@ function deploymentService(slot, deployment) {
     service.image = deployment.image;
   } else {
     service.build = {
-      context: `./modules/${slot}`,
+      context: deployment.context === "__staffdeck__" ? "./staffdeck" : `./modules/${slot}`,
       ...(deployment.dockerfile ? { dockerfile: deployment.dockerfile } : {}),
+      ...(deployment.context === "__staffdeck__" ? { args: { PYTHON_BASE_IMAGE: "${STAFFDECK_PYTHON_BASE_IMAGE:-python:3.11-slim}" } } : {}),
     };
   }
   service.environment = {
@@ -387,9 +478,26 @@ function deploymentService(slot, deployment) {
     MODULE_IMPLEMENTATION_ID: `exported.${slot}`,
     MODULE_PORT: String(deployment.port),
   };
+  if (deployment.builtin === "staffdeck-knowledge") {
+    service.environment = {
+      ...service.environment,
+      DATABASE_URL: "sqlite:////data/staffdeck-knowledge.db",
+      APP_SECRET: "${STAFFDECK_APP_SECRET:?set STAFFDECK_APP_SECRET in .env}",
+      DEMO_SEED_ENABLED: "true",
+      // The Knowledge facade is a data service. The current portable StaffDeck
+      // checkout does not ship the Harness v3 Node worker binary, so enabling
+      // the engine here would make this otherwise self-contained service fail
+      // during FastAPI startup.
+      HARNESS_V3_ENABLED: "0",
+      HARNESS_ADMIN_API_ENABLED: "0",
+    };
+    service.volumes = ["staffdeck-knowledge-data:/data"];
+  }
   if (deployment.healthPath) {
     service.healthcheck = {
-      test: ["CMD-SHELL", `node -e "fetch('http://localhost:${deployment.port}${deployment.healthPath}').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))"`],
+      test: deployment.builtin?.startsWith("staffdeck-")
+        ? ["CMD", "python", "-c", `from urllib.request import urlopen; urlopen('http://localhost:${deployment.port}${deployment.healthPath}')`]
+        : ["CMD-SHELL", `node -e "fetch('http://localhost:${deployment.port}${deployment.healthPath}').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))"`],
       interval: "5s",
       timeout: "3s",
       retries: 12,
@@ -426,7 +534,7 @@ function providerNoProxyHosts(profile) {
 function readme(sop, externalModules) {
   const mode = sop?.kind === "legacy" ? "managed StaffDeck runtime" : sop?.kind === "external" ? "external protocol endpoint" : "disabled";
   const dependencies = [
-    ...externalModules,
+    ...externalModules.filter((module) => !module.builtin),
     ...(sop?.kind === "external" && sop.deployment?.mode === "external"
       ? [{ slot: "sop", implementationId: sop.implementationId, target: sop.endpoint, deployment: sop.deployment }]
       : []),
@@ -434,7 +542,11 @@ function readme(sop, externalModules) {
   const external = dependencies.length === 0
     ? "none"
     : dependencies.map((module) => `- ${module.slot}: ${module.implementationId} (${module.deployment.mode === "external" ? module.target : `${deploymentServiceName(module.slot)}:${module.deployment.port}`})`).join("\n");
-  return `# Exported PilotDeck Deployment\n\nCopy .env.example to .env and set PILOTDECK_API_KEY. Profiles using the real model template must set PILOTDECK_REAL_MODEL_BASE_URL when exporting and PILOTDECK_REAL_MODEL_API_KEY at runtime; credentials are never copied into this export. Then run:\n\n\`docker compose --env-file .env -f compose.yaml up --build\`\n\nSOP binding: ${mode}.\n\nExternal module dependencies (not bundled by this export):\n${external}\n`;
+  const hasManagedKnowledge = externalModules.some((module) => module.builtin === "staffdeck-knowledge");
+  const bundled = hasManagedKnowledge
+    ? "This export bundles the validated StaffDeck backend for SOP and Knowledge. Knowledge data is persisted in its own SQLite volume and is reachable only inside the Compose network. The current StaffDeck origin/main does not yet provide this module API. The generated .env.example uses Huawei Cloud's Docker Hub mirror for the Python base image; set STAFFDECK_PYTHON_BASE_IMAGE to another registry when needed."
+    : "";
+  return `# Exported PilotDeck Deployment\n\nCopy .env.example to .env and set PILOTDECK_API_KEY.${hasManagedKnowledge ? " Also set STAFFDECK_APP_SECRET for the bundled Knowledge runtime." : ""} Profiles using the real model template must set PILOTDECK_REAL_MODEL_BASE_URL when exporting and PILOTDECK_REAL_MODEL_API_KEY at runtime; credentials are never copied into this export. Then run:\n\n\`docker compose --env-file .env -f compose.yaml up --build\`\n\nSOP binding: ${mode}.\n${bundled ? `\n${bundled}\n` : ""}\nExternal module dependencies (not bundled by this export):\n${external}\n`;
 }
 
 function isRecord(value) {

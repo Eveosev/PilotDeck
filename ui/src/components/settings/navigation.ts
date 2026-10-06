@@ -48,6 +48,8 @@ export function mapInitialTabToMenuKey(
   tab: string | undefined,
 ): SettingsMenuKey {
   const normalized = String(tab || "");
+  if (normalized === "appearance") return "module:system-appearance";
+  if (normalized === "agent-model") return "module:agent-model";
   const configSections: Record<string, SettingsMenuKey> = {
     models: "module:model-providers",
     agents: "module:agent-model",
@@ -61,6 +63,7 @@ export function mapInitialTabToMenuKey(
     alwaysOn: "module:agent-resident",
     cron: "module:agent-schedule",
     advanced: "module:system-advanced",
+    appearance: "module:system-appearance",
   };
 
   if (normalized in KEY_BY_PAGE_SLUG) {
@@ -101,5 +104,15 @@ export function mapSettingsSectionToMenuKey(
 }
 
 export function getSettingsPathFromTab(tab?: string): string {
-  return getSettingsPath(mapInitialTabToMenuKey(tab));
+  const [page, query] = (tab ?? "").split("?", 2);
+  const reference = new URLSearchParams(query).get("reference");
+  const path = getSettingsPath(mapInitialTabToMenuKey(page));
+  return reference ? `${path}?${new URLSearchParams({ reference })}` : path;
+}
+
+export function getModelReferenceTab(path: string): string | null {
+  const page = path === "agent.model" ? "models"
+    : path === "agent.subagents.default" || path.startsWith("router.") ? "agent-route"
+    : path === "memory.model" ? "agent-memory" : null;
+  return page ? `${page}?${new URLSearchParams({ reference: path })}` : null;
 }

@@ -1,6 +1,7 @@
 import type { AppTab, Project, ProjectSession } from '../../../types/app';
 import type { ComponentType } from 'react';
 import type { ChatInterfaceProps } from '../../chat/types/types';
+import type { WorkspaceUploadController } from '../../main-content-v2/useWorkspaceUpload';
 
 export type SessionLifecycleHandler = (sessionId?: string | null) => void;
 
@@ -38,6 +39,7 @@ export type PrdFile = {
 };
 
 export type MainContentProps = {
+  workspaceUpload: WorkspaceUploadController;
   projects: Project[];
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
