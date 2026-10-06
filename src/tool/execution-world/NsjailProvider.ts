@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import type { SandboxMode, SandboxPort, SandboxedCommand } from "./SandboxPort.js";
 import type { ExecutionWorldBundle } from "./ExecutionWorldBundle.js";
 import { createNodeExecutionWorldBundle } from "./ExecutionWorldBundle.js";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   SessionExecutionProviderError,
   type ProviderReadiness,
@@ -69,6 +69,7 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
       mkdir(binding.storage.workspace, { recursive: true }),
       mkdir(binding.storage.home, { recursive: true }),
       mkdir(binding.storage.temp, { recursive: true }),
+      mkdir(join(binding.storage.home, ".pilotdeck"), { recursive: true }),
     ]);
     const sandboxPort = this.createSandboxPort(binding.storage);
     const sandboxMode = this.options.sandboxMode ?? "workspace-write";
@@ -126,7 +127,7 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
         ...(network === "allow" ? ["--disable_clone_newnet"] : []),
         "--",
         command.executable,
-        ...command.args,
+        ...buildGuestCommandArgs(command, storage),
       ];
     return {
       executable: nsjailExecutable,
@@ -142,6 +143,20 @@ export class NsjailSessionExecutionProvider implements SessionExecutionProvider 
       },
     };
   }
+}
+
+function buildGuestCommandArgs(command: SandboxedCommand, storage?: SessionStorageMounts): readonly string[] {
+  if (!storage || command.executable !== "/bin/sh" || command.args[0] !== "-c" || typeof command.args[1] !== "string") {
+    return command.args;
+  }
+  const environmentFile = "/home/agent/.pilotdeck/environment.sh";
+  const commandText = command.args[1];
+  const wrapped = [
+    `if [ -f ${environmentFile} ]; then . ${environmentFile}; fi`,
+    `trap 'export -p > ${environmentFile}' EXIT`,
+    commandText,
+  ].join("; ");
+  return ["-c", wrapped, ...command.args.slice(2)];
 }
 
 function isExecutableAvailable(executable: string): boolean {

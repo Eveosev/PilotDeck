@@ -13,6 +13,7 @@
 - `qwen3.5-27b` 返回 `write_file` 工具调用；PilotDeck builtin `write_file` 使用 A 的 execution world 写入 `e2e-marker.txt`，内容为 `SESSION_A_OK`。
 - A 的 nsjail shell 检查退出码为 `0`；B 的 nsjail shell 检查 `/workspace/e2e-marker.txt` 不可见并输出 `B_OK`，退出码为 `0`。
 - A 释放后以 generation `2` 重新创建，原 workspace marker 和 home 文件均可见，resume shell 输出 `RESUME_OK`。
+- A 在中断前设置的 `SESSION_ENV=OK` 在 resume 后仍可读取，证明环境文件跟随 session home 保存。
 - provider 聚焦测试 `tests/tool/session-execution-provider.spec.ts`：6/6 通过。
 - 结果：本次受限 E2E `PASS`；完整验收仍为 `受限预览`。
 

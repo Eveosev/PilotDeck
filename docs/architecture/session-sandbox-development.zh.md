@@ -160,7 +160,7 @@ interface SessionExecutionHandle {
 
 模型可见 cwd 为 `/workspace`，系统提示、工具返回路径和 LSP URI 使用 guest 路径。宿主 projectRoot 用于配置与控制面身份，不能无区别替换为 guest cwd。给 worker 注入的 rg/Python/Node 路径也必须在 rootfs 中存在。
 
-项目初始化采用独立复制或独立 CoW 快照，不使用可写硬链接。Git worktree 的共享 `.git`/对象库不能直接引出其他 workspace；首版推荐独立仓库副本。插件、依赖及缓存只读共享时必须只包含公共内容；安装、构建缓存使用 session 私有可写目录。当前 nsjail provider 将 session `home` 和 `tmp` 作为可写 bind mount，`HOME`、`TMPDIR`、`PYTHONUSERBASE` 和 `PIP_CACHE_DIR` 指向 guest 私有路径，因此用户配置、`pip --user` 包和缓存不会进入其他 session。
+项目初始化采用独立复制或独立 CoW 快照，不使用可写硬链接。Git worktree 的共享 `.git`/对象库不能直接引出其他 workspace；首版推荐独立仓库副本。插件、依赖及缓存只读共享时必须只包含公共内容；安装、构建缓存使用 session 私有可写目录。当前 nsjail provider 将 session `home` 和 `tmp` 作为可写 bind mount，`HOME`、`TMPDIR`、`PYTHONUSERBASE` 和 `PIP_CACHE_DIR` 指向 guest 私有路径，因此用户配置、`pip --user` 包和缓存不会进入其他 session；shell 的 `export` 状态保存到该 session 的 `home/.pilotdeck/environment.sh`，resume 后重新加载。
 
 ### 5.2 nsjail 启动策略
 
