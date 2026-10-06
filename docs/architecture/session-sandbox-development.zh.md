@@ -1,8 +1,8 @@
 # PilotDeck 模块化 Session 沙箱开发文档
 
-状态：设计稿，待实现。日期：2026-10-06。
+状态：第一版 provider 已实现；Gateway session 生命周期的完整接入仍在进行。日期：2026-10-06。
 
-本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。本文中的新增接口、配置和路径均为建议，不代表当前代码已经支持。
+本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。当前分支已实现 provider、lease、session 文件边界和 execution-world 注入；Gateway 完整生命周期接入与扩展工具覆盖仍按验收文档推进。
 
 配套文档：[验收规范](../testing/session-sandbox-acceptance.zh.md)。架构原则参考：[通用模块接入指南](../module-development-integration-guide.zh.md)、[模块通信 SOP](../pilotdeck-module-communication-sop.zh.md)。
 

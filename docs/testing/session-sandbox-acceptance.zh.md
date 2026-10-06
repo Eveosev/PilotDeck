@@ -1,8 +1,23 @@
 # PilotDeck Session 沙箱验收规范
 
-状态：待实现、待执行。日期：2026-10-06。
+状态：第一版受限验证已执行；完整验收矩阵仍未完成。日期：2026-10-06。
 
-对应设计：[模块化 Session 沙箱开发文档](../architecture/session-sandbox-development.zh.md)。本文件是验收计划，不是 PASS 报告。新增测试文件名和配置均为计划项，不表示仓库已有运行入口。
+对应设计：[模块化 Session 沙箱开发文档](../architecture/session-sandbox-development.zh.md)。本文件同时记录当前已执行结果和未完成项。新增测试文件名和配置只有在对应实现合入后才表示可运行入口。
+
+## 0. 本次已执行结果
+
+在 `jinan40` Linux 上完成了 PilotDeck execution-world 的真实 nsjail 受限 E2E：
+
+- `NsjailSessionExecutionProvider.probe()` 返回 `ready: true`，能力为 filesystem/process isolation。
+- A、B 两个 session 在同一 provider 实例中并发创建。
+- `qwen3.5-27b` 返回 `write_file` 工具调用；PilotDeck builtin `write_file` 使用 A 的 execution world 写入 `e2e-marker.txt`，内容为 `SESSION_A_OK`。
+- A 的 nsjail shell 检查退出码为 `0`；B 的 nsjail shell 检查 `/workspace/e2e-marker.txt` 不可见并输出 `B_OK`，退出码为 `0`。
+- provider 聚焦测试 `tests/tool/session-execution-provider.spec.ts`：5/5 通过。
+- 结果：本次受限 E2E `PASS`；完整验收仍为 `受限预览`。
+
+本次使用的临时测试 rootfs 只包含 `/bin/sh` 和动态链接 libc，因此该结果覆盖 shell、builtin 文件工具和 session workspace 边界，不代表 Python、rg、MCP、LSP、资源限额或恢复场景已经验收。
+
+完整 Gateway CLI 链路当前在模型调用前仍会被 `gateway_dialog_recovery_cleanup_failed` 阻断；该问题与模型 endpoint 和 nsjail provider E2E 分开记录，不能据此声明 Gateway 全链路通过。
 
 ## 1. 验收结论规则
 
@@ -188,4 +203,4 @@ case ID | PASS/FAIL/BLOCKED/NOT_RUN/N/A | 证据路径 | 失败原因/范围
 发布结论：不通过 / 受限预览通过（明确范围）/ 完整通过
 ```
 
-当前分支结论：**受限预览，Linux 验收未完成**。已执行的 TypeScript 定向编译和 13 项 provider/execution-world 聚焦测试通过；尚未在 Linux 上运行真实 nsjail，也未完成 MCP/LSP/hooks、cgroup、磁盘配额和主服务崩溃恢复验收。因此 CORE/ISO/LIFE/EXT 矩阵仍保持 `NOT_RUN`，不能声明完整通过。
+当前分支结论：**受限预览通过**。已执行真实 Linux nsjail execution-world E2E 和 5 项 provider 聚焦测试；TypeScript 全量 `--noEmit` 仍受源码副本中既有 model streaming 测试类型错误影响。Gateway CLI dialog recovery、Python/rg/MCP/LSP/hooks、cgroup、磁盘配额、主服务崩溃恢复和完整 CORE/ISO/LIFE/EXT 矩阵仍保持 `BLOCKED` 或 `NOT_RUN`，不能声明完整通过。
