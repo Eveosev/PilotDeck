@@ -28,6 +28,7 @@ import { createNodeSandboxedFsPort } from "./SandboxedFsPort.js";
 import { createNodeShellPort, type ShellPort } from "./ShellPort.js";
 import { createNodeSandboxedDetachedShellPort } from "./SandboxedDetachedShellPort.js";
 import { createNodeSandboxedShellPort } from "./SandboxedShellPort.js";
+import { createNodeSandboxedSubprocessPort } from "./SandboxedSubprocessPort.js";
 import { createNodeSubprocessPort, type SubprocessPort } from "./SubprocessPort.js";
 
 /** Execution-world policy supplied to the execute_code consumer. */
@@ -70,6 +71,10 @@ export type CreateNodeExecutionWorldBundleOptions = {
   projectRoot?: string;
   /** Explicit state root for tests or alternate project storage providers. */
   backgroundTaskStateDir?: string;
+  /** Optional session-bound process sandbox. */
+  sandboxPort?: SandboxPort;
+  /** Fixed root used by session-bound filesystem providers. */
+  workspaceRoot?: string;
 };
 
 /** Compose selected execution providers into one lifecycle owner. */
@@ -90,11 +95,18 @@ export function createNodeExecutionWorldBundle(
 ): ExecutionWorldBundle {
   const subprocess = createNodeSubprocessPort();
   const sandboxMode = options.sandboxMode ?? DEFAULT_SANDBOX_MODE;
-  const sandbox = createNodeSandboxPort();
+  const sandbox = options.sandboxPort ?? createNodeSandboxPort();
   const nodeFs = createNodeFsPort();
+  const exposedSubprocess = sandboxMode === "danger-full-access"
+    ? subprocess
+    : createNodeSandboxedSubprocessPort({
+        sandbox,
+        subprocess,
+        resolvePolicy: ({ workspaceRoot }) => ({ mode: sandboxMode, workspaceRoot }),
+      });
   const fs = sandboxMode === "danger-full-access"
     ? nodeFs
-    : createNodeSandboxedFsPort({ fs: nodeFs, sandboxMode });
+    : createNodeSandboxedFsPort({ fs: nodeFs, sandboxMode, workspaceRoot: options.workspaceRoot });
   const detachedShell = sandboxMode === "danger-full-access"
     ? createNodeDetachedShellPort()
     : createNodeSandboxedDetachedShellPort({
@@ -115,7 +127,7 @@ export function createNodeExecutionWorldBundle(
     : undefined;
   return createExecutionWorldBundle({
     fs,
-    subprocess,
+    subprocess: exposedSubprocess,
     shell,
     detachedShell,
     attachmentDelivery: createNodeAttachmentDeliveryPort(),

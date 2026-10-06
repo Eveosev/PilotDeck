@@ -178,6 +178,18 @@ export {
   type CreateNodeSandboxPortOptions,
 } from "./execution-world/NodeSandboxPort.js";
 export {
+  SessionExecutionProviderError,
+  SessionExecutionProviderRegistry,
+  type ProviderReadiness,
+  type SessionExecutionHandle,
+  type SessionExecutionProvider,
+  type SessionIsolationPolicy,
+  type TrustedSessionBinding,
+} from "./execution-world/SessionExecutionProvider.js";
+export { SessionExecutionLease } from "./execution-world/SessionExecutionLease.js";
+export { NsjailSessionExecutionProvider, type NsjailProviderOptions } from "./execution-world/NsjailProvider.js";
+export { createNodeSandboxedSubprocessPort, type CreateNodeSandboxedSubprocessPortOptions } from "./execution-world/SandboxedSubprocessPort.js";
+export {
   createNodePlanStoragePort,
   type PlanStoragePort,
 } from "./execution-world/PlanStoragePort.js";
