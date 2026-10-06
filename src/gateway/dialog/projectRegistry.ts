@@ -7,8 +7,6 @@ export type RegisteredDialogProject = {
 
 export type DialogProjectRegistryOptions = {
   pilotHome: string;
-  /** Project root owned by the Gateway process itself. */
-  defaultProjectKey?: string;
   listProjects: () => Promise<RegisteredDialogProject[]>;
   resolveProject?: (projectKey: string) => Promise<string | undefined>;
 };
@@ -27,16 +25,10 @@ export function createDialogProjectRegistry(
   options: DialogProjectRegistryOptions,
 ): DialogProjectRegistry {
   const generalProjectKey = resolve(options.pilotHome);
-  const defaultProjectKey = options.defaultProjectKey
-    ? resolve(options.defaultProjectKey)
-    : undefined;
 
   const listProjectKeys = async (): Promise<string[]> => {
     const projects = await options.listProjects();
-    const byResolvedPath = new Map<string, string>([
-      [generalProjectKey, generalProjectKey],
-      ...(defaultProjectKey ? [[defaultProjectKey, defaultProjectKey] as const] : []),
-    ]);
+    const byResolvedPath = new Map<string, string>([[generalProjectKey, generalProjectKey]]);
     for (const project of projects) {
       const resolvedProjectKey = resolve(project.projectKey);
       if (!byResolvedPath.has(resolvedProjectKey)) {
@@ -48,8 +40,9 @@ export function createDialogProjectRegistry(
 
   const resolveProjectKey = async (projectKey: string): Promise<string> => {
     const requestedProjectKey = resolve(projectKey);
-    if (requestedProjectKey === generalProjectKey) return generalProjectKey;
-    if (requestedProjectKey === defaultProjectKey) return defaultProjectKey;
+    if (requestedProjectKey === generalProjectKey) {
+      return generalProjectKey;
+    }
 
     if (options.resolveProject) {
       const registered = await options.resolveProject(requestedProjectKey);

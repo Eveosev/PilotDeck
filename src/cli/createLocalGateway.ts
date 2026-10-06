@@ -798,7 +798,6 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   });
   const dialog = new GatewayDialogBundle({
     pilotHome,
-    defaultProjectKey: projectRoot,
     sessionCatalog,
     attachmentPort,
     uploadLifecycle: options.uploadLifecycle,

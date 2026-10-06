@@ -25,8 +25,6 @@ import { GatewayUploadedAttachmentBundle } from "./GatewayUploadedAttachmentBund
 
 export type GatewayDialogBundleOptions = {
   pilotHome: string;
-  /** Project root owned by the Gateway process itself. */
-  defaultProjectKey?: string;
   sessionCatalog: SessionCatalogPort;
   attachmentPort?: AttachmentPort;
   /** Selected upload lifecycle provider. The native filesystem provider is the default. */
@@ -63,7 +61,6 @@ export class GatewayDialogBundle {
     };
     this.projects = createDialogProjectRegistry({
       pilotHome: options.pilotHome,
-      defaultProjectKey: options.defaultProjectKey,
       listProjects: async () => (await projectCatalog.list()).projects,
     });
     this.uploads = options.uploadLifecycle ?? new UploadStore({
