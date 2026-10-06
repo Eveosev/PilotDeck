@@ -16,14 +16,54 @@ const externalProfile = join(projectRoot, "products/pilotdeck-staffdeck-sop/prof
 const knowledgeOnlyProfile = join(projectRoot, "products/pilotdeck-staffdeck-sop/profiles/example-knowledge-external.yaml");
 const sopOnlyProfile = join(projectRoot, "products/pilotdeck-staffdeck-sop/profiles/example-sop-external.yaml");
 const plainProfile = join(projectRoot, "products/pilotdeck-staffdeck-sop/profiles/pilotdeck-only.yaml");
+const nativeFiveStaffDeckProfile = join(projectRoot, "products/pilotdeck-staffdeck-sop/profiles/native-five-staffdeck.yaml");
 
-async function runExport(profile: string, output: string): Promise<void> {
+async function runExport(profile: string, output: string, extraEnv: Record<string, string> = {}): Promise<void> {
   await execFile(process.execPath, [exporter, "--profile", profile, "--out", output], {
     cwd: projectRoot,
-    env: { ...process.env },
+    env: { ...process.env, ...extraEnv },
     maxBuffer: 2 * 1024 * 1024,
   });
 }
+
+test("export-composition bundles StaffDeck SOP and Knowledge runtimes for native-five profile", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-composition-export-native-five-"));
+  try {
+    const output = join(root, "native-five");
+    await runExport(nativeFiveStaffDeckProfile, output, {
+      PILOTDECK_REAL_MODEL_BASE_URL: "http://model.example.test/v1",
+    });
+    const compose = YAML.parse(readFileSync(join(output, "compose.yaml"), "utf8")) as {
+      services: Record<string, Record<string, unknown>>;
+      volumes: Record<string, unknown>;
+    };
+    assert.deepEqual(Object.keys(compose.services).sort(), ["knowledge-runtime", "pilotdeck", "sop-runtime"]);
+    assert.deepEqual(compose.services["knowledge-runtime"].build, {
+      context: "./staffdeck",
+      dockerfile: "knowledge.Dockerfile",
+      args: { PYTHON_BASE_IMAGE: "${STAFFDECK_PYTHON_BASE_IMAGE:-python:3.11-slim}" },
+    });
+    assert.deepEqual(compose.services["sop-runtime"].build, {
+      context: "./staffdeck",
+      dockerfile: "portable_sop/Dockerfile",
+      args: { PYTHON_BASE_IMAGE: "${STAFFDECK_PYTHON_BASE_IMAGE:-python:3.11-slim}" },
+    });
+    const dependencies = compose.services.pilotdeck.depends_on as Record<string, { condition: string }>;
+    assert.equal(dependencies["knowledge-runtime"].condition, "service_healthy");
+    assert.equal(dependencies["sop-runtime"].condition, "service_healthy");
+    assert.equal(compose.volumes["staffdeck-knowledge-data"] !== undefined, true);
+    assert.match(readFileSync(join(output, ".env.example"), "utf8"), /STAFFDECK_APP_SECRET=change-me/u);
+    assert.equal(existsSync(join(output, "staffdeck/knowledge.Dockerfile")), true);
+    assert.doesNotMatch(readFileSync(join(output, "README.md"), "utf8"), /- knowledge: staffdeck\.knowledge/u);
+    const config = YAML.parse(readFileSync(join(output, "config/pilotdeck.yaml"), "utf8")) as {
+      modules: Record<string, Record<string, unknown>>;
+    };
+    assert.equal(config.modules.knowledge.endpoint, "http://knowledge-runtime:8090");
+    assert.equal(config.modules.sop.endpoint, "http://sop-runtime:8091");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("export-composition emits one generic service for all seven managed slots", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-composition-export-"));
