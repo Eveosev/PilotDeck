@@ -88,6 +88,7 @@ import type { PilotDeckRuntimeProfile } from "./PilotDeckRuntimeProfile.js";
 import type { InteractionProfile } from "../interaction/index.js";
 import type { BackgroundSubagentRuntime } from "../agent/sub/BackgroundSubagentRuntime.js";
 import type { ResolvedGatewayOrganizationPolicy } from "./createLocalGateway.js";
+import type { SessionExecutionHandle } from "../tool/execution-world/SessionExecutionProvider.js";
 import {
   createKnowledgeModulePort,
   createKnowledgeQueryTool,
@@ -114,7 +115,7 @@ export type ProjectSessionRuntime = {
   createSessionExecution?: (input: {
     sessionKey: string;
     generation: number;
-  }) => Promise<{ handle: import("../tool/execution-world/SessionExecutionProvider.js").SessionExecutionHandle; release: () => Promise<void> }>;
+  }) => Promise<{ handle: SessionExecutionHandle; release: () => Promise<void> }>;
   mcpProvider: ProjectMcpRuntimeProvider;
   pluginRuntime: Pick<PluginRuntime, "refresh" | "acquireSessionContributions" | "getOutputStyle">;
   executionWorld: ExecutionWorldBundle;
