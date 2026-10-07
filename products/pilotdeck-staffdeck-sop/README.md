@@ -2,6 +2,8 @@
 
 七槽生产部署请先阅读 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)。
 
+SOP 节点会话的配置、跨节点数据传递和审批恢复请阅读 [中文使用说明](NODE_SESSION_USAGE.zh-CN.md)。
+
 Seven-slot external example: `profiles/example-seven-external.yaml` binds every
 slot to an unregistered implementation. The exporter preserves these bindings
 and lists the required external endpoints in the generated README.
