@@ -1,0 +1,7 @@
+{
+  "accepted": null,
+  "result": {
+    "status": "aborted",
+    "reason": "gateway_abort"
+  }
+}

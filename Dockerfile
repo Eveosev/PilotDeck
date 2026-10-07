@@ -1,10 +1,14 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────
-FROM node:22-bookworm AS builder
+# Override NODE_BASE_IMAGE with an organization-local or Aliyun ACR mirror
+# when Docker Hub is unavailable. The default is a verified domestic cache.
+ARG NODE_BASE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim
+FROM ${NODE_BASE_IMAGE} AS builder
 
 WORKDIR /build
 
 # System deps for native modules (node-pty, sharp, bcrypt, better-sqlite3)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,6 +21,8 @@ COPY src/context/memory/edgeclaw-memory-core/ src/context/memory/edgeclaw-memory
 COPY ui/package.json ui/
 COPY packages/sdk/package.json packages/sdk/
 COPY ui/scripts/ ui/scripts/
+# Frontend composition generation resolves the default profile from this path.
+COPY products/pilotdeck-staffdeck-sop/profiles/ products/pilotdeck-staffdeck-sop/profiles/
 
 # Install only the Web/Gateway workspaces. Shared appearance sources do not
 # require the Electron workspace or desktop dependencies in this image.
@@ -45,12 +51,14 @@ RUN cd ui && npm run build
 
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────
-FROM node:22-bookworm-slim
+ARG NODE_BASE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim
+FROM ${NODE_BASE_IMAGE}
 
 WORKDIR /app
 
 # Runtime system dependencies + tsx for the UI server
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     ripgrep git curl procps \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g tsx
@@ -73,6 +81,7 @@ COPY --from=builder /build/ui/dist/ ui/dist/
 COPY --from=builder /build/ui/scripts/ ui/scripts/
 COPY --from=builder /build/ui/shared/ ui/shared/
 COPY --from=builder /build/ui/vite.config.js ui/vite.config.js
+COPY --from=builder /build/products/pilotdeck-staffdeck-sop/profiles/ products/pilotdeck-staffdeck-sop/profiles/
 
 # Create PilotDeck state/workspace directories used by the gateway, UI server,
 # permissions, skills/plugins, memory, auth, and router stats.
