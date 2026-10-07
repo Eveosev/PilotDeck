@@ -4,6 +4,8 @@
 
 对应设计：[模块化 Session 沙箱开发文档](../architecture/session-sandbox-development.zh.md)。
 
+面向使用者和部署者：[会话沙箱说明](../session-sandbox-guide.zh.md)。
+
 ### 最近一次完整验收
 
 jinan40 的 `2026-10-07-full37` 返回 `overall=PASS`、退出码 `0`：68 项验收中 67 PASS、1 项 apt/dpkg 禁用 N/A，没有 FAIL、BLOCKED 或 NOT_RUN。真实 build、单 Gateway A/B/C、HTTP/SSE 本机 MCP mock、DeepWiki 公网 HTTP、性能、`qwen3.5-27b` smoke 和最终回收全部通过。Focused tests 共 82 个，79 PASS，3 个仅适用于 macOS 的检查在 Linux 上 SKIP。

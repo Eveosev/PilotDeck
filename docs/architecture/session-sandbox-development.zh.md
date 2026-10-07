@@ -4,7 +4,7 @@
 
 本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。当前分支已实现 provider、lease、session 文件边界、execution-world 注入和 Gateway session composition 接入；完整生命周期运维与扩展工具覆盖仍按验收文档推进。
 
-配套文档：[验收规范](../testing/session-sandbox-acceptance.zh.md)。架构原则参考：[通用模块接入指南](../module-development-integration-guide.zh.md)、[模块通信 SOP](../pilotdeck-module-communication-sop.zh.md)。
+面向使用者和部署者的说明：[会话沙箱说明](../session-sandbox-guide.zh.md)。配套文档：[验收规范](../testing/session-sandbox-acceptance.zh.md)。架构原则参考：[通用模块接入指南](../module-development-integration-guide.zh.md)、[模块通信 SOP](../pilotdeck-module-communication-sop.zh.md)。
 
 ## 1. 目标、边界与不变量
 
