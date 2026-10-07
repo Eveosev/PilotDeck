@@ -10,6 +10,7 @@ export {
 export { SopStateStore } from "./SopStateStore.js";
 export type {
   StaffDeckSopBundle,
+  StaffDeckSopContextMode,
   StaffDeckSopPrepareResponse,
   StaffDeckSopProposal,
   StaffDeckSopResumeInput,

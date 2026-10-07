@@ -35,9 +35,25 @@ export function loadStaffDeckSopDefinitions(path: string): StaffDeckSopBundle {
   for (const definition of sops) {
     const id = text(definition.id) ?? text(definition.skill_id)!;
     if (ids.has(id)) throw new Error(`StaffDeck SOP definitions contain duplicate id '${id}'.`);
+    validateContextModes(definition, id);
     ids.add(id);
   }
   return Object.freeze({ sops: Object.freeze(sops) });
+}
+
+function validateContextModes(definition: Record<string, unknown>, id: string): void {
+  const candidates: unknown[] = [definition.nodes];
+  if (isRecord(definition.content)) candidates.push(definition.content.nodes);
+  for (const value of candidates) {
+    if (!Array.isArray(value)) continue;
+    for (const [index, node] of value.entries()) {
+      if (!isRecord(node)) continue;
+      const mode = node.contextMode;
+      if (mode !== undefined && mode !== "new_session" && mode !== "inherit") {
+        throw new Error(`StaffDeck SOP definition '${id}' node ${index} has invalid contextMode '${String(mode)}'.`);
+      }
+    }
+  }
 }
 
 /**

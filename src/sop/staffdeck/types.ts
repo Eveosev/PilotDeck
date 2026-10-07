@@ -7,6 +7,8 @@ export const STAFFDECK_SOP_CONTRACT = "sop.lifecycle/v2" as const;
 export const STAFFDECK_SOP_TRANSPORT = "sop-http-v2" as const;
 export const STAFFDECK_SOP_OPERATIONS = ["prepare", "submit"] as const;
 
+export type StaffDeckSopContextMode = "new_session" | "inherit";
+
 type SopRuntimeConfigBase = Readonly<{
   endpoint: string;
   definitionsPath: string;
@@ -20,6 +22,8 @@ type SopRuntimeConfigBase = Readonly<{
   /** Host-owned directory for durable SOP state; never supplied by a client. */
   stateRoot: string;
   timeoutMs?: number;
+  /** How a SOP node receives model messages when no node override is present. */
+  contextMode?: StaffDeckSopContextMode;
   deployment?: ModuleDeployment;
   /** Optional static frontend registry key selected by the profile. */
   frontendModule?: string;
@@ -204,6 +208,8 @@ export type StaffDeckSopStep = Readonly<{
   allowedActions: string[];
   isTerminal: boolean;
   declaresHandoff: boolean;
+  /** Whether this node starts with a fresh model context or inherits history. */
+  contextMode?: StaffDeckSopContextMode;
   subSopId?: string | null;
   /** Host-only projection; never accepted from portable evaluator/model input. */
   optionalKnowledge?: SopAuthorityProjection;

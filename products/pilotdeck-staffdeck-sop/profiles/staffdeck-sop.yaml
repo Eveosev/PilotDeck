@@ -19,4 +19,5 @@ modules:
     endpoint: http://sop-runtime:8091
     definitionsPath: ../sops/operator-approval.yaml
     defaultSopId: operator_approval
+    contextMode: new_session
     timeoutMs: 10000

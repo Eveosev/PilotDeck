@@ -82,6 +82,7 @@ export type AgentSessionRuntimeResources = {
   context: AgentRuntimeDependencies["context"];
   dependencies: AgentRuntimeDependencies;
   capabilities: AgentTurnCapabilities;
+  internalSessionPorts: NonNullable<import("../loop/AgentLoopRuntimeFactory.js").AgentLoopRuntimeFactoryInput["internalSessionPorts"]>;
   sidecarModules: SidecarModuleComposition;
   eventRecorder: AgentSessionEventRecorder;
   sidecarTransportContext: SidecarTransportContext;
@@ -280,6 +281,10 @@ export class AgentSessionRuntimeBundle {
         context,
         dependencies,
         capabilities,
+        // These are the undecorated ports. SopNodeSessions binds them to the
+        // child recorder; passing durable parent ports here would write child
+        // admissions into the parent recorder before the child turn opens.
+        internalSessionPorts: { model: modelPort, tools: toolPort },
         sidecarModules,
         eventRecorder,
         sidecarTransportContext,

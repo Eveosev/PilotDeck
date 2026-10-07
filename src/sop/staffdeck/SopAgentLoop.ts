@@ -13,6 +13,7 @@ import type { AgentLoopRunner } from "../../agent/turn/TurnRunner.js";
 import type { AgentEvent } from "../../agent/protocol/events.js";
 import type { AgentLoopInput, AgentLoopRunResult } from "../../agent/loop/AgentLoop.js";
 import type { ModelExecutionContext, ToolPort } from "../../agent/modules/protocol.js";
+import type { CanonicalMessage } from "../../model/index.js";
 import type {
   PilotDeckToolCall,
   PilotDeckToolDefinition,
@@ -25,6 +26,7 @@ import { StaffDeckSopClient, StaffDeckSopClientError } from "./StaffDeckSopClien
 import { StaffDeckSopDiscoveryClient } from "./StaffDeckSopDiscoveryClient.js";
 import { loadStaffDeckSopDefinitions } from "./StaffDeckSopDefinitions.js";
 import { SopStateStore } from "./SopStateStore.js";
+import { SopNodeSessions, sopNodeSessionId } from "./SopNodeSessions.js";
 import { OPTIONAL_KNOWLEDGE_SCHEMA, authorityError, validateOptionalKnowledgeInput,
   validateSopAuthorityProjection, withKnowledgeAuthority, type SopCapabilityAuthorityPort } from "../../composition/sopCapabilityAuthority.js";
 import type {
@@ -33,6 +35,7 @@ import type {
   StaffDeckSopProposal,
   StaffDeckSopReplyDelivery,
   StaffDeckSopRuntimeClient,
+  StaffDeckSopContextMode,
   SopRuntimeConfig,
   StaffDeckSopSubmitResult,
   StaffDeckSopDiscoveryPort,
@@ -55,6 +58,9 @@ type SopAgentLoopOptions = Readonly<{
   runnerFactory?: AgentLoopRuntimeFactory;
   sidecarModules?: SidecarModuleComposition;
   sidecarTransportContext?: AgentLoopRuntimeFactoryInput["sidecarTransportContext"];
+  sessionStorage?: AgentLoopRuntimeFactoryInput["sessionStorage"];
+  contextRuntime?: AgentLoopRuntimeFactoryInput["contextRuntime"];
+  internalSessionPorts?: AgentLoopRuntimeFactoryInput["internalSessionPorts"];
 }>;
 
 /**
@@ -74,10 +80,18 @@ export class SopAgentLoop implements AgentLoopRunner {
   private readonly protocolCorrections = new Map<string, string>();
   private readonly collectInputs = new Map<string, string>();
   private readonly collectCorrectionTurns = new Set<string>();
+  private readonly nodeSessions: SopNodeSessions;
+  private nodeRunInput: AgentLoopInput | undefined;
+  private nodeRunResult: AgentLoopRunResult | undefined;
+  private nodeContext: AgentLoopRuntimeFactoryInput["contextRuntime"];
+  private nodeModel: NonNullable<AgentLoopRuntimeFactoryInput["internalSessionPorts"]>["model"] | undefined;
+  private nodeTools: ToolPort | undefined;
+  private readonly preflightSteps = new Map<string, StaffDeckSopPrepareResponse>();
+  private readonly userInputs = new Map<string, CanonicalMessage | undefined>();
 
   constructor(
-    config: AgentRuntimeConfig,
-    capabilities: AgentTurnCapabilities,
+    private readonly config: AgentRuntimeConfig,
+    private readonly capabilities: AgentTurnCapabilities,
     seedState: AgentLoopSeedState | undefined,
     private readonly options: SopAgentLoopOptions,
   ) {
@@ -110,7 +124,8 @@ export class SopAgentLoop implements AgentLoopRunner {
       : undefined;
 
     const controlPort = new SopControlToolPort({
-      delegate: capabilities.toolExecution,
+      delegate: { list: () => capabilities.toolExecution.list(), executeAll: (calls, context, execution) =>
+        (this.nodeTools ?? capabilities.toolExecution).executeAll(calls, context, execution) },
       client: this.client,
       stateStore: this.stateStore,
       authorityPort: options.authorityPort,
@@ -153,11 +168,11 @@ export class SopAgentLoop implements AgentLoopRunner {
         ...capabilities.model,
         execution: {
           prepare: (input: Parameters<typeof capabilities.model.execution.prepare>[0]) =>
-            capabilities.model.execution.prepare({ ...input, request: {
+            (this.nodeModel ?? capabilities.model.execution).prepare({ ...input, request: {
               ...input.request,
               ...sopModelTools(this.preparedSteps.get(input.context.sessionId), input.request.tools),
             } }),
-          stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => capabilities.model.execution.stream({
+          stream: (input: Parameters<typeof capabilities.model.execution.stream>[0]) => (this.nodeModel ?? capabilities.model.execution).stream({
             ...input,
             prepared: { ...input.prepared, request: { ...input.prepared.request,
               ...sopModelTools(this.preparedSteps.get(input.context.sessionId), input.prepared.request.tools),
@@ -167,6 +182,22 @@ export class SopAgentLoop implements AgentLoopRunner {
       }),
       toolExecution,
       contextPreparation,
+      ...(capabilities.contextRecovery ? { contextRecovery: { recoverFromModelError:
+        (input: Parameters<NonNullable<AgentTurnCapabilities["contextRecovery"]>["recoverFromModelError"]>[0]) =>
+          (this.nodeContext?.recoverFromModelError?.bind(this.nodeContext) ?? capabilities.contextRecovery!.recoverFromModelError)(
+            { ...input, sessionId: this.contextSessionId(input.sessionId) }) } } : {}),
+      ...(capabilities.contextToolResults ? { contextToolResults: { applyToolResults:
+        (input: Parameters<NonNullable<AgentTurnCapabilities["contextToolResults"]>["applyToolResults"]>[0]) =>
+          (this.nodeContext?.applyToolResults?.bind(this.nodeContext) ?? capabilities.contextToolResults!.applyToolResults)(
+            { ...input, sessionId: this.contextSessionId(input.sessionId) }) } } : {}),
+      ...(capabilities.contextCompaction ? { contextCompaction: { tryAutoCompact:
+        (input: Parameters<NonNullable<AgentTurnCapabilities["contextCompaction"]>["tryAutoCompact"]>[0]) =>
+          (this.nodeContext?.tryAutoCompact?.bind(this.nodeContext) ?? capabilities.contextCompaction!.tryAutoCompact)({ ...input,
+            sessionId: input.sessionId ? this.contextSessionId(input.sessionId) : input.sessionId }) } } : {}),
+      ...(capabilities.contextCapture ? { contextCapture: { captureTurn:
+        (input: Parameters<NonNullable<AgentTurnCapabilities["contextCapture"]>["captureTurn"]>[0]) =>
+          (this.nodeContext?.captureTurn?.bind(this.nodeContext) ?? capabilities.contextCapture!.captureTurn)(
+            { ...input, sessionId: this.contextSessionId(input.sessionId) }) } } : {}),
       tools: Object.freeze({
         ...capabilities.tools,
         port: controlPort,
@@ -178,12 +209,72 @@ export class SopAgentLoop implements AgentLoopRunner {
           capabilities: wrappedCapabilities,
           sidecarModules: options.sidecarModules
             ? wrapSidecarModules(options.sidecarModules, controlPort, (input) => this.prepareContext(capabilities, input),
-                (sessionId) => this.preparedSteps.get(sessionId))
+                (sessionId) => this.preparedSteps.get(sessionId), sessionId => this.contextSessionId(sessionId), () => this.nodeContext, () => this.nodeModel)
             : undefined,
           seedState,
           sidecarTransportContext: options.sidecarTransportContext,
         })
       : new AgentLoop(config, wrappedCapabilities, seedState);
+    const self = this;
+    this.nodeSessions = new SopNodeSessions({ cwd: config.cwd, stateRoot: options.profile.stateRoot,
+      auditRecorder: capabilities.toolExecution.auditRecorder,
+      storage: options.sessionStorage, context: options.contextRuntime, ports: options.internalSessionPorts, runner: {
+        snapshotFileState: () => self.native.snapshotFileState(),
+        async *run(nodeInput) {
+          const parent = self.nodeRunInput!;
+          let nativeInput: AgentLoopInput = { ...parent, messages: nodeInput.messages,
+            onDurableMessage: nodeInput.onDurableMessage,
+            onCompactPersisted: nodeInput.onCompactPersisted };
+          let corrected = false;
+          let previousResult: AgentLoopRunResult["result"] | undefined;
+          while (true) {
+            const iterator = self.native.run(nativeInput);
+            let sawToolError = false;
+            try {
+            while (true) {
+              const next = await iterator.next();
+              if (next.done) {
+                const state = await self.stateStore.status(parent.sessionId);
+                if (!sawToolError && !self.submissions.has(parent.sessionId)
+                  && state?.state.status === "active" && next.value.result.stopReason === "completed"
+                  && (nativeInput.maxTurns === undefined || next.value.result.turns < nativeInput.maxTurns)
+                  && !next.value.result.structuredOutput) {
+                  if (corrected) throw new Error("SOP_STEP_RESULT_REQUIRED: model ended without submitting the active node result");
+                  corrected = true;
+                  const step = self.preparedSteps.get(parent.sessionId)!;
+                  self.protocolCorrections.set(parent.sessionId, sopStepKey(step.skillId, step.nodeId));
+                  previousResult = next.value.result;
+                  nativeInput = continueNodeInput(nativeInput, next.value);
+                  if (self.options.runnerFactory) nativeInput = { ...nativeInput, execution: { ...nativeInput.execution!,
+                    operationId: `${nativeInput.execution!.operationId}:correction` } };
+                  break;
+                }
+                const completed = { ...next.value, result: mergeNodeResults(previousResult, next.value.result) };
+                self.nodeRunResult = completed;
+                yield { type: "turn_completed", sessionId: nodeInput.sessionId,
+                  turnId: nodeInput.turnId, result: { ...completed.result, sessionId: nodeInput.sessionId } };
+                return { ...completed, result: { ...completed.result, sessionId: nodeInput.sessionId } };
+              }
+              if (next.value.type === "tool_result" && next.value.result.type === "error"
+                && next.value.result.error.code !== "invalid_tool_input") sawToolError = true;
+              if (next.value.type === "turn_completed") continue;
+              yield { ...next.value, sessionId: nodeInput.sessionId } as AgentEvent;
+            }
+            } finally { await iterator.return(undefined as never); }
+          }
+        },
+      } });
+  }
+
+  async dispose(): Promise<void> {
+    await this.nodeSessions.dispose();
+    await this.native.dispose?.();
+  }
+
+  private contextSessionId(parentSessionId: string): string {
+    const step = this.preparedSteps.get(parentSessionId);
+    return step?.contextMode === "new_session"
+      ? sopNodeSessionId(parentSessionId, step.skillId, step.nodeId) : parentSessionId;
   }
 
   snapshotFileState(): AgentLoopSeedState {
@@ -199,6 +290,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     this.protocolCorrections.delete(input.sessionId);
     this.collectCorrectionTurns.delete(`${input.sessionId}:${input.turnId}`);
     this.collectInputs.set(input.sessionId, latestUserMessage(input.messages));
+    this.userInputs.set(input.sessionId, latestUserMessageOnly(input.messages)[0]);
     const recoverableDelivery = await this.stateStore.replyDelivery(input.sessionId);
     if (recoverableDelivery) {
       const active = (await this.stateStore.status(input.sessionId))?.state.status === "active";
@@ -211,12 +303,41 @@ export class SopAgentLoop implements AgentLoopRunner {
     let delayedCompletion: Extract<AgentEvent, { type: "turn_completed" }> | undefined;
     const correctionsByStep = new Map<string, number>();
     let sawToolError = false;
-    let iterator = this.native.run(input);
+    const visibleMessages = [...input.messages];
+    const persistMain = input.onDurableMessage;
+    input = { ...input, onDurableMessage: async message => {
+      visibleMessages.push(message);
+      await persistMain?.(message);
+    } };
+    let totalTurns = 0;
+    let totalSpentUsd = 0;
+    let totalUsage: AgentLoopRunResult["result"]["usage"] = {};
+    const permissionDenials: AgentLoopRunResult["result"]["permissionDenials"] = [];
+    let iterator = this.runNode(input);
     while (true) {
       const next = await this.sessionContext.run(input.sessionId, () => iterator.next());
       if (next.done) {
         completed = next.value;
+        totalTurns += completed.result.turns;
+        permissionDenials.push(...completed.result.permissionDenials);
+        totalSpentUsd += completed.result.budget?.turnSpentUsd ?? 0;
+        for (const [key, value] of Object.entries(completed.result.usage)) {
+          if (typeof value === "number") (totalUsage as Record<string, unknown>)[key] =
+            ((totalUsage as Record<string, number>)[key] ?? 0) + value;
+        }
         const state = await this.stateStore.status(input.sessionId);
+        if (state?.state.status === "active" && completed.result.stopReason === "completed"
+          && input.maxTurns !== undefined && completed.result.turns >= input.maxTurns) {
+          completed = { ...completed, result: { ...completed.result, type: "max_turns", stopReason: "max_turns" } };
+          break;
+        }
+        if (state?.state.status === "active" && completed.result.structuredOutput) {
+          // A successful submission ends only the internal node turn.
+          input = continueNodeInput(input, completed);
+          this.protocolCorrections.delete(input.sessionId);
+          iterator = this.runNode(input);
+          continue;
+        }
         if (!sawToolError && this.selectedSops.get(input.sessionId)
           && !this.submissions.has(input.sessionId) && state?.state.status === "active"
           && completed.result.stopReason === "completed") {
@@ -230,8 +351,8 @@ export class SopAgentLoop implements AgentLoopRunner {
           if (attempted >= 1) throw new Error("SOP_STEP_RESULT_REQUIRED: model ended without submitting the active node result");
           correctionsByStep.set(stepKey, attempted + 1);
           this.protocolCorrections.set(input.sessionId, stepKey);
-          input = { ...input, messages: completed.messages };
-          iterator = this.native.run(input);
+          input = continueNodeInput(input, completed);
+          iterator = this.runNode(input);
           continue;
         }
         break;
@@ -244,11 +365,13 @@ export class SopAgentLoop implements AgentLoopRunner {
       }
       yield next.value;
     }
+    completed = { ...completed, result: { ...completed.result, turns: totalTurns, usage: totalUsage, permissionDenials,
+      ...(completed.result.budget ? { budget: { ...completed.result.budget, turnSpentUsd: totalSpentUsd } } : {}) } };
 
     const submission = this.submissions.get(input.sessionId);
     if (!submission) {
-      if (delayedCompletion) yield delayedCompletion;
-      return completed;
+      if (delayedCompletion) yield { ...delayedCompletion, result: completed.result };
+      return { ...completed, messages: visibleMessages };
     }
     const finalMessage = replyMessage(submission.result, input.turnId);
     await input.onDurableMessage?.(finalMessage);
@@ -262,13 +385,51 @@ export class SopAgentLoop implements AgentLoopRunner {
           sop: submission.result,
         },
       },
-      messages: [...completed.messages, finalMessage],
+      messages: visibleMessages,
     };
     if (delayedCompletion) {
       yield { ...delayedCompletion, result: rewritten.result };
     }
     await this.stateStore.clearReplyDelivery(input.sessionId, input.turnId);
     return rewritten;
+  }
+
+  private async *runNode(input: AgentLoopInput): AsyncGenerator<AgentEvent, AgentLoopRunResult, unknown> {
+    this.nodeContext = undefined;
+    this.nodeModel = undefined;
+    this.nodeTools = undefined;
+    const prepared = await this.prepareStep({ sessionId: input.sessionId, turnId: input.turnId,
+      cwd: this.config.cwd, provider: this.config.provider, model: this.config.model,
+      permissionMode: this.config.permissionMode, runMode: this.config.runMode ?? "agent",
+      additionalWorkingDirectories: this.config.permissionContext.additionalWorkingDirectories,
+      messages: input.messages, tools: [], abortSignal: input.abortSignal });
+    if (prepared && this.options.runnerFactory) input = { ...input, execution: { ...input.execution,
+      runId: input.execution?.runId ?? `sop:${input.sessionId}:${input.turnId}`,
+      operationId: `${input.execution?.operationId ?? input.turnId}:sop-node:${encodeURIComponent(prepared.step.skillId)}:${encodeURIComponent(prepared.step.nodeId)}` } };
+    if (prepared) this.preflightSteps.set(input.sessionId, prepared);
+    if (!prepared || prepared.step.contextMode === "inherit") return yield* this.native.run(input);
+    const runtime = await this.nodeSessions.get(input.sessionId, prepared.step.skillId, prepared.step.nodeId);
+    const node = runtime.session;
+    this.nodeContext = runtime.context;
+    this.nodeModel = runtime.model;
+    this.nodeTools = runtime.tools;
+    this.nodeRunInput = input;
+    this.nodeRunResult = undefined;
+    const current = this.userInputs.get(input.sessionId);
+    const iterator = node.submit({ type: "blocks", content: current?.content ?? [] }, {
+      turnId: input.turnId, execution: input.execution, maxTurns: input.maxTurns,
+      metadata: { parentSessionId: input.sessionId },
+    });
+    for await (const event of iterator) {
+      if (event.type === "turn_started" || event.type === "input_accepted") continue;
+      yield { ...event, sessionId: input.sessionId,
+        ...(event.type === "turn_completed" ? { result: { ...event.result, sessionId: input.sessionId } } : {}) } as AgentEvent;
+    }
+    const result = this.nodeRunResult as AgentLoopRunResult | undefined;
+    if (!result) {
+      throw new Error("SOP_NODE_SESSION_FAILED: internal node turn did not produce a result");
+    }
+    return result;
   }
 
   private async *deliverReply(
@@ -305,16 +466,36 @@ export class SopAgentLoop implements AgentLoopRunner {
     capabilities: AgentTurnCapabilities,
     input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0],
   ) {
+    const preflight = this.preflightSteps.get(input.sessionId);
+    this.preflightSteps.delete(input.sessionId);
+    const prepared = preflight ?? await this.prepareStep(input);
+    if (!prepared) return capabilities.contextPreparation.prepareForModel(input);
+    const modelContext = await this.stateStore.modelContext(input.sessionId);
+    return (this.nodeContext ?? capabilities.contextPreparation).prepareForModel({
+      ...input,
+      sessionId: prepared.step.contextMode === "new_session"
+        ? sopNodeSessionId(input.sessionId, prepared.step.skillId, prepared.step.nodeId) : input.sessionId,
+      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared, modelContext),
+        this.protocolCorrections.get(input.sessionId) === sopStepKey(prepared.step.skillId, prepared.step.nodeId)
+          ? prepared.step.isTerminal
+            ? "SOP_STEP_RESULT_REQUIRED: The previous assistant text was only a draft. The final SOP node is still active. Call submit_step_result now with status completed, the final answer in replyFragment, slotUpdates {}, and no nextStepId. Do not repeat the draft as plain assistant text."
+            : "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
+          : "")),
+    });
+  }
+
+  private async prepareStep(input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0]) {
+    const capabilities = this.capabilities;
     const selectedSopId = this.selectedSops.get(input.sessionId);
     this.preparedSteps.delete(input.sessionId);
-    if (!selectedSopId) return capabilities.contextPreparation.prepareForModel(input);
+    if (!selectedSopId) return undefined;
     const persisted = await this.stateStore.loadOrCreate(
       input.sessionId,
       this.options.bundle,
       selectedSopId,
     );
     if (isTerminalSopStatus(persisted.state.status)) {
-      return capabilities.contextPreparation.prepareForModel(input);
+      return undefined;
     }
     const ownerPrepared = await this.client.prepare({
       bundle: persisted.bundle,
@@ -339,6 +520,8 @@ export class SopAgentLoop implements AgentLoopRunner {
     // Portable output supplies no authority, even if it contains additional fields.
     const { optionalKnowledge: _untrusted, optionalKnowledgeUnavailable: _reason, ...ownerStep } = prepared.step;
     prepared = { ...prepared, step: ownerStep };
+    const contextMode = resolveContextMode(prepared.step, this.options.profile, persisted.bundle, prepared.step.skillId);
+    prepared = { ...prepared, step: { ...prepared.step, contextMode } };
     const saved = await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state, persisted.revision);
     if (this.options.authorityPort && prepared.step.node.type === "response"
       && capabilities.toolExecution.list().some(tool => tool.name === "knowledge_query")) {
@@ -357,16 +540,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       }
     }
     this.preparedSteps.set(input.sessionId, prepared.step);
-    const modelContext = await this.stateStore.modelContext(input.sessionId);
-    return capabilities.contextPreparation.prepareForModel({
-      ...input,
-      appendSystemPrompt: joinPrompt(input.appendSystemPrompt, joinPrompt(renderSopInstruction(prepared, modelContext),
-        this.protocolCorrections.get(input.sessionId) === sopStepKey(prepared.step.skillId, prepared.step.nodeId)
-          ? prepared.step.isTerminal
-            ? "SOP_STEP_RESULT_REQUIRED: The previous assistant text was only a draft. The final SOP node is still active. Call submit_step_result now with status completed, the final answer in replyFragment, slotUpdates {}, and no nextStepId. Do not repeat the draft as plain assistant text."
-            : "SOP_STEP_RESULT_REQUIRED: Your previous response did not submit the current SOP node result. Text cannot create an approval or missing-field wait. Follow the current node contract and call submit_step_result with your actual result before ending. Do not claim a persisted wait or completion without a successful tool receipt."
-          : "")),
-    });
+    return prepared;
   }
 
   private async selectSop(
@@ -418,6 +592,9 @@ export function createStaffDeckSopAgentLoop(
     ...(runnerFactory ? { runnerFactory } : {}),
     ...(input.sidecarModules ? { sidecarModules: input.sidecarModules } : {}),
     ...(input.sidecarTransportContext ? { sidecarTransportContext: input.sidecarTransportContext } : {}),
+    ...(input.sessionStorage ? { sessionStorage: input.sessionStorage } : {}),
+    ...(input.contextRuntime ? { contextRuntime: input.contextRuntime } : {}),
+    ...(input.internalSessionPorts ? { internalSessionPorts: input.internalSessionPorts } : {}),
   });
 }
 
@@ -426,20 +603,33 @@ function wrapSidecarModules(
   controlPort: ToolPort,
   prepareForModel: (input: Parameters<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>[0]) => ReturnType<AgentTurnCapabilities["contextPreparation"]["prepareForModel"]>,
   currentStep: (sessionId: string) => StaffDeckSopPrepareResponse["step"] | undefined,
+  contextSessionId: (sessionId: string) => string,
+  nodeContext: () => AgentLoopRuntimeFactoryInput["contextRuntime"],
+  nodeModel: () => NonNullable<AgentLoopRuntimeFactoryInput["internalSessionPorts"]>["model"] | undefined,
 ): SidecarModuleComposition {
+  const wrapModelExecution = (execution: typeof modules.model.execution) => ({
+    prepare: (input: Parameters<typeof modules.model.execution.prepare>[0]) => execution.prepare({
+      ...input, request: { ...input.request, ...sopModelTools(currentStep(input.context.sessionId), input.request.tools) },
+    }),
+    stream: (input: Parameters<typeof modules.model.execution.stream>[0]) => execution.stream({
+      ...input, prepared: { ...input.prepared, request: { ...input.prepared.request,
+        ...sopModelTools(currentStep(input.context.sessionId), input.prepared.request.tools),
+      } },
+    }),
+  });
   return Object.freeze({
     ...modules,
     model: Object.freeze({
       ...modules.model,
       execution: {
-        prepare: (input: Parameters<typeof modules.model.execution.prepare>[0]) => modules.model.execution.prepare({
-          ...input, request: { ...input.request, ...sopModelTools(currentStep(input.context.sessionId), input.request.tools) },
-        }),
-        stream: (input: Parameters<typeof modules.model.execution.stream>[0]) => modules.model.execution.stream({
-          ...input, prepared: { ...input.prepared, request: { ...input.prepared.request,
-            ...sopModelTools(currentStep(input.context.sessionId), input.prepared.request.tools),
-          } },
-        }),
+        prepare: input => wrapModelExecution(nodeModel() ?? modules.model.execution).prepare(input),
+        stream: input => wrapModelExecution(nodeModel() ?? modules.model.execution).stream(input),
+      } as typeof modules.model.execution,
+      // Retain parent routing state while binding admissions to the active recorder.
+      bindTurn: (input: Parameters<NonNullable<typeof modules.model.bindTurn>>[0]) => {
+        const execution = nodeModel() ?? modules.model.execution;
+        const bound = modules.model.bindTurn?.(input, execution) ?? { ...modules.model, execution };
+        return { ...bound, execution: wrapModelExecution(bound.execution) };
       },
     }),
     capability: Object.freeze({
@@ -453,6 +643,22 @@ function wrapSidecarModules(
             execution: Object.freeze({
               ...modules.context.execution,
               prepareForModel,
+              ...(modules.context.execution.applyToolResults ? { applyToolResults:
+                (input: Parameters<NonNullable<typeof modules.context.execution.applyToolResults>>[0]) =>
+                  (nodeContext()?.applyToolResults?.bind(nodeContext()) ?? modules.context!.execution.applyToolResults!)(
+                    { ...input, sessionId: contextSessionId(input.sessionId) }) } : {}),
+              ...(modules.context.execution.recoverFromModelError ? { recoverFromModelError:
+                (input: Parameters<NonNullable<typeof modules.context.execution.recoverFromModelError>>[0]) =>
+                  (nodeContext()?.recoverFromModelError?.bind(nodeContext()) ?? modules.context!.execution.recoverFromModelError!)(
+                    { ...input, sessionId: contextSessionId(input.sessionId) }) } : {}),
+              ...(modules.context.execution.tryAutoCompact ? { tryAutoCompact:
+                (input: Parameters<NonNullable<typeof modules.context.execution.tryAutoCompact>>[0]) =>
+                  (nodeContext()?.tryAutoCompact?.bind(nodeContext()) ?? modules.context!.execution.tryAutoCompact!)({ ...input,
+                    sessionId: input.sessionId ? contextSessionId(input.sessionId) : input.sessionId }) } : {}),
+              ...(modules.context.execution.captureTurn ? { captureTurn:
+                (input: Parameters<NonNullable<typeof modules.context.execution.captureTurn>>[0]) =>
+                  (nodeContext()?.captureTurn?.bind(nodeContext()) ?? modules.context!.execution.captureTurn!)(
+                    { ...input, sessionId: contextSessionId(input.sessionId) }) } : {}),
             }),
           }),
         }
@@ -486,7 +692,8 @@ class SopControlToolPort implements ToolPort {
     }
     if (!this.options.selectedSopForTools()) return tools;
     const step = this.options.currentStepForTools();
-    return step && step.requiredToolNames.length === 0
+    if (!step) return tools;
+    return step.requiredToolNames.length === 0
       ? [...(step.optionalKnowledge ? tools.filter(tool => tool.name === "knowledge_query")
           .map(tool => ({ ...tool, inputSchema: OPTIONAL_KNOWLEDGE_SCHEMA })) : []), submitSopStepResultTool()]
       : [...tools, submitSopStepResultTool()];
@@ -501,7 +708,7 @@ class SopControlToolPort implements ToolPort {
     const ordinary = calls.filter((call) => call.name !== SUBMIT_SOP_STEP_RESULT_TOOL);
     const step = this.options.currentStep(execution.sessionId);
     let ordinaryResults: PilotDeckToolResult[] = [];
-    if (ordinary.length > 0 && this.options.selectedSopId(execution.sessionId) && (!step || step.requiredToolNames.length === 0)) {
+    if (ordinary.length > 0 && step && this.options.selectedSopId(execution.sessionId) && step.requiredToolNames.length === 0) {
       for (const call of ordinary) {
         try {
           const projection = step?.optionalKnowledge;
@@ -659,11 +866,9 @@ class SopControlToolPort implements ToolPort {
         execution.turnId,
         submitted.result,
       );
-      // Node completion may leave the owner SOP active. In that case the
-      // result is an ordinary tool receipt, so the same native turn prepares
-      // the next node. Only an owner wait or terminal outcome ends the turn.
-      const finishTurn = submitted.state.status !== "active";
-      if (finishTurn) this.options.onSubmission(execution.sessionId, submitted.result);
+      // The decorator advances active SOPs after this internal node turn ends.
+      const finishTurn = true;
+      if (submitted.state.status !== "active") this.options.onSubmission(execution.sessionId, submitted.result);
       else await this.options.stateStore.clearReplyDelivery(execution.sessionId, execution.turnId);
       return controlSuccess(call, submitted.result, {
         submittedStepId: persisted.state.active_step_id ?? null,
@@ -944,6 +1149,55 @@ function latestUserMessage(messages: readonly { role?: unknown; content?: unknow
       .join("\n");
   }
   return "";
+}
+
+function latestUserMessageOnly(messages: readonly CanonicalMessage[]): CanonicalMessage[] {
+  const current = [...messages].reverse().find((message) => message.role === "user"
+    && message.content.some(part => part.type !== "tool_result"));
+  return current ? [current] : [];
+}
+
+function continueNodeInput(input: AgentLoopInput, completed: AgentLoopRunResult): AgentLoopInput {
+  const spent = completed.result.budget?.turnSpentUsd ?? 0;
+  return { ...input, messages: completed.messages,
+    maxTurns: input.maxTurns === undefined ? undefined : Math.max(0, input.maxTurns - completed.result.turns),
+    initialTaskBudgetSpentUsd: (input.initialTaskBudgetSpentUsd ?? 0) + spent,
+    maxBudgetUsd: input.maxBudgetUsd === undefined ? undefined : Math.max(0, input.maxBudgetUsd - spent) };
+}
+
+function mergeNodeResults(previous: AgentLoopRunResult["result"] | undefined, current: AgentLoopRunResult["result"]) {
+  if (!previous) return current;
+  const usage = { ...current.usage };
+  for (const [key, value] of Object.entries(previous.usage)) {
+    if (typeof value === "number") (usage as Record<string, number>)[key] =
+      ((usage as Record<string, number>)[key] ?? 0) + value;
+  }
+  return { ...current, usage, turns: previous.turns + current.turns, startedAt: previous.startedAt,
+    permissionDenials: [...previous.permissionDenials, ...current.permissionDenials],
+    ...(current.budget ? { budget: { ...current.budget,
+      turnSpentUsd: (previous.budget?.turnSpentUsd ?? 0) + current.budget.turnSpentUsd } } : {}) };
+}
+
+function resolveContextMode(
+  step: StaffDeckSopPrepareResponse["step"],
+  profile: SopRuntimeConfig,
+  bundle: StaffDeckSopBundle,
+  selectedSopId: string,
+): StaffDeckSopContextMode {
+  if (step.contextMode !== undefined) {
+    if (step.contextMode !== "new_session" && step.contextMode !== "inherit") {
+      throw new StaffDeckSopClientError("SOP_RUNTIME_PROTOCOL", "step.contextMode must be new_session or inherit");
+    }
+    return step.contextMode;
+  }
+  const definition = bundle.sops.find((candidate) => sopId(candidate) === selectedSopId);
+  const content = definition && isRecord(definition.content) ? definition.content : definition;
+  const nodes = content && Array.isArray(content.nodes) ? content.nodes : [];
+  const node = nodes.find((candidate) => isRecord(candidate)
+    && (candidate.node_id === step.nodeId || candidate.nodeId === step.nodeId));
+  const mode = node && isRecord(node) ? node.contextMode : undefined;
+  if (mode === "new_session" || mode === "inherit") return mode;
+  return profile.contextMode ?? "new_session";
 }
 
 /**

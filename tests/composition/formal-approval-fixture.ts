@@ -153,19 +153,21 @@ export async function createFormalApprovalFixture(input: { root: string; project
     await close(sdReservation);
     const harnessRoot = process.env.STAFFDECK_HARNESS_ROOT;
     if (!harnessRoot) throw new Error("Formal approval runner requires STAFFDECK_HARNESS_ROOT (installed locked runtime)");
-    const sd = spawnService(python, ["-c", `
+    const sdArgs = ["-c", `
 import os, uvicorn
 from app.public_api.pilotdeck_domain_host import PilotDeckDomainHostClient, bind_pilotdeck_domain_host
 bind_pilotdeck_domain_host(PilotDeckDomainHostClient(os.environ['FORMAL_HOST_ORIGIN'], os.environ['FORMAL_BRIDGE_TOKEN'], os.environ['FORMAL_PD_OWNER']))
 uvicorn.run('app.main:app', host='127.0.0.1', port=int(os.environ['FORMAL_SD_PORT']), log_level='warning')
-`], join(sdRoot, "backend"), {
+`];
+    const sdEnv = {
       PYTHONPATH: [join(sdRoot, "backend"), join(sdRoot, "backend/src"), join(sdRoot, "portable_sop/src")].join(":"),
       DATABASE_URL: `sqlite:///${join(home, "sd.sqlite")}`, APP_SECRET: secret(), DEMO_SEED_ENABLED: "true",
       PUBLIC_API_ENABLED: "true", STARTUP_ORPHAN_CLEANUP_ENABLED: "false",
       HARNESS_V3_ROOT: harnessRoot, HARNESS_V3_HOME: join(home, "harness"), HARNESS_V3_NODE_BIN: process.execPath,
       ULTRARAG_DATA_DIR: join(home, "knowledge-data"), FORMAL_SD_PORT: String(sdPort),
       FORMAL_HOST_ORIGIN: `http://127.0.0.1:${hostPort}`, FORMAL_BRIDGE_TOKEN: bridgeToken, FORMAL_PD_OWNER: owner.user.id,
-    });
+    };
+    let sd = spawnService(python, sdArgs, join(sdRoot, "backend"), sdEnv);
     const origin = `http://127.0.0.1:${sdPort}`;
     await ready(origin, "/api/health", sd.child, sd.logs, secrets);
     const admin = await call(origin, "POST", "/api/auth/login", { tenant_id: "tenant_demo", username: "admin", password: "admin" });
@@ -197,6 +199,11 @@ uvicorn.run('app.main:app', host='127.0.0.1', port=int(os.environ['FORMAL_SD_POR
       env, assigneeUserId: assignee.id, approver: { approverAuthorization: `Bearer ${assignee.token}` }, routingRequests,
       discoveryYaml: `    discoveryEndpoint: ${origin}/api/v1\n    discoveryAgentId: ${target.id}\n    discoveryApiKey: '${placeholder}'\n`,
       attach(gateway: LocalGateway) { local = gateway; },
+      async restartStaffDeck() {
+        await stop(sd.child);
+        sd = spawnService(python, sdArgs, join(sdRoot, "backend"), sdEnv);
+        await ready(origin, "/api/health", sd.child, sd.logs, secrets);
+      },
       async checkDiscovery() {
         const result = await call(origin, "POST", `/api/v1/agents/${target.id}/sops:route`, { message: "Request approval", model_source: "pilotdeck_host" }, credential.api_key);
         assert.equal(result.selected_sop_id, "approval");

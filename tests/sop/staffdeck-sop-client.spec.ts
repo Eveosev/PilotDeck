@@ -13,6 +13,24 @@ const manifest = {
   operations: ["prepare", "submit"],
 };
 
+for (const contextMode of [undefined, "new_session", "inherit", "shared", null, 1]) {
+  test(`owner prepare contextMode wire validation: ${String(contextMode)}`, async () => {
+    const client = new StaffDeckSopClient("http://sop.test", { fetch: async (url, init) => {
+      if (String(url).endsWith("/healthz")) return json(manifest);
+      const body = JSON.parse(String(init?.body));
+      const payload = preparePayload();
+      return json({ protocolVersion: "2.0", requestId: body.requestId, ok: true, outcome: "completed",
+        payload: { ...payload, step: { ...payload.step, ...(contextMode === undefined ? {} : { contextMode }) } } });
+    } });
+    if (contextMode === undefined || contextMode === "new_session" || contextMode === "inherit") {
+      assert.equal((await client.prepare({ bundle, state })).step.contextMode, contextMode);
+    } else {
+      await assert.rejects(() => client.prepare({ bundle, state }),
+        (error: unknown) => error instanceof StaffDeckSopClientError && error.code === "SOP_RUNTIME_PROTOCOL");
+    }
+  });
+}
+
 test("SOP client validates the manifest and wraps calls with the v2 execution envelope", async () => {
   const requests: Array<{ url: string; method?: string; body?: Record<string, unknown> }> = [];
   const client = new StaffDeckSopClient("http://sop.test", {

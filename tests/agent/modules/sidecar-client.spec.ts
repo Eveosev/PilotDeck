@@ -3410,6 +3410,35 @@ test("sidecar binds routing once per turn and clears a completed non-orchestrati
   ]);
 });
 
+test("sidecar binds parent sticky routing to a child recording execution", async () => {
+  const metadata: Array<Record<string, unknown> | undefined> = [];
+  const parents: string[] = [];
+  let childStreams = 0;
+  const child: ModelInvokerPort = {
+    async prepare({ request, context }) {
+      metadata.push(context.metadata);
+      assert.equal(context.sessionId, "parent-session");
+      return { request, provider: request.provider, model: request.model };
+    },
+    async *stream() { childStreams++; yield { type: "message_end", finishReason: "stop" }; },
+  };
+  const modules = createSidecarModuleComposition({
+    model: { prepare: async () => { throw new Error("parent recorder must not execute"); },
+      stream: async function* () { throw new Error("parent recorder must not execute"); } },
+    routing: { invalidateSticky(id) { parents.push(id); return { previousTier: "complex", orchestrating: true }; } },
+    toolExecution: noopTools(),
+  });
+  const bound = modules.model.bindTurn!({ sessionId: "parent-session", turnId: "turn" }, child);
+  const context = { sessionId: "parent-session", turnId: "turn", runId: "run" };
+  const request = { provider: "test", model: "test", messages: [] };
+  const prepared = await bound.execution.prepare({ request, context });
+  for await (const _ of bound.execution.stream({ prepared, context })) {}
+  await bound.execution.prepare({ request, context });
+  assert.equal(childStreams, 1);
+  assert.deepEqual(parents, ["parent-session"]);
+  assert.deepEqual(metadata, [{ previousTier: "complex" }, { previousTier: "complex" }]);
+});
+
 test("sidecar runner binds host routing before every submitted turn", async () => {
   const invalidations: string[] = [];
   const prepareMetadata: Array<Record<string, unknown> | undefined> = [];
