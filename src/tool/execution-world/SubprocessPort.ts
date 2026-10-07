@@ -13,6 +13,8 @@ export type SubprocessRequest = PilotDeckCommandOptions & { command: string };
 export type SubprocessResult = PilotDeckCommandResult & {
   /** Present for direct executable requests that close because of a signal. */
   exitSignal?: NodeJS.Signals | null;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
 };
 
 /** Host-independent request for a program that must not be routed through a shell. */
@@ -25,6 +27,7 @@ export type SubprocessFileRequest = PilotDeckCommandOptions & {
 
 /** DSH-style execution-world Definition for a foreground subprocess. */
 export type SubprocessPort = {
+  readonly supportsFileMtimeSort?: boolean;
   execute(request: SubprocessRequest): Promise<SubprocessResult>;
   /** Optional direct-executable path; consumers that need it must fail clearly when absent. */
   executeFile?(request: SubprocessFileRequest): Promise<SubprocessResult>;
@@ -33,14 +36,18 @@ export type SubprocessPort = {
 /** Native provider adapter; the Node runner remains the source of shell semantics. */
 export function createNodeSubprocessPort(
   runner: PilotDeckCommandRunner = new NodeShellCommandRunner(),
+  options: { maxOutputBytes?: number } = {},
 ): SubprocessPort {
+  if (options.maxOutputBytes !== undefined && (!Number.isSafeInteger(options.maxOutputBytes) || options.maxOutputBytes < 0)) {
+    throw new RangeError("maxOutputBytes must be a non-negative integer");
+  }
   return {
     execute: (request) => runner.run(request.command, request),
-    executeFile: runNodeExecutable,
+    executeFile: (request) => runNodeExecutable(request, options.maxOutputBytes),
   };
 }
 
-function runNodeExecutable(request: SubprocessFileRequest): Promise<SubprocessResult> {
+function runNodeExecutable(request: SubprocessFileRequest, maxOutputBytes?: number): Promise<SubprocessResult> {
   if (request.signal?.aborted) {
     return Promise.reject(new Error("Subprocess execution was aborted."));
   }
@@ -63,7 +70,15 @@ function runNodeExecutable(request: SubprocessFileRequest): Promise<SubprocessRe
 
     let stdout = "";
     let stderr = "";
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let stdoutTruncated = false;
+    let stderrTruncated = false;
+    const retain = (chunk: string, used: number) => maxOutputBytes === undefined ? chunk
+      : new TextDecoder().decode(Buffer.from(chunk).subarray(0, Math.max(0, maxOutputBytes - used)), { stream: true });
     let settled = false;
+    let aborted = false;
+    let timedOut = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const stop = () => {
       if (process.platform !== "win32" && child.pid) {
@@ -93,42 +108,48 @@ function runNodeExecutable(request: SubprocessFileRequest): Promise<SubprocessRe
       reject(error);
     };
     const onAbort = () => {
+      aborted = true;
       stop();
-      fail(new Error("Subprocess execution was aborted."));
     };
 
     timeout = setTimeout(() => {
+      timedOut = true;
       stop();
-      finish({
-        exitCode: null,
-        stdout,
-        stderr,
-        timedOut: true,
-        durationMs: Date.now() - startedAt,
-      });
     }, request.timeoutMs);
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
     child.stdout?.on("data", (chunk: string) => {
-      stdout += chunk;
-      try { request.onStdout?.(chunk); } catch { /* progress is best-effort */ }
+      const kept = retain(chunk, stdoutBytes);
+      stdoutTruncated ||= Buffer.byteLength(kept) < Buffer.byteLength(chunk);
+      stdoutBytes += Buffer.byteLength(kept);
+      stdout += kept;
+      try { if (kept) request.onStdout?.(kept); } catch { /* progress is best-effort */ }
     });
     child.stderr?.on("data", (chunk: string) => {
-      stderr += chunk;
-      try { request.onStderr?.(chunk); } catch { /* progress is best-effort */ }
+      const kept = retain(chunk, stderrBytes);
+      stderrTruncated ||= Buffer.byteLength(kept) < Buffer.byteLength(chunk);
+      stderrBytes += Buffer.byteLength(kept);
+      stderr += kept;
+      try { if (kept) request.onStderr?.(kept); } catch { /* progress is best-effort */ }
     });
     child.stdin?.end(request.stdin ?? "");
     child.on("error", (error) => fail(error));
     child.on("close", (exitCode, exitSignal) => {
+      if (aborted) {
+        fail(new Error("Subprocess execution was aborted."));
+        return;
+      }
       finish({
         exitCode,
         stdout,
         stderr,
-        timedOut: false,
+        timedOut,
         durationMs: Date.now() - startedAt,
         exitSignal,
+        ...(maxOutputBytes !== undefined ? { stdoutTruncated, stderrTruncated } : {}),
       });
     });
     request.signal?.addEventListener("abort", onAbort, { once: true });
+    if (request.signal?.aborted) onAbort();
   });
 }

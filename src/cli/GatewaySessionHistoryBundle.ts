@@ -73,6 +73,8 @@ export type GatewaySessionHistoryProviders = {
 };
 
 export type GatewaySessionHistoryBundleOptions = {
+  executionStorageFork?: ForkWebSessionOptions["executionStorageFork"];
+  retargetExecutionEntry?: ForkWebSessionOptions["retargetExecutionEntry"];
   fallbackProjectRoot: string;
   pilotHome: string;
   sessionCatalog: SessionCatalogPort;
@@ -150,6 +152,8 @@ export class GatewaySessionHistoryBundle {
     const sourceStorage = this.resolveStorage(projectRoot, input.sessionKey);
     await sourceStorage?.recoverTranscriptReplacements?.();
     return this.providers.forkSession(input, {
+      executionStorageFork: this.options.executionStorageFork,
+      retargetExecutionEntry: this.options.retargetExecutionEntry,
       projectRoot,
       pilotHome: this.options.pilotHome,
       ...(this.options.resolveStorage

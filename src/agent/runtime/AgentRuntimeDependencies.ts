@@ -47,6 +47,7 @@ export type AgentRuntimePorts = {
 
 /** Native-only customization for one dynamic subagent definition. */
 export type SubagentCompositionPort = {
+  createMcpRuntime?(servers: import("../../mcp/protocol/types.js").PilotDeckMcpServerSpec[]): Promise<import("../../mcp/runtime/McpRuntimePort.js").McpRuntimePort>;
   createContext?(definition: import("../sub/builtinSubagentTypes.js").SubagentDefinition): AgentContextRuntime | undefined;
   configureTools?(
     definition: import("../sub/builtinSubagentTypes.js").SubagentDefinition,

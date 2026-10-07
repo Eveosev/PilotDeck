@@ -42,7 +42,7 @@ export async function runSdkCli(argv: string[]): Promise<void> {
 
 async function runTurn(command: "run" | "resume", argv: string[]): Promise<void> {
   const connection = await readConnection(argv);
-  const projectKey = readValue(argv, "--project") ?? process.cwd();
+  const projectKey = readValue(argv, "--project");
   const channelKey = readValue(argv, "--channel") ?? "cli";
   const client = createClient(connection, projectKey);
   let onSignal: (() => void) | undefined;
@@ -99,7 +99,7 @@ function printHelp(): void {
 Options:
   --gateway-url <url>       Gateway WebSocket URL
   --auth-token <token>      Gateway auth token
-  --project <path>          Project key (defaults to cwd)
+  --project <path>          Explicit Gateway project key (defaults to Gateway workspace)
   --channel <name>          Session channel (defaults to cli)
   --model <provider/model>  Session model override
   --permission-mode <mode>  Session permission mode
@@ -134,7 +134,7 @@ function eventText(event: PilotDeckMessage): string {
 
 async function runSessionsCommand(argv: string[]): Promise<void> {
   const connection = await readConnection(argv);
-  const projectKey = readValue(argv, "--project") ?? process.cwd();
+  const projectKey = readValue(argv, "--project");
   const client = createClient(connection, projectKey);
   try {
     const subcommand = argv[0] ?? "list";
@@ -190,7 +190,7 @@ async function readConnection(argv: string[]): Promise<{ gatewayUrl: string; aut
   return { gatewayUrl, authToken };
 }
 
-function createClient(connection: { gatewayUrl: string; authToken: string }, projectKey: string): PilotDeckClient {
+function createClient(connection: { gatewayUrl: string; authToken: string }, projectKey?: string): PilotDeckClient {
   return createPilotDeckClient({ ...connection, projectKey, clientVersion: "pilotdeck-cli" });
 }
 

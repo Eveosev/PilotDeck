@@ -88,6 +88,9 @@ import type { PilotDeckRuntimeProfile } from "./PilotDeckRuntimeProfile.js";
 import type { InteractionProfile } from "../interaction/index.js";
 import type { BackgroundSubagentRuntime } from "../agent/sub/BackgroundSubagentRuntime.js";
 import type { ResolvedGatewayOrganizationPolicy } from "./createLocalGateway.js";
+import type { SessionExecutionHandle } from "../sandbox/SessionExecutionProvider.js";
+import type { LspServicePort } from "../lsp/index.js";
+import { McpRuntime } from "../mcp/runtime/McpRuntime.js";
 import {
   createKnowledgeModulePort,
   createKnowledgeQueryTool,
@@ -110,9 +113,15 @@ export type ProjectSessionRuntime = {
   router: RouterRuntime;
   routerSessionCustomRouters: RouterSessionCustomRouterPort;
   tools: ToolRegistry;
+  createSessionTools?: (executionWorld: ExecutionWorldBundle, lsp?: LspServicePort) => ToolRegistry;
+  lsp?: LspServicePort;
+  createSessionExecution?: (input: {
+    sessionKey: string;
+    generation: number;
+  }) => Promise<{ handle: SessionExecutionHandle; release: () => Promise<void> }>;
   mcpProvider: ProjectMcpRuntimeProvider;
   pluginRuntime: Pick<PluginRuntime, "refresh" | "acquireSessionContributions" | "getOutputStyle">;
-  executionWorld: Pick<ExecutionWorldBundle, "shell" | "planStorage" | "backgroundTasks">;
+  executionWorld: ExecutionWorldBundle;
   backgroundSubagents: BackgroundSubagentRuntime;
   instructionStorage: InstructionStoragePort;
   toolResultSpill: ToolResultSpillPort;
@@ -130,6 +139,7 @@ export type ProjectSessionPermissionRuleSet = {
 };
 
 export type ProjectSessionRuntimeBundleResult = {
+  sessionExecution?: SessionExecutionHandle;
   /** Retains the exact project, plugin, MCP and permission resources used here. */
   resources: GatewaySessionResourceLeaseBundle;
   permissionRules: PermissionRuleSet;
@@ -209,6 +219,31 @@ export class ProjectSessionRuntimeBundle {
       const permissionRuleSet = this.options.acquirePermissionRuleSet();
       resources.add("permission rule-set lease", async () => permissionRuleSet.release());
 
+      const sessionExecution = runtime.createSessionExecution
+        ? await runtime.createSessionExecution({ sessionKey: context.sessionKey, generation: 1 })
+        : undefined;
+      if (sessionExecution) resources.add("session execution lease", sessionExecution.release);
+      const executionWorld = sessionExecution?.handle.world ?? runtime.executionWorld;
+      if (sessionExecution && !runtime.createSessionTools) {
+        throw new Error("Session execution provider requires a session-owned tool registry");
+      }
+      let sessionLsp: LspServicePort | undefined;
+      if (sessionExecution && runtime.lsp) {
+        if (!runtime.lsp.bindSession) throw new Error("LSP service cannot bind session execution");
+        sessionLsp = runtime.lsp.bindSession({
+          workspaceRoot: sessionExecution.handle.hostWorkspaceRoot ?? runtime.projectRoot,
+          fs: executionWorld.fs,
+          prepareSubprocess: async (command) => executionWorld.executeCodeSandbox.port.prepare({
+            ...command,
+            policy: executionWorld.executeCodeSandbox.resolvePolicy({ workspaceRoot: command.cwd, executionRoot: command.cwd }),
+          }),
+        });
+        resources.add("session LSP service", () => sessionLsp!.dispose());
+      }
+      const baseTools = sessionExecution && runtime.createSessionTools
+        ? runtime.createSessionTools(executionWorld, sessionLsp)
+        : runtime.tools;
+
       await runtime.pluginRuntime.refresh();
       const extensionLease = runtime.pluginRuntime.acquireSessionContributions(this.options.sdkSessionPlugins);
       resources.add("plugin contribution lease", extensionLease.release);
@@ -235,16 +270,23 @@ export class ProjectSessionRuntimeBundle {
       resources.add("session custom-router registration", async () => routerRegistration.release());
 
       const sessionToolComposition = await new SessionToolCompositionBundle({
+        ...(sessionExecution ? { sessionExecutionWorld: executionWorld } : {}),
         composeMcpTools: () => new SessionMcpRuntimeBundle({
+          networkFetch: executionWorld.network?.fetch,
           sessionKey: context.sessionKey,
-          baseTools: runtime.tools,
+          baseTools,
           mcpProvider: runtime.mcpProvider,
           mcpServers: { ...contributions.mcpServers, ...this.options.sdkMcpServers },
           resources,
           perSessionRuntimes: this.options.sessionMcpRuntimes,
           maxPerSessionInstances: runtime.snapshot.config.gateway?.maxPerSessionMcpInstances ?? 5,
+          sessionStorageRoot: sessionExecution?.handle.hostStorageRoot,
+          prepareSubprocess: sessionExecution?.handle.prepareSubprocess,
           createRuntime: this.options.mcpRuntimeFactory,
-          preparePerSessionSpecs: this.options.preparePerSessionSpecs,
+          preparePerSessionSpecs: (specs, specContext) => this.options.preparePerSessionSpecs(specs, {
+            sessionKey: specContext?.sessionKey ?? context.sessionKey,
+            storageRoot: sessionExecution?.handle.hostStorageRoot,
+          }),
           onDiagnostic: (message, error) => this.options.onDiagnostic?.(message, error),
         }).compose(),
         extension,
@@ -338,8 +380,10 @@ export class ProjectSessionRuntimeBundle {
         hookSettings: contributions.hooks,
         sdkHooks: this.options.sdkSessionConfig?.hooks,
         includeHookEvents: this.options.sdkSessionConfig?.includeHookEvents,
-        shell: runtime.executionWorld.shell,
-        projectRoot: runtime.projectRoot,
+        shell: executionWorld.shell,
+        networkFetch: executionWorld.network?.fetch,
+        hookCwd: sessionExecution?.handle.hostWorkspaceRoot,
+        projectRoot: sessionExecution?.handle.hostWorkspaceRoot ?? runtime.projectRoot,
         permissionTimeoutMs: this.options.permissionTimeoutMs,
         questionTimeoutMs: this.options.elicitationTimeoutMs,
         eventEmitter: eventBuf.emitter,
@@ -357,6 +401,9 @@ export class ProjectSessionRuntimeBundle {
         : undefined;
       const agentConfig = new SessionAgentConfigBundle({
         runtime,
+        ...(sessionExecution?.handle.hostWorkspaceRoot
+          ? { executionWorkspaceRoot: sessionExecution.handle.hostWorkspaceRoot }
+          : {}),
         sdkSessionConfig,
         sdkThinking: this.options.sdkThinking,
         sessionOverride: this.options.sessionOverride,
@@ -468,13 +515,13 @@ export class ProjectSessionRuntimeBundle {
         const sessionContext = new SessionContextRuntimeBundle({
           sessionKey: context.sessionKey,
           projectKey: context.projectKey,
-          projectRoot: runtime.projectRoot,
+          projectRoot: sessionExecution?.handle.hostWorkspaceRoot ?? runtime.projectRoot,
           pilotHome: this.options.pilotHome,
-          toolResultsDir: storage.toolResultsDir,
-          toolResultArtifactStorage: storage.toolResultArtifactStorage,
+          toolResultsDir: executionWorld.contextStorage?.spillRoot ?? storage.toolResultsDir,
+          toolResultArtifactStorage: sessionExecution ? undefined : storage.toolResultArtifactStorage,
           extension,
-          instructionStorage: runtime.instructionStorage,
-          toolResultSpill: runtime.toolResultSpill,
+          instructionStorage: executionWorld.contextStorage?.instructionStorage ?? runtime.instructionStorage,
+          toolResultSpill: executionWorld.contextStorage?.toolResultSpill ?? runtime.toolResultSpill,
           compaction: runtime.compaction,
           testOnAutomaticCompactionTrigger: this.options.testOnAutomaticCompactionTrigger,
           promptCacheCoordinator: runtime.promptCacheCoordinator,
@@ -491,6 +538,8 @@ export class ProjectSessionRuntimeBundle {
           eventEmitter: eventBuf.emitter,
         }).compose();
         const fileHistory = new SessionFileHistoryBundle({
+          fs: executionWorld.contextStorage?.fileHistoryFs,
+          backupRoot: executionWorld.contextStorage?.fileHistoryRoot,
           sessionKey: context.sessionKey,
           storage,
           now: this.options.now,
@@ -500,15 +549,30 @@ export class ProjectSessionRuntimeBundle {
           now: this.options.now,
         }).compose();
         const subagentComposition: NonNullable<AgentRuntimeDependencies["subagentComposition"]> = {
+          ...(sessionExecution ? {
+            createMcpRuntime: async (servers: import("../mcp/protocol/types.js").PilotDeckMcpServerSpec[]) => {
+              const handle = sessionExecution.handle;
+              const specs = await Promise.all(servers.map(async (server) => {
+                if (server.transport !== "stdio") return server;
+                if (!handle.prepareSubprocess || !handle.hostWorkspaceRoot) throw new Error("Subagent MCP requires session process execution");
+                const prepared = await handle.prepareSubprocess({
+                  executable: server.command, args: server.args ?? [],
+                  cwd: handle.hostWorkspaceRoot, env: { ...process.env, ...server.env },
+                });
+                return { ...server, command: prepared.executable, args: [...prepared.args], cwd: prepared.cwd, env: prepared.env as Record<string, string> };
+              }));
+              return new McpRuntime(specs, { clientOptions: { fetch: executionWorld.network?.fetch ?? (async () => { throw new Error("Subagent session network denied"); }) } });
+            },
+          } : {}),
           createContext: (definition) => {
             if (definition.memory !== "disabled" && definition.skills === undefined) return undefined;
             return new SessionContextRuntimeBundle({
               sessionKey: context.sessionKey,
               projectKey: context.projectKey,
-              projectRoot: runtime.projectRoot,
+              projectRoot: sessionExecution?.handle.hostWorkspaceRoot ?? runtime.projectRoot,
               pilotHome: this.options.pilotHome,
-              toolResultsDir: storage.toolResultsDir,
-              toolResultArtifactStorage: storage.toolResultArtifactStorage,
+              toolResultsDir: executionWorld.contextStorage?.spillRoot ?? storage.toolResultsDir,
+              toolResultArtifactStorage: sessionExecution ? undefined : storage.toolResultArtifactStorage,
               extension: new PluginRuntimeExtensionResolver(filterSessionSkills(
                 contributions,
                 definition.skills === "all" || definition.skills === undefined
@@ -516,8 +580,8 @@ export class ProjectSessionRuntimeBundle {
                   : [...definition.skills],
               )),
               includeExtensionsWithCustomSystemPrompt: true,
-              instructionStorage: runtime.instructionStorage,
-              toolResultSpill: runtime.toolResultSpill,
+              instructionStorage: executionWorld.contextStorage?.instructionStorage ?? runtime.instructionStorage,
+              toolResultSpill: executionWorld.contextStorage?.toolResultSpill ?? runtime.toolResultSpill,
               compaction: runtime.compaction,
               testOnAutomaticCompactionTrigger: this.options.testOnAutomaticCompactionTrigger,
               promptCacheCoordinator: runtime.promptCacheCoordinator,
@@ -562,9 +626,9 @@ export class ProjectSessionRuntimeBundle {
         };
         const planTodo = new SessionPlanTodoBundle({
           sessionKey: context.sessionKey,
-          projectRoot: runtime.projectRoot,
+          projectRoot: sessionExecution?.handle.hostWorkspaceRoot ?? runtime.projectRoot,
           storage,
-          planStorage: runtime.executionWorld.planStorage,
+          planStorage: executionWorld.planStorage,
         }).compose();
         const goal = new SessionGoalBundle({
           sessionKey: context.sessionKey,
@@ -608,7 +672,7 @@ export class ProjectSessionRuntimeBundle {
             sessionKey: context.sessionKey,
             hookExecutionEvents: lifecycle,
             hookEventFormat: this.options.sdkSessionConfig?.includeHookEvents === true ? "sdk" : "agent_status",
-            backgroundTaskCompletionEvents: runtime.executionWorld.backgroundTasks,
+            backgroundTaskCompletionEvents: executionWorld.backgroundTasks,
             emit: this.options.gateway.emit,
           }).attach();
         }
@@ -637,6 +701,7 @@ export class ProjectSessionRuntimeBundle {
       };
 
       return {
+        ...(sessionExecution ? { sessionExecution: sessionExecution.handle } : {}),
         resources,
         permissionRules: permissionRuleSet.rules,
         agentConfig,

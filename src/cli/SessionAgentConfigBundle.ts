@@ -19,6 +19,8 @@ export type SessionAgentConfigRuntime = {
 
 export type SessionAgentConfigBundleOptions = {
   runtime: SessionAgentConfigRuntime;
+  /** Session-bound host workspace selected by the execution provider. */
+  executionWorkspaceRoot?: string;
   sessionOverride?: SessionConfigOverride;
   sdkSessionConfig?: GatewaySessionSdkConfig;
   sdkThinking?: AgentRuntimeConfig["thinking"];
@@ -52,7 +54,9 @@ export class SessionAgentConfigBundle {
       ?? (sdk?.permissionMode === "dontAsk"
         ? "default"
         : sessionOverride?.permissionMode ?? this.options.permissionMode);
-    const cwd = sessionOverride?.cwd ?? runtime.projectRoot;
+    // A provider-owned workspace is authoritative. Client cwd hints must not
+    // redirect session tools back to the host project or another session.
+    const cwd = this.options.executionWorkspaceRoot ?? sessionOverride?.cwd ?? runtime.projectRoot;
     const requestedModel = resolveSdkModel(sdk?.settings?.agent?.model, agent.model);
     const organizationSettings = this.options.organizationPolicy?.settings;
     const sessionSubagents = sdk?.settings?.agent?.subagents;

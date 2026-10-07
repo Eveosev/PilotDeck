@@ -432,6 +432,8 @@ export type PilotDeckToolRuntimeContext = {
 };
 
 export type PilotDeckToolDefinition<Input = unknown, Output = unknown> = {
+  /** Host module factory; a confined session never executes an unbound extension closure. */
+  bindExecutionWorld?(world: import("../execution-world/ExecutionWorldBundle.js").ExecutionWorldBundle): PilotDeckToolDefinition<Input, Output>;
   name: string;
   aliases?: string[];
   title?: string;

@@ -153,6 +153,10 @@ export {
 } from "./execution-world/CodeRuntimePort.js";
 export { createNodeCodeRuntimePort } from "./execution-world/NodeCodeRuntimePort.js";
 export {
+  createNodeSandboxedCodeRuntimePort,
+  type CreateNodeSandboxedCodeRuntimePortOptions,
+} from "./execution-world/SandboxedCodeRuntimePort.js";
+export {
   createNodeExecutionTransportPort,
   setExecuteCodeTransportOverrideForTests,
   type ExecuteCodeTransportKind,
@@ -177,6 +181,7 @@ export {
   seatbeltProfileArgs,
   type CreateNodeSandboxPortOptions,
 } from "./execution-world/NodeSandboxPort.js";
+export { createNodeSandboxedSubprocessPort, type CreateNodeSandboxedSubprocessPortOptions } from "./execution-world/SandboxedSubprocessPort.js";
 export {
   createNodePlanStoragePort,
   type PlanStoragePort,

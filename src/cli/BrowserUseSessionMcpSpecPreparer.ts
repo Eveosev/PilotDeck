@@ -9,6 +9,7 @@ export type BrowserUseSessionMcpSpecPreparationInput = {
   sessionKey: string;
   proxy?: PilotProxyConfig;
   specs: readonly PilotDeckMcpServerSpec[];
+  storageRoot?: string;
 };
 
 export type BrowserUseSessionMcpSpecPreparerOptions = {
@@ -39,18 +40,31 @@ export class BrowserUseSessionMcpSpecPreparer {
   prepare(input: BrowserUseSessionMcpSpecPreparationInput): PilotDeckMcpServerSpec[] {
     return input.specs.map((spec) => {
       if (spec.transport !== "stdio" || spec.id !== "browser-use") return spec;
-      const outputDir = join(
-        input.projectRoot,
-        ".pilotdeck",
-        "browser_screenshots",
-        sanitizeSessionIdForPath(input.sessionKey),
-      );
+      const outputDir = input.storageRoot
+        ? join(input.storageRoot, ".pilotdeck", "browser", "download")
+        : join(input.projectRoot, ".pilotdeck", "browser_screenshots", sanitizeSessionIdForPath(input.sessionKey));
       this.createDirectory(outputDir);
+      const profileDir = input.storageRoot ? join(input.storageRoot, ".pilotdeck", "browser", "profile") : undefined;
+      if (profileDir) this.createDirectory(profileDir);
+      const baseArgs = profileDir ? removePathArgs(spec.args ?? []) : spec.args ?? [];
+      const args = this.options.buildArgs(baseArgs, outputDir, this.options.env, input.proxy);
       return {
         ...spec,
         cwd: outputDir,
-        args: this.options.buildArgs(spec.args ?? [], outputDir, this.options.env, input.proxy),
+        args: profileDir ? [...args, "--user-data-dir", profileDir] : args,
+        ...(profileDir ? { env: { ...spec.env, PILOTDECK_SESSION_BROWSER_PROXY: "1" } } : {}),
       };
     });
   }
+}
+
+function removePathArgs(args: readonly string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (["--output-dir", "--user-data-dir"].includes(arg)) { i++; continue; }
+    if (arg.startsWith("--output-dir=") || arg.startsWith("--user-data-dir=")) continue;
+    result.push(arg);
+  }
+  return result;
 }

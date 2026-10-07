@@ -2,6 +2,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import type { FsPort } from "../../tool/execution-world/FsPort.js";
+import type { SandboxedCommand } from "../../tool/execution-world/SandboxPort.js";
 import { LspError } from "../protocol/errors.js";
 import type { LspLocation, LspOperation, LspProvider, LspProviderQuery, LspQueryResult, LspRange } from "../protocol/types.js";
 
@@ -21,6 +24,12 @@ export type NodeStdioLspServerConfig = {
 export type NodeStdioLspProviderOptions = NodeStdioLspServerConfig & {
   id: string;
   spawn?: typeof spawn;
+  /** Host-owned session execution ports, absent for the legacy native provider. */
+  sessionExecution?: {
+    workspaceRoot: string;
+    fs: FsPort;
+    prepareSubprocess(request: SandboxedCommand): Promise<SandboxedCommand>;
+  };
 };
 
 const DEFAULT_MAX_DOCUMENT_BYTES = 4_000_000;
@@ -41,13 +50,18 @@ export function createNodeStdioLspProvider(options: NodeStdioLspProviderOptions)
   const provider: LspProvider = {
     id: options.id,
     extensionToLanguage: normalizeExtensions(options.extensionToLanguage),
+    bindSession: (sessionExecution) => createNodeStdioLspProvider({ ...options, sessionExecution }),
     query: async (request, signal) => {
       if (disposed) throw new LspError("LSP provider is disposed", "LSP_DISPOSED");
-      const source = await readSource(request, maxDocumentBytes, signal);
-      const process = new LspProcess({
-        command: options.command,
-        args: options.args ?? [],
-        env: options.env,
+      const source = await readSource(request, maxDocumentBytes, signal, options.sessionExecution);
+      const command = options.sessionExecution ? await options.sessionExecution.prepareSubprocess({
+        executable: options.command, args: options.args ?? [], cwd: source.workspaceRoot,
+        env: { ...globalThis.process.env, ...options.env },
+      }) : { executable: options.command, args: options.args ?? [], cwd: source.workspaceRoot, env: options.env };
+      const lspProcess = new LspProcess({
+        command: command.executable,
+        args: command.args,
+        env: command.env,
         workspaceRoot: source.workspaceRoot,
         workspaceUri: source.workspaceUri,
         initializationOptions: options.initializationOptions,
@@ -56,12 +70,22 @@ export function createNodeStdioLspProvider(options: NodeStdioLspProviderOptions)
         shutdownTimeoutMs,
         spawn: options.spawn ?? spawn,
       });
-      active.add(process);
+      active.add(lspProcess);
       try {
-        return await process.query(request, source.fileUri, source.text, signal);
+        const result = await lspProcess.query(request, source.fileUri, source.text, signal);
+        if (options.sessionExecution && result.kind === "locations") {
+          const locations = result.locations.map((location) => {
+            const guestPath = fileURLToPath(location.uri);
+            const child = relative("/workspace", guestPath);
+            if (child === ".." || child.startsWith("../") || isAbsolute(child)) throw new LspError("LSP returned a location outside its session", "LSP_MALFORMED_RESPONSE");
+            return { ...location, uri: pathToFileURL(resolve(source.workspaceRoot, child)).toString() };
+          });
+          return { ...result, locations, resolvedWorkspaceUri: pathToFileURL(source.workspaceRoot).toString() };
+        }
+        return result;
       } finally {
-        active.delete(process);
-        await process.dispose();
+        active.delete(lspProcess);
+        await lspProcess.dispose();
       }
     },
     dispose: async () => {
@@ -90,27 +114,33 @@ function normalizeExtensions(mapping: Readonly<Record<string, string>>): Readonl
 
 type Source = { workspaceRoot: string; workspaceUri: string; fileUri: string; text: string };
 
-async function readSource(request: LspProviderQuery, maxDocumentBytes: number, signal?: AbortSignal): Promise<Source> {
+async function readSource(request: LspProviderQuery, maxDocumentBytes: number, signal?: AbortSignal, execution?: NodeStdioLspProviderOptions["sessionExecution"]): Promise<Source> {
   throwIfAborted(signal);
   const workspaceRoot = resolve(request.workspaceRoot);
-  const workspaceInfo = await stat(workspaceRoot);
-  if (!workspaceInfo.isDirectory()) throw new LspError(`LSP workspace is not a directory: ${request.workspaceRoot}`, "LSP_MALFORMED_RESPONSE");
+  if (execution && workspaceRoot !== resolve(execution.workspaceRoot)) throw new LspError("LSP workspace does not match its session", "LSP_WORKSPACE_REQUIRED");
+  const workspaceInfo = execution ? await execution.fs.stat(workspaceRoot, signal) : await stat(workspaceRoot);
+  if (!("kind" in workspaceInfo ? workspaceInfo.kind === "directory" : workspaceInfo.isDirectory())) throw new LspError(`LSP workspace is not a directory: ${request.workspaceRoot}`, "LSP_MALFORMED_RESPONSE");
   const filePath = isAbsolute(request.filePath) ? resolve(request.filePath) : resolve(workspaceRoot, request.filePath);
   const relativePath = relative(workspaceRoot, filePath);
   if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
     throw new LspError(`LSP source resolves outside the workspace: ${request.filePath}`, "LSP_MALFORMED_RESPONSE");
   }
-  const info = await stat(filePath);
-  if (!info.isFile()) throw new LspError(`LSP source is not a file: ${request.filePath}`, "LSP_MALFORMED_RESPONSE");
+  if (execution) {
+    const canonical = await execution.fs.realpath!(filePath);
+    const child = relative(workspaceRoot, canonical);
+    if (child === ".." || child.startsWith("../") || isAbsolute(child)) throw new LspError("LSP source resolves outside its session workspace", "LSP_MALFORMED_RESPONSE");
+  }
+  const info = execution ? await execution.fs.stat(filePath, signal) : await stat(filePath);
+  if (!("kind" in info ? info.kind === "file" : info.isFile())) throw new LspError(`LSP source is not a file: ${request.filePath}`, "LSP_MALFORMED_RESPONSE");
   if (info.size > maxDocumentBytes) throw new LspError(`LSP source exceeds ${maxDocumentBytes} bytes`, "LSP_MALFORMED_RESPONSE");
   throwIfAborted(signal);
-  const buffer = await readFile(filePath);
+  const buffer = execution ? Buffer.from(await execution.fs.readFile(filePath, { encoding: "utf8", signal }) as string) : await readFile(filePath);
   throwIfAborted(signal);
   if (buffer.byteLength > maxDocumentBytes) throw new LspError(`LSP source exceeds ${maxDocumentBytes} bytes`, "LSP_MALFORMED_RESPONSE");
   return {
     workspaceRoot,
-    workspaceUri: pathToFileURL(workspaceRoot).toString(),
-    fileUri: pathToFileURL(filePath).toString(),
+    workspaceUri: pathToFileURL(execution ? "/workspace" : workspaceRoot).toString(),
+    fileUri: pathToFileURL(execution ? resolve("/workspace", relativePath) : filePath).toString(),
     text: buffer.toString("utf8"),
   };
 }
@@ -132,7 +162,7 @@ class LspProcess {
   constructor(private readonly options: {
     command: string;
     args: readonly string[];
-    env?: Record<string, string>;
+    env?: NodeJS.ProcessEnv;
     workspaceRoot: string;
     workspaceUri: string;
     initializationOptions?: unknown;

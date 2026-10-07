@@ -1,6 +1,7 @@
 import type { AgentEventEmitter } from "../agent/protocol/events.js";
 import { createDeterministicElicitationAnswerer } from "../agent/modules/interaction/index.js";
 import { CommandHookExecutor } from "../extension/hooks/execution/CommandHookExecutor.js";
+import { HttpHookExecutor } from "../extension/hooks/execution/HttpHookExecutor.js";
 import { HookRuntime } from "../extension/hooks/execution/HookRuntime.js";
 import type { CallbackHookHandler } from "../extension/hooks/execution/CallbackHookExecutor.js";
 import { HookExecutionEventBus } from "../extension/hooks/events/HookExecutionEventBus.js";
@@ -63,6 +64,8 @@ export type SessionInteractionScope = {
 };
 
 export type SessionInteractionBundleOptions = {
+  networkFetch?: typeof fetch;
+  hookCwd?: string;
   sessionKey: string;
   profile: InteractionProfile;
   canPrompt: boolean;
@@ -154,11 +157,11 @@ export class SessionInteractionBundle {
       : undefined;
     this.hookRuntime = new HookRuntime(
       hookSettings,
-      new CommandHookExecutor(options.shell),
+      new CommandHookExecutor(options.shell, options.hookCwd),
       hookEventBus,
       undefined,
       undefined,
-      undefined,
+      new HttpHookExecutor(options.networkFetch),
       undefined,
       undefined,
       registerAsyncHook,
@@ -167,18 +170,21 @@ export class SessionInteractionBundle {
     this.configChangeLifecycle = sdkConfigChangeHooks?.length
       ? new LifecycleRuntime(new HookRuntime(
           { ConfigChange: sdkConfigChangeHooks },
-          new CommandHookExecutor(options.shell),
+          new CommandHookExecutor(options.shell, options.hookCwd),
           hookEventBus,
+          undefined,
+          undefined,
+          new HttpHookExecutor(options.networkFetch),
         ))
       : undefined;
     this.fileChangedLifecycle = sdkFileChangedHooks?.length
       ? new LifecycleRuntime(new HookRuntime(
           { FileChanged: sdkFileChangedHooks },
-          new CommandHookExecutor(options.shell),
+          new CommandHookExecutor(options.shell, options.hookCwd),
           hookEventBus,
           undefined,
           undefined,
-          undefined,
+          new HttpHookExecutor(options.networkFetch),
           undefined,
           undefined,
           registerAsyncHook,

@@ -345,7 +345,7 @@ async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   const { gateway: fallbackGateway } = createLocalGateway({ projectRoot: process.cwd() });
-  await new CliChannel({ argv, projectKey: process.cwd() }).start({ gateway: fallbackGateway });
+  await new CliChannel({ argv }).start({ gateway: fallbackGateway });
 }
 
 async function handleUpdateCommand(argv: string[]): Promise<void> {

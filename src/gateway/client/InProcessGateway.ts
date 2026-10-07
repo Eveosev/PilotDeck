@@ -261,6 +261,8 @@ export type InProcessGatewayOptions = {
   abortTurnTimeoutMs?: number;
   /** Attachment turn-composition consumer wired by application composition. */
   attachmentTurnComposer?: GatewayAttachmentTurnComposerPort;
+  /** Host-selected session composer; it must fail rather than use a host fallback. */
+  attachmentTurnComposerForSession?: (sessionKey: string) => GatewayAttachmentTurnComposerPort;
   /** Compatibility fallback for direct Gateway callers that do not compose a turn composer. */
   attachmentResolver?: AttachmentResolver;
   now?: () => Date;
@@ -1480,6 +1482,7 @@ export class InProcessGateway implements Gateway {
           input.message,
           attachments,
           input.projectKey,
+          input.sessionKey,
         );
         if (stopCancelledAdmission()) return;
         const syntheticMessages: CanonicalMessage[] = [
@@ -1863,6 +1866,7 @@ export class InProcessGateway implements Gateway {
       input.message,
       attachments,
       input.projectKey,
+      input.sessionKey,
     );
     const message: CanonicalMessage = {
       role: "user",
@@ -2452,15 +2456,19 @@ export class InProcessGateway implements Gateway {
   private async resolveUploadedAttachments(input: GatewaySubmitTurnInput): Promise<ResolvedUploadedAttachments> {
     if (!input.projectKey) throw new DialogGatewayError("PROJECT_NOT_FOUND", "projectKey is required for uploaded attachments.");
     if (!this.options.resolveUploadedAttachments) throw new DialogGatewayError("CAPABILITY_UNAVAILABLE", "Uploaded attachments are unavailable.");
-    return this.options.resolveUploadedAttachments({ projectKey: input.projectKey, uploads: input.uploadedAttachments ?? [] });
+    return this.options.resolveUploadedAttachments({ projectKey: input.projectKey, uploads: input.uploadedAttachments ?? [],
+      ...(this.options.attachmentTurnComposerForSession ? { sessionKey: input.sessionKey } : {}) });
   }
 
   private prepareAttachmentTurn(
     message: string,
     attachments: ChannelAttachment[] | undefined,
     projectRoot?: string,
+    sessionKey?: string,
   ) {
-    return this.attachmentTurnComposer.prepare({
+    const composer = this.options.attachmentTurnComposerForSession && sessionKey
+      ? this.options.attachmentTurnComposerForSession(sessionKey) : this.attachmentTurnComposer;
+    return composer.prepare({
       message,
       attachments,
       projectRoot,

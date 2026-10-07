@@ -6,6 +6,9 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { createNodeSandboxPort } from "../../src/tool/execution-world/NodeSandboxPort.js";
+import { createNodeSandboxedCodeRuntimePort } from "../../src/tool/execution-world/SandboxedCodeRuntimePort.js";
+import { createNodeSandboxedSubprocessPort } from "../../src/tool/execution-world/SandboxedSubprocessPort.js";
+import type { CodeRuntimePort } from "../../src/tool/execution-world/CodeRuntimePort.js";
 import {
   DEFAULT_SANDBOX_MODE,
   SANDBOX_MODES,
@@ -20,6 +23,38 @@ const baseRequest = {
   cwd: process.cwd(),
   env: process.env,
 };
+
+test("subprocess requests cannot overwrite the prepared sandbox command", async () => {
+  const calls: unknown[] = [];
+  const signal = new AbortController().signal;
+  const onStdout = () => {};
+  const port = createNodeSandboxedSubprocessPort({
+    sandbox: {
+      async prepare(request) {
+        return { executable: "/nsjail", args: ["--", request.executable, ...request.args], cwd: "/session", env: { HOME: "/home/agent" } };
+      },
+    },
+    subprocess: {
+      async executeFile(request) {
+        calls.push(request);
+        assert.equal(request.executable, "/nsjail");
+        assert.equal(request.cwd, "/session");
+        assert.deepEqual(request.env, { HOME: "/home/agent" });
+        assert.equal(request.timeoutMs, 500);
+        assert.equal(request.signal, signal);
+        assert.equal(request.onStdout, onStdout);
+        return { exitCode: 0, stdout: "", stderr: "", timedOut: false, durationMs: 1 };
+      },
+    },
+    resolvePolicy: ({ workspaceRoot }) => ({ mode: "danger-full-access", workspaceRoot }),
+    platform: "linux",
+  });
+  const options = { cwd: "/host", env: { HOME: "/host" }, timeoutMs: 500, signal, onStdout };
+  await port.execute({ ...options, command: "echo ok" });
+  await port.executeFile!({ ...options, executable: "python3", args: ["-c", "print(1)"], stdin: "payload" });
+  assert.equal(calls.length, 2);
+  assert.deepEqual((calls[1] as { args: string[] }).args, ["--", "python3", "-c", "print(1)"]);
+});
 
 test("sandbox definition owns its vocabulary and profile fallback", () => {
   assert.deepEqual(SANDBOX_MODES, ["read-only", "workspace-write", "danger-full-access"]);
@@ -48,6 +83,42 @@ test("node sandbox adapter fails closed when a confined policy is requested", as
     }),
     (error: unknown) => error instanceof SandboxUnavailableError && error.code === "sandbox_unavailable",
   );
+});
+
+test("sandboxed code runtime prepares the exact executable through the provider", async () => {
+  let preparedPolicy: unknown;
+  let runtimeRequest: { executable: string; args: readonly string[] } | undefined;
+  const runtime: CodeRuntimePort = {
+    async resolveExecutable() { return "python3"; },
+    async run(request: { executable: string; args: readonly string[] }) {
+      runtimeRequest = request;
+      return { exitCode: 0, exitSignal: null, stdout: "OK", stderr: "", timedOut: false, cancelled: false };
+    },
+    async dispose() {},
+  };
+  const wrapped = createNodeSandboxedCodeRuntimePort({
+    runtime,
+    sandbox: {
+      async prepare(request) {
+        preparedPolicy = request.policy;
+        return { ...request, executable: "/nsjail", args: ["--", request.executable, ...request.args] };
+      },
+    },
+    resolvePolicy: ({ workspaceRoot }) => ({ mode: "workspace-write", workspaceRoot }),
+  });
+  const result = await wrapped.run({
+    executable: "python3",
+    args: ["-c", "print(1)"],
+    cwd: "/workspace/session-a",
+    env: {},
+    timeoutMs: 1_000,
+    stdoutMaxBytes: 100,
+    stderrMaxBytes: 100,
+  });
+  assert.deepEqual(preparedPolicy, { mode: "workspace-write", workspaceRoot: "/workspace/session-a" });
+  assert.equal(runtimeRequest?.executable, "/nsjail");
+  assert.deepEqual(runtimeRequest?.args, ["--", "python3", "-c", "print(1)"]);
+  assert.equal(result.stdout, "OK");
 });
 
 test("macOS sandbox adapter wraps the exact argv in one DSH-equivalent Seatbelt profile", async () => {

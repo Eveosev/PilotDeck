@@ -1,5 +1,5 @@
 import { extname, isAbsolute, relative, resolve } from "node:path";
-import type { LspProvider, LspQueryRequest, LspQueryResult, LspService as LspServicePort } from "../protocol/types.js";
+import type { LspProvider, LspQueryRequest, LspQueryResult, LspService as LspServicePort, LspSessionExecution } from "../protocol/types.js";
 import { LspError } from "../protocol/errors.js";
 
 /** Native provider registry and per-query provider selection. */
@@ -7,6 +7,16 @@ export class LspService implements LspServicePort {
   private readonly providers = new Map<string, LspProvider>();
   private readonly extensions = new Map<string, LspProvider>();
   private disposed = false;
+
+  bindSession(execution: LspSessionExecution): LspService {
+    if (this.disposed) throw new LspError("LSP service is disposed", "LSP_DISPOSED");
+    const bound = new LspService();
+    for (const provider of this.providers.values()) {
+      if (!provider.bindSession) throw new LspError(`LSP provider ${provider.id} cannot bind session execution`, "LSP_UNAVAILABLE");
+      bound.registerProvider(provider.bindSession(execution));
+    }
+    return bound;
+  }
 
   registerProvider(provider: LspProvider): () => Promise<void> {
     if (this.disposed) throw new LspError("LSP service is disposed", "LSP_DISPOSED");

@@ -24,6 +24,7 @@ import { createAgentTurnCapabilities } from "../loop/nativeAgentTurnCapabilities
 import type { AgentTranscriptWriter } from "../../session/transcript/TranscriptWriter.js";
 import { ToolRegistry } from "../../tool/registry/ToolRegistry.js";
 import { McpRuntime, createMcpToolDefinitionsFromRuntime } from "../../mcp/index.js";
+import type { McpRuntimePort } from "../../mcp/runtime/McpRuntimePort.js";
 import type { CanonicalAssistantTextSummary } from "./types.js";
 import type {
   CanonicalMessage,
@@ -158,7 +159,7 @@ export class SubAgentSession {
     const subConfig = scopedRuntime.config;
     const sidechain = this.resolveSidechainTranscript();
     let sidechainRuntime: AgentSessionRuntimeResources | undefined;
-    let definitionMcp: McpRuntime | undefined;
+    let definitionMcp: McpRuntimePort | undefined;
     try {
       definitionMcp = await this.attachDefinitionMcpTools(subDependencies.tools.registry);
       this.options.parentDependencies.subagentComposition?.configureTools?.(
@@ -289,12 +290,12 @@ export class SubAgentSession {
   }
 
   /** Start only this definition's MCP endpoints and add their native tools. */
-  private async attachDefinitionMcpTools(registry: ToolRegistry): Promise<McpRuntime | undefined> {
+  private async attachDefinitionMcpTools(registry: ToolRegistry): Promise<McpRuntimePort | undefined> {
     const configured = this.options.definition.mcpServers;
     if (!configured || Object.keys(configured).length === 0) return undefined;
-    const runtime = new McpRuntime(
-      Object.entries(configured).map(([id, config]) => toSubagentMcpServerSpec(id, config)),
-    );
+    const servers = Object.entries(configured).map(([id, config]) => toSubagentMcpServerSpec(id, config));
+    const factory = this.options.parentDependencies.subagentComposition?.createMcpRuntime;
+    const runtime = factory ? await factory(servers) : new McpRuntime(servers);
     try {
       await runtime.start();
       const allowed = new Set(this.options.definition.allowedTools);

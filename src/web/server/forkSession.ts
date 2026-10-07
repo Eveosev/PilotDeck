@@ -29,6 +29,8 @@ import type {
 import type { WebAgentRunMode, WebGatewayMode, WebForkSessionInput, WebForkSessionResult } from "../client/protocol.js";
 
 export type ForkWebSessionOptions = {
+  retargetExecutionEntry?: (entry: AgentTranscriptEntry, sourceKey: string, targetKey: string) => AgentTranscriptEntry;
+  executionStorageFork?: (sourceSessionKey: string, targetSessionKey: string) => Promise<{ commit(): Promise<void>; rollback(): Promise<void> }>;
   projectRoot: string;
   pilotHome: string;
   /** Application-selected durable backend used for source reads and fork writes. */
@@ -376,7 +378,7 @@ export async function forkWebSession(
     sessionId: newSessionKey,
     sourceStorage,
     targetStorage,
-  });
+  }).map((entry) => options.retargetExecutionEntry?.(entry, input.sessionKey, newSessionKey) ?? entry);
   const lastPreserved = preserved[preserved.length - 1];
   const lastEntryId = lastPreserved?.entryId ?? null;
   const maxSequence = preserved.reduce((max, entry) => Math.max(max, entry.sequence), 0);
@@ -415,13 +417,21 @@ export async function forkWebSession(
     : createProjectSessionForkPort({
         ...(options.storageProvider ? { storageProvider: options.storageProvider } : {}),
       }));
-  await sessionForkPort.fork({
-    projectRoot: effectiveProjectRoot,
-    pilotHome: options.pilotHome,
-    sourceSessionId: input.sessionKey,
-    targetSessionId: newSessionKey,
-    entries: [...preserved, metadataEntry],
-  });
+  const executionFork = await options.executionStorageFork?.(input.sessionKey, newSessionKey);
+  try {
+    await sessionForkPort.fork({
+      projectRoot: effectiveProjectRoot,
+      pilotHome: options.pilotHome,
+      sourceSessionId: input.sessionKey,
+      targetSessionId: newSessionKey,
+      entries: [...preserved, metadataEntry],
+      ...(options.retargetExecutionEntry ? { transformAuxiliaryEntry: (entry: AgentTranscriptEntry) => options.retargetExecutionEntry!(entry, input.sessionKey, newSessionKey) } : {}),
+    });
+    await executionFork?.commit();
+  } catch (error) {
+    await executionFork?.rollback();
+    throw error;
+  }
 
   return {
     newSessionKey,
@@ -442,7 +452,10 @@ function createLegacyStorageForkPort(
       await targetStorage.copyTranscriptSidechains?.({
         sourceStorage,
         sourceTranscriptEntries: sourceEntries,
-        transformEntry: (entry) => retargetLegacyAuxiliaryPaths(entry, sourceStorage, targetStorage),
+        transformEntry: (entry) => {
+          const retargeted = retargetLegacyAuxiliaryPaths(entry, sourceStorage, targetStorage);
+          return input.transformAuxiliaryEntry?.(retargeted) ?? retargeted;
+        },
       });
       await targetStorage.copyFileHistoryBackups?.({ sourceStorage, sourceTranscriptEntries: sourceEntries });
       await targetStorage.copyToolResultArtifacts?.({ sourceStorage, sourceTranscriptEntries: sourceEntries });

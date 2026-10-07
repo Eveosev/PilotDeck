@@ -127,6 +127,9 @@ import {
 import type {
   PilotDeckToolDefinition,
 } from "../tool/index.js";
+import type { SessionExecutionHandle, SessionExecutionProvider, SessionIsolationPolicy } from "../sandbox/SessionExecutionProvider.js";
+import { GatewayAttachmentTurnComposer } from "../gateway/dialog/GatewayAttachmentTurnComposer.js";
+import { AttachmentResolver } from "../context/attachments/AttachmentResolver.js";
 import {
   SkillManager,
   migrateLegacyBundledSkillCopies,
@@ -154,6 +157,7 @@ import {
 } from "./AgentLoopDeploymentProfile.js";
 import { GatewaySessionModelBundle } from "./GatewaySessionModelBundle.js";
 import { GatewaySessionHistoryBundle } from "./GatewaySessionHistoryBundle.js";
+import { nextSessionExecutionBinding, retargetExecutionSnapshot } from "../sandbox/SessionExecutionStorage.js";
 import { GatewayDialogBundle } from "./GatewayDialogBundle.js";
 import type { ProjectContextStorageBundleOptions } from "./ProjectContextStorageBundle.js";
 import type { ProjectMemoryProviderFactory } from "./ProjectMemoryBundle.js";
@@ -251,6 +255,12 @@ export type CreateLocalGatewayOptions = {
     now: () => Date;
     sandboxMode: SandboxMode;
   }) => ExecutionWorldBundle;
+  /** Application-selected provider for per-session isolated execution worlds. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  /** Stable host root for per-session persistent workspace/home/tmp directories. */
+  sessionExecutionStorageRoot?: string;
+  /** Host-only resource limits for each isolated session. */
+  sessionIsolationPolicy?: SessionIsolationPolicy;
   /** Application-selected MCP runtime provider factory. */
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for each project generation. */
@@ -712,7 +722,12 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       );
     },
   });
+  const sessionExecutions = new Map<string, SessionExecutionHandle>();
   registry = new ProjectRuntimeRegistry({
+    registerSessionExecution: (sessionKey, handle) => {
+      sessionExecutions.set(sessionKey, handle);
+      return () => { if (sessionExecutions.get(sessionKey) === handle) sessionExecutions.delete(sessionKey); };
+    },
     fallbackProjectRoot,
     pilotHome,
     builtinSkillsRoot,
@@ -733,6 +748,9 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     modelInvocationProviderFactory:
       options.modelInvocationProviderFactory ?? options.__testModelInvocationProviderFactory,
     executionWorldBundleFactory: options.executionWorldBundleFactory ?? options.__testExecutionWorldBundleFactory,
+    sessionExecutionProvider: options.sessionExecutionProvider,
+    sessionExecutionStorageRoot: options.sessionExecutionStorageRoot,
+    sessionIsolationPolicy: options.sessionIsolationPolicy,
     mcpRuntimeFactory: options.mcpRuntimeFactory ?? options.__testMcpRuntimeFactory,
     contextStorage: options.contextStorage ?? options.__testContextStorage,
     memoryProviderFactory: options.memoryProviderFactory,
@@ -767,6 +785,9 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     onProjectActivated: (activeProjectRoot) => extensionWatchManager.watchProject(activeProjectRoot),
   });
   bootResources.ownRegistry(registry);
+  if (options.sessionExecutionProvider) {
+    bootResources.ownSessionExecutionProvider(options.sessionExecutionProvider);
+  }
   const defaultRuntime = registry.resolve();
   const memoryDiagnosticsEnabled = isGatewayMemoryDiagnosticsEnabled(
     env,
@@ -864,6 +885,16 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     policy: new NativeSessionModelSelectionPolicy(env),
   });
   const sessionHistory = new GatewaySessionHistoryBundle({
+    ...(options.sessionExecutionProvider ? {
+      retargetExecutionEntry: (entry, sourceKey, targetKey) => retargetExecutionSnapshot(entry, options.sessionExecutionStorageRoot!, sourceKey, targetKey),
+      executionStorageFork: async (sourceSessionKey: string, targetSessionKey: string) => {
+        if (!options.sessionExecutionStorageRoot || !options.sessionExecutionProvider!.forkSession) throw new Error("Session provider does not support execution-storage fork");
+        const policy = options.sessionIsolationPolicy ?? { network: "deny" as const };
+        const source = await nextSessionExecutionBinding(options.sessionExecutionStorageRoot, sourceSessionKey, policy);
+        const target = await nextSessionExecutionBinding(options.sessionExecutionStorageRoot, targetSessionKey, policy);
+        return options.sessionExecutionProvider!.forkSession({ source, target });
+      },
+    } : {}),
     fallbackProjectRoot,
     pilotHome,
     sessionCatalog,
@@ -982,6 +1013,16 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
       : undefined,
     funasrInstallCommand: getPilotDeckInstallCommand(),
     attachmentTurnComposer: dialog.attachmentTurnComposer,
+    ...(options.sessionExecutionProvider ? {
+      attachmentTurnComposerForSession: (sessionKey: string) => {
+        const handle = sessionExecutions.get(sessionKey);
+        if (!handle) throw new Error("Session attachment execution world is unavailable");
+        return new GatewayAttachmentTurnComposer({
+          attachmentResolver: new AttachmentResolver({ attachmentPort: createNodeAttachmentPort(handle.world.fs) }),
+          pathPort: handle.world.attachmentDelivery,
+        });
+      },
+    } : {}),
     now,
     serverInfo: { mode: "in_process", projectKey: projectRoot },
     sdkSessionDefaults: organizationPolicy?.settings?.sessionDefaults !== undefined
@@ -1092,6 +1133,7 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
         ? await storage.transcriptExists()
         : await statAsync(storage.transcriptPath).then((info) => info.isFile()).catch(() => false);
       if (!transcriptExists) throw new DialogGatewayError("SESSION_NOT_FOUND", `Session not found: ${input.sessionKey}`);
+      await options.sessionExecutionProvider?.deleteSessionStorage?.(input.sessionKey);
       if (storage.deleteSessionTranscripts) await storage.deleteSessionTranscripts();
       else if (storage.deleteTranscript) await storage.deleteTranscript();
       else await rmAsync(storage.transcriptPath, { force: false });
@@ -1401,7 +1443,26 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
     toggleMcpServer: (input) => registry.toggleMcpServerForSdk(input),
     setMcpPermissionModeOverride: (input) => registry.setMcpPermissionModeOverrideForSdk(input),
     resolveTurnModelSelection: (input) => sessionModels.resolveTurnModelSelection(input),
-    resolveUploadedAttachments: (input) => dialog.uploadedAttachments.resolve(input),
+    resolveUploadedAttachments: async (input) => {
+      const lease = await dialog.uploadedAttachments.resolve(input);
+      if (!options.sessionExecutionProvider) return lease;
+      try {
+        const handle = input.sessionKey ? sessionExecutions.get(input.sessionKey) : undefined;
+        const delivery = handle?.world.attachmentDelivery;
+        if (!delivery?.importBytes) throw new Error("Session upload import is unavailable");
+        const attachments = [];
+        for (const attachment of lease.attachments) {
+          if (!attachment.path) { attachments.push(attachment); continue; }
+          const info = await attachmentPort.stat(attachment.path);
+          if (info.size > 64 * 1024 * 1024) throw new Error("Session upload exceeds 64 MiB");
+          const bytes = await attachmentPort.readBytes(attachment.path);
+          if (bytes.byteLength > 64 * 1024 * 1024) throw new Error("Session upload exceeds 64 MiB");
+          const imported = await delivery.importBytes(attachment.name || attachment.path, bytes);
+          attachments.push({ ...attachment, path: imported.path, bytes: imported.size });
+        }
+        return { attachments, release: lease.release };
+      } catch (error) { await lease.release(); throw error; }
+    },
     setSessionCwd: (sessionKey, cwd) => registry.setSessionCwd(sessionKey, cwd),
     readSessionMessages: (input) => sessionHistory.readSessionMessages(input),
     readSubagentMessages: (input) => sessionHistory.readSubagentMessages(input),

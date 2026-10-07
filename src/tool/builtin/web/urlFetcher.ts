@@ -145,6 +145,7 @@ async function fetchWithRedirects(
   url: string,
   signal: AbortSignal,
   depth: number,
+  fetchHook: FetchHook,
 ): Promise<FetchedHttpRaw | RedirectInfo> {
   if (depth > MAX_REDIRECTS) {
     throw new Error(`Too many redirects (exceeded ${MAX_REDIRECTS})`);
@@ -156,7 +157,7 @@ async function fetchWithRedirects(
 
   let res: Awaited<ReturnType<FetchHook>>;
   try {
-    res = await activeFetchHook(url, {
+    res = await fetchHook(url, {
       headers: {
         Accept: "text/markdown, text/html, */*",
         "User-Agent": WEB_FETCH_USER_AGENT,
@@ -173,7 +174,7 @@ async function fetchWithRedirects(
     if (!location) throw new Error("Redirect missing Location header");
     const redirectUrl = new URL(location, url).toString();
     if (isPermittedRedirect(url, redirectUrl)) {
-      return fetchWithRedirects(redirectUrl, signal, depth + 1);
+      return fetchWithRedirects(redirectUrl, signal, depth + 1, fetchHook);
     }
     return {
       type: "redirect",
@@ -260,18 +261,20 @@ function buildBodyPreview(buffer: Buffer, contentType: string): string | undefin
 export async function getURLMarkdownContent(
   url: string,
   signal: AbortSignal,
+  options?: { fetchHook: FetchHook; cache: typeof URL_CACHE },
 ): Promise<WebFetchHttpResult> {
   if (!validateURL(url)) {
     throw new Error("Invalid URL");
   }
 
-  const cached = URL_CACHE.get(url);
+  const cache = options?.cache ?? URL_CACHE;
+  const cached = cache.get(url);
   if (cached) {
     return { ...cached, fromCache: true };
   }
 
   const { upgraded } = upgradeHttpToHttps(url);
-  const result = await fetchWithRedirects(upgraded, signal, 0);
+  const result = await fetchWithRedirects(upgraded, signal, 0, options?.fetchHook ?? activeFetchHook);
   if (isRedirectInfoInternal(result)) {
     return result;
   }
@@ -313,7 +316,7 @@ export async function getURLMarkdownContent(
     content,
     contentType,
   };
-  URL_CACHE.set(url, entry, contentBytes);
+  cache.set(url, entry, contentBytes);
   return { ...entry, fromCache: false };
 }
 

@@ -12,6 +12,8 @@ import {
 import type { ReadSkillDeps } from "../tool/builtin/readSkill.js";
 import type { PilotDeckRuntimeProfile } from "./PilotDeckRuntimeProfile.js";
 import type { LspServicePort } from "../lsp/index.js";
+import { getURLMarkdownContent } from "../tool/builtin/web/urlFetcher.js";
+import { WebFetchUrlCache } from "../tool/builtin/web/urlContentCache.js";
 
 export type ProjectExecutionWorldResources = {
   executionWorld: ExecutionWorldBundle;
@@ -62,6 +64,15 @@ export class ProjectExecutionWorldBundle {
       sandboxMode: this.options.profile.sandboxMode,
     });
     this.executionWorld = executionWorld;
+    const tools = this.createTools(executionWorld);
+    return { executionWorld, tools };
+  }
+
+  /** Build a registry whose closures all point at the supplied execution world. */
+  createTools(executionWorld: ExecutionWorldBundle, lsp = this.options.lsp): ToolRegistry {
+    const webOptions = resolveWebSearchOptions(this.options.snapshot);
+    const network = executionWorld.network;
+    const cache = new WebFetchUrlCache();
     const tools = createBuiltinRegistry({
       fs: executionWorld.fs,
       subprocess: executionWorld.subprocess,
@@ -75,13 +86,31 @@ export class ProjectExecutionWorldBundle {
       backgroundTasks: { runtime: executionWorld.backgroundTasks },
       ...(this.options.subagentIdFactory ? { agent: { uuid: this.options.subagentIdFactory } } : {}),
       readSkill: this.options.skills,
-      ...(this.options.lsp ? { lsp: this.options.lsp } : {}),
-      ...resolveWebSearchOptions(this.options.snapshot),
+      ...(lsp ? { lsp } : {}),
+      ...webOptions,
+      ...(network ? {
+        webFetch: {
+          fetchUrl: (url, signal) => getURLMarkdownContent(url, signal, {
+            cache,
+            fetchHook: async (target, init) => {
+              const response = await network.fetch(target, { ...init, redirect: "manual" });
+              return {
+                status: response.status, statusText: response.statusText,
+                headers: Object.fromEntries(response.headers), arrayBuffer: () => response.arrayBuffer(),
+              };
+            },
+          }),
+        },
+        ...(webOptions.webSearch ? { webSearch: { ...webOptions.webSearch, fetchImpl: network.fetch } } : {}),
+      } : {}),
     });
     for (const tool of this.options.extraTools) {
-      tools.register(tool);
+      if (executionWorld.network) {
+        if (!tool.bindExecutionWorld) throw new Error(`Extra tool ${tool.name} has no session execution binding`);
+        tools.register(tool.bindExecutionWorld(executionWorld));
+      } else tools.register(tool);
     }
-    return { executionWorld, tools };
+    return tools;
   }
 
   dispose(): Promise<void> {

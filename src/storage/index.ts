@@ -18,3 +18,7 @@ export {
   type InvocationStorageConfig,
   type ModelInvocationLogSink,
 } from "./invocationStorage.js";
+export {
+  resolveLegalStorageConfig,
+  type LegalStorageConfig,
+} from "./legalDataStorage.js";

@@ -14,6 +14,8 @@ export type CreateNodeSandboxedFsPortOptions = {
   fs: FsPort;
   /** Deployment-selected policy mode for this execution world. */
   sandboxMode: SandboxMode;
+  /** When set, reads and writes are limited to this session root. */
+  workspaceRoot?: string;
 };
 
 /**
@@ -26,18 +28,33 @@ export type CreateNodeSandboxedFsPortOptions = {
  * trusted-process containment fence, not a kernel sandbox for untrusted code.
  */
 export function createNodeSandboxedFsPort(options: CreateNodeSandboxedFsPortOptions): FsPort {
-  const { fs, sandboxMode } = options;
+  const { fs, sandboxMode, workspaceRoot } = options;
+  const checkedReadPath = (filePath: string) => workspaceRoot ? checkedSessionPath(filePath, workspaceRoot) : filePath;
   return {
-    stat: (filePath, signal) => fs.stat(filePath, signal),
-    readDirectory: (directory, signal) => fs.readDirectory(directory, signal),
-    readFile: (filePath, readOptions) => fs.readFile(filePath, readOptions),
-    readFileInRange: (filePath, startLine, limit, signal) => fs.readFileInRange(filePath, startLine, limit, signal),
+    stat: (filePath, signal) => fs.stat(checkedReadPath(filePath), signal),
+    readDirectory: (directory, signal) => fs.readDirectory(checkedReadPath(directory), signal),
+    readFile: (filePath, readOptions) => fs.readFile(checkedReadPath(filePath), readOptions),
+    readFileInRange: (filePath, startLine, limit, signal) => fs.readFileInRange(checkedReadPath(filePath), startLine, limit, signal),
     async writeText(filePath, content, writeOptions = {}): Promise<FsWriteTextResult> {
-      const { workspaceRoot, ...delegateOptions } = writeOptions;
-      const checkedPath = await checkedWritePath(filePath, workspaceRoot, sandboxMode);
+      const { workspaceRoot: suppliedWorkspaceRoot, ...delegateOptions } = writeOptions;
+      if (sandboxMode === "read-only") throw sandboxDenied(filePath, sandboxMode);
+      const authorizedRoot = suppliedWorkspaceRoot ?? workspaceRoot;
+      const checkedPath = authorizedRoot
+        ? checkedSessionPath(filePath, authorizedRoot)
+        : await checkedWritePath(filePath, authorizedRoot, sandboxMode);
       return fs.writeText(checkedPath, content, delegateOptions);
     },
   };
+}
+
+function checkedSessionPath(filePath: string, workspaceRoot: string): string {
+  const root = path.resolve(workspaceRoot);
+  const target = path.resolve(filePath);
+  const relative = path.relative(root, target);
+  if (relative !== "" && (relative.startsWith("..") || path.isAbsolute(relative))) {
+    throw sandboxDenied(filePath, "workspace-write", "the path is outside the session workspace");
+  }
+  return target;
 }
 
 async function checkedWritePath(

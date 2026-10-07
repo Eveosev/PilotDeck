@@ -130,6 +130,7 @@ async function retargetCopiedSubagentTranscripts(
   targetSubagentsDir: string,
   sourceSessionDir: string,
   targetSessionDir: string,
+  transformEntry?: (entry: AgentTranscriptEntry) => AgentTranscriptEntry,
 ): Promise<void> {
   let entries: Dirent<string>[];
   try {
@@ -142,7 +143,7 @@ async function retargetCopiedSubagentTranscripts(
   for (const entry of entries) {
     const path = join(targetSubagentsDir, entry.name);
     if (entry.isDirectory()) {
-      await retargetCopiedSubagentTranscripts(path, sourceSessionDir, targetSessionDir);
+      await retargetCopiedSubagentTranscripts(path, sourceSessionDir, targetSessionDir, transformEntry);
       continue;
     }
     if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
@@ -151,26 +152,25 @@ async function retargetCopiedSubagentTranscripts(
       .split(/\r?\n/)
       .map((line) => {
         if (!line.trim()) return line;
-        try {
-          const parsed = JSON.parse(line) as AgentTranscriptEntry;
-          return JSON.stringify(retargetTranscriptEntryAuxiliaryPaths(parsed, sourceSessionDir, targetSessionDir));
-        } catch {
-          return line;
-        }
+        let parsed: AgentTranscriptEntry;
+        try { parsed = JSON.parse(line) as AgentTranscriptEntry; }
+        catch { return line; }
+        const retargeted = retargetTranscriptEntryAuxiliaryPaths(parsed, sourceSessionDir, targetSessionDir);
+        return JSON.stringify(transformEntry ? transformEntry(retargeted) : retargeted);
       })
       .join("\n");
     await writeFile(path, rewritten, "utf8");
   }
 }
 
-async function copySessionAuxDirs(sourceSessionDir: string, targetSessionDir: string): Promise<void> {
+async function copySessionAuxDirs(sourceSessionDir: string, targetSessionDir: string, transformEntry?: (entry: AgentTranscriptEntry) => AgentTranscriptEntry): Promise<void> {
   for (const subdir of ["tool-results", "file-history", "subagents"] as const) {
     const source = join(sourceSessionDir, subdir);
     const target = join(targetSessionDir, subdir);
     if (!(await pathExists(source))) continue;
     await cp(source, target, { recursive: true, force: true });
     if (subdir === "subagents") {
-      await retargetCopiedSubagentTranscripts(target, sourceSessionDir, targetSessionDir);
+      await retargetCopiedSubagentTranscripts(target, sourceSessionDir, targetSessionDir, transformEntry);
     }
   }
 }
@@ -195,7 +195,7 @@ export const nodeProjectSessionForkPort: ProjectSessionForkPort = Object.freeze(
       await mkdir(chatDir, { recursive: true, mode: 0o700 });
       await mkdir(targetSessionDir, { recursive: false, mode: 0o700 });
       createdTargetDir = true;
-      await copySessionAuxDirs(sourceSessionDir, targetSessionDir);
+      await copySessionAuxDirs(sourceSessionDir, targetSessionDir, input.transformAuxiliaryEntry);
       const entries = retargetEntriesForNodeFork(
         input.entries,
         sourceSafeId,

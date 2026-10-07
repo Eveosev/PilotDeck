@@ -30,7 +30,7 @@ type CacheNode = {
   expiresAt: number;
 };
 
-class WebFetchUrlCache {
+export class WebFetchUrlCache {
   private map = new Map<string, CacheNode>();
   private totalBytes = 0;
 

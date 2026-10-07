@@ -25,14 +25,14 @@ export type CommandHookExecutionResult = {
 };
 
 export class CommandHookExecutor {
-  constructor(private readonly shell: ShellPort = createNodeShellPort()) {}
+  constructor(private readonly shell: ShellPort = createNodeShellPort(), private readonly sessionCwd?: string) {}
 
   async execute(options: CommandHookExecutionOptions): Promise<CommandHookExecutionResult> {
     const timeoutMs = options.timeoutMs ?? PILOTDECK_HOOK_TIMEOUT_MS;
     try {
       const result = await this.shell.execute({
         command: options.hook.command,
-        cwd: options.cwd,
+        cwd: this.sessionCwd ?? options.cwd,
         env: options.env,
         signal: options.signal,
         timeoutMs,

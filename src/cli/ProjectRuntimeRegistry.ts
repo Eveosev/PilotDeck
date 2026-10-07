@@ -82,6 +82,7 @@ import type {
   PilotDeckUnavailableToolDiagnostic,
   SandboxMode,
 } from "../tool/index.js";
+import type { SessionExecutionHandle, SessionExecutionProvider, SessionIsolationPolicy } from "../sandbox/SessionExecutionProvider.js";
 import type { TelemetryClient } from "../telemetry/index.js";
 import type { ProjectContextStorageBundleOptions } from "./ProjectContextStorageBundle.js";
 import type { ProjectMemoryProviderFactory } from "./ProjectMemoryBundle.js";
@@ -139,6 +140,7 @@ const DEFAULT_SDK_TASK_BUDGET_LEDGER_COMPACT_AFTER_RECORDS = 512;
 
 export type ProjectRuntimeRegistryOptions = {
   sessionAdmission?(runtime: ProjectRuntime): Promise<import('../session/transcript/TranscriptEntry.js').SessionMetadataValue['staffDeckAdmission']>;
+  registerSessionExecution?: (sessionKey: string, handle: SessionExecutionHandle) => () => void;
   fallbackProjectRoot: string;
   pilotHome: string;
   builtinSkillsRoot?: string;
@@ -162,6 +164,11 @@ export type ProjectRuntimeRegistryOptions = {
     now: () => Date;
     sandboxMode: SandboxMode;
   }) => ExecutionWorldBundle;
+  /** Optional provider that creates one isolated execution world per session. */
+  sessionExecutionProvider?: SessionExecutionProvider;
+  /** Stable host root used for persistent per-session workspace/home/tmp. */
+  sessionExecutionStorageRoot?: string;
+  sessionIsolationPolicy?: SessionIsolationPolicy;
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for published project generations. */
   contextStorage?: ProjectContextStorageBundleOptions;
@@ -292,6 +299,7 @@ export class ProjectRuntimeRegistry {
     });
     this.sessionFactory = new ProjectSessionFactory<ProjectRuntime>({
       sessionAdmission: options.sessionAdmission,
+      registerSessionExecution: options.registerSessionExecution,
       resolveRuntime: (projectKey) => this.resolve(projectKey),
       acquireRuntimeLease: (runtime) => this.acquireRuntimeLease(runtime),
       acquirePermissionRuleSet: ({ sessionKey, permissionRules }) => {
@@ -334,11 +342,12 @@ export class ProjectRuntimeRegistry {
       permissionMode: options.permissionMode,
       additionalWorkingDirectories: options.additionalWorkingDirectories,
       mcpRuntimeFactory: options.mcpRuntimeFactory,
-      preparePerSessionSpecs: ({ runtime, context, specs }) => this.browserUseMcpSpecs.prepare({
+      preparePerSessionSpecs: ({ runtime, context, specs, storageRoot }) => this.browserUseMcpSpecs.prepare({
         projectRoot: runtime.projectRoot,
         sessionKey: context.sessionKey,
         proxy: runtime.snapshot.config.proxy,
         specs,
+        storageRoot,
       }),
       getAlwaysOnToolNames: () => this._extraTools
         .filter((tool) => tool.name.startsWith("always_on_"))
@@ -1601,6 +1610,9 @@ export class ProjectRuntimeRegistry {
       modelFactory: this.options.modelFactory,
       modelInvocationProviderFactory: this.options.modelInvocationProviderFactory,
       executionWorldBundleFactory: this.options.executionWorldBundleFactory,
+      sessionExecutionProvider: this.options.sessionExecutionProvider,
+      sessionExecutionStorageRoot: this.options.sessionExecutionStorageRoot,
+      sessionIsolationPolicy: this.options.sessionIsolationPolicy,
       mcpRuntimeFactory: this.options.mcpRuntimeFactory,
       contextStorage: this.options.contextStorage,
       memoryProviderFactory: this.options.memoryProviderFactory,

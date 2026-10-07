@@ -18,8 +18,8 @@ export type RipgrepFilesInput = {
   limit?: number;
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
-  fs?: Pick<FsPort, "stat">;
-  subprocess?: Pick<SubprocessPort, "executeFile">;
+  fs?: Pick<FsPort, "stat" | "statMany">;
+  subprocess?: Pick<SubprocessPort, "executeFile" | "supportsFileMtimeSort">;
 };
 
 export type RipgrepFilesResult = {
@@ -57,7 +57,7 @@ export async function ripgrepFiles(input: RipgrepFilesInput): Promise<RipgrepFil
       "--no-ignore",
       "--glob",
       await normalizeRipgrepGlobPattern(input.pattern, input.cwd, input.fs ?? createNodeFsPort()),
-      "--sort=modified",
+      ...(input.subprocess?.supportsFileMtimeSort === false ? [] : ["--sort=modified"]),
       ".",
     ],
     env: input.env,
@@ -69,6 +69,13 @@ export async function ripgrepFiles(input: RipgrepFilesInput): Promise<RipgrepFil
   const files = splitRipgrepLines(stdout)
     .map(normalizeRelativePath)
     .filter((line) => !isIgnoredPath(line));
+  if (input.subprocess?.supportsFileMtimeSort === false) {
+    const fs = input.fs ?? createNodeFsPort();
+    const paths = files.map((file) => path.resolve(input.cwd, file));
+    const stats = fs.statMany ? await fs.statMany(paths, input.signal) : await Promise.all(paths.map((file) => fs.stat(file, input.signal)));
+    const times = new Map(files.map((file, index) => [file, stats[index]!.mtimeMs]));
+    files.sort((a, b) => times.get(a)! - times.get(b)! || a.localeCompare(b));
+  }
   const selected = files.slice(0, limit);
   return {
     files: selected,

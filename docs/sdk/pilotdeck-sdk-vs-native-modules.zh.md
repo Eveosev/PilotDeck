@@ -282,7 +282,7 @@ PilotDeck 以宿主 ownership 拆分这些字段：
 | output/system prompt | ContextRuntime、PromptAssembler、structured output | 提交声明，服务端组装最终 prompt |
 | stream/hooks/elicitation | AgentEvent、HookRuntime、ElicitationChannel | event stream 和 callbacks |
 | forwardSubagentText | `SubAgentSession.forwardActivity()`、Gateway event mapper、SDK stream projector | 默认保持 generic status；opt-in 后仅将 child text 投影为 `subagent.message`，不改变 parent output、transcript 或 child runtime |
-| sandbox | SDK `sandbox.tool_policy`、Gateway session ToolRegistry filter、ToolRuntime、Bash policy、宿主部署环境 | SDK 仅序列化 restrictive tool policy；Gateway 对 owning session 移除相关 native/MCP/custom/shell/task/subagent bridge。它不在 SDK 本地假设 OS/container 隔离 |
+| sandbox | SDK `sandbox.tool_policy`、Gateway session ToolRegistry filter、ToolRuntime、Bash policy、宿主部署环境 | SDK 仅序列化 restrictive tool policy；Gateway 对 owning session 移除相关 native/MCP/custom/shell/task/subagent bridge。宿主内部另有 `SessionExecutionProvider` 模块 Port，由可选 nsjail 等执行模块实现，但它不是 SDK API，SDK 不选择 OS/container provider，也不接触宿主路径或 handle |
 
 ### SDKMessage、结果和控制协议
 

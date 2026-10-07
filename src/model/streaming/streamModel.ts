@@ -386,6 +386,7 @@ async function* streamGoogleProviderRequest(params: {
     const streamAbort = new AbortController();
     const detachAbort = params.options.signal ? forwardAbort(params.options.signal, streamAbort) : undefined;
     let invocation: InvocationAttempt | undefined;
+    let rawResponse = "";
     try {
       const body = withGoogleAbortSignal(buildModelRequest(currentRequest, {
         providers: { [params.provider.id]: params.provider },
@@ -429,6 +430,7 @@ async function* streamGoogleProviderRequest(params: {
         if (done) {
           break;
         }
+        rawResponse += JSON.stringify(chunk);
         throwIfAborted(params.options.signal);
         streamGuard.checkDuration();
         for (const event of normalizeGoogleStreamEvent(chunk, state)) {
@@ -440,13 +442,13 @@ async function* streamGoogleProviderRequest(params: {
             throw new ModelProviderError(event.error);
           }
           streamGuard.observe(event);
-            params.checkpoint.onEvent(event);
-            yield event;
-            if (terminalEvent) {
-              void stream.return(undefined).catch(() => undefined);
-              finishInvocation(invocation, params.options, "success", undefined, undefined, undefined, true);
-              return;
-            }
+          params.checkpoint.onEvent(event);
+          yield event;
+          if (terminalEvent) {
+            void stream.return(undefined).catch(() => undefined);
+            finishInvocation(invocation, params.options, "success", rawResponse, undefined, undefined, event.type === "message_end");
+            return;
+          }
         }
       }
       streamGuard.checkDuration();
@@ -454,12 +456,12 @@ async function* streamGoogleProviderRequest(params: {
       if (!sawTerminalEvent && !state.ended) {
         throw new IncompleteStreamError();
       }
-      finishInvocation(invocation, params.options, "success", undefined, undefined, undefined, true);
+      finishInvocation(invocation, params.options, "success", rawResponse, undefined, undefined, true);
       return;
     } catch (error) {
       throwIfGoogleAbort(error, params.options.signal);
       const providerError = toProviderError(params.provider, error);
-      finishInvocation(invocation, params.options, "incomplete", undefined, undefined, error, false);
+      finishInvocation(invocation, params.options, "incomplete", rawResponse, undefined, error, false);
       const retryable = isRetryableGoogleStreamError(providerError, error);
       if (
         attempt < params.maxRetries &&

@@ -58,10 +58,11 @@ export class ProjectMcpRuntimeProvider {
    */
   getPerSessionServerSpecs(
     pluginServers: Record<string, unknown>,
+    forcePerSession = false,
   ): readonly PilotDeckMcpServerSpec[] | undefined {
-    const servers = this.materializeServers(pluginServers).filter(
-      (server) => server.transport === "stdio" && server.perSession,
-    );
+    const servers = this.materializeServers(pluginServers)
+      .filter((server) => forcePerSession || (server.transport === "stdio" && server.perSession))
+      .map((server) => forcePerSession && server.transport === "stdio" ? { ...server, perSession: true } : server);
     return servers.length > 0 ? servers : undefined;
   }
 

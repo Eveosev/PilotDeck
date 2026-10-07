@@ -111,10 +111,12 @@ export function createSendAttachmentTool(
         throw new PilotDeckToolRuntimeError("invalid_tool_input", `Path ${input.file_path} is not a file.`);
       }
       const name = sanitizeAttachmentName(input.name) ?? path.basename(resolved.absolutePath);
+      const preparedFile = await delivery.prepareFile?.(resolved.absolutePath);
+      const deliveryPath = preparedFile?.path ?? resolved.absolutePath;
       const output: SendAttachmentOutput = {
-        filePath: resolved.absolutePath,
+        filePath: deliveryPath,
         name,
-        bytes: fileStat.size,
+        bytes: preparedFile?.size ?? fileStat.size,
         ...(input.mime_type ? { mimeType: input.mime_type } : {}),
       };
       return {
@@ -122,7 +124,7 @@ export function createSendAttachmentTool(
           { type: "text", text: `Sending attachment: ${name}` },
           {
             type: "file",
-            path: resolved.absolutePath,
+            path: deliveryPath,
             ...(input.mime_type ? { mimeType: input.mime_type } : {}),
             description: `Attachment requested for channel delivery: ${name}`,
           },

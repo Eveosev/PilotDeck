@@ -470,7 +470,7 @@ async function runExecuteCode(
       cwd: context.cwd,
       env: buildChildEnv(context.env ?? process.env, transport, tempRoot, context.cwd),
     };
-    const sandboxedCommand = options.sandbox
+    const sandboxedCommand = options.sandbox && !options.codeRuntime.enforcesSandbox
       ? await options.sandbox.port.prepare({
           ...command,
           policy: sandboxPolicy!,
@@ -812,7 +812,7 @@ function buildChildEnv(
   env.PILOTDECK_WORKSPACE_CWD = workspaceCwd;
   env.PILOTDECK_EXECUTE_CODE_TEMP_ROOT = tempRoot;
   if (transport.kind === "uds") {
-    env.PILOTDECK_RPC_SOCKET = transport.socketPath;
+    env.PILOTDECK_RPC_SOCKET = transport.guestSocketPath ?? transport.socketPath;
   } else {
     env.PILOTDECK_RPC_HOST = transport.host;
     env.PILOTDECK_RPC_PORT = String(transport.port);

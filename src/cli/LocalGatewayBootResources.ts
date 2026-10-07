@@ -1,5 +1,6 @@
 import { LocalGatewayBootstrapBundle } from "./LocalGatewayBootstrapBundle.js";
 import { LocalGatewayLifecycleBundle } from "./LocalGatewayLifecycleBundle.js";
+import type { SessionExecutionProvider } from "../sandbox/SessionExecutionProvider.js";
 
 type LocalGatewayTelemetry = {
   dispose(): Promise<void>;
@@ -44,6 +45,7 @@ export class LocalGatewayBootResources {
   private telemetry?: LocalGatewayTelemetry;
   private subagentRuntime?: LocalGatewaySubagentRuntime;
   private registry?: LocalGatewayRegistry;
+  private sessionExecutionProvider?: SessionExecutionProvider;
   private router?: LocalGatewayRouter;
   private runtimeRefresh?: LocalGatewayRuntimeRefresh;
   private stopConfigWatching?: () => void;
@@ -72,6 +74,12 @@ export class LocalGatewayBootResources {
     this.bootstrap.own("project runtimes", () => registry.disposeProjectRuntimes());
     this.bootstrap.own("per-session MCP runtimes", () => registry.disposeSessionMcpRuntimes());
     this.registry = registry;
+  }
+
+  ownSessionExecutionProvider(provider: SessionExecutionProvider): void {
+    this.assertVacant("session execution provider", this.sessionExecutionProvider);
+    this.bootstrap.own("session execution provider", () => provider.dispose());
+    this.sessionExecutionProvider = provider;
   }
 
   ownConfigWatcher(stop: () => void): void {
@@ -115,6 +123,7 @@ export class LocalGatewayBootResources {
       subagentProviders: resources.subagentRuntime.providers,
       router: resources.router,
       registry: resources.registry,
+      sessionExecutionProvider: resources.sessionExecutionProvider,
       telemetry: resources.telemetry,
       stopConfigWatching: resources.stopConfigWatching,
       stopExtensionWatching: resources.stopExtensionWatching,
@@ -136,6 +145,7 @@ export class LocalGatewayBootResources {
     telemetry: LocalGatewayTelemetry;
     subagentRuntime: LocalGatewaySubagentRuntime;
     registry: LocalGatewayRegistry;
+    sessionExecutionProvider?: SessionExecutionProvider;
     router: LocalGatewayRouter;
     runtimeRefresh: LocalGatewayRuntimeRefresh;
     stopConfigWatching: () => void;
@@ -157,6 +167,7 @@ export class LocalGatewayBootResources {
       telemetry: this.telemetry!,
       subagentRuntime: this.subagentRuntime!,
       registry: this.registry!,
+      ...(this.sessionExecutionProvider ? { sessionExecutionProvider: this.sessionExecutionProvider } : {}),
       router: this.router!,
       runtimeRefresh: this.runtimeRefresh!,
       stopConfigWatching: this.stopConfigWatching!,
