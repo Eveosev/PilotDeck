@@ -5,7 +5,7 @@ import path from "node:path";
 
 /** Transport address for the private execute_code RPC bridge. */
 export type ExecutionRpcTransport =
-  | { kind: "uds"; socketPath: string }
+  | { kind: "uds"; socketPath: string; guestSocketPath?: string }
   | { kind: "tcp"; host: "127.0.0.1"; port: number; token: string };
 
 /**

@@ -39,6 +39,7 @@
 
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
+import type { FileHistoryFsPort } from "./FileHistoryFsPort.js";
 import path from "node:path";
 import { getBackupFileName } from "./backupNaming.js";
 import { createBackup } from "./createBackup.js";
@@ -60,6 +61,7 @@ export type FileHistorySnapshotRecordedEntry = Omit<FileHistorySnapshotRecord, "
 };
 
 export type FileHistoryStoreOptions = {
+  fs?: FileHistoryFsPort;
   /** Absolute path under which `<sha16>@v<version>` files live. */
   backupDir: string;
   /** Files larger than this are skipped (default 10 MB). */
@@ -80,6 +82,7 @@ export type FileHistoryStoreOptions = {
 };
 
 export class FileHistoryStore {
+  private readonly fs: FileHistoryFsPort;
   private readonly state: FileHistoryState = {
     snapshots: [],
     trackedFiles: new Set<string>(),
@@ -101,6 +104,7 @@ export class FileHistoryStore {
   private mutex: Promise<void> = Promise.resolve();
 
   constructor(options: FileHistoryStoreOptions) {
+    this.fs = options.fs ?? fs;
     this.options = {
       backupDir: options.backupDir,
       maxFileBytes: options.maxFileBytes ?? 10 * 1024 * 1024,
@@ -138,6 +142,7 @@ export class FileHistoryStore {
 
       const version = 1;
       const result = await createBackup({
+        fs: this.fs,
         filePath: absPath,
         version,
         backupDir: this.options.backupDir,
@@ -179,7 +184,7 @@ export class FileHistoryStore {
         const cachedMtime = this.mtimeCache.get(absPath);
         let currentMtime: number | null = null;
         try {
-          const stat = await fs.stat(absPath);
+          const stat = await this.fs.stat(absPath);
           currentMtime = stat.mtimeMs;
         } catch (err) {
           if (!isNotFoundError(err)) throw err;
@@ -197,6 +202,7 @@ export class FileHistoryStore {
           continue;
         }
         const result = await createBackup({
+          fs: this.fs,
           filePath: absPath,
           version: previousVersion + 1,
           backupDir: this.options.backupDir,
@@ -233,7 +239,7 @@ export class FileHistoryStore {
       const snapshot = this.findSnapshot(messageId);
       if (!snapshot?.trackedFileBackups[absPath]) return;
       snapshot.expectedFileStates ??= {};
-      snapshot.expectedFileStates[absPath] = await readExpectedFileState(absPath);
+      snapshot.expectedFileStates[absPath] = await readExpectedFileState(absPath, this.fs);
       await this.recordTranscript(snapshot, "update");
     });
   }
@@ -261,6 +267,7 @@ export class FileHistoryStore {
       const missing: string[] = [];
       for (const [absPath, backup] of Object.entries(snapshot.trackedFileBackups)) {
         const result = await restoreBackup({
+          fs: this.fs,
           filePath: absPath,
           backup,
           backupDir: this.options.backupDir,
@@ -298,7 +305,7 @@ export class FileHistoryStore {
       const before = backup.backupFileName
         ? await this.readBackupText(backup.backupFileName)
         : null;
-      const after = await safeReadText(absPath);
+      const after = await safeReadText(absPath, this.fs);
       if (before === null && after === null) continue;
       if (before === null && after !== null) {
         // file did not exist at backup; rewind would delete it → its lines
@@ -397,7 +404,7 @@ export class FileHistoryStore {
 
   private async cacheMtime(filePath: string): Promise<void> {
     try {
-      const stat = await fs.stat(filePath);
+      const stat = await this.fs.stat(filePath);
       this.mtimeCache.set(filePath, stat.mtimeMs);
     } catch {
       this.mtimeCache.set(filePath, null);
@@ -430,7 +437,7 @@ export class FileHistoryStore {
   private async findConflictPaths(snapshot: FileHistorySnapshot): Promise<string[]> {
     const conflicts: string[] = [];
     for (const [filePath, expected] of Object.entries(snapshot.expectedFileStates ?? {})) {
-      const actual = await readExpectedFileState(filePath);
+      const actual = await readExpectedFileState(filePath, this.fs);
       if (!sameExpectedFileState(actual, expected)) conflicts.push(filePath);
     }
     return conflicts;
@@ -452,7 +459,7 @@ export class FileHistoryStore {
           if (this.options.backupStorage) {
             await this.options.backupStorage.delete(backup.backupFileName);
           } else {
-            await fs.unlink(path.join(this.options.backupDir, backup.backupFileName));
+            await this.fs.unlink(path.join(this.options.backupDir, backup.backupFileName));
           }
         } catch (err) {
           if (!isNotFoundError(err)) {
@@ -474,7 +481,7 @@ export class FileHistoryStore {
 
   private async readBackupText(backupFileName: string): Promise<string | null> {
     if (!this.options.backupStorage) {
-      return safeReadText(path.join(this.options.backupDir, backupFileName));
+      return safeReadText(path.join(this.options.backupDir, backupFileName), this.fs);
     }
     const bytes = await this.options.backupStorage.read(backupFileName);
     return bytes ? new TextDecoder().decode(bytes) : null;
@@ -487,7 +494,7 @@ function isNotFoundError(err: unknown): boolean {
   );
 }
 
-async function readExpectedFileState(filePath: string): Promise<FileHistoryExpectedFileState> {
+async function readExpectedFileState(filePath: string, fs: FileHistoryFsPort): Promise<FileHistoryExpectedFileState> {
   try {
     const [stat, content] = await Promise.all([fs.stat(filePath), fs.readFile(filePath)]);
     if (!stat.isFile()) return { exists: false };
@@ -511,7 +518,7 @@ function sameExpectedFileState(
   return left.sha256 === right.sha256 && left.mode === right.mode;
 }
 
-async function safeReadText(p: string): Promise<string | null> {
+async function safeReadText(p: string, fs: FileHistoryFsPort): Promise<string | null> {
   try {
     return await fs.readFile(p, "utf-8");
   } catch (err) {

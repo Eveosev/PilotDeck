@@ -1,4 +1,5 @@
 import type { ExtensionResolver } from "../context/extension/ExtensionResolver.js";
+import type { ExecutionWorldBundle } from "../tool/execution-world/ExecutionWorldBundle.js";
 import {
   filterAvailableTools,
   registerAvailableExtensionToolContributions,
@@ -13,6 +14,7 @@ export type SessionToolCompositionResult = {
 };
 
 export type SessionToolCompositionBundleOptions = {
+  sessionExecutionWorld?: ExecutionWorldBundle;
   /** Builds the one session-local registry with shared and per-session MCP tools. */
   composeMcpTools: () => Promise<ToolRegistry>;
   /** Frozen extension generation retained by the caller's session resource lease. */
@@ -45,7 +47,12 @@ export class SessionToolCompositionBundle {
       finalRegistry = availability.registry;
       const extension = await registerAvailableExtensionToolContributions(
         finalRegistry,
-        this.options.extension,
+        this.options.sessionExecutionWorld ? {
+          listToolContributions: () => (this.options.extension.listToolContributions?.() ?? []).map((contribution) => {
+            if (!contribution.tool.bindExecutionWorld) throw new Error(`Extension tool ${contribution.tool.name} has no session execution binding`);
+            return { ...contribution, tool: contribution.tool.bindExecutionWorld!(this.options.sessionExecutionWorld!) };
+          }),
+        } : this.options.extension,
         this.options.availability,
       );
 

@@ -1,4 +1,3 @@
-import { realpath, stat } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { AgentInput } from "../../agent/index.js";
 import type { CanonicalContentBlock } from "../../model/index.js";
@@ -7,6 +6,7 @@ import {
   type AttachmentRequest,
 } from "../../context/attachments/AttachmentResolver.js";
 import type { ChannelAttachment } from "../protocol/types.js";
+import { createNodeAttachmentDeliveryPort, type AttachmentDeliveryPort } from "../../tool/execution-world/AttachmentDeliveryPort.js";
 import type {
   GatewayAttachmentTurnComposerInput,
   GatewayAttachmentTurnComposerPort,
@@ -15,6 +15,7 @@ import type {
 
 export type GatewayAttachmentTurnComposerOptions = {
   attachmentResolver?: AttachmentResolver;
+  pathPort?: Pick<AttachmentDeliveryPort, "stat" | "realpath">;
 };
 
 const ATTACHMENT_PATH_NOTE_MARKER = "[Registered attachment files in this session:]";
@@ -45,13 +46,15 @@ const READ_FILE_BINARY_ATTACHMENT_EXTENSIONS = new Set([
  */
 export class GatewayAttachmentTurnComposer implements GatewayAttachmentTurnComposerPort {
   private readonly attachmentResolver: AttachmentResolver;
+  private readonly pathPort: Pick<AttachmentDeliveryPort, "stat" | "realpath">;
 
   constructor(options: GatewayAttachmentTurnComposerOptions = {}) {
     this.attachmentResolver = options.attachmentResolver ?? new AttachmentResolver();
+    this.pathPort = options.pathPort ?? createNodeAttachmentDeliveryPort();
   }
 
   async prepare(input: GatewayAttachmentTurnComposerInput): Promise<GatewayAttachmentTurnComposition> {
-    const allowedReadFiles = await collectRegisteredAttachmentReadFiles(input.attachments);
+    const allowedReadFiles = await collectRegisteredAttachmentReadFiles(input.attachments, this.pathPort);
     const resolvedAttachments = await attachmentsToContentBlocks(input.attachments, this.attachmentResolver);
     const pathNote = buildAttachmentPathNote(
       input.attachments,
@@ -169,6 +172,7 @@ function safeAllowedAttachmentPath(path: string, allowedReadFiles: Set<string>):
 
 async function collectRegisteredAttachmentReadFiles(
   attachments: ChannelAttachment[] | undefined,
+  port: Pick<AttachmentDeliveryPort, "stat" | "realpath">,
 ): Promise<string[]> {
   if (!attachments || attachments.length === 0) return [];
   const allowed = new Set<string>();
@@ -176,10 +180,10 @@ async function collectRegisteredAttachmentReadFiles(
   for (const attachment of attachments) {
     if (!attachment.path || !attachment.metadata?.channelKey) continue;
     try {
-      const info = await stat(attachment.path);
-      if (!info.isFile()) continue;
+      const info = await port.stat(attachment.path);
+      if (info.kind !== "file") continue;
       allowed.add(resolve(attachment.path));
-      allowed.add(resolve(await realpath(attachment.path)));
+      allowed.add(resolve(await port.realpath(attachment.path)));
     } catch {
       // Missing or inaccessible attachments are handled by attachment resolution diagnostics.
     }

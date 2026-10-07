@@ -103,12 +103,16 @@ test("nsjail provider emits a fixed isolated command shape", () => {
   assert.equal(command.executable, "/usr/bin/nsjail");
   assert.equal(command.args.includes("--clone_newpid"), false);
   assert.equal(command.args.includes("--clone_newnet"), false);
-  assert.ok(command.args.includes("--disable_proc"));
+  assert.ok(command.args.includes("--proc_path"));
+  assert.equal(command.args.includes("--proc_rw"), false);
+  assert.ok(command.args.includes("/dev/null:/dev/null"));
   assert.ok(command.args.includes("--tmpfsmount"));
   assert.ok(command.args.includes("/workspace"));
+  assert.ok(command.args.includes("HOME=/home/agent"));
+  assert.ok(command.args.includes("PATH=/home/agent/.local/npm/bin:/home/agent/.local/bin:/usr/bin:/usr/local/bin:/bin"));
   assert.equal(command.args.at(-3), "/bin/sh");
-  const networkCommand = provider.buildCommand({ executable: "/bin/true", args: [], cwd: "/workspace", env: {} }, "/usr/bin/nsjail", "allow");
-  assert.ok(networkCommand.args.includes("--disable_clone_newnet"));
+  assert.throws(() => provider.buildCommand({ executable: "/bin/true", args: [], cwd: "/workspace", env: {} }, "/usr/bin/nsjail", "allow"),
+    /controlled session egress/);
 
   const sessionCommand = provider.buildCommand({
     executable: "/bin/sh",
@@ -127,7 +131,25 @@ test("nsjail provider emits a fixed isolated command shape", () => {
   assert.equal(sessionCommand.env.TMPDIR, "/tmp");
   assert.equal(sessionCommand.env.PYTHONUSERBASE, "/home/agent/.local");
   assert.equal(sessionCommand.env.PIP_CACHE_DIR, "/home/agent/.cache/pip");
-  assert.equal(sessionCommand.env.PATH, "/home/agent/.local/bin:/usr/bin");
+  assert.equal(sessionCommand.env.NPM_CONFIG_PREFIX, "/home/agent/.local/npm");
+  assert.equal(sessionCommand.env.NPM_CONFIG_CACHE, "/home/agent/.cache/npm");
+  assert.equal(sessionCommand.env.NPM_CONFIG_USERCONFIG, "/home/agent/.config/npm/npmrc");
+  assert.equal(sessionCommand.env.PATH, "/home/agent/.local/npm/bin:/home/agent/.local/bin:/usr/bin:/usr/local/bin:/bin");
+  const limitedCommand = provider.buildCommand({
+    executable: "/bin/true",
+    args: [],
+    cwd: "/var/lib/pilotdeck/sessions/a/workspace",
+    env: {},
+  }, "/usr/bin/nsjail", "deny", undefined, {
+    network: "deny",
+    maxMemoryBytes: 256 * 1024 * 1024,
+    maxPids: 32,
+    maxCpuSeconds: 10,
+  });
+  assert.ok(limitedCommand.args.includes("--cgroup_mem_max"));
+  assert.ok(limitedCommand.args.includes(String(256 * 1024 * 1024)));
+  assert.ok(limitedCommand.args.includes("--cgroup_pids_max"));
+  assert.ok(limitedCommand.args.includes("--rlimit_cpu"));
 });
 
 test("nsjail provider rejects a workspace outside its session root", async () => {
@@ -152,6 +174,103 @@ test("nsjail provider rejects a home or temp path outside its session root", asy
     ...binding("sandbox-a"),
     storage: { ...binding("sandbox-a").storage, home: "/var/lib/pilotdeck/sessions-other/home" },
   }), (error: unknown) => error instanceof SessionExecutionProviderError && error.code === "session_conflict");
+});
+
+test("nsjail rejects disk limits it cannot enforce with a plain bind mount", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-nsjail-quota-"));
+  const provider = new NsjailSessionExecutionProvider({
+    rootfs: join(root, "rootfs"),
+    sessionsRoot: join(root, "sessions"),
+    probe: false,
+  });
+  try {
+    await assert.rejects(provider.createSession({
+      ...binding("sandbox-a"),
+      storage: {
+        workspace: join(root, "sessions", "sandbox-a", "workspace"),
+        home: join(root, "sessions", "sandbox-a", "home"),
+        temp: join(root, "sessions", "sandbox-a", "tmp"),
+      },
+      policy: { network: "deny", workspaceBytes: 1024 },
+    }), (error: unknown) => error instanceof SessionExecutionProviderError
+      && error.code === "session_conflict"
+      && error.message.includes("workspaceBytes"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("nsjail enforces max active session capacity and releases it exactly once", { skip: process.platform !== "linux" }, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-nsjail-capacity-"));
+  mkdirSync(join(root, "sessions"));
+  const provider = new NsjailSessionExecutionProvider({
+    rootfs: join(root, "rootfs"),
+    sessionsRoot: join(root, "sessions"),
+    probe: false,
+    maxActiveSessions: 1,
+    worldFactory: () => ({ dispose: async () => {} } as SessionExecutionHandle["world"]),
+  });
+  try {
+    const a = await provider.createSession({
+      ...binding("sandbox-a"),
+      storage: {
+        workspace: join(root, "sessions", "sandbox-a", "workspace"),
+        home: join(root, "sessions", "sandbox-a", "home"),
+        temp: join(root, "sessions", "sandbox-a", "tmp"),
+      },
+    });
+    await assert.rejects(provider.createSession({
+      ...binding("sandbox-b"),
+      storage: {
+        workspace: join(root, "sessions", "sandbox-b", "workspace"),
+        home: join(root, "sessions", "sandbox-b", "home"),
+        temp: join(root, "sessions", "sandbox-b", "tmp"),
+      },
+    }), (error: unknown) => error instanceof SessionExecutionProviderError && error.code === "capacity_exceeded");
+    await a.dispose();
+    await a.dispose();
+    const b = await provider.createSession({
+      ...binding("sandbox-b"),
+      storage: {
+        workspace: join(root, "sessions", "sandbox-b", "workspace"),
+        home: join(root, "sessions", "sandbox-b", "home"),
+        temp: join(root, "sessions", "sandbox-b", "tmp"),
+      },
+    });
+    await b.dispose();
+  } finally {
+    await provider.dispose();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("nsjail keeps process isolation when the tool policy is danger-full-access", { skip: process.platform !== "linux" }, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-nsjail-force-sandbox-"));
+  mkdirSync(join(root, "sessions"));
+  const seen: { forceSandbox?: boolean } = {};
+  try {
+    const provider = new NsjailSessionExecutionProvider({
+      rootfs: join(root, "rootfs"),
+      sessionsRoot: join(root, "sessions"),
+      probe: false,
+      sandboxMode: "danger-full-access",
+      worldFactory: (options) => {
+        seen.forceSandbox = options.forceSandbox;
+        return {} as SessionExecutionHandle["world"];
+      },
+    });
+    await provider.createSession({
+      ...binding("sandbox-a"),
+      storage: {
+        workspace: join(root, "sessions", "sandbox-a", "workspace"),
+        home: join(root, "sessions", "sandbox-a", "home"),
+        temp: join(root, "sessions", "sandbox-a", "tmp"),
+      },
+    });
+    assert.equal(seen.forceSandbox, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("session filesystem provider rejects reads and writes outside the bound workspace", async () => {

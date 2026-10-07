@@ -1,6 +1,6 @@
 # PilotDeck 模块化 Session 沙箱开发文档
 
-状态：第一版 provider 已实现；Gateway session 生命周期的完整接入仍在进行。日期：2026-10-06。
+状态：可选 provider 与 Gateway session 执行、生命周期及扩展端口已接入；最终验证结果见验收 evidence。日期：2026-10-07。
 
 本文定义一个 PilotDeck 实例并发运行多个 session、每个 session 独立文件系统视图的开发方案。首个 provider 使用 Linux nsjail；核心依赖抽象执行接口，以便以后接入其他实现。当前分支已实现 provider、lease、session 文件边界、execution-world 注入和 Gateway session composition 接入；完整生命周期运维与扩展工具覆盖仍按验收文档推进。
 
@@ -71,6 +71,7 @@ flowchart TB
 | --- | --- | --- |
 | ProviderRegistry | 项目装配层；注册受信 provider、校验版本与能力 | 接受 agent 指定代码入口 |
 | SessionExecutionLease | 核心 session 生命周期；身份、引用计数、generation、关闭门禁 | 生成 nsjail 命令行 |
+| SessionExecutionProviderHost | 可选宿主装配路由；新 provider/profile 只用于未来 lease；拥有所有 provider 的 dispose | 修改活跃 session 绑定或进入 SDK/wire |
 | SessionExecutionProvider | **宿主内部的模块 Port**；创建 session 执行环境和返回能力 | 不是 SDK API、不是 Gateway wire payload；不修改 transcript 或结束 turn |
 | nsjail adapter / launcher | rootfs、namespace、挂载、进程/cgroup、资源限制 | 重新实现模型调用、权限审批 |
 | worker 与 RPC adapter | 沙箱内文件与进程执行，协议映射、输出流和取消 | 提供任意宿主文件 RPC |
@@ -126,6 +127,13 @@ interface TrustedSessionBinding {
     workspace: string;               // 仅控制面使用的宿主路径
     home: string;
     temp: string;
+    pipCache?: string;
+    npmCache?: string;
+    control?: string;
+    spill?: string;
+    artifact?: string;
+    browserProfile?: string;
+    browserDownload?: string;
   };
   readonly policy: SessionIsolationPolicy;
 }
@@ -175,7 +183,7 @@ interface SessionExecutionHandle {
 
 ### 5.2 nsjail 启动策略
 
-- 每个活跃 session 启动一个常驻 worker；shell、Python、rg 等为其沙箱内子进程。
+- 当前 adapter 按命令启动 nsjail；同 generation 的命令与后台后代进入 session cgroup，没有常驻 idle worker。session lease 是唯一执行环境 owner，而非一个常驻 PID。
 - 使用 mount、PID、IPC、UTS 和按策略配置的 network/user namespace；建立独立根文件系统，限制 capabilities，启用 no_new_privs，禁止沙箱进程重新挂载或进入宿主 namespace。
 - 按部署环境确定 UID/GID 映射与 cgroup delegation。所需能力不满足时报 readiness 错误，不通过增加整个主服务权限来静默绕过。
 - `/proc` 对应沙箱 PID namespace；不挂宿主 proc/sys，不允许访问宿主进程 root、fd 或 memory。
@@ -184,6 +192,12 @@ interface SessionExecutionHandle {
 - 使用经验证的 seccomp 策略限制不需要的系统调用；不得仅靠路径字符串检查宣称 OS 隔离。
 
 最终 nsjail 配置应由固定模板与校验后的结构化参数生成，作为受信部署配置管理；agent 不能追加任意 nsjail 参数或挂载。
+
+当前 `SessionExecutionProviderHost.replace()` 只替换未来 lease 的 provider/profile，活跃 handle 保留原绑定。session lookup 持有当前 execution handle，Gateway attachment composer 的 stat/realpath/read 使用该 handle 的端口；未找到当前 handle 时失败。授权 upload 由可信 upload lease 读取字节，调用可选 `AttachmentDeliveryPort.importBytes()` 导入 session-owned artifact。导出只把 jail 内读取的字节写成 control 下不可变快照。默认宿主实现保留原行为，SDK/wire 不增加 provider 字段。
+
+MCP/LSP 使用 session subprocess 包装，command hooks 使用 session shell，HTTP hook、HTTP/SSE MCP、允许联网工具使用 session network port。网络默认 deny；allow 使用各 session 独立 Unix proxy、宿主侧 DNS/IP/port 校验与 guest namespace relay。proxy port 是临时状态，不写入持久 export 环境文件。浏览器 profile/download 绑定 session roots；fork 复制授权文件并重定位 child transcript references。
+
+宿主可用 `egressLocalServices(binding)` 授权本机服务：精确的 HTTP `.invalid` origin 映射到宿主拥有的 Unix socket。每次创建 session 时复制并验证映射，拒绝重复 origin、非 socket 和非绝对路径；guest/wire 无配置入口。socket 路径及其父目录必须由可信宿主独占维护，不能放在 guest 可写目录。该能力经 session proxy 转发 HTTP，不开放私网 TCP、DNS 或 CONNECT；跨 origin 重定向仍重新鉴权。Linux MCP 验收用此能力接入 A/B 独立 mock，服务在验收结束时回收。
 
 ### 5.3 RPC 与 worker 边界
 

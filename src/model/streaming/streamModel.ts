@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sanitizeProviderBody } from "../request/sanitizeProviderBody.js";
 import { normalizeModelError } from "../errors/normalizeModelError.js";
 import { createGoogleClient, type GoogleClientFactory } from "../providers/google/client.js";
@@ -23,6 +24,7 @@ import { buildLiteLLMContinuationRequest } from "./continuationRequest.js";
 import { requestFingerprint } from "./requestFingerprint.js";
 import { NetworkFetchError, networkFetch } from "../../network/fetch.js";
 import { createNativeRetryPolicy, type RetryPolicy } from "../policy/index.js";
+import type { InvocationLogContext, ModelInvocationLogSink } from "../../storage/legalDataStorage.js";
 
 export type ModelTransport = typeof fetch;
 
@@ -33,6 +35,10 @@ export type ModelRuntimeOptions = {
   streamTimeoutMs?: number;
   onRetryProgress?: (progress: ModelStreamRetryProgress) => void;
   retryPolicy?: RetryPolicy;
+  invocation?: {
+    context: InvocationLogContext;
+    sink: ModelInvocationLogSink;
+  };
 };
 
 export type ModelStreamRetryProgress = {
@@ -85,14 +91,20 @@ export async function complete(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     throwIfAborted(options.signal);
     if (provider.protocol === "google") {
+      const googleBody = buildModelRequest(nonStreamingRequest, {
+        providers: { [provider.id]: provider },
+      });
+      const invocation = beginInvocation(options, provider, nonStreamingRequest.model, false, googleBody, attempt + 1);
       try {
         const raw = await sendGoogleCompleteRequest(
           provider,
           nonStreamingRequest,
           options,
         );
+        finishInvocation(invocation, options, "success", JSON.stringify(raw), undefined, undefined, true);
         return parseGoogleResponse(raw, provider.id);
       } catch (error) {
+        finishInvocation(invocation, options, "transport_error", undefined, undefined, error);
         if (attempt < maxRetries && isRetryableRequestError(error)) {
           const { delayMs } = retryPolicy.decide({ provider, kind: "request", attempt });
           console.warn(
@@ -107,10 +119,12 @@ export async function complete(
     }
 
     const body = buildModelRequest(nonStreamingRequest, config);
+    const invocation = beginInvocation(options, provider, nonStreamingRequest.model, false, body, attempt + 1);
     let response: Response;
     try {
       response = await sendProviderRequest(provider, body, false, options.fetch ?? fetch, options.signal);
     } catch (error) {
+      finishInvocation(invocation, options, "transport_error", undefined, undefined, error);
       if (attempt < maxRetries && isRetryableRequestError(error)) {
         const { delayMs } = retryPolicy.decide({ provider, kind: "request", attempt });
         console.warn(
@@ -124,13 +138,17 @@ export async function complete(
     }
 
     if (!response.ok) {
-      const raw = await safeReadJson(response);
+      const rawText = await response.text();
+      const raw = parseRawJson(rawText);
+      finishInvocation(invocation, options, "provider_error", rawText, response.status, undefined, false);
       throw new ModelProviderError(
         normalizeModelError(provider.id, provider.protocol, raw, response.status),
       );
     }
 
-    const raw = await response.json();
+    const rawText = await response.text();
+    const raw = parseRawJson(rawText);
+    finishInvocation(invocation, options, "success", rawText, response.status, undefined, true);
     return parseModelResponse(provider.protocol, raw, provider.id);
   }
 
@@ -175,6 +193,7 @@ export async function* streamModel(
       metadata: currentRequest.metadata,
     };
     const body = buildModelRequest(currentRequest, config);
+    const invocation = beginInvocation(options, provider, currentRequest.model, true, body, attempt + 1);
     if (process.env.PILOTDECK_DUMP_REQUEST === "1") {
       const fs = await import("node:fs");
       const os = await import("node:os");
@@ -187,6 +206,7 @@ export async function* streamModel(
     try {
       response = await sendProviderRequest(provider, body, true, options.fetch ?? fetch, options.signal, options);
     } catch (error) {
+      finishInvocation(invocation, options, "transport_error", undefined, undefined, error);
       if (attempt < maxRetries && isRetryableStreamError(error)) {
         const delayMs = retryPolicy.decide({ provider, kind: "stream", attempt }).delayMs;
         emitModelRetryProgress(options, "network_error", attempt, maxRetries, delayMs, provider, currentRequest.model);
@@ -204,7 +224,9 @@ export async function* streamModel(
     }
 
     if (!response.ok) {
-      const raw = await safeReadJson(response);
+      const rawText = await response.text();
+      const raw = parseRawJson(rawText);
+      finishInvocation(invocation, options, "provider_error", rawText, response.status, undefined, false);
       const error = normalizeModelError(provider.id, provider.protocol, raw, response.status);
       if (error.retryAfterMs === undefined) {
         const headerMs = parseRetryAfterHeader(response.headers.get("retry-after"));
@@ -230,6 +252,7 @@ export async function* streamModel(
     }
 
     if (!response.body) {
+      finishInvocation(invocation, options, "incomplete", undefined, response.status, undefined, false);
       yield {
         type: "error",
         error: normalizeModelError(provider.id, provider.protocol, new Error("Missing response body.")),
@@ -240,12 +263,19 @@ export async function* streamModel(
     const state = createStreamNormalizerState(provider.protocol);
     let streamCompleted = false;
     let sawCompletionSentinel = false;
+    const rawResponseChunks: Buffer[] = [];
+    let rawResponseBytes = 0;
+    const getRawResponse = (): string => Buffer.concat(rawResponseChunks, rawResponseBytes).toString("utf8");
 
     const streamIdleTimeoutMs = resolveStreamIdleTimeout(provider, options);
     const streamGuard = createStreamGuard(provider);
 
     try {
-      for await (const sseEvent of readServerSentEvents(response.body, options.signal, streamIdleTimeoutMs)) {
+      for await (const sseEvent of readServerSentEvents(response.body, options.signal, streamIdleTimeoutMs, (chunk) => {
+        const copy = Buffer.from(chunk);
+        rawResponseChunks.push(copy);
+        rawResponseBytes += copy.byteLength;
+      })) {
         streamGuard.checkDuration();
         if (sseEvent.type === "done") {
           sawCompletionSentinel = true;
@@ -268,12 +298,14 @@ export async function* streamModel(
         throw new IncompleteStreamError();
       }
       streamCompleted = true;
+      finishInvocation(invocation, options, "success", getRawResponse(), response.status, undefined, true, rawResponseBytes);
     } catch (error) {
       if (
         attempt < maxRetries &&
         isRetryableStreamError(error) &&
         checkpoint.canContinueText()
       ) {
+        finishInvocation(invocation, options, "incomplete", getRawResponse(), response.status, error, false, rawResponseBytes);
         currentRequest = buildLiteLLMContinuationRequest(currentRequest, checkpoint.get().partialText);
         const delayMs = retryPolicy.decide({ provider, kind: "stream", attempt, retryAfterMs: retryAfterMsForError(error) }).delayMs;
         emitModelRetryProgress(options, "continuation", attempt, maxRetries, delayMs, provider, currentRequest.model);
@@ -286,6 +318,7 @@ export async function* streamModel(
         attempt < maxRetries &&
         checkpoint.interruption().phase === "empty"
       ) {
+        finishInvocation(invocation, options, "incomplete", getRawResponse(), response.status, error, false, rawResponseBytes);
         const delayMs = retryPolicy.decide({ provider, kind: "stream", attempt, retryAfterMs: retryAfterMsForError(error) }).delayMs;
         emitModelRetryProgress(options, retryReasonForThrownError(error), attempt, maxRetries, delayMs, provider, currentRequest.model);
         await delay(delayMs, options.signal);
@@ -293,12 +326,14 @@ export async function* streamModel(
       }
 
       if (isRetryableStreamError(error)) {
+        finishInvocation(invocation, options, "incomplete", getRawResponse(), response.status, error, false, rawResponseBytes);
         yield {
           type: "error",
           error: streamInterruptionError(provider, error, checkpoint),
         };
         return;
       }
+      finishInvocation(invocation, options, "transport_error", getRawResponse(), response.status, error, false, rawResponseBytes);
       throw error;
     }
 
@@ -347,10 +382,13 @@ async function* streamGoogleProviderRequest(params: {
     };
     const streamAbort = new AbortController();
     const detachAbort = params.options.signal ? forwardAbort(params.options.signal, streamAbort) : undefined;
+    let invocation: InvocationAttempt | undefined;
+    let rawResponse = "";
+    const body = withGoogleAbortSignal(buildModelRequest(currentRequest, {
+      providers: { [params.provider.id]: params.provider },
+    }) as Record<string, unknown>, streamAbort.signal);
+    invocation = beginInvocation(params.options, params.provider, currentRequest.model, true, body, attempt + 1);
     try {
-      const body = withGoogleAbortSignal(buildModelRequest(currentRequest, {
-        providers: { [params.provider.id]: params.provider },
-      }) as Record<string, unknown>, streamAbort.signal);
       if (process.env.PILOTDECK_DUMP_REQUEST === "1") {
         const fs = await import("node:fs");
         const os = await import("node:os");
@@ -389,6 +427,7 @@ async function* streamGoogleProviderRequest(params: {
         if (done) {
           break;
         }
+        rawResponse += JSON.stringify(chunk);
         throwIfAborted(params.options.signal);
         streamGuard.checkDuration();
         for (const event of normalizeGoogleStreamEvent(chunk, state)) {
@@ -403,6 +442,7 @@ async function* streamGoogleProviderRequest(params: {
           params.checkpoint.onEvent(event);
           yield event;
           if (terminalEvent) {
+            finishInvocation(invocation, params.options, "success", rawResponse, undefined, undefined, event.type === "message_end");
             void stream.return(undefined).catch(() => undefined);
             return;
           }
@@ -413,10 +453,12 @@ async function* streamGoogleProviderRequest(params: {
       if (!sawTerminalEvent && !state.ended) {
         throw new IncompleteStreamError();
       }
+      finishInvocation(invocation, params.options, "success", rawResponse, undefined, undefined, true);
       return;
     } catch (error) {
       throwIfGoogleAbort(error, params.options.signal);
       const providerError = toProviderError(params.provider, error);
+      finishInvocation(invocation, params.options, "incomplete", rawResponse, undefined, error, false);
       const retryable = isRetryableGoogleStreamError(providerError, error);
       if (
         attempt < params.maxRetries &&
@@ -807,13 +849,105 @@ function appendAnthropicBeta(headers: Record<string, string>, beta: string): voi
   headers[key] = values.join(", ");
 }
 
-async function safeReadJson(response: Response): Promise<unknown> {
-  const text = await response.text();
+function parseRawJson(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
     return text;
   }
+}
+
+type InvocationAttempt = {
+  requestLogId: string;
+  requestId: string;
+  startedAt: string;
+  requestBody: string;
+  attempt: number;
+  provider: ProviderConfig;
+  model: string;
+  stream: boolean;
+  finished: boolean;
+};
+
+function beginInvocation(
+  options: ModelRuntimeOptions,
+  provider: ProviderConfig,
+  model: string,
+  stream: boolean,
+  body: unknown,
+  attempt: number,
+): InvocationAttempt | undefined {
+  const invocation = options.invocation;
+  if (!invocation) return undefined;
+  const requestBody = JSON.stringify(provider.extraBody ? { ...(body as Record<string, unknown>), ...provider.extraBody } : body);
+  const now = new Date().toISOString();
+  const state: InvocationAttempt = {
+    requestLogId: randomUUID(),
+    requestId: randomUUID(),
+    startedAt: now,
+    requestBody,
+    attempt,
+    provider,
+    model,
+    stream,
+    finished: false,
+  };
+  invocation.sink.stage({
+    ...invocation.context,
+    requestLogId: state.requestLogId,
+    requestId: state.requestId,
+    attempt,
+    provider: provider.id,
+    protocol: provider.protocol,
+    model,
+    stream,
+    requestBody,
+    requestBytes: Buffer.byteLength(requestBody),
+    outcome: "success",
+    responseComplete: false,
+    startedAt: now,
+    completedAt: now,
+  });
+  return state;
+}
+
+function finishInvocation(
+  state: InvocationAttempt | undefined,
+  options: ModelRuntimeOptions,
+  outcome: "success" | "provider_error" | "transport_error" | "aborted" | "timeout" | "incomplete",
+  responseBody?: string,
+  httpStatus?: number,
+  error?: unknown,
+  responseComplete = false,
+  responseBytes?: number,
+): void {
+  if (!state || !options.invocation || state.finished) return;
+  state.finished = true;
+  const completedAt = new Date().toISOString();
+  const normalizedOutcome = options.signal?.aborted
+    ? "aborted"
+    : error instanceof StreamIdleTimeoutError
+      ? "timeout"
+      : outcome;
+  void options.invocation.sink.append({
+    ...options.invocation.context,
+    requestLogId: state.requestLogId,
+    requestId: state.requestId,
+    attempt: state.attempt,
+    provider: state.provider.id,
+    protocol: state.provider.protocol,
+    model: state.model,
+    stream: state.stream,
+    requestBody: state.requestBody,
+    responseBody,
+    requestBytes: Buffer.byteLength(state.requestBody),
+    responseBytes: responseBody === undefined ? undefined : responseBytes ?? Buffer.byteLength(responseBody),
+    httpStatus,
+    outcome: normalizedOutcome,
+    responseComplete,
+    startedAt: state.startedAt,
+    completedAt,
+  }).catch(() => undefined);
 }
 
 const DEFAULT_STREAM_IDLE_TIMEOUT_MS = LITELLM_COMPLETION_HTTP_FALLBACK_MS;
@@ -854,6 +988,7 @@ async function* readServerSentEvents(
   body: ReadableStream<Uint8Array>,
   signal?: AbortSignal,
   idleTimeoutMs?: number,
+  onRawChunk?: (chunk: Uint8Array) => void,
 ): AsyncIterable<ServerSentEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -880,6 +1015,7 @@ async function* readServerSentEvents(
         break;
       }
 
+      onRawChunk?.(value);
       buffer += decoder.decode(value, { stream: true });
       const chunks = buffer.split(/\n\n/);
       buffer = chunks.pop() ?? "";

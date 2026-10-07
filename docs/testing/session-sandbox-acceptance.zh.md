@@ -1,25 +1,53 @@
 # PilotDeck Session 沙箱验收规范
 
-状态：第一版受限验证已执行；完整验收矩阵仍未完成。日期：2026-10-06。
+日期：2026-10-07。最终结论以本轮 summary.json 为准；历史诊断轮次不作为完整通过依据。
 
-对应设计：[模块化 Session 沙箱开发文档](../architecture/session-sandbox-development.zh.md)。本文件同时记录当前已执行结果和未完成项。新增测试文件名和配置只有在对应实现合入后才表示可运行入口。
+对应设计：[模块化 Session 沙箱开发文档](../architecture/session-sandbox-development.zh.md)。
 
-## 0. 本次已执行结果
+### 最近一次完整验收
 
-在 `jinan40` Linux 上完成了 PilotDeck execution-world 的真实 nsjail 受限 E2E：
+jinan40 的 `2026-10-07-full37` 返回 `overall=PASS`、退出码 `0`：68 项验收中 67 PASS、1 项 apt/dpkg 禁用 N/A，没有 FAIL、BLOCKED 或 NOT_RUN。真实 build、单 Gateway A/B/C、HTTP/SSE 本机 MCP mock、DeepWiki 公网 HTTP、性能、`qwen3.5-27b` smoke 和最终回收全部通过。Focused tests 共 82 个，79 PASS，3 个仅适用于 macOS 的检查在 Linux 上 SKIP。
 
-- `NsjailSessionExecutionProvider.probe()` 返回 `ready: true`，能力为 filesystem/process isolation。
-- A、B 两个 session 在同一 provider 实例中并发创建。
-- `qwen3.5-27b` 返回 `write_file` 工具调用；PilotDeck builtin `write_file` 使用 A 的 execution world 写入 `e2e-marker.txt`，内容为 `SESSION_A_OK`。
-- A 的 nsjail shell 检查退出码为 `0`；B 的 nsjail shell 检查 `/workspace/e2e-marker.txt` 不可见并输出 `B_OK`，退出码为 `0`。
-- A 释放后以 generation `2` 重新创建，原 workspace marker 和 home 文件均可见，resume shell 输出 `RESUME_OK`。
-- A 在中断前设置的 `SESSION_ENV=OK` 在 resume 后仍可读取，证明环境文件跟随 session home 保存。
-- provider 聚焦测试 `tests/tool/session-execution-provider.spec.ts`：6/6 通过。
-- 结果：本次受限 E2E `PASS`；完整验收仍为 `受限预览`。
+原始证据和冻结源码位于 `artifacts/session-sandbox/2026-10-07-full37/`，该运行目录不纳入 Git；验收 runner、夹具及 rootfs 构建脚本纳入 Git 供复现。冷调用 p95 155.60ms、热调用 p95 137.31ms、吞吐 10.47 calls/s、supervisor idle RSS 122310656 bytes，固定门槛均通过。磁盘 quota 尚不支持，配置明确拒绝，未宣称支持。此前 `full34` 的 SSE BLOCKED 证据保留；本轮结论不覆盖历史结果。
 
-本次使用的临时测试 rootfs 只包含 `/bin/sh` 和动态链接 libc，因此该结果覆盖 shell、builtin 文件工具、持久 home/tmp 挂载、generation resume 和 session workspace 边界，不代表 Python、rg、MCP、LSP、资源限额或主服务崩溃恢复场景已经验收。
+## 0. 当前实现与运行方式
 
-完整 Gateway CLI 链路已在 `jinan40` 上通过真实模型调用验证；未显式指定 `--project` 时 CLI 使用 Gateway workspace，避免把客户端 cwd 当作远端项目而触发 `gateway_dialog_recovery_cleanup_failed`。该验证与 nsjail provider E2E 分开记录。
+已接入可选 session provider、私有 workspace/home/tmp/cache/control/spill/artifact/browser roots、持久 generation、后台 owner、MCP/LSP/hooks、附件导入导出、子 agent、fork 和 session egress proxy。SDK/wire 不新增 provider 字段。真实 build 已修复 legal/invocation staging 依赖；完整验收仍必须重新运行 build。
+
+Python/PyPI 用户包与 npm prefix/cache/config 是支持能力。apt/dpkg 六个入口显式 mask，系统根目录只读。普通 bind mount 无总磁盘配额，workspaceBytes 必须拒绝；memory/pids 使用 delegated cgroup v2，CPU 使用进程 CPU rlimit。
+
+正式 rootfs 由 scripts/session-sandbox-rootfs.mjs 构建，包含 shell、Python、Node、rg、pip、npm、GCC/native addon 工具链、Chromium/Playwright 及动态依赖，保存 pilotdeck-rootfs.json。临时 shell-only rootfs 不能用于完整验收。
+
+专用测试 checkout 为 jinan40:/tmp/pilotdeck-session-recovery-20261006，不修改既有生产部署。通过独立 systemd user unit 的 Delegate=yes 与 KillMode=control-group 运行 scripts/session-sandbox-delegated.mjs；该入口启用 memory/pids controllers，然后运行 scripts/session-sandbox-acceptance.mjs。每轮使用全新的 evidence 目录。
+
+runner 顺序执行真实 pnpm build、focused source tests、独立性能阶段与当前部署模型 smoke。设置 PILOTDECK_BUILD_COMMAND 会阻止 PASS，不能覆盖构建。缺失 report 标为 BLOCKED，缺失 mandatory case 标为 NOT_RUN；最终检查 delegated root 无残余 session cgroup。只有全部必测项通过才返回 overall=PASS 和退出码 0。
+
+默认网络 deny。允许联网夹具按域名/IP/port allowlist 使用 session 独立 Unix proxy；DNS 与目标地址校验在宿主 proxy 完成，guest 不能直接联网。公共测试服务不可用必须记录 BLOCKED/FAIL，不能放开宿主管理地址或私网获得通过。
+
+HTTP/SSE MCP 使用 harness 在本机创建的 MCP SDK mock，分别绑定 A/B 独立 Unix socket。宿主通过 `egressLocalServices(binding)` 为每个 session 授权精确的 `http://mcp-a.invalid` 或 `http://mcp-b.invalid` origin；socket 不挂入 guest，所有请求仍经过当前 session network port/Unix proxy。真实握手、工具发现和 marker 工具调用覆盖两种 transport，并验证 guest Python 调用、伪造 owner、其他 session origin/socket、错误端口和重定向拒绝。私网及宿主管理 TCP 地址仍拒绝。保留 DeepWiki streamable HTTP 真实握手作为独立公网验收项；其失败仍报告 BLOCKED。
+
+session shell/subprocess 累计 stdout、stderr 及 progress callback 各限制为 1 MiB，继续排空管道并标记截断；code runtime 按自身输出限额执行。文件 worker 使用独立有界捕获以支持最多 64 MiB 附件。session 关闭时 abort 文件 worker，并在异步端口的请求与结果两侧检查 generation。
+
+关键验收入口：
+
+| 类别 | Fixture |
+| --- | --- |
+| 契约、装配、非法配置与可拔出边界 | session-execution-provider、session-startup-validation、session-module-boundary、runtime/world bundle tests |
+| 双向完整 roots、Python/shell/fs/rg/export、链接竞态与 host 快照 | session-boundary-matrix、nsjail-isolation |
+| 单 Gateway A/B/C 工具链、附件输入/upload、fork、resume | session-sandbox-gateway-e2e |
+| 取消、未知副作用、worker/Gateway 崩溃与恢复 | session-sandbox-cancellation、session-worker-crash、session-sandbox-crash |
+| provider/profile 热更新、启动失败释放、retention、旧 generation | session-provider-hot-update、session-generation、nsjail-isolation |
+| 浏览器 profile/Cookie/download、受控出口/HTTP hook/MCP | session-browser、session-egress |
+| 资源、输出背压、capacity、pip/npm/apt | nsjail-isolation 与 resource fixture |
+| 固定性能门槛与真实模型项目/artifact/resume | session-performance、session-sandbox-model-smoke |
+
+host 初始化通过目录 FD + O_NOFOLLOW 创建路径，真实文件打开在 guest namespace 中执行，不能靠宿主 realpath 后打开。cgroup 名包含持久 storage 的设备号/inode 与 sandbox key，避免不同 storage root 同名 session 相互回收。下载快照位于不挂给 guest 的 control；授权 upload 字节通过 session 文件端口导入 artifact root。
+
+当前 adapter 按命令启动 nsjail，没有常驻 idle worker。cold 指 provider create + 首次 jailed shell，hot 指第二次 jailed shell；idle/execution RSS 是 supervisor RSS，不能称为独立 worker RSS。20 预热、20 baseline 并冻结后再采样 20 次。固定门槛：cold/hot p95 <= baseline x 1.25，吞吐 >= baseline x 0.8，idle RSS <= baseline x 1.1。保留所有样本和 dispose p95，不放宽门槛或仅挑成功轮次。
+
+每轮 evidence 包含 environment/config、build/focused/performance/model 原始日志、fixture reports、case-results.jsonl、host-observations.jsonl、processes/mountinfo/cgroups、performance-baseline/performance、capabilities 和 summary。保留请求、响应、身份、时间和 host 观察；缺失字段不能编造。
+
+管理员提供的 provider/plugin JavaScript 属可信宿主代码。隔离对象是 agent 代码、参数、工作区及 MCP/LSP/hook 派生进程；此模块不隔离恶意宿主插件。插件脚本与二进制必须存在于 rootfs 或 session-owned storage，缺失时不得宿主 fallback。
 
 ## 1. 验收结论规则
 
@@ -68,7 +96,7 @@ readiness 应先启动一个最小沙箱并确认实际隔离和限额生效。m
 | PilotDeck E2E | 真实装配后所有开放工具不绕过 provider | 单实例 A/B 并发；可用确定性模型 fixture 触发真实工具调用 |
 | Agent smoke | 验证真实模型能在隔离工作区完成正常任务 | 一个受限编程任务；不能替代确定性边界测试 |
 
-拟新增测试组：`session-execution-provider`、`nsjail-isolation`、`session-sandbox-e2e`。实现后再填写实际命令，不使用占位命令冒充已执行测试。
+测试入口：`npm run test:session-sandbox`。该命令执行真实 `pnpm build`；构建失败时仅为诊断继续用 source `tsx` 运行 focused tests，summary 保留 `FAIL`/`BLOCKED`，不能完整通过。显式设置 `PILOTDECK_BUILD_COMMAND` 也只会标记 `buildOverrideUsed=true` 和 `BLOCKED`。所有环境、rootfs 工具清单、配置、进程/mount/cgroup、原始输出、case JSONL、integration evidence 和 summary 写入 `artifacts/session-sandbox/<run-id>/`。未设置 `PILOTDECK_NSJAIL_ROOTFS` 或缺少 Linux nsjail 时，integration 只能是 `BLOCKED`/`NOT_RUN`，不会被当作 PASS。
 
 ### 3.3 每项证据
 
@@ -205,4 +233,4 @@ case ID | PASS/FAIL/BLOCKED/NOT_RUN/N/A | 证据路径 | 失败原因/范围
 发布结论：不通过 / 受限预览通过（明确范围）/ 完整通过
 ```
 
-当前分支结论：**受限预览通过**。已执行真实 Linux nsjail execution-world E2E、同路径 generation=2 resume 检查和 6 项 provider 聚焦测试；TypeScript 全量 `--noEmit` 仍受源码副本中既有 model streaming 测试类型错误影响。Gateway CLI dialog recovery、Python/rg/MCP/LSP/hooks、cgroup、磁盘配额、主服务崩溃恢复和完整 CORE/ISO/LIFE/EXT 矩阵仍保持 `BLOCKED` 或 `NOT_RUN`，不能声明完整通过。
+最终结论以本轮 summary.json 为准。任何 FAIL、BLOCKED、NOT_RUN 或缺失可靠证据都阻止完整通过；文档不能覆盖运行结果。

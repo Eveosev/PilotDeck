@@ -1,9 +1,11 @@
-import { promises as fs } from "node:fs";
+import { promises as globalFs } from "node:fs";
 import path from "node:path";
 import { getBackupFileName } from "./backupNaming.js";
 import type { FileHistoryBackup, FileHistoryBackupStorage } from "./types.js";
+import type { FileHistoryFsPort } from "./FileHistoryFsPort.js";
 
 export type CreateBackupOptions = {
+  fs?: FileHistoryFsPort;
   filePath: string;
   version: number;
   backupDir: string;
@@ -37,6 +39,7 @@ export async function createBackup(
   options: CreateBackupOptions,
 ): Promise<CreateBackupResult> {
   const now = options.now ?? (() => new Date());
+  const fs = options.fs ?? globalFs;
   let stat;
   try {
     stat = await fs.stat(options.filePath);

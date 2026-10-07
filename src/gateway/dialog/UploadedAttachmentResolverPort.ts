@@ -10,6 +10,7 @@ export type ResolvedUploadedAttachments = {
 export type UploadedAttachmentResolverPort = {
   resolve(input: {
     projectKey: string;
+    sessionKey?: string;
     uploads: UploadedAttachmentRef[];
   }): Promise<ResolvedUploadedAttachments>;
 };

@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { promises as globalFs } from "node:fs";
 import path from "node:path";
 import type { FileHistoryBackup, FileHistoryBackupStorage } from "./types.js";
+import type { FileHistoryFsPort } from "./FileHistoryFsPort.js";
 
 export type RestoreBackupOptions = {
+  fs?: FileHistoryFsPort;
   filePath: string;
   backup: FileHistoryBackup;
   backupDir: string;
@@ -32,6 +34,7 @@ export async function restoreBackup(
   options: RestoreBackupOptions,
 ): Promise<RestoreBackupResult> {
   const { filePath, backup, backupDir } = options;
+  const fs = options.fs ?? globalFs;
   if (backup.backupFileName === null) {
     try {
       await fs.unlink(filePath);

@@ -222,7 +222,15 @@ ${formatValidationError(tool.name, updatedValidation.issues, {
       }
     }
 
-    const toolValidation = await tool.validateInput?.(executeInput, context);
+    let toolValidation;
+    try {
+      toolValidation = await tool.validateInput?.(executeInput, context);
+    } catch (error) {
+      // Filesystem validation can reject a path before execution. Settle this
+      // call so durable batches retain a result for every recorded tool call.
+      const normalized = normalizeToolError(error);
+      return this.errorResult(call.id, tool.name, normalized.code, normalized.message, startedAt, context, normalized.details);
+    }
     if (toolValidation && !toolValidation.ok) {
       return this.errorResult(
         call.id,

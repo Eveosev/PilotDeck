@@ -3,6 +3,25 @@ import test from "node:test";
 
 import { SessionToolCompositionBundle } from "../../src/cli/SessionToolCompositionBundle.js";
 import { ToolRegistry, type PilotDeckToolDefinition } from "../../src/tool/index.js";
+import type { ExecutionWorldBundle } from "../../src/tool/execution-world/ExecutionWorldBundle.js";
+
+test("confined extension tools require and receive the current execution world", async () => {
+  const world = {} as ExecutionWorldBundle;
+  const unbound = tool("extension_probe");
+  const options = {
+    sessionExecutionWorld: world,
+    composeMcpTools: async () => new ToolRegistry(),
+    extension: { listToolContributions: () => [{ namespace: "example", tool: unbound }] },
+    availability: { cwd: process.cwd(), env: {} }, isAlwaysOnSession: false,
+  };
+  await assert.rejects(new SessionToolCompositionBundle(options).compose(), /no session execution binding/);
+  let received: ExecutionWorldBundle | undefined;
+  unbound.bindExecutionWorld = (binding) => { received = binding; return tool("bound_probe"); };
+  const result = await new SessionToolCompositionBundle(options).compose();
+  assert.equal(received, world);
+  assert.equal(result.registry.has("bound_probe"), true);
+  result.registry.dispose();
+});
 
 test("session tool composition applies policy before availability and keeps the base registry untouched", async () => {
   const calls: string[] = [];

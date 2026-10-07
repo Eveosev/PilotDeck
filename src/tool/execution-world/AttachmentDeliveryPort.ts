@@ -17,6 +17,10 @@ export type AttachmentDeliveryMetadata = {
 export type AttachmentDeliveryPort = {
   realpath(path: string): Promise<string>;
   stat(path: string): Promise<AttachmentDeliveryMetadata>;
+  /** Snapshot bytes through the provider before a host delivery channel opens them. */
+  prepareFile?(path: string): Promise<{ path: string; size: number }>;
+  /** Copy bytes from a host-authorized upload lease into private session storage. */
+  importBytes?(name: string, bytes: Uint8Array): Promise<{ path: string; size: number }>;
 };
 
 /** Native Node provider for attachment delivery inspection. */

@@ -1,4 +1,5 @@
 import type { ExecutionWorldBundle } from "../tool/execution-world/ExecutionWorldBundle.js";
+import type { SandboxedCommand, SandboxPolicy } from "../tool/execution-world/SandboxPort.js";
 
 export type SessionIsolationPolicy = {
   network: "deny" | "allow";
@@ -18,7 +19,19 @@ export type TrustedSessionBinding = {
   sessionKey: string;
   sandboxKey: string;
   generation: number;
-  storage: { workspace: string; home: string; temp: string };
+  storage: {
+    workspace: string;
+    home: string;
+    temp: string;
+    /** Session-owned roots used by extension runtimes and durable delivery. */
+    pipCache?: string;
+    npmCache?: string;
+    control?: string;
+    spill?: string;
+    artifact?: string;
+    browserProfile?: string;
+    browserDownload?: string;
+  };
   policy: SessionIsolationPolicy;
 };
 
@@ -33,6 +46,18 @@ export type SessionExecutionHandle = {
   readonly sandboxKey: string;
   readonly generation: number;
   readonly guestCwd: "/workspace";
+  /** Host path bound to the guest workspace for direct file-tool providers. */
+  readonly hostWorkspaceRoot?: string;
+  /** Host session root for adapters that need private profile/cache paths. */
+  readonly hostStorageRoot?: string;
+  /** Prepares direct child processes such as stdio MCP/LSP servers. */
+  readonly prepareSubprocess?: (request: {
+    executable: string;
+    args: readonly string[];
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    policy?: Partial<SandboxPolicy>;
+  }) => Promise<SandboxedCommand>;
   readonly world: ExecutionWorldBundle;
   stop(reason: string): Promise<void>;
   dispose(): Promise<void>;
@@ -50,6 +75,13 @@ export interface SessionExecutionProvider {
   readonly contractVersion: 1;
   probe(): Promise<ProviderReadiness>;
   createSession(binding: TrustedSessionBinding): Promise<SessionExecutionHandle>;
+  /** Trusted host fork transaction. Model tools cannot supply these bindings. */
+  forkSession?(input: { source: TrustedSessionBinding; target: TrustedSessionBinding }): Promise<{
+    commit(): Promise<void>;
+    rollback(): Promise<void>;
+  }>;
+  /** Host-only retention/delete operation; active execution must be rejected. */
+  deleteSessionStorage?(sessionKey: string): Promise<void>;
   dispose(): Promise<void>;
 }
 
@@ -61,6 +93,7 @@ export class SessionExecutionProviderError extends Error {
       | "provider_duplicate"
       | "provider_missing"
       | "session_conflict"
+      | "capacity_exceeded"
       | "session_closed",
   ) {
     super(message);

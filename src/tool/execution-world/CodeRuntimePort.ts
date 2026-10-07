@@ -27,6 +27,8 @@ export type CodeRuntimeResult = {
 };
 
 export type CodeRuntimePort = {
+  /** The provider prepares every executable itself; consumers must not wrap it twice. */
+  readonly enforcesSandbox?: boolean;
   /** Resolve the first usable interpreter without exposing process APIs to consumers. */
   resolveExecutable(candidates: readonly string[], env?: NodeJS.ProcessEnv, signal?: AbortSignal): Promise<string | undefined>;
   run(request: CodeRuntimeRequest): Promise<CodeRuntimeResult>;

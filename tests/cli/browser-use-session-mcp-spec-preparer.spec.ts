@@ -4,6 +4,17 @@ import test from "node:test";
 import { BrowserUseSessionMcpSpecPreparer } from "../../src/cli/BrowserUseSessionMcpSpecPreparer.js";
 import { sanitizeSessionIdForPath } from "../../src/session/storage/ProjectSessionStorage.js";
 
+test("confined browser preparation fixes profile and downloads to the session root", () => {
+  const preparer = new BrowserUseSessionMcpSpecPreparer({ env: {}, createDirectory: () => {},
+    buildArgs: (args, output) => [...args, "--output-dir", output],
+  });
+  const [spec] = preparer.prepare({ projectRoot: "/host/project", sessionKey: "a", storageRoot: "/sessions/a", specs: [{
+    id: "browser-use", transport: "stdio", command: "node", args: ["server.mjs", "--user-data-dir=/sessions/b/profile", "--output-dir", "/sessions/b/download"], perSession: true,
+  }] });
+  assert.ok(spec?.transport === "stdio");
+  assert.deepEqual(spec.args, ["server.mjs", "--output-dir", "/sessions/a/.pilotdeck/browser/download", "--user-data-dir", "/sessions/a/.pilotdeck/browser/profile"]);
+});
+
 test("browser-use session MCP preparer scopes only the browser process to its session output directory", () => {
   const directories: string[] = [];
   const argsCalls: Array<{

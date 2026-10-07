@@ -5,8 +5,11 @@ import {
   type AgentProjectSessionStorage,
   type FileHistorySnapshotProjectionResult,
 } from "../session/index.js";
+import type { FileHistoryFsPort } from "../session/filesystem/FileHistoryFsPort.js";
 
 export type SessionFileHistoryBundleOptions = {
+  fs?: FileHistoryFsPort;
+  backupRoot?: string;
   sessionKey: string;
   storage: Pick<
     AgentProjectSessionStorage,
@@ -24,9 +27,10 @@ export class SessionFileHistoryBundle {
 
   compose(): FileHistoryStore {
     const fileHistory = new FileHistoryStore({
-      backupDir: this.options.storage.fileHistoryDir,
+      backupDir: this.options.backupRoot ?? this.options.storage.fileHistoryDir,
+      fs: this.options.fs,
       now: this.options.now,
-      backupStorage: this.options.storage.fileHistoryBackupStorage,
+      backupStorage: this.options.fs ? undefined : this.options.storage.fileHistoryBackupStorage,
       onSnapshotRecorded: (snapshot, snapshotKind) =>
         this.options.storage.transcript.recordFileHistorySnapshot(
           this.options.sessionKey,

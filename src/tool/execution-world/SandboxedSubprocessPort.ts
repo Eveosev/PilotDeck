@@ -12,6 +12,7 @@ export type CreateNodeSandboxedSubprocessPortOptions = {
 export function createNodeSandboxedSubprocessPort(options: CreateNodeSandboxedSubprocessPortOptions): SubprocessPort {
   const platform = options.platform ?? process.platform;
   return {
+    supportsFileMtimeSort: options.sandbox.supportsFileMtimeSort,
     async execute(request: SubprocessRequest): Promise<SubprocessResult> {
       const executable = platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "/bin/sh";
       const args = platform === "win32" ? ["/d", "/s", "/c", request.command] : ["-c", request.command];
@@ -23,7 +24,7 @@ export function createNodeSandboxedSubprocessPort(options: CreateNodeSandboxedSu
         policy: options.resolvePolicy({ workspaceRoot: request.cwd }),
         signal: request.signal,
       });
-      return options.subprocess.executeFile!({ ...prepared, ...request });
+      return options.subprocess.executeFile!({ ...request, ...prepared });
     },
     async executeFile(request: SubprocessFileRequest): Promise<SubprocessResult> {
       const prepared = await options.sandbox.prepare({
@@ -34,7 +35,7 @@ export function createNodeSandboxedSubprocessPort(options: CreateNodeSandboxedSu
         policy: options.resolvePolicy({ workspaceRoot: request.cwd }),
         signal: request.signal,
       });
-      return options.subprocess.executeFile!({ ...prepared, ...request });
+      return options.subprocess.executeFile!({ ...request, ...prepared });
     },
   };
 }

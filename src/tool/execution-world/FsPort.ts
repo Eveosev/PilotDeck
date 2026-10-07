@@ -3,6 +3,7 @@ export type FsFileStat = {
   kind: "file" | "directory" | "other";
   size: number;
   mtimeMs: number;
+  mode?: number;
 };
 
 /** Host-independent directory entry exposed by the execution-world filesystem provider. */
@@ -51,6 +52,9 @@ export type FsWriteTextResult = {
 
 /** Host-independent filesystem capability consumed by filesystem tools. */
 export type FsPort = {
+  /** Resolve a path in the provider's filesystem namespace. */
+  realpath?(path: string): Promise<string>;
+  statMany?(paths: readonly string[], signal?: AbortSignal): Promise<FsFileStat[]>;
   stat(path: string, signal?: AbortSignal): Promise<FsFileStat>;
   /** Lists immediate children without following symlinks. */
   readDirectory(path: string, signal?: AbortSignal): Promise<FsDirectoryEntry[]>;

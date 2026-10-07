@@ -34,6 +34,7 @@ import type { PilotDeckHookEvent } from "../extension/hooks/protocol/events.js";
 import type { GatewayUserDialogStore } from "../gateway/user-dialog/GatewayUserDialogStore.js";
 import type { ResolvedGatewayOrganizationPolicy } from "./createLocalGateway.js";
 import type { CompactionAutomaticTriggerObservation } from "../context/index.js";
+import type { SessionExecutionHandle } from "../sandbox/SessionExecutionProvider.js";
 
 /**
  * The session-facing subset of a published project generation.
@@ -46,6 +47,7 @@ import type { CompactionAutomaticTriggerObservation } from "../context/index.js"
 export type ProjectSessionFactoryRuntime = ProjectSessionRuntime;
 
 export type ProjectSessionFactoryOptions<Runtime extends ProjectSessionFactoryRuntime> = {
+  registerSessionExecution?: (sessionKey: string, handle: SessionExecutionHandle) => () => void;
   resolveRuntime(projectKey?: string): Runtime;
   acquireRuntimeLease(runtime: Runtime): () => Promise<void>;
   acquirePermissionRuleSet(input: {
@@ -83,6 +85,7 @@ export type ProjectSessionFactoryOptions<Runtime extends ProjectSessionFactoryRu
     runtime: Runtime;
     context: GatewaySessionContext;
     specs: readonly PilotDeckMcpServerSpec[];
+    storageRoot?: string;
   }): PilotDeckMcpServerSpec[];
   getAlwaysOnToolNames(): readonly string[];
   permissionTimeoutMs?: number;
@@ -262,7 +265,12 @@ export class ProjectSessionFactory<Runtime extends ProjectSessionFactoryRuntime>
       gateway: gatewayInteraction,
       sessionMcpRuntimes: this.sessionMcpRuntimes,
       mcpRuntimeFactory: this.options.mcpRuntimeFactory,
-      preparePerSessionSpecs: (specs) => this.options.preparePerSessionSpecs({ runtime, context, specs }),
+      preparePerSessionSpecs: (specs, sessionContext) => this.options.preparePerSessionSpecs({
+        runtime,
+        context,
+        specs,
+        storageRoot: sessionContext?.storageRoot,
+      }),
       alwaysOnToolNames: this.options.getAlwaysOnToolNames(),
       permissionTimeoutMs: this.options.permissionTimeoutMs,
       elicitationTimeoutMs: this.options.elicitationTimeoutMs,
@@ -277,6 +285,12 @@ export class ProjectSessionFactory<Runtime extends ProjectSessionFactoryRuntime>
       collectFileArtifacts: this.options.shouldCollectFileArtifacts(runtime),
       onDiagnostic: this.options.onDiagnostic,
     }).compose();
+    if (prepared.sessionExecution && this.options.registerSessionExecution) {
+      try {
+        const unregister = this.options.registerSessionExecution(context.sessionKey, prepared.sessionExecution);
+        prepared.resources.add("session execution lookup", async () => { unregister(); });
+      } catch (error) { await prepared.resources.release(); throw error; }
+    }
     return { runtime, ...prepared };
   }
 

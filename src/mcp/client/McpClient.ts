@@ -29,7 +29,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recursivelySanitizeUnicode } from "../runtime/sanitize.js";
@@ -166,8 +166,10 @@ export class McpClient {
     }
     if (this.spec.transport === "stdio") {
       let args = this.spec.args;
-      if (this.spec.perSession) {
-        const dir = mkdtempSync(join(tmpdir(), `pilotdeck-mcp-${this.spec.id}-`));
+      if (this.spec.perSession && !this.spec.env?.PILOTDECK_SESSION_STORAGE_ROOT) {
+        const baseDir = this.spec.env?.PILOTDECK_SESSION_TMPDIR ?? tmpdir();
+        mkdirSync(baseDir, { recursive: true });
+        const dir = mkdtempSync(join(baseDir, `pilotdeck-mcp-${this.spec.id}-`));
         this.perSessionDir = dir;
         args = [...(args ?? []), `--user-data-dir=${dir}`];
       }

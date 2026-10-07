@@ -11,6 +11,8 @@ export type ProjectSessionForkInput = {
   targetSessionId: string;
   /** Target-session entries, including the fork metadata entry. */
   entries: readonly AgentTranscriptEntry[];
+  /** Host execution-storage retargeting for copied child transcript references. */
+  transformAuxiliaryEntry?: (entry: AgentTranscriptEntry) => AgentTranscriptEntry;
 };
 
 /**

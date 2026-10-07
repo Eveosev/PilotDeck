@@ -10,6 +10,7 @@ import {
 } from "./AttachmentDeliveryPort.js";
 import type { CodeRuntimePort } from "./CodeRuntimePort.js";
 import { createNodeCodeRuntimePort } from "./NodeCodeRuntimePort.js";
+import { createNodeSandboxedCodeRuntimePort } from "./SandboxedCodeRuntimePort.js";
 import { createNodeExecutionWorkspacePort } from "./NodeExecutionWorkspacePort.js";
 import { createNodeFsPort } from "./NodeFsPort.js";
 import { createNodeSandboxPort } from "./NodeSandboxPort.js";
@@ -18,6 +19,10 @@ import { createNodeDetachedShellPort, type DetachedShellPort } from "./DetachedS
 import { createNodeExecutionTransportPort, type ExecutionTransportPort } from "./ExecutionTransportPort.js";
 import type { ExecutionWorkspacePort } from "./ExecutionWorkspacePort.js";
 import type { FsPort } from "./FsPort.js";
+import type { NetworkPort } from "./NetworkPort.js";
+import type { FileHistoryFsPort } from "../../session/filesystem/FileHistoryFsPort.js";
+import type { InstructionStoragePort } from "../../context/instructions/InstructionStoragePort.js";
+import type { ToolResultSpillPort } from "../../context/budget/ToolResultSpillPort.js";
 import {
   DEFAULT_SANDBOX_MODE,
   type SandboxMode,
@@ -45,6 +50,14 @@ export type ExecuteCodeSandbox = {
  * their respective consumers.
  */
 export type ExecutionWorldBundle = {
+  readonly network?: NetworkPort;
+  readonly contextStorage?: {
+    fileHistoryFs: FileHistoryFsPort;
+    fileHistoryRoot: string;
+    instructionStorage: InstructionStoragePort;
+    toolResultSpill: ToolResultSpillPort;
+    spillRoot: string;
+  };
   readonly fs: FsPort;
   readonly subprocess: SubprocessPort;
   readonly shell: ShellPort;
@@ -73,8 +86,14 @@ export type CreateNodeExecutionWorldBundleOptions = {
   backgroundTaskStateDir?: string;
   /** Optional session-bound process sandbox. */
   sandboxPort?: SandboxPort;
+  /** Keep the injected provider active even for the unrestricted tool policy. */
+  forceSandbox?: boolean;
   /** Fixed root used by session-bound filesystem providers. */
   workspaceRoot?: string;
+  /** Session shutdown aborts foreground subprocesses as well as background work. */
+  executionSignal?: AbortSignal;
+  /** Bound foreground command capture independently of progress consumers. */
+  maxSubprocessOutputBytes?: number;
 };
 
 /** Compose selected execution providers into one lifecycle owner. */
@@ -93,27 +112,62 @@ export function createExecutionWorldBundle(parts: ExecutionWorldBundleParts): Ex
 export function createNodeExecutionWorldBundle(
   options: CreateNodeExecutionWorldBundleOptions = {},
 ): ExecutionWorldBundle {
-  const subprocess = createNodeSubprocessPort();
+  const nativeSubprocess = createNodeSubprocessPort(undefined, { maxOutputBytes: options.maxSubprocessOutputBytes });
+  const executionSignal = options.executionSignal;
+  const activeCalls = new Set<Promise<unknown>>();
+  const track = <T>(operation: () => Promise<T>): Promise<T> => {
+    const pending = operation();
+    activeCalls.add(pending);
+    void pending.then(() => activeCalls.delete(pending), () => activeCalls.delete(pending));
+    return pending;
+  };
+  const withSignal = <T extends { signal?: AbortSignal }>(request: T): T => ({
+    ...request,
+    signal: executionSignal
+      ? request.signal ? AbortSignal.any([executionSignal, request.signal]) : executionSignal
+      : request.signal,
+  });
+  const subprocess: SubprocessPort = {
+    execute: (request) => track(() => nativeSubprocess.execute(withSignal(request))),
+    executeFile: (request) => track(() => nativeSubprocess.executeFile!(withSignal(request))),
+  };
   const sandboxMode = options.sandboxMode ?? DEFAULT_SANDBOX_MODE;
   const sandbox = options.sandboxPort ?? createNodeSandboxPort();
   const nodeFs = createNodeFsPort();
-  const exposedSubprocess = sandboxMode === "danger-full-access"
+  const useSandbox = options.forceSandbox === true || sandboxMode !== "danger-full-access";
+  const exposedSubprocess = !useSandbox
     ? subprocess
     : createNodeSandboxedSubprocessPort({
         sandbox,
         subprocess,
-        resolvePolicy: ({ workspaceRoot }) => ({ mode: sandboxMode, workspaceRoot }),
+        resolvePolicy: ({ workspaceRoot }) => ({ mode: sandboxMode, workspaceRoot: options.workspaceRoot ?? workspaceRoot }),
       });
-  const fs = sandboxMode === "danger-full-access"
+  const fs = !useSandbox
     ? nodeFs
     : createNodeSandboxedFsPort({ fs: nodeFs, sandboxMode, workspaceRoot: options.workspaceRoot });
-  const detachedShell = sandboxMode === "danger-full-access"
+  const selectedDetachedShell = !useSandbox
     ? createNodeDetachedShellPort()
     : createNodeSandboxedDetachedShellPort({
         sandbox,
         resolvePolicy: ({ workspaceRoot }) => ({ mode: sandboxMode, workspaceRoot }),
       });
-  const shell = sandboxMode === "danger-full-access"
+  const detachedHandles = new Set<Awaited<ReturnType<DetachedShellPort["start"]>>>();
+  const detachedShell: DetachedShellPort = {
+    start: (request) => track(async () => {
+      executionSignal?.throwIfAborted();
+      const handle = await selectedDetachedShell.start(request);
+      detachedHandles.add(handle);
+      const abort = () => handle.terminate("SIGTERM");
+      executionSignal?.addEventListener("abort", abort, { once: true });
+      void handle.exit.then(() => {
+        detachedHandles.delete(handle);
+        executionSignal?.removeEventListener("abort", abort);
+      });
+      if (executionSignal?.aborted) abort();
+      return handle;
+    }),
+  };
+  const shell = !useSandbox
     ? createNodeShellPort(subprocess)
     : createNodeSandboxedShellPort({
         sandbox,
@@ -125,7 +179,23 @@ export function createNodeExecutionWorldBundle(
   const snapshotStore = backgroundTaskStateDir
     ? new JsonFileBackgroundTaskSnapshotStore({ filePath: join(backgroundTaskStateDir, "state.json") })
     : undefined;
-  return createExecutionWorldBundle({
+  const selectedCodeRuntime = !useSandbox
+    ? createNodeCodeRuntimePort()
+    : createNodeSandboxedCodeRuntimePort({
+        sandbox,
+        runtime: createNodeCodeRuntimePort(),
+        probeCwd: options.workspaceRoot ?? options.projectRoot,
+        resolvePolicy: ({ workspaceRoot }) => ({ mode: sandboxMode, workspaceRoot }),
+      });
+  const codeRuntime: CodeRuntimePort = {
+    enforcesSandbox: selectedCodeRuntime.enforcesSandbox,
+    resolveExecutable: (candidates, env, signal) => selectedCodeRuntime.resolveExecutable(
+      candidates, env, withSignal({ signal }).signal,
+    ),
+    run: (request) => selectedCodeRuntime.run(withSignal(request)),
+    dispose: () => selectedCodeRuntime.dispose?.() ?? Promise.resolve(),
+  };
+  const world = createExecutionWorldBundle({
     fs,
     subprocess: exposedSubprocess,
     shell,
@@ -133,7 +203,7 @@ export function createNodeExecutionWorldBundle(
     attachmentDelivery: createNodeAttachmentDeliveryPort(),
     planStorage: createNodePlanStoragePort(),
     executionWorkspace: createNodeExecutionWorkspacePort(),
-    codeRuntime: createNodeCodeRuntimePort(),
+    codeRuntime,
     executionTransport: createNodeExecutionTransportPort(),
     executeCodeSandbox: {
       port: sandbox,
@@ -152,6 +222,20 @@ export function createNodeExecutionWorldBundle(
       ...(snapshotStore ? { snapshotStore } : {}),
     }),
   });
+  return {
+    ...world,
+    async dispose() {
+      for (const handle of detachedHandles) handle.terminate("SIGTERM");
+      const escalation = setTimeout(() => {
+        for (const handle of detachedHandles) handle.terminate("SIGKILL");
+      }, 1_000);
+      escalation.unref();
+      await world.dispose();
+      await Promise.allSettled([...activeCalls]);
+      await Promise.allSettled([...detachedHandles].map((handle) => handle.exit));
+      clearTimeout(escalation);
+    },
+  };
 }
 
 async function disposeOwnedProviders(parts: ExecutionWorldBundleParts): Promise<void> {

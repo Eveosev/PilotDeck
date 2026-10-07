@@ -34,9 +34,11 @@ import {
   type ToolRegistry,
 } from "../tool/index.js";
 import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { SessionExecutionLease } from "../sandbox/SessionExecutionLease.js";
 import {
   SessionExecutionProviderError,
+  type SessionIsolationPolicy,
   type SessionExecutionProvider,
   type SessionExecutionHandle,
 } from "../sandbox/SessionExecutionProvider.js";
@@ -84,7 +86,7 @@ export type ProjectRuntimeResources = {
   pluginRuntime: PluginRuntime;
   tools: ToolRegistry;
   /** Creates session-local tool closures for a session execution world. */
-  createSessionTools: (executionWorld: ExecutionWorldBundle) => ToolRegistry;
+  createSessionTools: (executionWorld: ExecutionWorldBundle, lsp?: LspServicePort) => ToolRegistry;
   /** Optional session provider used to bind one execution world per session. */
   sessionExecutionProvider?: SessionExecutionProvider;
   createSessionExecution?: (input: {
@@ -124,6 +126,8 @@ export type ProjectRuntimeResourcesBundleOptions = {
   sessionExecutionProvider?: SessionExecutionProvider;
   /** Stable host root containing one directory per session sandbox key. */
   sessionExecutionStorageRoot?: string;
+  /** Host-owned limits applied to every session execution binding. */
+  sessionIsolationPolicy?: SessionIsolationPolicy;
   mcpRuntimeFactory?: McpRuntimeFactory;
   /** Application-selected context I/O providers for each published generation. */
   contextStorage?: ProjectContextStorageBundleOptions;
@@ -267,6 +271,12 @@ export class ProjectRuntimeResourcesBundle {
     const { executionWorld, tools } = executionWorldBundle.stage();
     this.resources.executionWorld = executionWorld;
     this.resources.createSessionTools = (sessionWorld) => executionWorldBundle.createTools(sessionWorld);
+    if (this.options.sessionExecutionProvider && !this.options.sessionExecutionStorageRoot) {
+      throw new SessionExecutionProviderError(
+        "sessionExecutionStorageRoot is required when a session execution provider is configured",
+        "provider_missing",
+      );
+    }
     if (this.options.sessionExecutionProvider && this.options.sessionExecutionStorageRoot) {
       const provider = this.options.sessionExecutionProvider;
       const storageRoot = this.options.sessionExecutionStorageRoot;
@@ -284,20 +294,37 @@ export class ProjectRuntimeResourcesBundle {
           generation,
           (this.sessionGenerations.get(sessionKey) ?? 0) + 1,
         );
-        this.sessionGenerations.set(sessionKey, nextGeneration);
         const sessionRoot = join(storageRoot, sandboxKey);
+        const generationFile = join(sessionRoot, ".pilotdeck", "control", "generation");
+        let persistedGeneration = 0;
+        try {
+          persistedGeneration = Number.parseInt(await readFile(generationFile, "utf8"), 10) || 0;
+        } catch {
+          // A new session has no durable generation marker yet.
+        }
+        const allocatedGeneration = Math.max(nextGeneration, persistedGeneration + 1);
+        this.sessionGenerations.set(sessionKey, allocatedGeneration);
         const lease = new SessionExecutionLease(provider, {
           sessionKey,
           sandboxKey,
-          generation: nextGeneration,
+          generation: allocatedGeneration,
           storage: {
             workspace: join(sessionRoot, "workspace"),
             home: join(sessionRoot, "home"),
             temp: join(sessionRoot, "tmp"),
+            pipCache: join(sessionRoot, "home", ".cache", "pip"),
+            npmCache: join(sessionRoot, "home", ".cache", "npm"),
+            control: join(sessionRoot, ".pilotdeck", "control"),
+            spill: join(sessionRoot, ".pilotdeck", "spill"),
+            artifact: join(sessionRoot, ".pilotdeck", "artifact"),
+            browserProfile: join(sessionRoot, ".pilotdeck", "browser", "profile"),
+            browserDownload: join(sessionRoot, ".pilotdeck", "browser", "download"),
           },
-          policy: { network: "deny" },
+          policy: this.options.sessionIsolationPolicy ?? { network: "deny" },
         });
         const handle = await lease.acquire();
+        await mkdir(join(sessionRoot, ".pilotdeck", "control"), { recursive: true });
+        await writeFile(generationFile, `${allocatedGeneration}\n`, "utf8");
         return { handle, release: () => lease.release() };
       };
     }
@@ -343,6 +370,7 @@ export class ProjectRuntimeResourcesBundle {
       routerSessionCustomRouters,
       pluginRuntime,
       tools,
+      createSessionTools: (sessionWorld, lsp) => executionWorldBundle.createTools(sessionWorld, lsp),
       mcpProvider,
       executionWorld,
       ...(this.resources.sessionExecutionProvider ? { sessionExecutionProvider: this.resources.sessionExecutionProvider } : {}),

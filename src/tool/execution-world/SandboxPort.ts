@@ -46,6 +46,8 @@ export type SandboxedCommand = Pick<SandboxCommandRequest, "executable" | "args"
  * confined request into an unconfined one.
  */
 export type SandboxPort = {
+  /** Some isolated rootfs builds cannot run rg's native mtime sort without /proc. */
+  readonly supportsFileMtimeSort?: boolean;
   prepare(request: SandboxCommandRequest): Promise<SandboxedCommand>;
 };
 

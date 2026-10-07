@@ -153,6 +153,10 @@ export {
 } from "./execution-world/CodeRuntimePort.js";
 export { createNodeCodeRuntimePort } from "./execution-world/NodeCodeRuntimePort.js";
 export {
+  createNodeSandboxedCodeRuntimePort,
+  type CreateNodeSandboxedCodeRuntimePortOptions,
+} from "./execution-world/SandboxedCodeRuntimePort.js";
+export {
   createNodeExecutionTransportPort,
   setExecuteCodeTransportOverrideForTests,
   type ExecuteCodeTransportKind,

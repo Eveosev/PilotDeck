@@ -5,6 +5,20 @@ import { createBashTool } from "../../src/tool/builtin/bash.js";
 import type { SubprocessPort } from "../../src/tool/execution-world/SubprocessPort.js";
 import { createNodeSubprocessPort } from "../../src/tool/execution-world/SubprocessPort.js";
 
+test("bounded direct subprocess capture also bounds progress callbacks", async () => {
+  let observed = 0;
+  const result = await createNodeSubprocessPort(undefined, { maxOutputBytes: 4096 }).executeFile!({
+    executable: process.execPath, args: ["-e", "process.stdout.write('A'.repeat(2e6));process.stderr.write('B'.repeat(2e6))"],
+    cwd: process.cwd(), timeoutMs: 5000, onStdout: (chunk) => { observed += Buffer.byteLength(chunk); },
+  });
+  assert.equal(result.exitCode, 0);
+  assert.equal(Buffer.byteLength(result.stdout), 4096);
+  assert.equal(Buffer.byteLength(result.stderr), 4096);
+  assert.equal(observed, 4096);
+  assert.equal(result.stdoutTruncated, true);
+  assert.equal(result.stderrTruncated, true);
+});
+
 test("bash consumes an execution-world subprocess provider", async () => {
   const calls: unknown[] = [];
   const subprocess: SubprocessPort = {
