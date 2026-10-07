@@ -17,6 +17,10 @@ test("SOP definition loader rejects malformed and duplicate definitions", () => 
     const duplicates = join(root, "duplicates.yaml");
     writeFileSync(duplicates, "sops:\n  - id: duplicate\n  - id: duplicate\n");
     assert.throws(() => loadStaffDeckSopDefinitions(duplicates), /duplicate id/);
+
+    const invalidContextMode = join(root, "invalid-context-mode.yaml");
+    writeFileSync(invalidContextMode, "sops:\n  - id: invalid\n    content:\n      nodes:\n        - node_id: start\n          contextMode: shared\n");
+    assert.throws(() => loadStaffDeckSopDefinitions(invalidContextMode), /invalid contextMode/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -36,7 +40,8 @@ test("SOP definition loader accepts an exact published management response", () 
         skill_id: "project_delivery_plan",
         version: "1.2.1",
         start_node_id: "collect",
-        nodes: [{ node_id: "collect", type: "collect_info" }],
+        nodes: [{ node_id: "collect", type: "collect_info", contextMode: "new_session" },
+          { node_id: "reply", type: "response", contextMode: "inherit" }],
         edges: [],
         terminal_node_ids: ["collect"],
       },
@@ -50,7 +55,8 @@ test("SOP definition loader accepts an exact published management response", () 
       skill_id: "project_delivery_plan",
       version: "1.2.1",
       start_node_id: "collect",
-      nodes: [{ node_id: "collect", type: "collect_info" }],
+      nodes: [{ node_id: "collect", type: "collect_info", contextMode: "new_session" },
+        { node_id: "reply", type: "response", contextMode: "inherit" }],
       edges: [],
       terminal_node_ids: ["collect"],
     });

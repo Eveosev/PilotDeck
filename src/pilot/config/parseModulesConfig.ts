@@ -262,7 +262,7 @@ function parseSopModule(
   warnUnknownKeys(value, [
     "enabled", "provider", "implementationId", "contract", "transport", "manifestPath",
     "endpoint", "definitionsPath", "defaultSopId", "discoveryEndpoint", "discoveryAgentId",
-    "discoveryApiKey", "discoveryPath", "discoveryTimeoutMs", "timeoutMs", "deployment", "frontendModule",
+    "discoveryApiKey", "discoveryPath", "discoveryTimeoutMs", "timeoutMs", "contextMode", "deployment", "frontendModule",
   ], path, diagnostics);
   if (value.enabled === false) return undefined;
   if (value.enabled !== true) {
@@ -288,6 +288,7 @@ function parseSopModule(
     fatal(diagnostics, "SOP_MODULE_DEFAULT_ID_INVALID", "modules.sop.defaultSopId must be a non-empty string.", `${path}.defaultSopId`);
   }
   const timeoutMs = optionalPositiveInteger(value.timeoutMs);
+  const contextMode = parseSopContextMode(value.contextMode);
   const discoveryEndpoint = nonEmptyText(value.discoveryEndpoint);
   const discoveryAgentId = nonEmptyText(value.discoveryAgentId);
   let discoveryApiKey: string | undefined;
@@ -304,6 +305,9 @@ function parseSopModule(
   const frontendModule = nonEmptyText(value.frontendModule);
   if (value.timeoutMs !== undefined && timeoutMs === undefined) {
     fatal(diagnostics, "SOP_MODULE_TIMEOUT_INVALID", "modules.sop.timeoutMs must be a positive integer.", `${path}.timeoutMs`);
+  }
+  if (value.contextMode !== undefined && contextMode === undefined) {
+    fatal(diagnostics, "SOP_MODULE_CONTEXT_MODE_INVALID", "modules.sop.contextMode must be new_session or inherit.", `${path}.contextMode`);
   }
   if (discoveryConfigured && (!discoveryEndpoint || !isHttpUrl(discoveryEndpoint))) {
     fatal(diagnostics, "SOP_DISCOVERY_ENDPOINT_INVALID", "modules.sop.discoveryEndpoint must be an absolute http(s) URL.", `${path}.discoveryEndpoint`);
@@ -324,6 +328,7 @@ function parseSopModule(
     defaultSopId,
     stateRoot: join(pilotHome, "sop"),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    ...(contextMode === undefined ? {} : { contextMode }),
     ...(discoveryConfigured && discoveryEndpoint && discoveryAgentId && discoveryApiKey
       ? {
           discoveryEndpoint,
@@ -365,6 +370,10 @@ function parseSopModule(
     manifestPath,
     ...(frontendModule ? { frontendModule } : {}),
   };
+}
+
+function parseSopContextMode(value: unknown): "new_session" | "inherit" | undefined {
+  return value === "new_session" || value === "inherit" ? value : undefined;
 }
 
 function warnUnknownKeys(

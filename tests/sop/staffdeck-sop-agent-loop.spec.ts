@@ -7,9 +7,13 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { createAgentSession } from "../../src/agent/session/createAgentSession.js";
+import { createInitialAgentSessionState } from "../../src/agent/session/AgentSessionState.js";
 import type { AgentEvent } from "../../src/agent/protocol/events.js";
 import { createDefaultPermissionContext } from "../../src/permission/index.js";
 import { DefaultContextRuntime } from "../../src/context/DefaultContextRuntime.js";
+import { buildPostCompactMessages, truncateHeadPreservingCheckpoint } from "../../src/context/compaction/CompactionEngine.js";
+import { readSubagentProjectSessionPersistence } from "../../src/session/storage/ProjectSessionStorage.js";
+import { sopNodeSessionId, sopNodeSidechainId } from "../../src/sop/staffdeck/SopNodeSessions.js";
 import { InMemoryTranscriptWriter } from "../../src/session/transcript/InMemoryTranscriptWriter.js";
 import { JsonlTranscriptWriter } from "../../src/session/transcript/JsonlTranscriptWriter.js";
 import { readTranscript } from "../../src/session/transcript/TranscriptReader.js";
@@ -156,6 +160,371 @@ test("SOP loop admits a completed step only after a PilotDeck tool result", asyn
   }
 });
 
+test("SOP nodes use a fresh model context by default and preserve only the current user prompt", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-node-context-"));
+  try {
+    const observed: Array<{ sessionId: string; messages: import("../../src/model/index.js").CanonicalMessage[] }> = [];
+    const context = {
+      async prepareForModel(input: import("../../src/context/ContextRuntime.js").AgentContextPrepareInput) {
+        observed.push({ sessionId: input.sessionId, messages: input.messages });
+        return { messages: input.messages, systemPromptParts: [], tools: input.tools, diagnostics: [], boundaries: [] };
+      },
+    } as import("../../src/context/ContextRuntime.js").AgentContextRuntime;
+    let prepareCount = 0;
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare({ state }) {
+        const nodeId = state.active_step_id ?? "first";
+        prepareCount += 1;
+        return {
+          state: { ...state, status: "active", active_step_id: nodeId },
+          step: {
+            skillId: "onboarding", skillName: "Onboarding", version: "1", nodeId, node: { type: "response" },
+            instruction: `Run ${nodeId}.`, expectedUserInfo: [], knownSlots: {},
+            allowedNextStepIds: nodeId === "first" ? ["second"] : [], requiredToolNames: [],
+            allowedActions: ["answer_user"], isTerminal: nodeId === "second", declaresHandoff: false,
+          },
+        };
+      },
+      async submit({ state, proposal }) {
+        const next = state.active_step_id === "first" ? "second" : undefined;
+        return {
+          state: { ...state, status: next ? "active" : "completed", ...(next ? { active_step_id: next } : {}) },
+          result: { status: proposal.status, replyFragment: proposal.replyFragment, slotUpdates: {}, events: [] },
+        };
+      },
+    };
+    let modelCalls = 0;
+    const model = modelFromStream(async function* (prepared) {
+      modelCalls += 1;
+      const request = (prepared as { request: { messages: import("../../src/model/index.js").CanonicalMessage[] } }).request;
+      assert.deepEqual(request.messages.map((message) => message.role), ["user"]);
+      yield* yieldToolCall(`submit-${modelCalls}`, "submit_step_result", {
+        status: "completed", replyFragment: `done-${modelCalls}`, slotUpdates: {},
+      });
+    });
+    const session = createSopSession({ root, sessionId: "node-context", model, client, context,
+      initialMessages: [
+        { role: "user", content: [{ type: "text", text: "old user history" }] },
+        { role: "assistant", content: [{ type: "text", text: "old assistant history" },
+          { type: "tool_call", id: "old-tool", name: "lookup_account", input: {} }] },
+        { role: "user", content: [{ type: "tool_result", toolCallId: "old-tool", content: [{ type: "text", text: "old tool history" }] }] },
+      ],
+      bundle: { sops: [{ id: "onboarding", content: { nodes: [
+        { node_id: "first" },
+        { node_id: "second" },
+      ] } }] } });
+    await collectSessionTurn(session, "current request", "node-context-turn");
+    assert.equal(modelCalls, 2);
+    assert.ok(prepareCount >= 2);
+    const nodeSessions = observed.filter((entry) => entry.sessionId.includes(":sop-node:"));
+    assert.ok(nodeSessions.some((entry) => entry.sessionId.endsWith(":first")));
+    assert.ok(nodeSessions.some((entry) => entry.sessionId.endsWith(":second")));
+    assert.ok(nodeSessions.every((entry) => entry.messages.length === 1));
+    assert.ok(nodeSessions.every(entry => JSON.stringify(entry.messages).includes("current request")));
+    assert.ok(nodeSessions.every(entry => !JSON.stringify(entry.messages).includes("old ")));
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const contextMode of ["inherit", "new_session"] as const)
+test(`a node-level inherit mode keeps full messages with module default ${contextMode}`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-node-inherit-"));
+  try {
+    const observed: Array<{ sessionId: string; messages: import("../../src/model/index.js").CanonicalMessage[] }> = [];
+    const context = {
+      async prepareForModel(input: import("../../src/context/ContextRuntime.js").AgentContextPrepareInput) {
+        observed.push({ sessionId: input.sessionId, messages: input.messages });
+        return { messages: input.messages, systemPromptParts: [], tools: input.tools, diagnostics: [], boundaries: [] };
+      },
+    } as import("../../src/context/ContextRuntime.js").AgentContextRuntime;
+    let modelCalls = 0;
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare({ state }) {
+        const nodeId = state.active_step_id ?? "first";
+        return {
+          state: { ...state, status: "active", active_step_id: nodeId },
+          step: {
+            skillId: "onboarding", skillName: "Onboarding", version: "1", nodeId, node: { type: "response" },
+            instruction: `Run ${nodeId}.`, expectedUserInfo: [], knownSlots: {},
+            allowedNextStepIds: nodeId === "first" ? ["second"] : [], requiredToolNames: [],
+            allowedActions: ["answer_user"], isTerminal: nodeId === "second", declaresHandoff: false,
+          },
+        };
+      },
+      async submit({ state, proposal }) {
+        const next = state.active_step_id === "first" ? "second" : undefined;
+        return { state: { ...state, status: next ? "active" : "completed", ...(next ? { active_step_id: next } : {}) },
+          result: { status: proposal.status, replyFragment: proposal.replyFragment, slotUpdates: {}, events: [] } };
+      },
+    };
+    const model = modelFromStream(async function* () {
+      modelCalls += 1;
+      yield* yieldToolCall(`submit-${modelCalls}`, "submit_step_result", {
+        status: "completed", replyFragment: `done-${modelCalls}`, slotUpdates: {},
+      });
+    });
+    const session = createSopSession({ root, sessionId: "node-inherit", model, client, context,
+      contextMode,
+      bundle: { sops: [{ id: "onboarding", content: { nodes: [
+        { node_id: "first", contextMode: "new_session" },
+        { node_id: "second", contextMode: "inherit" },
+      ] } }] } });
+    await collectSessionTurn(session, "current request", "node-inherit-turn");
+    assert.equal(modelCalls, 2);
+    assert.ok(observed.some((entry) => entry.sessionId.endsWith(":first")));
+    assert.ok(observed.some((entry) => entry.sessionId === "node-inherit"));
+    const inherited = observed.find(entry => entry.sessionId === "node-inherit")!;
+    assert.ok(JSON.stringify(inherited.messages).includes("submit-1"));
+    assert.ok(inherited.messages.some(message => message.content.some(block => block.type === "tool_result")));
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("real Context scopes cache, memory and durable compaction to nodes while model accounting stays on the parent", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-context-effects-"));
+  try {
+    const plans: string[] = [];
+    const resets: string[] = [];
+    const captured: { sessionId: string; messages: unknown }[] = [];
+    const compacted = new Set<string>();
+    const context = new DefaultContextRuntime({
+      projectRoot: root,
+      promptCacheCoordinator: { createPlan: id => { plans.push(id); return undefined; },
+        reset: id => { resets.push(id); }, release: () => {} },
+      memoryResolver: { retrieve: async () => ({ diagnostics: [] }),
+        captureTurn: async input => { captured.push(input); } },
+      compaction: { buildPostCompactMessages, truncateHeadPreservingCheckpoint, async autoCompact(input) {
+        const snapshot = { tokens: 10, maxContextTokens: 65536, warningRatio: 0.8,
+          blockingRatio: 0.95, state: "ok" as const, ratio: 0.01 };
+        if (input.messages.length < 2 || compacted.has(input.sessionId!)) return { type: "skipped", snapshot };
+        compacted.add(input.sessionId!);
+        const summary = { role: "user" as const, content: [{ type: "text" as const, text: `summary:${input.sessionId}` }] };
+        return { type: "compacted", tier: "full", snapshot, messages: [summary], result: {
+          compactionId: `compact:${input.sessionId}`, trigger: "auto", preTokens: 100, postTokens: 10,
+          messagesSummarized: input.messages.length, summaryMessage: summary, boundaryMarker: summary,
+          messagesToKeep: [], attachments: [], hookResults: [], diagnostics: [],
+        } };
+      } },
+    });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        const nodeId = input.state.active_step_id ?? "A";
+        return { ...prepared, state: { ...prepared.state, active_step_id: nodeId },
+          step: { ...prepared.step, nodeId, requiredToolNames: ["lookup_account"],
+            allowedNextStepIds: nodeId === "A" ? ["B"] : [], isTerminal: nodeId === "B" } };
+      },
+      async submit(input) {
+        return { state: { ...input.state, active_step_id: "B", status: input.state.active_step_id === "A" ? "active" : "completed",
+          successful_tool_names: [] }, result: { ...input.proposal, slotUpdates: {}, events: [] } };
+      },
+    };
+    let calls = 0;
+    const executions: string[] = [];
+    const model = modelFromStream(async function* (prepared, execution) {
+      executions.push(execution.sessionId);
+      const call = calls++;
+      if (call >= 2) assert.ok(!JSON.stringify(prepared).includes("summary:effects:sop-node:onboarding:A"));
+      yield* yieldToolCall(`effects-${call}`, call % 2 === 0 ? "lookup_account" : "submit_step_result",
+        call % 2 === 0 ? {} : { status: "completed", replyFragment: "Done" });
+      yield { type: "usage", usage: { inputTokens: 10, outputTokens: 5 } };
+    });
+    const session = createSopSession({ root, sessionId: "effects", client, context, model });
+    const events = await collectSessionTurn(session, "Start", "effects-turn");
+    assert.equal(calls, 4);
+    const expected = ["A", "B"].map(node => sopNodeSessionId("effects", "onboarding", node));
+    assert.deepEqual([...new Set(plans)].sort(), expected);
+    assert.deepEqual(resets, expected);
+    assert.deepEqual(captured.map(input => input.sessionId), expected);
+    assert.ok(!JSON.stringify(captured[1]).includes("summary:effects:sop-node:onboarding:A"));
+    assert.ok(executions.every(id => id === "effects"));
+    const completed = events.find(event => event.type === "turn_completed");
+    assert.equal(completed?.result.usage.inputTokens, 40);
+    for (const nodeId of ["A", "B"]) {
+      const persisted = await readSubagentProjectSessionPersistence({ projectRoot: root, pilotHome: root,
+        parentSessionId: "effects", sessionId: sopNodeSessionId("effects", "onboarding", nodeId),
+        sidechainId: sopNodeSidechainId("onboarding", nodeId) });
+      assert.ok(persisted.entries.some(entry => entry.type === "control_boundary" && entry.boundary.kind === "compact"),
+        "compaction must persist in the child");
+    }
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("an inherited node receives the previous real node's compacted context", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-inherit-compacted-"));
+  try {
+    let compacted = false;
+    const context = new DefaultContextRuntime({ compaction: {
+      buildPostCompactMessages, truncateHeadPreservingCheckpoint,
+      async autoCompact(input) {
+        const snapshot = { tokens: 10, maxContextTokens: 65536, warningRatio: 0.8,
+          blockingRatio: 0.95, state: "ok" as const, ratio: 0.01 };
+        if (compacted || input.messages.length < 2) return { type: "skipped", snapshot };
+        compacted = true;
+        const summary = { role: "user" as const, content: [{ type: "text" as const, text: "A checkpoint evidence" }] };
+        return { type: "compacted", tier: "full", snapshot, messages: [summary], result: {
+          compactionId: "inherit-checkpoint", trigger: "auto", preTokens: 100, postTokens: 10,
+          messagesSummarized: input.messages.length, summaryMessage: summary, boundaryMarker: summary,
+          messagesToKeep: [], attachments: [], hookResults: [], diagnostics: [],
+        } };
+      },
+    } });
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        const nodeId = input.state.active_step_id ?? "A";
+        return { ...prepared, state: { ...prepared.state, active_step_id: nodeId }, step: {
+          ...prepared.step, nodeId, contextMode: nodeId === "A" ? "new_session" : "inherit",
+          requiredToolNames: nodeId === "A" ? ["lookup_account"] : [],
+          allowedNextStepIds: nodeId === "A" ? ["B"] : [], isTerminal: nodeId === "B",
+        } };
+      },
+      async submit(input) { return { state: { ...input.state, active_step_id: "B",
+        status: input.state.active_step_id === "A" ? "active" : "completed", successful_tool_names: [] },
+        result: { ...input.proposal, slotUpdates: {}, events: [] } }; },
+    };
+    let calls = 0;
+    const model = modelFromStream(async function* (prepared) {
+      const call = calls++;
+      if (call === 2) {
+        const messages = (prepared as { request: { messages: unknown } }).request.messages;
+        assert.ok(JSON.stringify(messages).includes("A checkpoint evidence"));
+        assert.ok(!JSON.stringify(messages).includes("prior parent history"));
+      }
+      yield* yieldToolCall(`checkpoint-${call}`, call === 0 ? "lookup_account" : "submit_step_result",
+        call === 0 ? {} : { status: "completed", replyFragment: "Done" });
+    });
+    const session = createSopSession({ root, sessionId: "inherit-checkpoint", model, context, client,
+      initialMessages: [{ role: "user", content: [{ type: "text", text: "prior parent history" }] }] });
+    const events = await collectSessionTurn(session, "Start", "checkpoint-turn");
+    assert.equal(calls, 3);
+    assert.equal(events.find(event => event.type === "turn_completed")?.result.type, "success");
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const status of ["completed", "handoff", "awaiting_user", "blocked"] as const)
+test(`real node session keeps ${status} events and SOP state on the parent`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-ending-session-"));
+  try {
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = { ...base, async prepare(input) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, step: { ...prepared.step, requiredToolNames: [],
+        expectedUserInfo: status === "awaiting_user" ? ["name"] : [],
+        declaresHandoff: status === "handoff", node: { type: status === "handoff" ? "handoff" : "collect_info" } } };
+    } };
+    const model = modelFromStream(async function* () {
+      yield* yieldToolCall(`ending-${status}`, "submit_step_result", { status, replyFragment: `Final ${status}`, slotUpdates: {} });
+    });
+    const parent = `ending-${status}`;
+    const session = createSopSession({ root, sessionId: parent, client, model });
+    const events = await collectSessionTurn(session, "name: Ada", `turn-${status}`);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status(parent))?.state.status, status);
+    const child = await readRealNode(root, parent, "lookup");
+    assert.equal(replayTranscriptEntries(child).metadata.parentSessionId, parent);
+    assert.ok(events.every(event => event.sessionId === parent));
+    assert.equal(events.filter(event => event.type === "turn_completed").length, 1);
+    assert.equal(events.filter(event => event.type === "assistant_message"
+      && event.message.content.some(block => block.type === "text" && block.text === `Final ${status}`)).length, 1);
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a model retry reuses the same real node session and durable turn", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-model-retry-"));
+  try {
+    let calls = 0;
+    const model = modelFromStream(async function* () {
+      if (calls++ === 0) {
+        yield { type: "error", error: { provider: "test", protocol: "openai", code: "timeout", message: "Temporary timeout", retryable: true } };
+        return;
+      }
+      yield* yieldToolCall("retry-submit", "submit_step_result", { status: "completed", replyFragment: "Retry completed" });
+    });
+    const base = acceptingClient();
+    const client = { ...base, async prepare(input: Parameters<typeof base.prepare>[0]) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, step: { ...prepared.step, requiredToolNames: [] } };
+    } };
+    const context = new DefaultContextRuntime();
+    context.recoverFromModelError = async () => ({ type: "adjust_output_and_retry", maxOutputTokens: 1024, reason: "test retry" });
+    const session = createSopSession({ root, sessionId: "model-retry", client, model, context });
+    const events = await collectSessionTurn(session, "Start", "retry-turn");
+    assert.equal(calls, 2);
+    assert.ok(events.some(event => event.type === "turn_continued"));
+    const child = await readRealNode(root, "model-retry", "lookup");
+    assert.equal(child.filter(entry => entry.type === "turn_started").length, 1);
+    assert.equal(child.filter(entry => entry.type === "session_metadata").length, 1);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("model-retry"))?.state.status, "completed");
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("an invalid owner contextMode is rejected before replacing SOP state or creating a child", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-invalid-owner-mode-"));
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    const before = await store.loadOrCreate("invalid-owner", BUNDLE, "onboarding");
+    const base = acceptingClient();
+    const client = { ...base, async prepare(input: Parameters<typeof base.prepare>[0]) {
+      const prepared = await base.prepare(input);
+      return { ...prepared, step: { ...prepared.step, contextMode: "invalid" as "new_session" } };
+    } };
+    const session = createSopSession({ root, sessionId: "invalid-owner", client,
+      model: modelFromStream(async function* () { throw new Error("model must not run"); }) });
+    const events = await collectSessionTurn(session, "Start", "invalid-turn");
+    assert.ok(JSON.stringify(events).includes("step.contextMode must be new_session or inherit"));
+    assert.deepEqual((await store.status("invalid-owner"))?.state, before.state);
+    assert.equal((await store.status("invalid-owner"))?.revision, before.revision);
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const limit of ["maxBudgetUsd", "taskBudgetUsd", "maxTurns"] as const)
+test(`node switches preserve the parent ${limit} and aggregate usage`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-shared-budget-"));
+  try {
+    const base = acceptingClient();
+    const submitted: string[] = [];
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare(input) {
+        const prepared = await base.prepare(input);
+        const nodeId = input.state.active_step_id ?? "A";
+        return { ...prepared, state: { ...prepared.state, active_step_id: nodeId },
+          step: { ...prepared.step, nodeId, requiredToolNames: [], allowedNextStepIds: nodeId === "A" ? ["B"] : [], isTerminal: nodeId === "B" } };
+      },
+      async submit(input) {
+        submitted.push(input.state.active_step_id!);
+        return { state: { ...input.state, active_step_id: "B", status: input.state.active_step_id === "A" ? "active" : "completed" },
+          result: { ...input.proposal, events: [], slotUpdates: {} } };
+      },
+    };
+    let calls = 0;
+    const model = modelFromStream(async function* () {
+      yield* yieldToolCall(`budget-${calls++}`, "submit_step_result", { status: "completed", replyFragment: "Done" });
+      yield { type: "usage", usage: { inputTokens: 10, outputTokens: 5, nativeCost: 0.1 } };
+    });
+    const session = createSopSession({ root, sessionId: "shared-budget", client, model });
+    const events: AgentEvent[] = [];
+    for await (const event of session.submit({ type: "text", text: "Start" },
+      { turnId: "budget-turn", [limit]: limit === "maxTurns" ? 1 : 0.15, initialTaskBudgetSpentUsd: 0.03 })) events.push(event);
+    assert.equal(calls, limit === "maxTurns" ? 1 : 2);
+    assert.deepEqual(submitted, ["A"], "B cannot reset the parent budget and submit another result");
+    const result = events.find(event => event.type === "turn_completed")?.result;
+    assert.equal(result?.sessionId, "shared-budget");
+    assert.equal(result?.stopReason, limit === "maxTurns" ? "max_turns" : limit === "maxBudgetUsd" ? "max_budget" : "task_budget");
+    assert.equal(result?.usage.inputTokens, limit === "maxTurns" ? 10 : 20);
+    assert.equal(result?.budget?.turnSpentUsd, limit === "maxTurns" ? undefined : 0.2);
+    if (limit === "taskBudgetUsd") assert.ok(Math.abs(result!.budget!.taskSpentUsd! - 0.23) < 1e-9);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("shared-budget"))?.state.status, "active");
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("one SOP turn continues completed nodes through required evidence to the declared handoff", async () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-single-turn-"));
   try {
@@ -221,6 +590,10 @@ test("text-only SOP responses get one protocol correction then fail without adva
     const session = createSopSession({ root, sessionId: "text-only", model, client: acceptingClient() });
     const events = await collectSessionTurn(session, "Start", "text-only-turn");
     assert.equal(calls, 2);
+    const child = await readRealNode(root, "text-only", "lookup");
+    assert.equal(child.filter(entry => entry.type === "turn_started").length, 1,
+      "protocol correction must stay within one real node turn");
+    assert.equal(child.filter(entry => entry.type === "session_metadata").length, 1);
     assert.ok(events.some(event => event.type === "turn_failed"));
     assert.equal(events.filter(event => event.type === "turn_completed" && event.result.type === "success").length, 0);
     const status = await new SopStateStore(join(root, "sessions")).status("text-only");
@@ -1063,6 +1436,12 @@ test("SOP loop recovers in the same session after an ordinary PilotDeck tool fai
       && event.message.content[0]?.type === "text"
       && event.message.content[0].text === "Account onboarding recovered."));
     assert.equal((await new SopStateStore(join(root, "sessions")).status("tool-recovery"))?.state.status, "completed");
+    const child = await readRealNode(root, "tool-recovery", "lookup");
+    assert.equal(child.filter(entry => entry.type === "turn_started").length, 2);
+    assert.equal(child.filter(entry => entry.type === "session_metadata").length, 1);
+    assert.ok(JSON.stringify(child).includes("lookup-failed"));
+    assert.ok(JSON.stringify(child).includes("lookup-retry"));
+    await session.dispose();
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1595,6 +1974,15 @@ function toolPort(tool: PilotDeckToolDefinition): ToolPort {
   };
 }
 
+async function readRealNode(root: string, parentSessionId: string, nodeId: string) {
+  const persisted = await readSubagentProjectSessionPersistence({ projectRoot: root, pilotHome: root,
+    parentSessionId, sessionId: sopNodeSessionId(parentSessionId, "onboarding", nodeId),
+    sidechainId: sopNodeSidechainId("onboarding", nodeId) });
+  assert.ok(persisted.entries.length > 0);
+  assert.ok(persisted.entries.every(entry => entry.sessionId === sopNodeSessionId(parentSessionId, "onboarding", nodeId)));
+  return persisted.entries;
+}
+
 function createSopSession(input: {
   root: string;
   sessionId: string;
@@ -1605,6 +1993,8 @@ function createSopSession(input: {
   transcript?: AgentTranscriptWriter;
   authorityPort?: SopCapabilityAuthorityPort;
   bundle?: StaffDeckSopBundle;
+  contextMode?: "new_session" | "inherit";
+  initialMessages?: import("../../src/model/index.js").CanonicalMessage[];
 }) {
   const profile: StaffDeckSopRuntimeConfig = {
     provider: "staffdeck",
@@ -1612,10 +2002,12 @@ function createSopSession(input: {
     definitionsPath: join(input.root, "definitions.yaml"),
     defaultSopId: "onboarding",
     stateRoot: input.root,
+    ...(input.contextMode ? { contextMode: input.contextMode } : {}),
   };
   const lookup = lookupTool();
   return createAgentSession({
     sessionId: input.sessionId,
+    ...(input.initialMessages ? { initialState: { ...createInitialAgentSessionState(input.sessionId), messages: input.initialMessages } } : {}),
     config: {
       provider: "test",
       model: "test-model",
@@ -1637,6 +2029,8 @@ function createSopSession(input: {
       client: input.client,
       stateStore: new SopStateStore(join(input.root, "sessions")),
       authorityPort: input.authorityPort,
+      contextRuntime: factoryInput.contextRuntime,
+      internalSessionPorts: factoryInput.internalSessionPorts,
     }),
   });
 }

@@ -39,7 +39,7 @@ export type SidecarModelModulePort = Readonly<{
   /** Applies host-owned routing policy to an existing prepared invocation. */
   materializeRequest?: AgentTurnRoutingPort["materializeRequest"];
   /** Resolves host-owned routing state once for an active sidecar turn. */
-  bindTurn?(input: Readonly<{ sessionId: string; turnId: string }>): SidecarModelModulePort;
+  bindTurn?(input: Readonly<{ sessionId: string; turnId: string }>, execution?: ModelExecutionPort): SidecarModelModulePort;
 }>;
 
 export type SidecarBudgetModulePort = ModelBudgetPort;
@@ -276,7 +276,8 @@ function createSidecarModelModulePort(ports: SidecarHostModulePorts): SidecarMod
   return Object.freeze({
     execution: ports.model,
     ...metadata,
-    bindTurn: ({ sessionId }) => {
+    bindTurn: ({ sessionId }, recordingExecution?: ModelExecutionPort) => {
+      const model = recordingExecution ?? ports.model;
       const sticky = ports.routing!.invalidateSticky!(sessionId);
       let previousTier = sticky?.previousTier;
       const routeMetadata = (): Record<string, unknown> | undefined => {
@@ -290,7 +291,7 @@ function createSidecarModelModulePort(ports: SidecarHostModulePorts): SidecarMod
         return previousTier ? { previousTier } : undefined;
       };
       const execution: ModelExecutionPort = Object.freeze({
-        prepare: ({ request, context }) => ports.model.prepare.call(ports.model, {
+        prepare: ({ request, context }) => model.prepare.call(model, {
           request,
           context: {
             ...context,
@@ -301,7 +302,7 @@ function createSidecarModelModulePort(ports: SidecarHostModulePorts): SidecarMod
         }),
         async *stream(input) {
           try {
-            yield* ports.model.stream.call(ports.model, input);
+            yield* model.stream.call(model, input);
           } finally {
             if (!sticky?.orchestrating) previousTier = undefined;
           }

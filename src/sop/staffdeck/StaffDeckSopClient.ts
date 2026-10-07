@@ -267,6 +267,7 @@ function isSopStep(value: unknown): boolean {
     && isStringArray(value.allowedActions)
     && typeof value.isTerminal === "boolean"
     && typeof value.declaresHandoff === "boolean"
+    && (value.contextMode === undefined || value.contextMode === "new_session" || value.contextMode === "inherit")
     && (value.subSopId === undefined || value.subSopId === null || typeof value.subSopId === "string");
 }
 

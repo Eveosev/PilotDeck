@@ -13,6 +13,9 @@ import { createSidecarExecution } from "../../src/cli/pilotdeck-agent-loop-defau
 import { createLocalGateway } from "../../src/cli/createLocalGateway.js";
 import { createKnowledgeModulePort } from "../../src/composition/domainPorts.js";
 import { createFormalApprovalFixture } from "./formal-approval-fixture.js";
+import { readSubagentProjectSessionPersistence } from "../../src/session/storage/ProjectSessionStorage.js";
+import { replayTranscriptEntries } from "../../src/session/transcript/TranscriptReplay.js";
+import { sopNodeSessionId, sopNodeSidechainId } from "../../src/sop/staffdeck/SopNodeSessions.js";
 
 const KNOWLEDGE_METHODS = [
   "list_bases",
@@ -54,7 +57,8 @@ const KNOWLEDGE_METHODS = [
  * selected by the same YAML profile. This exercises the real Gateway/session
  * composition boundary rather than calling the individual Ports directly.
  */
-test("YAML-composed external AgentLoop runs SOP with external core modules", async (t) => {
+for (const contextMode of ["inherit", "new_session"] as const)
+test(`YAML-composed external AgentLoop runs SOP with external core modules (${contextMode})`, async (t) => {
   const root = await mkdtemp(join(tmpdir(), "pilotdeck-external-sidecar-sop-"));
   const projectRoot = join(root, "project");
   const moduleCalls: string[] = [];
@@ -105,6 +109,7 @@ test("YAML-composed external AgentLoop runs SOP with external core modules", asy
   });
   const sopServer = createServer(async (request, response) => {
     await routeSop(request, response, sopCalls, {
+      contextMode,
       isHandoffSession: (sessionId) => sessionId === "external-sidecar-wait",
     });
   });
@@ -306,10 +311,16 @@ ${approval.discoveryYaml}
     projectKey: projectRoot,
     sessionKey: "external-sidecar-sop",
   });
-  assert.ok(
-    automaticArchive.messages.some((message) => message.text.includes("External automatic compaction summary")),
-    JSON.stringify(automaticArchive),
-  );
+  assert.equal(automaticArchive.messages.some(message => message.text.includes("External automatic compaction summary")),
+    contextMode === "inherit", JSON.stringify(automaticArchive));
+  if (contextMode === "new_session") {
+    const child = await readSubagentProjectSessionPersistence({ projectRoot, pilotHome: projectRoot,
+      parentSessionId: "external-sidecar-sop", sessionId: sopNodeSessionId("external-sidecar-sop", "approval", "only"),
+      sidechainId: sopNodeSidechainId("approval", "only") });
+    assert.ok(child.entries.length > 0);
+    assert.equal(replayTranscriptEntries(child.entries).metadata.parentSessionId, "external-sidecar-sop");
+    assert.ok(JSON.stringify(child.entries).includes("External automatic compaction summary"));
+  }
 
   waitMode = true;
   waitPhase = "handoff";
@@ -828,7 +839,7 @@ async function routeSop(
   request: IncomingMessage,
   response: ServerResponse,
   calls: string[],
-  options: { isHandoffSession(sessionId: string): boolean },
+  options: { isHandoffSession(sessionId: string): boolean; contextMode?: "inherit" | "new_session" },
 ): Promise<void> {
   if (request.method === "GET") {
     writeJson(response, {
@@ -856,6 +867,7 @@ async function routeSop(
         state: { ...(payload.state as Record<string, unknown>), status: "active", active_skill_id: "approval", active_step_id: "only" },
         step: {
           skillId: "approval", skillName: "Approval", version: "1", nodeId: "only", node: {},
+          contextMode: options.contextMode ?? "inherit",
           instruction: handoffSession ? "Wait for external approval." : "Read the approval guide and knowledge record.",
           expectedUserInfo: [], knownSlots: {},
           allowedNextStepIds: [], requiredToolNames: handoffSession ? [] : ["remote_lookup", "knowledge_query"],

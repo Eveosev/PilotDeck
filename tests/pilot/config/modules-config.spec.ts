@@ -25,7 +25,8 @@ ${modules}
 `;
 }
 
-test("loadPilotConfig resolves the StaffDeck SOP module profile", () => {
+for (const contextMode of [undefined, "new_session", "inherit"] as const)
+test(`loadPilotConfig resolves the StaffDeck SOP module profile (${contextMode ?? "default"})`, () => {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-config-"));
   const configPath = join(root, "pilotdeck.yaml");
   try {
@@ -40,6 +41,7 @@ modules:
     endpoint: http://sop-runtime:8091
     definitionsPath: sops/definitions.yaml
     defaultSopId: onboarding
+${contextMode === undefined ? "" : `    contextMode: ${contextMode}`}
     timeoutMs: 5000
 `));
 
@@ -51,8 +53,35 @@ modules:
       definitionsPath: join(root, "sops", "definitions.yaml"),
       defaultSopId: "onboarding",
       stateRoot: join(root, "sop"),
+      ...(contextMode === undefined ? {} : { contextMode }),
       timeoutMs: 5000,
     });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadPilotConfig rejects an invalid StaffDeck SOP context mode", () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-context-mode-invalid-"));
+  const configPath = join(root, "pilotdeck.yaml");
+  try {
+    writeFileSync(configPath, configWithModules(`
+modules:
+  sop:
+    enabled: true
+    provider: staffdeck
+    endpoint: http://sop-runtime:8091
+    definitionsPath: definitions.yaml
+    defaultSopId: onboarding
+    contextMode: shared
+`));
+    assert.throws(
+      () => loadPilotConfig({ configPath, env: { PILOT_HOME: root } }),
+      (error: unknown) => (error as { diagnostics?: Array<{ code: string; path?: string }> }).diagnostics?.some(
+        (diagnostic) => diagnostic.code === "SOP_MODULE_CONTEXT_MODE_INVALID"
+          && diagnostic.path === "modules.sop.contextMode",
+      ) === true,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

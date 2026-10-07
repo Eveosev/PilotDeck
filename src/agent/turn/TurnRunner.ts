@@ -82,7 +82,7 @@ export type TurnRunnerRuntimeReloadSnapshot = {
 };
 
 export type AgentLoopRunner = Pick<AgentLoop, "run" | "snapshotFileState"> &
-  Partial<Pick<AgentLoop, "seedReadState">>;
+  Partial<Pick<AgentLoop, "seedReadState">> & { dispose?(): Promise<void> };
 
 export type TurnRunnerDependencies = {
   metadataStore?: SessionMetadataStore;
@@ -531,6 +531,7 @@ export class TurnRunner {
     // A provider may ignore cancellation. Do not wait for its network request;
     // the completion guard below prevents it from ever saving a late title.
     await this.transcript.close?.();
+    await this.loop.dispose?.();
   }
 
   private maybeGenerateSessionTitle(

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn, type ChildProcess } from "node:child_process";
 import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
@@ -7,6 +8,11 @@ import test from "node:test";
 
 import { createLocalGateway } from "../../src/cli/createLocalGateway.js";
 import type { PilotDeckToolDefinition } from "../../src/tool/index.js";
+import { createFormalApprovalFixture } from "../composition/formal-approval-fixture.js";
+import { SopStateStore } from "../../src/sop/staffdeck/SopStateStore.js";
+import { createModelRuntime } from "../../src/model/index.js";
+import { readSubagentProjectSessionPersistence } from "../../src/session/storage/ProjectSessionStorage.js";
+import { sopNodeSessionId, sopNodeSidechainId } from "../../src/sop/staffdeck/SopNodeSessions.js";
 
 const endpoint = process.env.STAFFDECK_SOP_E2E_ENDPOINT;
 
@@ -32,16 +38,17 @@ test("Gateway runs PilotDeck tools through the real StaffDeck SOP HTTP service",
     }
 
     const agentRequests = provider.requests.filter((request) => Array.isArray(request.tools));
-    assert.equal(agentRequests.length, 2, JSON.stringify(events));
+    // Lookup and collection run in a child; the inherited final node then submits.
+    assert.equal(agentRequests.length, 3, JSON.stringify(events));
     assert.match(JSON.stringify(agentRequests[0]), /staffdeck-sop/);
     assert.match(JSON.stringify(agentRequests[0]), /submit_step_result/);
-    assertTurnEndsAfterReply(events, "I found Ada's account and captured the onboarding details.");
+    assertTurnEndsAfterReply(events, "Onboarding is complete.");
     assert.deepEqual((await readState(projectRoot)).state, {
       version: 1,
       selected_skill_id: "onboarding",
       active_skill_id: "onboarding",
       active_step_id: "complete",
-      status: "active",
+      status: "completed",
       slots_json: { name: "Ada" },
       skill_stack_json: [],
       successful_tool_names: [],
@@ -65,10 +72,11 @@ test("Gateway runs PilotDeck tools through the real StaffDeck SOP HTTP service",
       completionEvents.push(event);
     }
 
-    assert.equal(provider.requests.filter((request) => Array.isArray(request.tools)).length, 3);
+    assert.equal(provider.requests.filter((request) => Array.isArray(request.tools)).length, 4);
     assertTurnEndsAfterReply(completionEvents, "Onboarding is complete.");
     const restartedRequests = provider.requests.slice(requestsBeforeRestart);
     assert.equal(restartedRequests.length, 1);
+    assert.ok(!JSON.stringify(completionEvents).includes('"type":"tool_call_started"'), "completed SOP must not replay a tool");
     const completed = await readState(projectRoot);
     assert.equal(completed.state.status, "completed");
     assert.equal(completed.state.active_step_id, "complete");
@@ -77,6 +85,65 @@ test("Gateway runs PilotDeck tools through the real StaffDeck SOP HTTP service",
     await provider.close();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("real StaffDeck and Gateway restart restore a node session and its original handoff", { skip: !endpoint }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "pilotdeck-sop-owner-restart-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const projectRoot = join(root, "project");
+  await mkdir(projectRoot, { recursive: true });
+  const provider = await startLifecycleOpenAiMock();
+  t.after(() => provider.close());
+  const owner = await startRestartableSopOwner();
+  t.after(() => owner.close());
+  const approval = await createFormalApprovalFixture({ root, projectRoot });
+  t.after(() => approval.close());
+  const definition = approvalYaml(approval.assigneeUserId)
+    .replace("start_node_id: approval", "start_node_id: introduction")
+    .replace("      nodes:\n", `      nodes:\n        - node_id: introduction\n          contextMode: inherit\n          instruction: Finish introduction before approval.\n`)
+    .replace("contextMode: inherit\n          type: handoff", "contextMode: new_session\n          type: handoff")
+    .replace("      terminal_node_ids:", "      edges:\n        - { source_node_id: introduction, next_node_id: approval }\n      terminal_node_ids:");
+  await writeFile(join(projectRoot, "approval.yaml"), definition);
+  await writeFile(join(projectRoot, "pilotdeck.yaml"), configForApproval(owner.url, provider.url, approval));
+  await approval.publishDefinition();
+  let local = createSopGateway(projectRoot, true, approval);
+  t.after(() => local.dispose());
+  const main = "sop:owner-restart";
+  const readNode = () => readSubagentProjectSessionPersistence({ projectRoot, pilotHome: projectRoot,
+    parentSessionId: main, sessionId: sopNodeSessionId(main, "approval", "approval"),
+    sidechainId: sopNodeSidechainId("approval", "approval") });
+  assertTurnEndsAfterReply(await collectTurn(local.gateway.submitTurn({ sessionKey: main, workspaceCwd: projectRoot,
+    channelKey: "test", message: "Request human handoff", mode: "bypassPermissions" })), "Waiting for human approval.");
+  const waiting = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: main, projectKey: projectRoot });
+  assert.equal(waiting?.wait?.kind, "handoff");
+  const before = await readNode();
+  assert.ok(before.entries.length > 0);
+  await local.dispose();
+  await owner.restart();
+  await approval.restartStaffDeck();
+  local = createSopGateway(projectRoot, true, approval);
+  const restored = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: main, projectKey: projectRoot });
+  assert.equal(restored?.wait?.id, waiting!.wait!.id);
+  assert.equal(restored?.revision, waiting!.revision);
+  await assert.rejects(() => local.gateway.resumeSop!({ ...approval.approver, sessionKey: main, projectKey: projectRoot,
+    requestId: "expired", source: "human", waitId: "expired-wait", expectedRevision: waiting!.revision, message: "Ignore stale" }));
+  await assert.rejects(() => local.gateway.resumeSop!({ ...approval.approver, sessionKey: "wrong-parent", projectKey: projectRoot,
+    requestId: "wrong-parent", source: "human", waitId: waiting!.wait!.id, expectedRevision: waiting!.revision, message: "Ignore wrong parent" }));
+  assert.equal((await new SopStateStore(join(projectRoot, "sop/sessions")).status(main))?.revision, waiting!.revision);
+  const resume = { ...approval.approver, sessionKey: main, projectKey: projectRoot,
+    requestId: "approved-after-restart", source: "human" as const, waitId: waiting!.wait!.id,
+    expectedRevision: waiting!.revision, message: "Human approved the request." };
+  const accepted = await local.gateway.resumeSop!(resume);
+  assert.equal((await local.gateway.resumeSop!(resume)).duplicate, true);
+  const events = await collectTurn(local.gateway.submitTurn({ sessionKey: main, workspaceCwd: projectRoot,
+    channelKey: "test", message: accepted.message, mode: "bypassPermissions" }));
+  assertTurnEndsAfterReply(events, "Human-approved SOP completed.");
+  const after = await readNode();
+  assert.equal(after.entries.filter(entry => entry.type === "session_metadata").length, 1);
+  assert.equal(after.entries.filter(entry => entry.type === "turn_started").length, 2);
+  assert.ok(after.entries.every(entry => entry.sessionId === before.entries[0].sessionId));
+  const history = await local.gateway.readSessionMessages({ sessionKey: main, projectKey: projectRoot });
+  assert.equal(history.messages.filter(message => message.text === "Human-approved SOP completed.").length, 1);
 });
 
 test("Gateway leaves StaffDeck out of a disabled SOP composition", async () => {
@@ -142,14 +209,16 @@ test("Gateway preserves an existing SOP wait across enabled-disabled-enabled pro
   const projectRoot = join(root, "project");
   const provider = await startLifecycleOpenAiMock();
   await mkdir(projectRoot, { recursive: true });
-  await writeFile(join(projectRoot, "lifecycle.yaml"), LIFECYCLE_YAML, "utf8");
+  const approval = await createFormalApprovalFixture({ root, projectRoot });
+  await writeFile(join(projectRoot, "approval.yaml"), approvalYaml(approval.assigneeUserId), "utf8");
   await writeFile(
     join(projectRoot, "pilotdeck.yaml"),
-    configForDefinition(endpoint!, provider.url, "lifecycle.yaml", "lifecycle"),
+    configForApproval(endpoint!, provider.url, approval),
     "utf8",
   );
 
-  let local = createSopGateway(projectRoot);
+  await approval.publishDefinition();
+  let local = createSopGateway(projectRoot, true, approval);
   try {
     await collectTurn(local.gateway.submitTurn({
       sessionKey: "sop:profile-restart",
@@ -158,7 +227,7 @@ test("Gateway preserves an existing SOP wait across enabled-disabled-enabled pro
       message: "Request human handoff",
       mode: "bypassPermissions",
     }));
-    const waiting = await local.gateway.sopStatus!({ sessionKey: "sop:profile-restart", projectKey: projectRoot });
+    const waiting = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop:profile-restart", projectKey: projectRoot });
     assert.equal(waiting?.state.status, "handoff");
     assert.equal(waiting?.wait?.kind, "handoff");
     const expectedWaitId = waiting!.wait!.id;
@@ -166,7 +235,7 @@ test("Gateway preserves an existing SOP wait across enabled-disabled-enabled pro
     await local.dispose();
 
     await writeFile(join(projectRoot, "pilotdeck.yaml"), configWithoutSop(provider.url), "utf8");
-    local = createSopGateway(projectRoot);
+    local = createSopGateway(projectRoot, true, approval);
     await assert.rejects(
       () => local.gateway.sopStatus!({ sessionKey: "sop:profile-restart", projectKey: projectRoot }),
       (error: unknown) => (error as { code?: string }).code === "SOP_MODULE_DISABLED",
@@ -175,11 +244,11 @@ test("Gateway preserves an existing SOP wait across enabled-disabled-enabled pro
 
     await writeFile(
       join(projectRoot, "pilotdeck.yaml"),
-      configForDefinition(endpoint!, provider.url, "lifecycle.yaml", "lifecycle"),
+      configForApproval(endpoint!, provider.url, approval),
       "utf8",
     );
-    local = createSopGateway(projectRoot);
-    const restored = await local.gateway.sopStatus!({ sessionKey: "sop:profile-restart", projectKey: projectRoot });
+    local = createSopGateway(projectRoot, true, approval);
+    const restored = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop:profile-restart", projectKey: projectRoot });
     assert.equal(restored?.state.status, "handoff");
     assert.equal(restored?.wait?.id, expectedWaitId);
     assert.equal(restored?.revision, expectedRevision);
@@ -187,6 +256,7 @@ test("Gateway preserves an existing SOP wait across enabled-disabled-enabled pro
   } finally {
     await local.dispose();
     await provider.close();
+    await approval.close();
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -236,14 +306,16 @@ test("Gateway resumes StaffDeck handoff and external waits through host-side com
   const projectRoot = join(root, "project");
   const provider = await startLifecycleOpenAiMock();
   await mkdir(projectRoot, { recursive: true });
-  await writeFile(join(projectRoot, "lifecycle.yaml"), LIFECYCLE_YAML, "utf8");
+  const approval = await createFormalApprovalFixture({ root, projectRoot });
+  await writeFile(join(projectRoot, "approval.yaml"), approvalYaml(approval.assigneeUserId), "utf8");
   await writeFile(
     join(projectRoot, "pilotdeck.yaml"),
-    configForDefinition(endpoint!, provider.url, "lifecycle.yaml", "lifecycle"),
+    configForApproval(endpoint!, provider.url, approval),
     "utf8",
   );
 
-  const local = createSopGateway(projectRoot);
+  await approval.publishDefinition();
+  const local = createSopGateway(projectRoot, true, approval);
   try {
     const handoffEvents = await collectTurn(local.gateway.submitTurn({
       sessionKey: "sop:handoff:e2e",
@@ -253,11 +325,12 @@ test("Gateway resumes StaffDeck handoff and external waits through host-side com
       mode: "bypassPermissions",
     }));
     assertTurnEndsAfterReply(handoffEvents, "Waiting for human approval.");
-    const handoff = await local.gateway.sopStatus!({ sessionKey: "sop:handoff:e2e", projectKey: projectRoot });
+    const handoff = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop:handoff:e2e", projectKey: projectRoot });
     assert.equal(handoff?.state.status, "handoff");
     assert.equal(handoff?.wait?.kind, "handoff");
 
     const resumedHandoff = await local.gateway.resumeSop!({
+      ...approval.approver,
       sessionKey: "sop:handoff:e2e",
       projectKey: projectRoot,
       requestId: "handoff-reply-1",
@@ -268,12 +341,15 @@ test("Gateway resumes StaffDeck handoff and external waits through host-side com
       slotUpdates: { humanApproved: true },
     });
     const duplicateHandoff = await local.gateway.resumeSop!({
+      ...approval.approver,
       sessionKey: "sop:handoff:e2e",
       projectKey: projectRoot,
       requestId: "handoff-reply-1",
       waitId: handoff!.wait!.id,
       source: "human",
       message: "Human approved the request.",
+      expectedRevision: handoff!.revision,
+      slotUpdates: { humanApproved: true },
     });
     assert.equal(resumedHandoff.duplicate, false);
     assert.equal(duplicateHandoff.duplicate, true);
@@ -285,7 +361,7 @@ test("Gateway resumes StaffDeck handoff and external waits through host-side com
       mode: "bypassPermissions",
     }));
     assertTurnEndsAfterReply(handoffCompletion, "Human-approved SOP completed.");
-    assert.equal((await local.gateway.sopStatus!({ sessionKey: "sop:handoff:e2e", projectKey: projectRoot }))?.state.status, "completed");
+    assert.equal((await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop:handoff:e2e", projectKey: projectRoot }))?.state.status, "completed");
 
     const externalEvents = await collectTurn(local.gateway.submitTurn({
       sessionKey: "sop:external:e2e",
@@ -328,12 +404,13 @@ test("Gateway resumes StaffDeck handoff and external waits through host-side com
       mode: "bypassPermissions",
     }));
     assertTurnEndsAfterReply(externalCompletion, "External-task SOP completed.");
-    const externalCompleted = await local.gateway.sopStatus!({ sessionKey: "sop:external:e2e", projectKey: projectRoot });
+    const externalCompleted = await local.gateway.sopStatus!({ ...approval.approver, sessionKey: "sop:external:e2e", projectKey: projectRoot });
     assert.equal(externalCompleted?.state.status, "completed");
     assert.equal(externalCompleted?.state.slots_json?.externalResult, "approved");
   } finally {
     await local.dispose();
     await provider.close();
+    await approval.close();
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -343,7 +420,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
   const projectRoot = join(root, "project");
   const provider = await startLifecycleOpenAiMock();
   await mkdir(projectRoot, { recursive: true });
-  await writeFile(join(projectRoot, "lifecycle.yaml"), LIFECYCLE_YAML, "utf8");
+  await writeFile(join(projectRoot, "lifecycle.yaml"), LIFECYCLE_YAML.replace("          type: handoff", '          allowed_actions: [ask_user]'), "utf8");
   await writeFile(
     join(projectRoot, "pilotdeck.yaml"),
     configForDefinition(endpoint!, provider.url, "lifecycle.yaml", "lifecycle"),
@@ -351,6 +428,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
   );
 
   const local = createSopGateway(projectRoot);
+  const state = new SopStateStore(join(projectRoot, "sop", "sessions"));
   try {
     for (const scenario of [
       {
@@ -378,7 +456,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
         mode: "bypassPermissions",
       }));
       assertTurnEndsAfterReply(initialEvents, scenario.waitingReply);
-      const initial = await local.gateway.sopStatus!({ sessionKey: scenario.sessionKey, projectKey: projectRoot });
+      const initial = await state.status(scenario.sessionKey);
       assert.equal(initial?.state.status, scenario.name === "awaiting-user" ? "awaiting_user" : "failed");
       assert.equal(initial?.wait, undefined);
       await assert.rejects(
@@ -387,7 +465,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
           projectKey: projectRoot,
           requestId: `${scenario.name}-invalid-resume`,
           waitId: "not-a-real-wait",
-          source: "human",
+          source: "external_task",
           message: "This status must not use the host resume control.",
         }),
         (error: unknown) => (error as { code?: string }).code === "SOP_NOT_WAITING",
@@ -401,7 +479,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
         mode: "bypassPermissions",
       }));
       assertTurnEndsAfterReply(continuationEvents, scenario.completionReply);
-      const completed = await local.gateway.sopStatus!({ sessionKey: scenario.sessionKey, projectKey: projectRoot });
+      const completed = await state.status(scenario.sessionKey);
       assert.equal(completed?.state.status, "completed");
       assert.equal(completed?.wait, undefined);
     }
@@ -414,7 +492,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
       mode: "bypassPermissions",
     }));
     assertTurnEndsAfterReply(blockedEvents, "SOP is blocked and cannot continue.");
-    const blocked = await local.gateway.sopStatus!({ sessionKey: "sop:blocked:e2e", projectKey: projectRoot });
+    const blocked = await state.status("sop:blocked:e2e");
     assert.equal(blocked?.state.status, "blocked");
     assert.equal(blocked?.wait, undefined);
     await assert.rejects(
@@ -423,7 +501,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
         projectKey: projectRoot,
         requestId: "blocked-invalid-resume",
         waitId: "not-a-real-wait",
-        source: "human",
+        source: "external_task",
         message: "Blocked states are terminal.",
       }),
       (error: unknown) => (error as { code?: string }).code === "SOP_NOT_WAITING",
@@ -437,7 +515,7 @@ test("Gateway projects non-resumable StaffDeck SOP states through ordinary turns
       mode: "bypassPermissions",
     }));
     assertTurnEndsAfterReply(blockedContinuation, "Blocked SOP remains terminal.");
-    const stillBlocked = await local.gateway.sopStatus!({ sessionKey: "sop:blocked:e2e", projectKey: projectRoot });
+    const stillBlocked = await state.status("sop:blocked:e2e");
     assert.equal(stillBlocked?.state.status, "blocked");
     assert.equal(stillBlocked?.revision, blockedRevision, "a terminal SOP must not be prepared or submitted again");
     assert.equal(stillBlocked?.wait, undefined);
@@ -495,14 +573,69 @@ for (const fault of ["http_500", "malformed_200", "timeout"] as const) {
   });
 }
 
-function createSopGateway(projectRoot: string, includeLookupAccount = true) {
-  return createLocalGateway({
+type ApprovalFixture = Awaited<ReturnType<typeof createFormalApprovalFixture>>;
+
+async function startRestartableSopOwner() {
+  const staffDeckRoot = process.env.STAFFDECK_SOP_ROOT;
+  if (!staffDeckRoot) throw new Error("Owner restart test requires STAFFDECK_SOP_ROOT");
+  const python = process.env.STAFFDECK_PYTHON ?? join(staffDeckRoot, "backend/.venv/bin/python");
+  const reservation = createServer();
+  await listen(reservation);
+  const url = serverUrl(reservation);
+  const port = new URL(url).port;
+  await closeServer(reservation);
+  let child: ChildProcess | undefined;
+  const stop = async () => {
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise<void>(resolve => child!.once("exit", () => resolve()));
+    child.kill("SIGTERM");
+    await exited;
+  };
+  const start = async () => {
+    const logs: string[] = [];
+    child = spawn(python, ["-m", "uvicorn", "staffdeck_sop_runtime.api:app", "--host", "127.0.0.1", "--port", port], {
+      cwd: staffDeckRoot,
+      env: { ...process.env, PYTHONPATH: ["backend", "backend/src", "portable_sop/src"].map(path => join(staffDeckRoot, path)).join(":") },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    child.stderr!.on("data", data => logs.push(String(data)));
+    let spawnError: Error | undefined;
+    child.on("error", error => { spawnError = error; });
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      if (spawnError || child.exitCode !== null) throw spawnError ?? new Error(logs.join(""));
+      try { if ((await fetch(`${url}/healthz`)).ok) return; } catch {}
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    await stop();
+    throw new Error(`StaffDeck owner did not start: ${logs.join("")}`);
+  };
+  try { await start(); } catch (error) { await stop(); throw error; }
+  return { url, close: stop, restart: async () => { await stop(); await start(); } };
+}
+
+function approvalYaml(assignee: string): string {
+  return LIFECYCLE_YAML.replace("- id: lifecycle", "- id: approval")
+    .replace("          type: handoff", `          type: handoff\n          assignee_user_id: ${assignee}`);
+}
+
+function configForApproval(endpoint: string, modelEndpoint: string, approval: ApprovalFixture): string {
+  return configForDefinition(endpoint, modelEndpoint, "approval.yaml", "approval")
+    .replace("    defaultSopId: approval\n", `    defaultSopId: approval\n${approval.discoveryYaml}`);
+}
+
+function createSopGateway(projectRoot: string, includeLookupAccount = true, approval?: ApprovalFixture) {
+  const local = createLocalGateway({
+    ...(approval ? { env: approval.env,
+      __testModelFactory: snapshot => approval.routingModel(createModelRuntime(snapshot.config.model)) } : {}),
     projectRoot,
     pilotHome: projectRoot,
     fallbackProjectRoot: projectRoot,
     permissionMode: "bypassPermissions",
     extraTools: includeLookupAccount ? [lookupAccountTool()] : [],
   });
+  approval?.attach(local);
+  return local;
 }
 
 function lookupAccountTool(): PilotDeckToolDefinition {
@@ -627,7 +760,9 @@ async function startOpenAiMock(): Promise<{ url: string; requests: Record<string
     response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
     const tools = Array.isArray(body.tools);
     const serializedMessages = JSON.stringify(body.messages ?? []);
-    if (!tools) {
+    if (tools && !toolNames(body).includes("submit_step_result")) {
+      response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "Onboarding is complete." }, finish_reason: "stop" }] })}\n\n`);
+    } else if (!tools) {
       response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "SOP E2E" }, finish_reason: "stop" }] })}\n\n`);
     } else if (serializedMessages.includes("lookup-account")) {
       writeToolCall(response, "submit-sop-step", "submit_step_result", {
@@ -741,7 +876,9 @@ async function startLifecycleOpenAiMock(): Promise<{ url: string; close(): Promi
     const messages = JSON.stringify(body.messages ?? []);
     let status: "completed" | "awaiting_user" | "handoff" | "failed" | "blocked" | "waiting_external_task" = "completed";
     let replyFragment = "SOP completed.";
-    if (messages.includes("Request user information") && !messages.includes("Provide the requested user information")) {
+    if (messages.includes("Finish introduction before approval.")) {
+      replyFragment = "Introduction complete.";
+    } else if (messages.includes("Request user information") && !messages.includes("Provide the requested user information")) {
       status = "awaiting_user";
       replyFragment = "Waiting for user information.";
     } else if (messages.includes("Provide the requested user information")) {
@@ -972,10 +1109,12 @@ const ONBOARDING_YAML = `sops:
       start_node_id: collect_profile
       nodes:
         - node_id: collect_profile
+          contextMode: new_session
           instruction: Collect the user's name and run lookup_account before confirming onboarding.
           expected_user_info: [name]
           allowed_actions: ["call_tool:lookup_account"]
         - node_id: complete
+          contextMode: inherit
           instruction: Confirm that onboarding is complete.
       edges:
         - source_node_id: collect_profile
@@ -991,6 +1130,7 @@ const LIFECYCLE_YAML = `sops:
       start_node_id: approval
       nodes:
         - node_id: approval
+          contextMode: inherit
           type: handoff
           instruction: Complete this step after any requested host-side wait is resumed.
       terminal_node_ids: [approval]
@@ -1004,6 +1144,7 @@ const SINGLE_STEP_YAML = `sops:
       start_node_id: only
       nodes:
         - node_id: only
+          contextMode: inherit
           instruction: Complete the recovered SOP step.
       terminal_node_ids: [only]
 `;

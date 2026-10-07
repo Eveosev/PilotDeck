@@ -123,6 +123,9 @@ function buildAgentSession(
     }) ?? options.agentLoopFactory?.({
       config: options.config,
       capabilities,
+      sessionStorage: storage,
+      contextRuntime: context,
+      internalSessionPorts: runtimeResources.internalSessionPorts,
       sidecarModules,
       seedState: options.seedState,
       sidecarTransportContext,

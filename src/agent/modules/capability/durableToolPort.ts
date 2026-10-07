@@ -4,18 +4,20 @@ import type { ToolPort } from "../protocol.js";
 export function createDurableToolPort(
   delegate: ToolPort,
   recorder: AgentSessionEventRecorder,
+  recordingSessionId?: string,
 ): ToolPort {
   return {
     list: () => delegate.list(),
     ...(delegate.refresh ? { refresh: () => delegate.refresh!.call(delegate) } : {}),
     async executeAll(calls, context, execution) {
-      await recorder.recordToolCalls(execution.sessionId, execution.turnId, calls);
+      const sessionId = recordingSessionId ?? execution.sessionId;
+      await recorder.recordToolCalls(sessionId, execution.turnId, calls);
       const results = await delegate.executeAll(calls, context, execution);
       // AgentLoop terminates an aborted turn before model-visible Tool results
       // are projected. Keep the internal durable stream aligned with that
       // boundary: a late scheduler result is not a settled tool outcome.
       if (execution.abortSignal?.aborted) return results;
-      await recorder.recordToolResults(execution.sessionId, execution.turnId, results);
+      await recorder.recordToolResults(sessionId, execution.turnId, results);
       return results;
     },
   };

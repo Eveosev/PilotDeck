@@ -2,6 +2,8 @@
 
 七槽生产部署请先阅读 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)。
 
+SOP 节点会话的配置、跨节点数据传递和审批恢复请阅读 [中文使用说明](NODE_SESSION_USAGE.zh-CN.md)。
+
 Seven-slot external example: `profiles/example-seven-external.yaml` binds every
 slot to an unregistered implementation. The exporter preserves these bindings
 and lists the required external endpoints in the generated README.
@@ -82,6 +84,19 @@ the existing StaffDeck handoff lifecycle and no business-tool binding. Point
 when deploying a business workflow. Any declared business capability remains a
 PilotDeck tool dependency: missing capabilities fail explicitly instead of
 falling back to StaffDeck-owned tools, knowledge bases, channels, or sessions.
+
+SOP model context starts fresh for each node by default. Set
+`modules.sop.contextMode: inherit` to retain the previous node's messages, or
+set `contextMode: inherit` / `contextMode: new_session` on an individual SOP
+node to override the module default.
+
+`new_session` creates a persistent internal AgentSession for each parent/SOP/node
+identity. Subsequent turns and process restarts reuse that node's transcript.
+Only the current human input enters a fresh node; SOP slots remain available
+through the owner state. Internal sessions are hidden from ordinary session
+lists, and Gateway events, visible replies, SOP revisions, routing and usage
+remain associated with the parent. Context cache, memory capture and compaction
+use the internal node session identity. See [node session acceptance](NODE_SESSION_ACCEPTANCE.md).
 
 The broader target has seven slots: `agentLoop`, `skills`, `tools`, `context`,
 `modelProvider`, `sop`, and `knowledge`. Compaction is part of `context`.
