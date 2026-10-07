@@ -1,0 +1,17 @@
+[
+  {
+    "name": "real_tool_deliverables_text_and_binary",
+    "status": "passed",
+    "detail": {
+      "session_id": "pd-eval-c6fa9111a64345fd8e38345dfe2ab6b4",
+      "artifacts": [
+        "report.docx",
+        "report.md",
+        "report.pdf",
+        "totals.csv",
+        "totals.xlsx"
+      ]
+    },
+    "seconds": 52.72
+  }
+]

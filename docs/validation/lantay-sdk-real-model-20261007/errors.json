@@ -1,0 +1,42 @@
+{
+  "missing_token": {
+    "http_status": 401,
+    "body": {
+      "detail": "Unauthorized"
+    }
+  },
+  "invalid_session": {
+    "http_status": 400,
+    "body": {
+      "detail": {
+        "error": "invalid_session_id",
+        "detail": "session_id must match ^[a-zA-Z0-9_-]{1,128}$",
+        "remediation": "session_id must match ^[a-zA-Z0-9_-]{1,128}$. Reuse the session_id the server returned (session_started frame / response body) rather than constructing one.",
+        "session_id": "bad!session"
+      }
+    }
+  },
+  "unknown_skill": {
+    "http_status": 400,
+    "body": {
+      "detail": {
+        "error": "unknown_skill",
+        "detail": "Unknown skill: absent-acceptance-skill",
+        "remediation": "enabled_skills contained a name this build does not ship. Omit enabled_skills to allow all skills, or send only names from the deployed skill set."
+      }
+    }
+  },
+  "missing_reference": {
+    "http_status": 400,
+    "body": {
+      "detail": {
+        "error": "invalid_scope",
+        "detail": "reference_documents did not match the staged upload/case manifest.",
+        "remediation": "reference_documents / category / case_id did not resolve to any staged material. Check the names against the files actually uploaded in this request.",
+        "missing": [
+          "missing.txt"
+        ]
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { isAbsolute } from "node:path";
+import { basename, isAbsolute } from "node:path";
 import {
   GatewayTransport,
   mapError,
@@ -125,7 +125,118 @@ type PilotDeckTurnSubmission = {
   attachments?: PilotDeckAttachment[];
   uploadedAttachments?: PilotDeckUploadedAttachmentRef[];
   trustedContext?: PilotDeckTrustedContextMessage[];
+  enabledSkills?: string[];
+  referenceDocuments?: string[];
 };
+
+type ResolvedTurnSkill = {
+  name: string;
+  slug: string;
+  scope: "builtin" | "user" | "project";
+  content?: string;
+};
+
+/**
+ * Resolve turn-scoped skill names through the Gateway catalog. The SDK keeps
+ * the filesystem and skill ownership in the Gateway; it only converts the
+ * catalog result into the session overlay and synthetic context understood by
+ * the existing AgentLoop.
+ */
+async function resolveTurnSkills(
+  transport: GatewayTransportClient,
+  projectKey: string | undefined,
+  requested: string[] | undefined,
+): Promise<{ skills: ResolvedTurnSkill[]; syntheticMessages: Array<{ text: string; purpose: string }> }> {
+  if (!requested?.length) return { skills: [], syntheticMessages: [] };
+  const catalogItems: Array<Record<string, unknown>> = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page += 1) {
+    const result = await transport.request("skill_list", {
+      scope: "all",
+      limit: 50,
+      ...(projectKey ? { projectKey } : {}),
+      ...(cursor ? { cursor } : {}),
+    }) as Record<string, unknown>;
+    for (const key of ["items", "builtin", "user", "project"]) {
+      const values = result[key];
+      if (Array.isArray(values)) {
+        for (const value of values) {
+          if (!isPlainRecord(value)) continue;
+          // Older Gateway catalog bridges returned `items` without repeating
+          // the scope. User scope is the only portable fallback; current
+          // Gateways always include the authoritative scope field.
+          const fallbackScope = key === "builtin" || key === "user" || key === "project" ? key : "user";
+          catalogItems.push(value.scope === undefined ? { ...value, scope: fallbackScope } : value);
+        }
+      }
+    }
+    const next = typeof result.nextCursor === "string" && result.nextCursor.trim() ? result.nextCursor : undefined;
+    if (!next || next === cursor) break;
+    cursor = next;
+  }
+  const unique = new Map<string, ResolvedTurnSkill>();
+  for (const item of catalogItems) {
+    const scope = item.scope === "builtin" || item.scope === "user" || item.scope === "project" ? item.scope : undefined;
+    const slug = typeof item.slug === "string" ? item.slug.trim() : "";
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    if (!scope || !slug || !name) continue;
+    unique.set(`${scope}:${slug}`, { name, slug, scope });
+  }
+  const resolved: ResolvedTurnSkill[] = [];
+  for (const requestedName of requested) {
+    const needle = requestedName.trim();
+    const candidates = [...unique.values()].filter((skill) =>
+      skill.name === needle || skill.slug === needle || `/${skill.slug}` === needle,
+    );
+    if (candidates.length === 0) {
+      throw new PilotDeckError({
+        code: "unknown_skill",
+        message: `Unknown skill: ${requestedName}`,
+        details: { requested: requestedName, projectKey },
+      });
+    }
+    const exactNameCandidates = candidates.filter((skill) => skill.name === needle);
+    const skill = exactNameCandidates.length === 1
+      ? exactNameCandidates[0]!
+      : exactNameCandidates.length > 1
+        ? [...exactNameCandidates].sort((left, right) => ({ project: 0, user: 1, builtin: 2 }[left.scope] - { project: 0, user: 1, builtin: 2 }[right.scope]))[0]!
+        : candidates.length === 1
+          ? candidates[0]!
+          : undefined;
+    if (!skill) {
+      throw new PilotDeckError({
+        code: "validation_error",
+        message: `Skill name is ambiguous: ${requestedName}`,
+        details: { requested: requestedName, candidates: candidates.map((entry) => `${entry.scope}:${entry.slug}`) },
+      });
+    }
+    if (!resolved.some((entry) => entry.scope === skill.scope && entry.slug === skill.slug)) resolved.push(skill);
+  }
+  const syntheticMessages: Array<{ text: string; purpose: string }> = [];
+  if (resolved.length === 1) {
+    const skill = resolved[0]!;
+    const read = await transport.request("skill_read", {
+      scope: skill.scope,
+      slug: skill.slug,
+      ...(skill.scope === "project" && projectKey ? { projectKey } : {}),
+    }) as Record<string, unknown>;
+    const content = typeof read.content === "string" ? read.content.trim() : "";
+    if (!content) {
+      throw new PilotDeckError({ code: "unknown_skill", message: `Gateway returned no content for skill: ${skill.name}` });
+    }
+    skill.content = content;
+    syntheticMessages.push({
+      text: `[enabled_skill_force_load]\nApply the following skill for this turn. Treat its SKILL.md instructions as authoritative.\n\n<skill name="${skill.name}">\n${content}\n</skill>`,
+      purpose: "enabled_skill_force_load",
+    });
+  } else {
+    syntheticMessages.push({
+      text: `[enabled_skills]\nOnly use these skills for this turn: ${resolved.map((skill) => skill.name).join(", ")}.`,
+      purpose: "enabled_skills",
+    });
+  }
+  return { skills: resolved, syntheticMessages };
+}
 
 function connectionOptions(options: Pick<PilotDeckOptions, "gatewayUrl" | "authToken" | "clientVersion" | "reconnect">): GatewayConnectionOptions {
   if (!options.gatewayUrl || !options.authToken) {
@@ -407,10 +518,77 @@ function validateTrustedContext(value: unknown): void {
   }
 }
 
+function validateStringList(value: unknown, field: string): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new PilotDeckError({ code: "validation_error", message: `${field} must be an array of non-empty strings.` });
+  }
+}
+
+function validateReferenceDocuments(value: unknown, attachments?: PilotDeckAttachment[], uploadedAttachments?: PilotDeckUploadedAttachmentRef[]): void {
+  if (value === undefined) return;
+  validateStringList(value, "referenceDocuments");
+  const references = value as string[];
+  const attachmentNames = new Set(
+    (attachments ?? [])
+      .flatMap((attachment) => [attachment.name, attachment.path ? basename(attachment.path) : undefined])
+      .filter((name): name is string => Boolean(name?.trim()))
+      .map((name) => name.trim()),
+  );
+  for (const reference of references) {
+    const normalized = reference.trim();
+    if (isAbsolute(normalized) || normalized.split(/[\\/]/u).includes("..")) {
+      throw new PilotDeckError({
+        code: "validation_error",
+        message: "referenceDocuments must use relative staged artifact names, not host paths.",
+      });
+    }
+    // Uploaded manifests are checked asynchronously before submission.
+    if (attachmentNames.size > 0 && !uploadedAttachments?.length && !attachmentNames.has(normalized)) {
+      throw new PilotDeckError({
+        code: "validation_error",
+        message: `referenceDocuments entry is not present in the attached material manifest: ${normalized}`,
+      });
+    }
+  }
+  if (references.length > 0 && !attachments?.length && !uploadedAttachments?.length) {
+    throw new PilotDeckError({ code: "validation_error", message: "referenceDocuments require attached materials or completed upload references." });
+  }
+}
+
+async function validateUploadedReferenceDocuments(transport: GatewayTransportClient, submission?: PilotDeckTurnSubmission): Promise<void> {
+  if (!submission?.referenceDocuments?.length || !submission.uploadedAttachments?.length) return;
+  const names = new Set((submission.attachments ?? []).flatMap((attachment) =>
+    [attachment.name, attachment.path ? basename(attachment.path) : undefined].filter((value): value is string => Boolean(value)),
+  ));
+  for (const reference of submission.uploadedAttachments) {
+    const record = await transport.request("upload_get", { uploadId: reference.uploadId }) as PilotDeckUploadRecord;
+    if (record.status !== "completed") {
+      throw new PilotDeckError({ code: "validation_error", message: `Material upload is not completed: ${reference.uploadId}` });
+    }
+    const attachments = record.attachments ?? [];
+    if (reference.attachmentIds?.some((id) => !attachments.some((attachment) => attachment.attachmentId === id))) {
+      throw new PilotDeckError({ code: "validation_error", message: `Material attachment is not in upload: ${reference.uploadId}` });
+    }
+    for (const attachment of attachments) {
+      if (reference.attachmentIds && !reference.attachmentIds.includes(attachment.attachmentId)) continue;
+      names.add(attachment.name);
+      names.add(attachment.relativePath);
+    }
+  }
+  for (const name of submission.referenceDocuments) {
+    if (!names.has(name.trim())) {
+      throw new PilotDeckError({ code: "validation_error", message: `referenceDocuments entry is not in the selected upload manifest: ${name}` });
+    }
+  }
+}
+
 function validateTurnSubmission(value: PilotDeckTurnSubmission): void {
   validateAttachments(value.attachments);
   validateUploadedAttachments(value.uploadedAttachments);
   validateTrustedContext(value.trustedContext);
+  validateStringList(value.enabledSkills, "enabledSkills");
+  validateReferenceDocuments(value.referenceDocuments, value.attachments, value.uploadedAttachments);
 }
 
 function validateOptions(options: PilotDeckOptions): void {
@@ -783,9 +961,19 @@ function mapPublicMessage(raw: PilotDeckMessage, sessionId?: string): PilotDeckM
   return mapped;
 }
 
-function durableRunOutput(events: Array<{ event?: Record<string, unknown> }>): unknown {
+type DurableRunProjection = {
+  output?: unknown;
+  finalAnswer?: string;
+  generatedFiles?: unknown[];
+  trajectory?: Record<string, unknown>;
+  runSummary?: Record<string, unknown>;
+  sessionTranscript?: Record<string, unknown>;
+};
+
+function durableRunProjection(events: Array<{ event?: Record<string, unknown> }>): DurableRunProjection {
   const textChunks: string[] = [];
   let structuredOutput: unknown;
+  let projection: DurableRunProjection = {};
   for (const item of events) {
     const event = item.event;
     if (!event) continue;
@@ -802,15 +990,34 @@ function durableRunOutput(events: Array<{ event?: Record<string, unknown> }>): u
     if (event.type === "assistant_block" && event.kind === "text" && typeof event.text === "string") {
       textChunks.push(event.text);
     }
+    if (event.type === "trajectory" && event.trajectory && typeof event.trajectory === "object") {
+      projection = { ...projection, trajectory: event.trajectory as Record<string, unknown> };
+      const answer = (event.trajectory as Record<string, unknown>).final_answer;
+      if (typeof answer === "string") projection.finalAnswer = answer;
+    }
+    if (event.type === "run_summary" && event.summary && typeof event.summary === "object") {
+      projection = { ...projection, runSummary: event.summary as Record<string, unknown> };
+    }
+    if (event.type === "session_transcript" && event.transcript && typeof event.transcript === "object") {
+      projection = { ...projection, sessionTranscript: event.transcript as Record<string, unknown> };
+    }
+    if (Array.isArray(event.generatedFiles)) projection.generatedFiles = event.generatedFiles;
+    if (Array.isArray(event.generated_files)) projection.generatedFiles = event.generated_files;
   }
-  return structuredOutput ?? (textChunks.length > 0 ? textChunks.join("") : undefined);
+  projection.output = structuredOutput ?? (textChunks.length > 0 ? textChunks.join("") : undefined);
+  if (projection.finalAnswer === undefined && typeof projection.output === "string") projection.finalAnswer = projection.output;
+  return projection;
+}
+
+function durableRunOutput(events: Array<{ event?: Record<string, unknown> }>): unknown {
+  return durableRunProjection(events).output;
 }
 
 async function readDurableRunEvents(
   request: (method: string, params: Record<string, unknown>) => Promise<unknown>,
   reference: { sessionId: string; runId: string; projectKey?: string },
   lastSeq: number,
-): Promise<Array<{ event?: Record<string, unknown> }>> {
+): Promise<Array<{ event?: Record<string, unknown> }> | undefined> {
   const events: Array<{ event?: Record<string, unknown> }> = [];
   let afterSeq = 0;
   while (afterSeq < lastSeq) {
@@ -820,13 +1027,19 @@ async function readDurableRunEvents(
       ...(reference.projectKey !== undefined ? { projectKey: reference.projectKey } : {}),
       afterSeq,
       limit: 500,
-    }) as { events?: Array<{ event?: Record<string, unknown>; seq?: number }>; nextSeq?: number };
+    }) as { events?: Array<{ event?: Record<string, unknown>; seq?: number }>; nextSeq?: number; gap?: boolean };
+    if (result.gap) return undefined;
     const page = result.events ?? [];
-    if (page.length === 0) break;
-    events.push(...page);
-    const nextSeq = result.nextSeq ?? page.at(-1)?.seq;
-    if (typeof nextSeq !== "number" || nextSeq <= afterSeq) break;
-    afterSeq = nextSeq;
+    const previousSeq = afterSeq;
+    for (const item of page) {
+      if (!Number.isSafeInteger(item.seq)) return undefined;
+      if (item.seq! <= afterSeq) continue;
+      if (item.seq !== afterSeq + 1) return undefined;
+      events.push(item);
+      afterSeq = item.seq;
+      if (afterSeq >= lastSeq) break;
+    }
+    if (afterSeq === previousSeq) return undefined;
   }
   return events;
 }
@@ -1150,6 +1363,22 @@ class PilotDeckQueryImpl implements PilotDeckQuery {
     // servers by sending this empty marker only after capability negotiation.
     const sessionConfig = explicitSessionConfig
       ?? (this.serverInfoSnapshot?.capabilities?.includes("sdk_session_defaults") ? {} : undefined);
+    await validateUploadedReferenceDocuments(this.transport, this.turnSubmission);
+    const turnSkills = await resolveTurnSkills(
+      this.transport,
+      this.options.projectKey,
+      this.turnSubmission?.enabledSkills,
+    );
+    const sessionConfigWithTurnSkills = turnSkills.skills.length > 0
+      ? { ...(sessionConfig ?? {}), skills: turnSkills.skills.map((skill) => skill.name) }
+      : sessionConfig;
+    const syntheticMessages = [
+      ...turnSkills.syntheticMessages,
+      ...(this.turnSubmission?.referenceDocuments?.length ? [{
+        text: `[reference_documents]\nThe following staged materials are in scope for this turn: ${this.turnSubmission.referenceDocuments.join(", ")}.`,
+        purpose: "reference_documents",
+      }] : []),
+    ];
     const events = this.transport.stream("submit_turn", {
       sessionKey: this.sessionKey,
       channelKey: this.options.channelKey ?? "api_server",
@@ -1159,6 +1388,7 @@ class PilotDeckQueryImpl implements PilotDeckQuery {
       ...(this.turnSubmission?.attachments ? { attachments: this.turnSubmission.attachments } : {}),
       ...(this.turnSubmission?.uploadedAttachments ? { uploadedAttachments: this.turnSubmission.uploadedAttachments } : {}),
       ...(this.turnSubmission?.trustedContext ? { trustedContext: this.turnSubmission.trustedContext } : {}),
+      ...(syntheticMessages.length > 0 ? { syntheticMessages } : {}),
       maxTurns: this.options.maxTurns,
       maxBudgetUsd: this.options.maxBudgetUsd,
       timeoutMs: this.options.timeoutMs,
@@ -1176,7 +1406,7 @@ class PilotDeckQueryImpl implements PilotDeckQuery {
         : {}),
       allowedTools: explicitTools ?? this.options.allowedTools,
       disallowedTools: this.options.disallowedTools,
-      ...(sessionConfig ? { sdkSessionConfig: sessionConfig } : {}),
+      ...(sessionConfigWithTurnSkills ? { sdkSessionConfig: sessionConfigWithTurnSkills } : {}),
       modelOverride,
       ...(this.requestedRunId ? { runId: this.requestedRunId } : {}),
     });
@@ -1225,7 +1455,18 @@ class PilotDeckQueryImpl implements PilotDeckQuery {
         if (this.terminalSeen) return this.next();
         this.terminalSeen = true;
         this.latestUsage = asRecord(mapped.usage) as import("./types.js").PilotDeckUsage;
-        this.finalResult = { status: "completed", output: this.structuredOutput ?? (this.outputChunks.length ? this.outputChunks.join("") : undefined), usage: this.latestUsage, finishReason: mapped.finishReason as string | undefined };
+        const resultPayload = asRecord(mapped.output);
+        this.finalResult = {
+          status: "completed",
+          output: this.structuredOutput ?? (this.outputChunks.length ? this.outputChunks.join("") : undefined),
+          ...(typeof resultPayload.final_answer === "string" ? { finalAnswer: resultPayload.final_answer } : {}),
+          ...(Array.isArray(resultPayload.generated_files) ? { generatedFiles: resultPayload.generated_files } : {}),
+          ...(resultPayload.trajectory && typeof resultPayload.trajectory === "object" ? { trajectory: resultPayload.trajectory as Record<string, unknown> } : {}),
+          ...(resultPayload.run_summary && typeof resultPayload.run_summary === "object" ? { runSummary: resultPayload.run_summary as Record<string, unknown> } : {}),
+          ...(resultPayload.session_transcript && typeof resultPayload.session_transcript === "object" ? { sessionTranscript: resultPayload.session_transcript as Record<string, unknown> } : {}),
+          usage: this.latestUsage,
+          finishReason: mapped.finishReason as string | undefined,
+        };
         await this.flushMirror();
       }
       if (mapped.type === "error") {
@@ -3429,6 +3670,8 @@ export function createPilotDeckClientWithTransportFactory(
           ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
           ...(input.uploadedAttachments !== undefined ? { uploadedAttachments: input.uploadedAttachments } : {}),
           ...(input.trustedContext !== undefined ? { trustedContext: input.trustedContext } : {}),
+          ...(input.enabledSkills !== undefined ? { enabledSkills: input.enabledSkills } : {}),
+          ...(input.referenceDocuments !== undefined ? { referenceDocuments: input.referenceDocuments } : {}),
         };
         validateTurnSubmission(turnSubmission);
         const run = createQueryWithTransport(
@@ -3488,8 +3731,21 @@ export function createPilotDeckClientWithTransportFactory(
         if (terminal?.type === "turn_completed") {
           let output: unknown;
           if (Number.isSafeInteger(record.lastSeq) && Number(record.lastSeq) > 0) {
-            const events = await readDurableRunEvents(request, reference, Number(record.lastSeq));
-            output = durableRunOutput(events);
+            const events = await readDurableRunEvents(request, { ...reference, projectKey: input.projectKey ?? defaults.projectKey }, Number(record.lastSeq));
+            if (!events) return { status: "result_unknown", recovery: { sessionId: reference.sessionId, runId: reference.runId } };
+            const projection = durableRunProjection(events);
+            output = projection.output;
+            return {
+              status: "completed",
+              ...(output !== undefined ? { output } : {}),
+              ...(projection.finalAnswer !== undefined ? { finalAnswer: projection.finalAnswer } : {}),
+              ...(projection.generatedFiles !== undefined ? { generatedFiles: projection.generatedFiles } : {}),
+              ...(projection.trajectory !== undefined ? { trajectory: projection.trajectory } : {}),
+              ...(projection.runSummary !== undefined ? { runSummary: projection.runSummary } : {}),
+              ...(projection.sessionTranscript !== undefined ? { sessionTranscript: projection.sessionTranscript } : {}),
+              usage: terminal.usage as Record<string, unknown> | undefined,
+              finishReason: terminal.finishReason as string | undefined,
+            };
           }
           return {
             status: "completed",

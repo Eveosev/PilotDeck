@@ -1,0 +1,16 @@
+{
+  "model": "LLMCenter/qwen3.6-flash-distill",
+  "image": "lantay-pilotdeck:sdk-real-accepted",
+  "ocr": "skipped by user request",
+  "checks": [
+    {
+      "name": "single_skill_and_skill_whitelist",
+      "status": "passed",
+      "detail": {
+        "single": "SKILL_ALPHA_READY",
+        "whitelist": "SKILL_ALPHA_READY"
+      },
+      "seconds": 12.51
+    }
+  ]
+}

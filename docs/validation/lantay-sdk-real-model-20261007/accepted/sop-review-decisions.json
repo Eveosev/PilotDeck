@@ -1,0 +1,34 @@
+{
+  "reject": {
+    "status": "rejected",
+    "task": {
+      "task_id": "real-reject",
+      "project_key": "/root/.pilotdeck",
+      "session_id": "pd-eval-3575fa9aef6b49c686e6c68ac316ea73",
+      "run_id": "b6568301-a243-4213-ba42-4021646edb6d",
+      "sop_instance_id": "real-reject",
+      "execution_status": "accepted",
+      "workflow_status": "rejected",
+      "delivery_status": "pending",
+      "revision": 2,
+      "resume_key": null,
+      "resumed_run_id": null
+    }
+  },
+  "timeout": {
+    "status": "timed_out",
+    "task": {
+      "task_id": "real-timeout",
+      "project_key": "/root/.pilotdeck",
+      "session_id": "pd-eval-3575fa9aef6b49c686e6c68ac316ea73",
+      "run_id": "b6568301-a243-4213-ba42-4021646edb6d",
+      "sop_instance_id": "real-timeout",
+      "execution_status": "accepted",
+      "workflow_status": "timed_out",
+      "delivery_status": "pending",
+      "revision": 2,
+      "resume_key": null,
+      "resumed_run_id": null
+    }
+  }
+}

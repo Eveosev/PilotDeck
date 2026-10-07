@@ -1,0 +1,51 @@
+[
+  {
+    "name": "real_sse_events_and_result",
+    "status": "passed",
+    "detail": {
+      "types": [
+        "session_started",
+        "staging_started",
+        "staging_completed",
+        "model_selection_changed",
+        "turn_started",
+        "input_accepted",
+        "model_request_started",
+        "context_budget",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_thinking_delta",
+        "assistant_text_delta",
+        "assistant_block",
+        "assistant_block",
+        "turn_completed",
+        "trajectory",
+        "session_transcript",
+        "done"
+      ]
+    },
+    "seconds": 4.85
+  },
+  {
+    "name": "client_disconnect_original_run_recovery",
+    "status": "passed",
+    "detail": {
+      "session_id": "pd-eval-82334ec398e7469a9976e15ae140ce1b",
+      "run_id": "64f93824-62d7-4fda-bbfd-b0d106a10602",
+      "status": "completed"
+    },
+    "seconds": 24.78
+  },
+  {
+    "name": "sdk_abort_real_gateway_run",
+    "status": "failed",
+    "detail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nKeyError: 'result'\n",
+    "seconds": 2.14
+  }
+]
