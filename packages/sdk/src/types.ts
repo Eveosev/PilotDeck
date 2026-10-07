@@ -1130,18 +1130,7 @@ export type PilotDeckSubagentMessage = PilotDeckMessage & {
 export type PilotDeckResultMessage = PilotDeckMessage & { type: "result"; status: PilotDeckResult["status"] };
 
 export type PilotDeckResult =
-  | {
-    status: "completed";
-    output?: unknown;
-    finalAnswer?: string;
-    generatedFiles?: unknown[];
-    trajectory?: Record<string, unknown>;
-    runSummary?: Record<string, unknown>;
-    sessionTranscript?: Record<string, unknown>;
-    usage?: Record<string, unknown>;
-    artifacts?: unknown[];
-    finishReason?: string;
-  }
+  | { status: "completed"; output?: unknown; usage?: Record<string, unknown>; artifacts?: unknown[]; finishReason?: string }
   | { status: "failed"; error: PilotDeckError; usage?: Record<string, unknown> }
   | { status: "aborted"; reason?: string; usage?: Record<string, unknown> }
   | { status: "result_unknown"; recovery?: { sessionId?: string; runId?: string } };
@@ -1387,10 +1376,6 @@ export type PilotDeckRunInput = {
   attachments?: PilotDeckAttachment[];
   /** Previously uploaded Gateway artifacts for this run only. */
   uploadedAttachments?: PilotDeckUploadedAttachmentRef[];
-  /** Restrict this turn to named skills; the policy is not persisted by Gateway. */
-  enabledSkills?: string[];
-  /** Names of already-staged materials to make explicit to the model for this turn. */
-  referenceDocuments?: string[];
   /** Gateway-authorized, turn-scoped context for this run only. */
   trustedContext?: PilotDeckTrustedContextMessage[];
   options?: Omit<PilotDeckOptions, "gatewayUrl" | "authToken" | "clientVersion" | "sessionId" | "resume" | "continue" | "forkSession">;

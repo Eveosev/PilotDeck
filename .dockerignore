@@ -13,12 +13,7 @@ apps/desktop/*
 apps/desktop/src/*
 !apps/desktop/src/lightAppearance.ts
 !apps/desktop/src/interfacePreferences.ts
-# The Web image builds the workspace SDK as part of the gateway build.
-packages/*
-!packages/sdk/
-!packages/sdk/**
-packages/sdk/node_modules/
-packages/sdk/dist/
+packages/
 *.log
 .env*
 dist/

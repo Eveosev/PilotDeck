@@ -3672,12 +3672,8 @@ class FakeSdkClientWebSocket extends FakeWebSocket {
       case "session_model_get":
       case "session_model_set": respond({ effective: { provider: "openai", model: "gpt-test", source: "session" } }); return;
       case "commands_list": respond({ pinned: [{ name: "help" }], builtIn: [{ name: "clear" }], custom: [] }); return;
-      case "skill_list": respond({ items: [
-        { name: "release", slug: "release", scope: "user" },
-        { name: "legal-review", slug: "legal-review", scope: "user" },
-        { name: "citation", slug: "citation", scope: "user" },
-      ] }); return;
-      case "skill_read": respond({ name: frame.params.slug, slug: frame.params.slug, scope: frame.params.scope, content: frame.params.slug === "release" ? "# Release" : `# ${frame.params.slug}` }); return;
+      case "skill_list": respond({ items: [{ name: "release", slug: "release" }] }); return;
+      case "skill_read": respond({ name: "release", content: "# Release" }); return;
       case "skill_write":
       case "skill_create":
       case "skill_delete":
@@ -3704,7 +3700,6 @@ class FakeSdkClientWebSocket extends FakeWebSocket {
       case "upload_get": respond({
         uploadId: frame.params.uploadId, projectKey: "project", status: "completed", manifest: [],
         totalBytes: 5, uploadedBytes: 5, createdAt: "now", updatedAt: "now", expiresAt: "later",
-        attachments: [{ attachmentId: "attachment-1", name: "contract.pdf", relativePath: "contract.pdf", bytes: 5 }, { attachmentId: "attachment-2", name: "policy.md", relativePath: "policy.md", bytes: 5 }],
       }); return;
       case "upload_part": respond({ attachmentId: frame.params.clientFileId, name: "material.txt", relativePath: "material", bytes: 5 }); return;
       case "upload_complete": respond({
@@ -3769,10 +3764,6 @@ class DurableResultWebSocket extends FakeWebSocket {
     { seq: 1, event: { type: "assistant_text_delta", text: "hello " } },
     ...Array.from({ length: 499 }, (_, index) => ({ seq: index + 2, event: { type: "agent_status", event: "progress" } })),
     { seq: 501, event: { type: "assistant_text_delta", text: "world" } },
-    { seq: 502, event: { type: "trajectory", trajectory: { final_answer: "hello world", events: [] } } },
-    { seq: 503, event: { type: "run_summary", summary: { model: "Provider/Model", has_error: false } } },
-    { seq: 504, event: { type: "session_transcript", transcript: { entry_count: 2 } } },
-    { seq: 505, event: { type: "done", generated_files: [{ name: "report.md", content_encoding: "text" }] } },
   ];
 
   override send(raw: string): void {
@@ -3793,7 +3784,7 @@ class DurableResultWebSocket extends FakeWebSocket {
         updatedAt: "now",
       };
       if (frame.params.runId === "durable-completed") {
-        respond({ ...base, state: "completed", lastSeq: 505, result: { type: "turn_completed", usage: { inputTokens: 2 }, finishReason: "stop" } });
+        respond({ ...base, state: "completed", lastSeq: 501, result: { type: "turn_completed", usage: { inputTokens: 2 }, finishReason: "stop" } });
       } else if (frame.params.runId === "durable-failed") {
         respond({ ...base, state: "failed", lastSeq: 1, result: { type: "error", code: "provider_error", message: "provider failed" } });
       } else if (frame.params.runId === "durable-aborted") {
@@ -3823,11 +3814,6 @@ test("runs.result reconstructs durable output across paged event history", async
   assert.deepEqual(await client.runs.result({ sessionId: "session-existing", runId: "durable-completed" }), {
     status: "completed",
     output: "hello world",
-    finalAnswer: "hello world",
-    generatedFiles: [{ name: "report.md", content_encoding: "text" }],
-    trajectory: { final_answer: "hello world", events: [] },
-    runSummary: { model: "Provider/Model", has_error: false },
-    sessionTranscript: { entry_count: 2 },
     usage: { inputTokens: 2 },
     finishReason: "stop",
   });
@@ -3841,37 +3827,6 @@ test("runs.result reconstructs durable output across paged event history", async
     status: "aborted",
     reason: "gateway_abort",
   });
-  await client.close();
-});
-
-test("runs.result deduplicates replay and reports gaps as unknown", async () => {
-  class ReplayWebSocket extends DurableResultWebSocket {
-    static mode = "duplicate";
-    override send(raw: string): void {
-      const frame = JSON.parse(raw);
-      if (frame.method === "run_events") {
-        const afterSeq = frame.params.afterSeq ?? 0;
-        const events = DurableResultWebSocket.events.filter((item) => item.seq > afterSeq).slice(0, 500);
-        if (ReplayWebSocket.mode === "duplicate") {
-          this.emitForTest({type:"response",id:frame.id,ok:true,result:{events:events.flatMap((item) => [item, item]),nextSeq:events.at(-1)?.seq}});
-        } else {
-          this.emitForTest({type:"response",id:frame.id,ok:true,result:{events:events.slice(1),gap:ReplayWebSocket.mode === "gap"}});
-        }
-        return;
-      }
-      super.send(raw);
-    }
-  }
-  (globalThis as any).WebSocket = ReplayWebSocket;
-  const client = createPilotDeckClient({gatewayUrl:"ws://fake",authToken:"token",projectKey:"project"});
-  const ref = {sessionId:"session-existing",runId:"durable-completed"};
-  const result = await client.runs.result(ref);
-  assert.equal(result.status, "completed");
-  if (result.status === "completed") assert.equal(result.output, "hello world");
-  for (const mode of ["gap", "missing-sequence"]) {
-    ReplayWebSocket.mode = mode;
-    assert.deepEqual(await client.runs.result(ref), {status:"result_unknown",recovery:ref});
-  }
   await client.close();
 });
 
@@ -4062,7 +4017,7 @@ test("client exposes Gateway-authoritative session, run and resource facades", a
   assert.throws(() => client.query("after close"), { code: "transport_error" });
 });
 
-test("runs.start accepts a caller run id and forwards Gateway-owned attachments, skills, references, and trusted context", async () => {
+test("runs.start accepts a caller run id and forwards Gateway-owned attachments and trusted context", async () => {
   FakeSdkClientWebSocket.requests = [];
   (globalThis as any).WebSocket = FakeSdkClientWebSocket;
   const client = createPilotDeckClient({ gatewayUrl: "ws://fake", authToken: "token", projectKey: "project" });
@@ -4071,38 +4026,25 @@ test("runs.start accepts a caller run id and forwards Gateway-owned attachments,
     runId: "caller-run-42",
     input: { type: "text", text: "inspect these" },
     attachments: [{ type: "file", path: "/gateway/project/README.md", name: "README.md" }],
-    uploadedAttachments: [{ uploadId: "upload-1", attachmentIds: ["attachment-1", "attachment-2"] }],
+    uploadedAttachments: [{ uploadId: "upload-1", attachmentIds: ["attachment-1"] }],
     trustedContext: [{
       text: "Release policy",
       source: "release-service",
       purpose: "application_context",
       scope: "turn",
     }],
-    enabledSkills: ["legal-review", "citation"],
-    referenceDocuments: ["contract.pdf", "policy.md"],
   });
   assert.equal(run.id, "caller-run-42");
   assert.equal((await run.result()).status, "completed");
   const submit = FakeSdkClientWebSocket.requests.find((request) => request.method === "submit_turn");
   assert.deepEqual(submit?.params.attachments, [{ type: "file", path: "/gateway/project/README.md", name: "README.md" }]);
-  assert.deepEqual(submit?.params.uploadedAttachments, [{ uploadId: "upload-1", attachmentIds: ["attachment-1", "attachment-2"] }]);
+  assert.deepEqual(submit?.params.uploadedAttachments, [{ uploadId: "upload-1", attachmentIds: ["attachment-1"] }]);
   assert.deepEqual(submit?.params.trustedContext, [{
     text: "Release policy",
     source: "release-service",
     purpose: "application_context",
     scope: "turn",
   }]);
-  assert.deepEqual(submit?.params.syntheticMessages, [
-    {
-      text: "[enabled_skills]\nOnly use these skills for this turn: legal-review, citation.",
-      purpose: "enabled_skills",
-    },
-    {
-      text: "[reference_documents]\nThe following staged materials are in scope for this turn: contract.pdf, policy.md.",
-      purpose: "reference_documents",
-    },
-  ]);
-  assert.deepEqual(submit?.params.sdkSessionConfig?.skills, ["legal-review", "citation"]);
   const secondRun = client.runs.start({
     sessionId: "session-existing",
     runId: "caller-run-43",
@@ -4115,69 +4057,11 @@ test("runs.start accepts a caller run id and forwards Gateway-owned attachments,
   assert.equal("attachments" in (secondSubmit?.params ?? {}), false);
   assert.equal("uploadedAttachments" in (secondSubmit?.params ?? {}), false);
   assert.equal("trustedContext" in (secondSubmit?.params ?? {}), false);
-  assert.equal("syntheticMessages" in (secondSubmit?.params ?? {}), false);
   assert.throws(() => client.runs.start({
     sessionId: "session-existing",
     runId: "bad run id",
     input: { type: "text", text: "invalid" },
   }), { code: "validation_error" });
-  await client.close();
-});
-
-test("runs.start force-loads one catalog skill and rejects an unknown skill", async () => {
-  FakeSdkClientWebSocket.requests = [];
-  (globalThis as any).WebSocket = FakeSdkClientWebSocket;
-  const client = createPilotDeckClient({ gatewayUrl: "ws://fake", authToken: "token", projectKey: "project" });
-  const run = client.runs.start({
-    sessionId: "session-existing",
-    input: { type: "text", text: "apply the release process" },
-    enabledSkills: ["release"],
-  });
-  assert.equal((await run.result()).status, "completed");
-  const submit = FakeSdkClientWebSocket.requests.find((request) => request.method === "submit_turn");
-  assert.deepEqual(submit?.params.sdkSessionConfig?.skills, ["release"]);
-  assert.match(submit?.params.syntheticMessages?.[0]?.text ?? "", /# Release/);
-  assert.equal(submit?.params.syntheticMessages?.[0]?.purpose, "enabled_skill_force_load");
-
-  const unknown = client.runs.start({
-    sessionId: "session-existing",
-    input: { type: "text", text: "unknown" },
-    enabledSkills: ["does-not-exist"],
-  });
-  assert.equal((await unknown.result()).status, "failed");
-  await client.close();
-});
-
-test("runs.start rejects malformed skill and reference lists before transport", async () => {
-  FakeSdkClientWebSocket.requests = [];
-  (globalThis as any).WebSocket = FakeSdkClientWebSocket;
-  const client = createPilotDeckClient({ gatewayUrl: "ws://fake", authToken: "token" });
-  assert.throws(() => client.runs.start({
-    sessionId: "session-existing",
-    input: { type: "text", text: "invalid" },
-    enabledSkills: [""],
-  }), { code: "validation_error" });
-  assert.throws(() => client.runs.start({
-    sessionId: "session-existing",
-    input: { type: "text", text: "invalid" },
-    referenceDocuments: [""],
-  }), { code: "validation_error" });
-  assert.equal(FakeSdkClientWebSocket.requests.length, 0);
-  await client.close();
-});
-
-test("runs.start validates references against selected uploaded attachments", async () => {
-  FakeSdkClientWebSocket.requests = [];
-  (globalThis as any).WebSocket = FakeSdkClientWebSocket;
-  const client = createPilotDeckClient({ gatewayUrl: "ws://fake", authToken: "token", projectKey: "project" });
-  assert.throws(() => client.runs.start({ sessionId: "session-existing", input: { type: "text", text: "inspect" }, referenceDocuments: ["missing.pdf"] }), { code: "validation_error" });
-  for (const reference of ["missing.pdf", "policy.md"]) {
-    const run = client.runs.start({ sessionId: "session-existing", input: { type: "text", text: "inspect" }, uploadedAttachments: [{ uploadId: "upload-1", attachmentIds: ["attachment-1"] }], referenceDocuments: [reference] });
-    const result = await run.result();
-    assert.equal(result.status, "failed");
-    if (result.status === "failed") assert.equal(result.error.code, "validation_error");
-  }
-  assert.equal(FakeSdkClientWebSocket.requests.some((request) => request.method === "submit_turn"), false);
   await client.close();
 });
 
