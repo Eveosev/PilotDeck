@@ -13,7 +13,10 @@ apps/desktop/*
 apps/desktop/src/*
 !apps/desktop/src/lightAppearance.ts
 !apps/desktop/src/interfacePreferences.ts
-packages/
+# Include the SDK workspace required by the Web/Gateway build.
+packages/*
+!packages/sdk/
+!packages/sdk/**
 *.log
 .env*
 dist/
