@@ -810,7 +810,7 @@ async function readDurableRunEvents(
   request: (method: string, params: Record<string, unknown>) => Promise<unknown>,
   reference: { sessionId: string; runId: string; projectKey?: string },
   lastSeq: number,
-): Promise<Array<{ event?: Record<string, unknown> }>> {
+): Promise<Array<{ event?: Record<string, unknown> }> | undefined> {
   const events: Array<{ event?: Record<string, unknown> }> = [];
   let afterSeq = 0;
   while (afterSeq < lastSeq) {
@@ -820,13 +820,20 @@ async function readDurableRunEvents(
       ...(reference.projectKey !== undefined ? { projectKey: reference.projectKey } : {}),
       afterSeq,
       limit: 500,
-    }) as { events?: Array<{ event?: Record<string, unknown>; seq?: number }>; nextSeq?: number };
+    }) as { events?: Array<{ event?: Record<string, unknown>; seq?: number }>; gap?: boolean };
+    if (result.gap) return undefined;
     const page = result.events ?? [];
-    if (page.length === 0) break;
-    events.push(...page);
-    const nextSeq = result.nextSeq ?? page.at(-1)?.seq;
-    if (typeof nextSeq !== "number" || nextSeq <= afterSeq) break;
-    afterSeq = nextSeq;
+    const previousSeq = afterSeq;
+    for (const item of page) {
+      const seq = item.seq;
+      if (typeof seq !== "number" || !Number.isSafeInteger(seq) || seq <= 0) return undefined;
+      if (seq <= afterSeq) continue;
+      if (seq !== afterSeq + 1) return undefined;
+      events.push(item);
+      afterSeq = seq;
+      if (afterSeq >= lastSeq) break;
+    }
+    if (afterSeq === previousSeq) return undefined;
   }
   return events;
 }
@@ -3489,6 +3496,7 @@ export function createPilotDeckClientWithTransportFactory(
           let output: unknown;
           if (Number.isSafeInteger(record.lastSeq) && Number(record.lastSeq) > 0) {
             const events = await readDurableRunEvents(request, reference, Number(record.lastSeq));
+            if (!events) return { status: "result_unknown", recovery: { sessionId: reference.sessionId, runId: reference.runId } };
             output = durableRunOutput(events);
           }
           return {

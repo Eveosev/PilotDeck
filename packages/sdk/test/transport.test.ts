@@ -3830,6 +3830,61 @@ test("runs.result reconstructs durable output across paged event history", async
   await client.close();
 });
 
+for (const scenario of [
+  "page duplicates", "cross-page duplicates", "nextSeq ahead",
+  "explicit gap", "missing sequence", "empty first page", "truncated tail",
+  "no progress", "missing seq field", "zero seq", "negative seq",
+  "fractional seq", "unsafe seq",
+]) {
+  test(`runs.result handles durable history ${scenario}`, async () => {
+    class ReplayWebSocket extends DurableResultWebSocket {
+      override send(raw: string): void {
+        const frame = JSON.parse(raw);
+        if (frame.method !== "run_events") return super.send(raw);
+        DurableResultWebSocket.requests.push({ method: frame.method, params: frame.params });
+        const afterSeq = frame.params.afterSeq ?? 0;
+        let events: Array<{ seq?: number; event: Record<string, unknown> }> = DurableResultWebSocket.events
+          .filter((item) => item.seq > afterSeq).slice(0, 500);
+        let nextSeq = events.at(-1)?.seq;
+        if (scenario === "page duplicates") events = events.flatMap((item) => [item, item]);
+        if (scenario === "cross-page duplicates" && afterSeq > 0) events.unshift(DurableResultWebSocket.events[0]!);
+        if (scenario === "nextSeq ahead") nextSeq = 501;
+        if (scenario === "missing sequence" && afterSeq === 0) events.splice(1, 1);
+        if (scenario === "empty first page" || (scenario === "truncated tail" && afterSeq > 0)) events = [];
+        if (scenario === "no progress" && afterSeq > 0) {
+          events = [DurableResultWebSocket.events[0]!];
+          nextSeq = afterSeq;
+        }
+        if (afterSeq === 0) {
+          const invalidSeq: Record<string, number | undefined> = {
+            "missing seq field": undefined, "zero seq": 0, "negative seq": -1,
+            "fractional seq": 1.5, "unsafe seq": Number.MAX_SAFE_INTEGER + 1,
+          };
+          if (scenario in invalidSeq) events[0] = { ...events[0]!, seq: invalidSeq[scenario] };
+        }
+        this.emitForTest({ type: "response", id: frame.id, ok: true,
+          result: { events, nextSeq, ...(scenario === "explicit gap" ? { gap: true } : {}) } });
+      }
+    }
+    DurableResultWebSocket.requests = [];
+    (globalThis as any).WebSocket = ReplayWebSocket;
+    const client = createPilotDeckClient({ gatewayUrl: "ws://fake", authToken: "token" });
+    const reference = { sessionId: "session-existing", runId: "durable-completed" };
+    try {
+      const result = await client.runs.result(reference);
+      if (["page duplicates", "cross-page duplicates", "nextSeq ahead"].includes(scenario)) {
+        assert.deepEqual(result, { status: "completed", output: "hello world", usage: { inputTokens: 2 }, finishReason: "stop" });
+        assert.deepEqual(DurableResultWebSocket.requests.filter((frame) => frame.method === "run_events").map((frame) => frame.params.afterSeq), [0, 500]);
+      } else {
+        assert.deepEqual(result, { status: "result_unknown", recovery: reference });
+      }
+      assert.equal(DurableResultWebSocket.requests.some((frame) => frame.method === "submit_turn"), false);
+    } finally {
+      await client.close();
+    }
+  });
+}
+
 test("client exposes Gateway-authoritative session, run and resource facades", async () => {
   FakeSdkClientWebSocket.connections = 0;
   FakeSdkClientWebSocket.requests = [];
