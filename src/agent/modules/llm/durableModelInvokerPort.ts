@@ -7,6 +7,7 @@ export function createDurableModelInvokerPort(
   recordingSessionId?: string,
 ): ModelInvokerPort {
   return {
+    validateSelection: delegate.validateSelection?.bind(delegate),
     prepare: (input) => delegate.prepare(input),
     async *stream(input) {
       const { turnId } = input.context;

@@ -437,6 +437,8 @@ export type PreparedModelInvocation = {
 };
 
 export type ModelInvokerPort = {
+  /** Validate an explicit model without routing or invoking it. Host-only admission hook. */
+  validateSelection?(model: { provider: string; model: string }): void | Promise<void>;
   prepare(input: {
     request: import("../../model/index.js").CanonicalModelRequest;
     context: ModelExecutionContext;

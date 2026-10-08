@@ -35,13 +35,13 @@ export function loadStaffDeckSopDefinitions(path: string): StaffDeckSopBundle {
   for (const definition of sops) {
     const id = text(definition.id) ?? text(definition.skill_id)!;
     if (ids.has(id)) throw new Error(`StaffDeck SOP definitions contain duplicate id '${id}'.`);
-    validateContextModes(definition, id);
+    validateNodeConfiguration(definition, id);
     ids.add(id);
   }
   return Object.freeze({ sops: Object.freeze(sops) });
 }
 
-function validateContextModes(definition: Record<string, unknown>, id: string): void {
+function validateNodeConfiguration(definition: Record<string, unknown>, id: string): void {
   const candidates: unknown[] = [definition.nodes];
   if (isRecord(definition.content)) candidates.push(definition.content.nodes);
   for (const value of candidates) {
@@ -52,8 +52,18 @@ function validateContextModes(definition: Record<string, unknown>, id: string): 
       if (mode !== undefined && mode !== "new_session" && mode !== "inherit") {
         throw new Error(`StaffDeck SOP definition '${id}' node ${index} has invalid contextMode '${String(mode)}'.`);
       }
+      if (node.model !== undefined && !parseSopNodeModel(node.model)) {
+        throw new Error(`StaffDeck SOP definition '${id}' node ${index} has invalid model; expected 'provider/model'.`);
+      }
     }
   }
+}
+
+export function parseSopNodeModel(value: unknown): { provider: string; model: string } | undefined {
+  if (typeof value !== "string" || /\s/.test(value)) return undefined;
+  const separator = value.indexOf("/");
+  if (separator <= 0 || separator >= value.length - 1 || value[separator + 1] === "/") return undefined;
+  return { provider: value.slice(0, separator), model: value.slice(separator + 1) };
 }
 
 /**

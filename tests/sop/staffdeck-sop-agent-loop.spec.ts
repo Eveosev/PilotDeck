@@ -24,12 +24,16 @@ import { StaffDeckSopClientError } from "../../src/sop/staffdeck/StaffDeckSopCli
 import { SopStateStore } from "../../src/sop/staffdeck/SopStateStore.js";
 import { currentKnowledgeAuthority, type SopCapabilityAuthorityPort } from "../../src/composition/sopCapabilityAuthority.js";
 import type { ModelInvokerPort, ToolPort } from "../../src/agent/modules/protocol.js";
+import { createRouterModelInvokerPort } from "../../src/agent/modules/llm/routerModelInvokerAdapter.js";
+import { createRouterRuntime } from "../../src/router/RouterRuntime.js";
+import { createModelRuntime, parseModelConfig } from "../../src/model/index.js";
 import type { CanonicalModelEvent } from "../../src/model/index.js";
 import type { PilotDeckToolDefinition, PilotDeckToolResult } from "../../src/tool/index.js";
 import { toolError } from "../../src/tool/index.js";
 import type {
   StaffDeckSopBundle,
   StaffDeckSopOperationContext,
+  StaffDeckSopPrepareResponse,
   StaffDeckSopRuntimeClient,
   StaffDeckSopRuntimeConfig,
 } from "../../src/sop/staffdeck/types.js";
@@ -222,6 +226,171 @@ test("SOP nodes use a fresh model context by default and preserve only the curre
     assert.ok(nodeSessions.every((entry) => entry.messages.length === 1));
     assert.ok(nodeSessions.every(entry => JSON.stringify(entry.messages).includes("current request")));
     assert.ok(nodeSessions.every(entry => !JSON.stringify(entry.messages).includes("old ")));
+    await session.dispose();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const contextMode of ["new_session", "inherit"] as const) {
+  test(`a local node model overrides the turn model for ${contextMode} execution`, async () => {
+    const root = mkdtempSync(join(tmpdir(), `pilotdeck-sop-node-model-${contextMode}-`));
+    try {
+      const bundle: StaffDeckSopBundle = {
+        sops: [{ id: "onboarding", version: "1", content: {
+          nodes: [{ node_id: "lookup", model: "node-provider/node-model", contextMode }],
+        } }],
+      };
+      const overrides: Array<{ provider: string; model: string } | undefined> = [];
+      let calls = 0;
+      const model = modelFromStream((prepared, context) => {
+        assert.equal((prepared as { provider: string }).provider, "node-provider");
+        assert.equal((prepared as { model: string }).model, "node-model");
+        const request = (prepared as { request: import("../../src/model/index.js").CanonicalModelRequest }).request;
+        assert.equal(request.speed, 0.7);
+        assert.deepEqual(request.thinking, { enabled: false, mode: "off" });
+        overrides.push(context.modelOverride);
+        calls += 1;
+        return calls === 1
+          ? yieldToolCall("node-lookup", "lookup_account", { accountId: "ada" })
+          : yieldToolCall("node-submit", "submit_step_result", {
+              status: "completed", replyFragment: "Done", slotUpdates: {},
+            });
+      });
+      const client: StaffDeckSopRuntimeClient = {
+        async prepare({ state }) {
+          return {
+            state: { ...state, status: "active" },
+            step: {
+              skillId: "onboarding", skillName: "Onboarding", version: "1", nodeId: "lookup", node: {},
+              instruction: "Look up the account.", expectedUserInfo: [], knownSlots: {}, allowedNextStepIds: [],
+              requiredToolNames: ["lookup_account"], allowedActions: ["call_tool:lookup_account"],
+              isTerminal: true, declaresHandoff: false,
+              // The owner value is deliberately different; local YAML remains authoritative.
+              model: "owner-provider/owner-model",
+            } as StaffDeckSopPrepareResponse["step"],
+          };
+        },
+        async submit({ state, proposal }) {
+          return {
+            state: { ...state, status: proposal.status },
+            result: { status: proposal.status, replyFragment: proposal.replyFragment, slotUpdates: {}, events: [] },
+          };
+        },
+      };
+      const session = createSopSession({ root, sessionId: `node-model-${contextMode}`, model, client, bundle });
+      const events: AgentEvent[] = [];
+      for await (const event of session.submit({ type: "text", text: "Start" }, {
+        turnId: "node-model-turn",
+        modelOverride: { provider: "user-provider", model: "user-model", speed: 0.7, thinking: { enabled: false, mode: "off" } },
+      })) events.push(event);
+      assert.ok(events.some((event) => event.type === "turn_completed"));
+      assert.equal(calls, 2);
+      assert.deepEqual(overrides, [
+        { provider: "node-provider", model: "node-model" },
+        { provider: "node-provider", model: "node-model" },
+      ]);
+      await session.dispose();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("a node without a model keeps the caller model override", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-node-model-default-"));
+  try {
+    const overrides: Array<{ provider: string; model: string } | undefined> = [];
+    const model = modelFromStream((_prepared, context) => {
+      overrides.push(context.modelOverride);
+      return yieldToolCall("default-submit", "submit_step_result", {
+        status: "completed", replyFragment: "Done", slotUpdates: {},
+      });
+    });
+    const session = createSopSession({ root, sessionId: "node-model-default", model, client: acceptingClient() });
+    for await (const _event of session.submit({ type: "text", text: "Start" }, {
+      turnId: "node-model-default-turn",
+      modelOverride: { provider: "user-provider", model: "user-model" },
+    })) { /* consume */ }
+    assert.deepEqual(overrides, [{ provider: "user-provider", model: "user-model" }]);
+    await session.dispose();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const contextMode of ["new_session", "inherit"] as const)
+for (const rejection of ["invalid", "provider_not_found", "model_not_found", "MODEL_POLICY_DENIED", "SDK_MANAGED_MODEL_DENIED"] as const)
+test(`node model admission rejects ${rejection} before persisting ${contextMode} preparation`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-model-admission-"));
+  const nodeModel = rejection === "invalid" ? 42 : rejection === "provider_not_found" ? "missing/model"
+    : rejection === "model_not_found" ? "test/missing" : "test/node-model";
+  const bundle = { sops: [{ id: "onboarding", nodes: [{ node_id: "lookup", model: nodeModel, contextMode }] }] };
+  const runtime = createModelRuntime(parseModelConfig({ providers: { test: {
+    protocol: "openai", url: "http://unused.test", apiKey: "test-only", models: { "node-model": {} },
+  } } }));
+  const router = createRouterRuntime({ enabled: false }, {
+    modelRuntime: runtime, isModelAllowed: () => rejection !== "MODEL_POLICY_DENIED",
+  });
+  let invocations = 0;
+  const port = createRouterModelInvokerPort(router, {
+    managedModelPolicy: rejection === "SDK_MANAGED_MODEL_DENIED" ? { allow: [], deny: ["test/*"] } : undefined,
+  });
+  const model = { ...port, prepare: async (input: Parameters<typeof port.prepare>[0]) => {
+    invocations++;
+    return port.prepare(input);
+  } };
+  try {
+    const store = new SopStateStore(join(root, "sessions"));
+    await store.loadOrCreate("model-admission", bundle, "onboarding");
+    const before = await store.status("model-admission");
+    const session = createSopSession({ root, sessionId: "model-admission", model, client: acceptingClient(), bundle });
+    const events = await collectSessionTurn(session, "Start", "admission-turn");
+    assert.ok(events.some(e => e.type === "turn_failed"));
+    assert.ok(JSON.stringify(events).includes(rejection === "invalid" ? "provider/model" : rejection));
+    assert.equal(invocations, 0);
+    assert.deepEqual(await store.status("model-admission"), before, "revision, state, wait and delivery must remain unchanged");
+    await session.dispose();
+  } finally {
+    await router.shutdown();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const contextMode of ["new_session", "inherit"] as const)
+test(`an unconfigured next node restores the caller model for ${contextMode}`, async () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-model-switch-"));
+  try {
+    const bundle = { sops: [{ id: "onboarding", nodes: [
+      { node_id: "first", model: "node-provider/node-model", contextMode }, { node_id: "lookup", contextMode },
+    ] }] };
+    const base = acceptingClient();
+    const client: StaffDeckSopRuntimeClient = {
+      async prepare(input) {
+        const p = await base.prepare(input);
+        const nodeId = input.state.active_step_id ?? "first";
+        return { ...p, state: { ...p.state, active_step_id: nodeId }, step: { ...p.step, nodeId,
+          requiredToolNames: [], allowedActions: ["answer_user"],
+          isTerminal: nodeId === "lookup", allowedNextStepIds: nodeId === "first" ? ["lookup"] : [] } };
+      },
+      async submit(input) {
+        const p = await base.submit(input);
+        return input.state.active_step_id === "first"
+          ? { ...p, state: { ...p.state, status: "active", active_step_id: "lookup" },
+            result: { ...p.result, nextStepId: "lookup" } } : p;
+      },
+    };
+    const requests: Array<{ provider: string; model: string }> = [];
+    const model = modelFromStream(async function* (prepared) {
+      requests.push(prepared as { provider: string; model: string });
+      yield* yieldToolCall(`submit-${requests.length}`, "submit_step_result", { status: "completed", replyFragment: "Done",
+        slotUpdates: {}, ...(requests.length === 1 ? { nextStepId: "lookup" } : {}) });
+    });
+    const session = createSopSession({ root, sessionId: "model-switch", client, model, bundle });
+    for await (const _ of session.submit({ type: "text", text: "Start" }, { turnId: "switch-turn",
+      modelOverride: { provider: "user-provider", model: "user-model" } })) { /* consume */ }
+    assert.deepEqual(requests.map(({ provider, model }) => ({ provider, model })), [
+      { provider: "node-provider", model: "node-model" }, { provider: "user-provider", model: "user-model" },
+    ]);
+    assert.equal((await new SopStateStore(join(root, "sessions")).status("model-switch"))?.state.status, "completed");
     await session.dispose();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -438,7 +607,9 @@ test("a model retry reuses the same real node session and durable turn", async (
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-model-retry-"));
   try {
     let calls = 0;
-    const model = modelFromStream(async function* () {
+    const model = modelFromStream(async function* (prepared, context) {
+      assert.deepEqual(context.modelOverride, { provider: "test", model: "retry-model" });
+      assert.equal((prepared as { model: string }).model, "retry-model");
       if (calls++ === 0) {
         yield { type: "error", error: { provider: "test", protocol: "openai", code: "timeout", message: "Temporary timeout", retryable: true } };
         return;
@@ -452,7 +623,8 @@ test("a model retry reuses the same real node session and durable turn", async (
     } };
     const context = new DefaultContextRuntime();
     context.recoverFromModelError = async () => ({ type: "adjust_output_and_retry", maxOutputTokens: 1024, reason: "test retry" });
-    const session = createSopSession({ root, sessionId: "model-retry", client, model, context });
+    const session = createSopSession({ root, sessionId: "model-retry", client, model, context,
+      bundle: { sops: [{ id: "onboarding", nodes: [{ node_id: "lookup", model: "test/retry-model" }] }] } });
     const events = await collectSessionTurn(session, "Start", "retry-turn");
     assert.equal(calls, 2);
     assert.ok(events.some(event => event.type === "turn_continued"));
@@ -607,7 +779,8 @@ test("final SOP node offers only its submission and corrects a text draft", asyn
   try {
     let calls = 0;
     const requests: { tools?: { name: string }[]; toolChoice: unknown; systemPrompt: string }[] = [];
-    const model = modelFromStream(async function* (prepared) {
+    const model = modelFromStream(async function* (prepared, context) {
+      assert.deepEqual(context.modelOverride, { provider: "test", model: "correction-model" });
       const request = (prepared as { request: { tools?: { name: string }[]; toolChoice: unknown; systemPrompt: string } }).request;
       requests.push(request);
       if (calls++ === 0) {
@@ -627,7 +800,8 @@ test("final SOP node offers only its submission and corrects a text draft", asyn
           node: { type: "response" }, requiredToolNames: [], allowedNextStepIds: [], isTerminal: true } };
       },
     };
-    const session = createSopSession({ root, sessionId: "final-submit", model, client, context: new DefaultContextRuntime() });
+    const session = createSopSession({ root, sessionId: "final-submit", model, client, context: new DefaultContextRuntime(),
+      bundle: { sops: [{ id: "onboarding", nodes: [{ node_id: "lookup", model: "test/correction-model" }] }] } });
     await collectSessionTurn(session, "The owner approved the plan. Produce the final checklist.", "final-turn");
     assert.equal(calls, 2);
     assert.deepEqual(requests.map((request) => request.tools?.map((tool) => tool.name)), [

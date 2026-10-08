@@ -12,6 +12,7 @@ import type { AgentRuntimeConfig } from "../../agent/runtime/AgentRuntimeConfig.
 import type { AgentLoopRunner } from "../../agent/turn/TurnRunner.js";
 import type { AgentEvent } from "../../agent/protocol/events.js";
 import type { AgentLoopInput, AgentLoopRunResult } from "../../agent/loop/AgentLoop.js";
+import type { AgentModelOverride } from "../../agent/protocol/input.js";
 import type { ModelExecutionContext, ToolPort } from "../../agent/modules/protocol.js";
 import type { CanonicalMessage } from "../../model/index.js";
 import type {
@@ -24,7 +25,7 @@ import { toolError } from "../../tool/index.js";
 
 import { StaffDeckSopClient, StaffDeckSopClientError } from "./StaffDeckSopClient.js";
 import { StaffDeckSopDiscoveryClient } from "./StaffDeckSopDiscoveryClient.js";
-import { loadStaffDeckSopDefinitions } from "./StaffDeckSopDefinitions.js";
+import { loadStaffDeckSopDefinitions, parseSopNodeModel } from "./StaffDeckSopDefinitions.js";
 import { SopStateStore } from "./SopStateStore.js";
 import { SopNodeSessions, sopNodeSessionId } from "./SopNodeSessions.js";
 import { OPTIONAL_KNOWLEDGE_SCHEMA, authorityError, validateOptionalKnowledgeInput,
@@ -87,6 +88,7 @@ export class SopAgentLoop implements AgentLoopRunner {
   private nodeModel: NonNullable<AgentLoopRuntimeFactoryInput["internalSessionPorts"]>["model"] | undefined;
   private nodeTools: ToolPort | undefined;
   private readonly preflightSteps = new Map<string, StaffDeckSopPrepareResponse>();
+  private readonly nodeModelOverrides = new Map<string, Pick<AgentModelOverride, "provider" | "model">>();
   private readonly userInputs = new Map<string, CanonicalMessage | undefined>();
 
   constructor(
@@ -403,22 +405,28 @@ export class SopAgentLoop implements AgentLoopRunner {
       permissionMode: this.config.permissionMode, runMode: this.config.runMode ?? "agent",
       additionalWorkingDirectories: this.config.permissionContext.additionalWorkingDirectories,
       messages: input.messages, tools: [], abortSignal: input.abortSignal });
-    if (prepared && this.options.runnerFactory) input = { ...input, execution: { ...input.execution,
-      runId: input.execution?.runId ?? `sop:${input.sessionId}:${input.turnId}`,
-      operationId: `${input.execution?.operationId ?? input.turnId}:sop-node:${encodeURIComponent(prepared.step.skillId)}:${encodeURIComponent(prepared.step.nodeId)}` } };
-    if (prepared) this.preflightSteps.set(input.sessionId, prepared);
-    if (!prepared || prepared.step.contextMode === "inherit") return yield* this.native.run(input);
-    const runtime = await this.nodeSessions.get(input.sessionId, prepared.step.skillId, prepared.step.nodeId);
+    const nodeModelOverride = this.nodeModelOverrides.get(input.sessionId);
+    const nodeInput = { ...input,
+      ...(nodeModelOverride ? { modelOverride: { ...input.modelOverride, ...nodeModelOverride } } : {}) };
+    if (prepared && this.options.runnerFactory) {
+      nodeInput.execution = { ...nodeInput.execution,
+        runId: nodeInput.execution?.runId ?? `sop:${nodeInput.sessionId}:${nodeInput.turnId}`,
+        operationId: `${nodeInput.execution?.operationId ?? nodeInput.turnId}:sop-node:${encodeURIComponent(prepared.step.skillId)}:${encodeURIComponent(prepared.step.nodeId)}` };
+    }
+    if (prepared) this.preflightSteps.set(nodeInput.sessionId, prepared);
+    if (!prepared || prepared.step.contextMode === "inherit") return yield* this.native.run(nodeInput);
+    const runtime = await this.nodeSessions.get(nodeInput.sessionId, prepared.step.skillId, prepared.step.nodeId);
     const node = runtime.session;
     this.nodeContext = runtime.context;
     this.nodeModel = runtime.model;
     this.nodeTools = runtime.tools;
-    this.nodeRunInput = input;
+    this.nodeRunInput = nodeInput;
     this.nodeRunResult = undefined;
     const current = this.userInputs.get(input.sessionId);
     const iterator = node.submit({ type: "blocks", content: current?.content ?? [] }, {
-      turnId: input.turnId, execution: input.execution, maxTurns: input.maxTurns,
-      metadata: { parentSessionId: input.sessionId },
+      turnId: nodeInput.turnId, execution: nodeInput.execution, maxTurns: nodeInput.maxTurns,
+      modelOverride: nodeInput.modelOverride,
+      metadata: { parentSessionId: nodeInput.sessionId },
     });
     for await (const event of iterator) {
       if (event.type === "turn_started" || event.type === "input_accepted") continue;
@@ -488,6 +496,7 @@ export class SopAgentLoop implements AgentLoopRunner {
     const capabilities = this.capabilities;
     const selectedSopId = this.selectedSops.get(input.sessionId);
     this.preparedSteps.delete(input.sessionId);
+    this.nodeModelOverrides.delete(input.sessionId);
     if (!selectedSopId) return undefined;
     const persisted = await this.stateStore.loadOrCreate(
       input.sessionId,
@@ -522,6 +531,16 @@ export class SopAgentLoop implements AgentLoopRunner {
     prepared = { ...prepared, step: ownerStep };
     const contextMode = resolveContextMode(prepared.step, this.options.profile, persisted.bundle, prepared.step.skillId);
     prepared = { ...prepared, step: { ...prepared.step, contextMode } };
+    const nodeModelOverride = resolveNodeModelOverride(prepared.step, persisted.bundle, prepared.step.skillId);
+    if (nodeModelOverride) {
+      try {
+        await capabilities.model.execution.validateSelection?.(nodeModelOverride);
+      } catch (error) {
+        const code = (error as { code?: string }).code ?? "SOP_NODE_MODEL_UNAVAILABLE";
+        throw new StaffDeckSopClientError(code,
+          `${code}: SOP node '${prepared.step.nodeId}' model '${nodeModelOverride.provider}/${nodeModelOverride.model}': ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     const saved = await this.stateStore.replace(input.sessionId, persisted.bundle, prepared.state, persisted.revision);
     if (this.options.authorityPort && prepared.step.node.type === "response"
       && capabilities.toolExecution.list().some(tool => tool.name === "knowledge_query")) {
@@ -540,6 +559,7 @@ export class SopAgentLoop implements AgentLoopRunner {
       }
     }
     this.preparedSteps.set(input.sessionId, prepared.step);
+    if (nodeModelOverride) this.nodeModelOverrides.set(input.sessionId, nodeModelOverride);
     return prepared;
   }
 
@@ -1198,6 +1218,24 @@ function resolveContextMode(
   const mode = node && isRecord(node) ? node.contextMode : undefined;
   if (mode === "new_session" || mode === "inherit") return mode;
   return profile.contextMode ?? "new_session";
+}
+
+function resolveNodeModelOverride(
+  step: StaffDeckSopPrepareResponse["step"],
+  bundle: StaffDeckSopBundle,
+  selectedSopId: string,
+): Pick<AgentModelOverride, "provider" | "model"> | undefined {
+  const definition = bundle.sops.find((candidate) => sopId(candidate) === selectedSopId);
+  const content = definition && isRecord(definition.content) ? definition.content : definition;
+  const nodes = content && Array.isArray(content.nodes) ? content.nodes : [];
+  const node = nodes.find((candidate) => isRecord(candidate)
+    && (candidate.node_id === step.nodeId || candidate.nodeId === step.nodeId));
+  if (!isRecord(node) || node.model === undefined) return undefined;
+  const model = parseSopNodeModel(node.model);
+  if (!model) {
+    throw new StaffDeckSopClientError("SOP_DEFINITION_INVALID", `SOP node '${step.nodeId}' model must be provider/model`);
+  }
+  return model;
 }
 
 /**
