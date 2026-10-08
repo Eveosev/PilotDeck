@@ -23,6 +23,7 @@ export function createRouterModelInvokerPort(
   options: RouterModelInvokerAdapterOptions = {},
 ): ModelInvokerPort {
   return {
+    validateSelection: (model) => router.validateModelSelection?.(model, options.managedModelPolicy),
     async prepare({ request, context }): Promise<PreparedModelInvocation> {
       const decision = context.modelOverride
         ? {

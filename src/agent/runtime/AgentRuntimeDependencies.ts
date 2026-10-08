@@ -64,6 +64,7 @@ export type SubagentCompositionPort = {
  * compaction pass between the routing decision and the model call.
  */
 export type AgentRouterRuntime = Pick<RouterRuntime, "stream" | "decide" | "execute"> & {
+  validateModelSelection?: RouterRuntime["validateModelSelection"];
   materializeRequest?: RouterRuntime["materializeRequest"];
   observeUsage?: RouterRuntime["observeUsage"];
   invalidateSticky?: RouterRuntime["invalidateSticky"];

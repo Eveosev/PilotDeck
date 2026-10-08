@@ -137,6 +137,7 @@ export type InvalidateStickyResult = {
 };
 
 export type RouterRuntime = {
+  validateModelSelection?(model: { provider: string; model: string }, policy?: RouterExecuteContext["managedModelPolicy"]): void;
   decide(input: RouterDecisionInput): Promise<RouterDecision>;
   execute(
     decision: RouterDecision,
@@ -188,6 +189,17 @@ export function createRouterRuntime(
       || selector === `${model.provider}/${model.model}`;
     if (policy.deny.some(matches)) return false;
     return policy.allow.length === 0 || policy.allow.some(matches);
+  }
+
+  function assertSelectionPolicy(model: RouterModelRef, policy: RouterExecuteContext["managedModelPolicy"]): void {
+    assertModelAllowed(model);
+    if (!isManagedModelAllowed(policy, model)) {
+      throw new RouterRuntimeError(
+        "SDK_MANAGED_MODEL_DENIED",
+        `SDK managedSettings.models denies model ${model.provider}/${model.model}.`,
+        { provider: model.provider, model: model.model },
+      );
+    }
   }
   const statsConfig = {
     ...config.stats,
@@ -571,14 +583,7 @@ export function createRouterRuntime(
       provider: decision.provider,
       model: decision.model,
     };
-    assertModelAllowed(requestedAttempt);
-    if (!isManagedModelAllowed(ctx.managedModelPolicy, requestedAttempt)) {
-      throw new RouterRuntimeError(
-        "SDK_MANAGED_MODEL_DENIED",
-        `SDK managedSettings.models denies model ${requestedAttempt.provider}/${requestedAttempt.model}.`,
-        { provider: requestedAttempt.provider, model: requestedAttempt.model },
-      );
-    }
+    assertSelectionPolicy(requestedAttempt, ctx.managedModelPolicy);
     const isExecutionModelAllowed = (model: RouterModelRef) =>
       isModelAllowed(model) && isManagedModelAllowed(ctx.managedModelPolicy, model);
     const sessionFallbackAttempts = (ctx.fallbackModels ?? []).map((model) => ({
@@ -1044,6 +1049,10 @@ export function createRouterRuntime(
   }
 
   return {
+    validateModelSelection(model, policy) {
+      assertSelectionPolicy({ ...model, id: `${model.provider}/${model.model}` }, policy);
+      modelInvoker.getCapabilities(model.provider, model.model);
+    },
     decide,
     execute,
     stream,

@@ -181,7 +181,7 @@ export class AgentSessionRuntimeBundle {
       ownsScope = sessionScope.ownsScope;
       const scopedElicitation = scope.services.elicitation ?? elicitation;
       const scopedLifecycle = scope.services.lifecycle ?? this.options.dependencies.lifecycle;
-      const modelPort = externalPorts.model ?? this.options.dependencies.ports?.model ?? createRouterModelInvokerPort(
+      const selectedModelPort = externalPorts.model ?? this.options.dependencies.ports?.model ?? createRouterModelInvokerPort(
         this.options.dependencies.router,
         {
           isMainAgent: !this.options.config.isSubagent,
@@ -190,6 +190,13 @@ export class AgentSessionRuntimeBundle {
           managedModelPolicy: this.options.config.managedModelPolicy,
         },
       );
+      const modelPort = {
+        prepare: selectedModelPort.prepare.bind(selectedModelPort),
+        stream: selectedModelPort.stream.bind(selectedModelPort),
+        validateSelection: selectedModelPort.validateSelection?.bind(selectedModelPort)
+          ?? ((model: { provider: string; model: string }) => this.options.dependencies.router.validateModelSelection?.(
+            model, this.options.config.managedModelPolicy)),
+      };
       const nativeToolPort = this.options.dependencies.ports?.tools ?? createToolSchedulerPort(
         this.options.dependencies.tools.registry,
         sessionScope.scheduler,

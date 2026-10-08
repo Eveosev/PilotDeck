@@ -11,7 +11,7 @@ SOP 默认使用 `new_session`：每个节点有自己的持久内部会话。�
 | `new_session`（默认） | 独立节点会话；首次进入时带入当前用户输入、节点指令和已保存的 SOP slots | 节点职责独立，避免旧对话和工具输出干扰 |
 | `inherit` | 使用主会话身份，继承前序有效 messages，包括压缩后的摘要 | 后续节点需要直接继续前面的分析或工具对话 |
 
-`new_session` 不复制前一节点的历史 user、assistant、tool messages。它不是每条用户消息都新建会话，也不表示启动独立进程或更换模型、工具配置。
+`new_session` 不复制前一节点的历史 user、assistant、tool messages。它不是每条用户消息都新建会话，也不表示启动独立进程。会话模式本身不选择模型；节点的 `model` 可独立配置。
 
 ## 配置模块默认值
 
@@ -61,7 +61,32 @@ sops:
 
 使用此定义时，将 `definitionsPath` 指向保存的 YAML 文件，并将 `defaultSopId` 设为 `onboarding`。模块默认 `inherit` 时，也可以在某个节点上设置 `new_session`，只隔离该节点。
 
-最终模式按以下顺序决定，取第一个明确设置的值：
+### 为节点选择模型
+
+在节点上增加 `model: provider/model` 即可指定该节点使用的模型。模型标识必须对应当前 PilotDeck 模型目录中的 provider 和 model：
+
+```yaml
+content:
+  nodes:
+    - node_id: classify
+      model: openai/gpt-4.1-mini
+      contextMode: new_session
+      instruction: 判断请求类型并保存分类结果。
+    - node_id: summarize
+      model: anthropic/claude-sonnet
+      contextMode: inherit
+      instruction: 根据前序上下文生成摘要。
+```
+
+节点模型只覆盖当前节点的 provider/model，模型不存在、provider 不可用或不满足 Gateway 的模型策略时，该节点在模型调用前失败，SOP 状态不会推进。节点没有 `model` 时，继续使用本轮已有模型选择和 Router 行为。
+
+格式错误会报告 `provider/model` 诊断；目录缺项分别报告 `provider_not_found` 或 `model_not_found`。策略拒绝沿用现有 Gateway/Router 错误码，例如 `MODEL_POLICY_DENIED`、`GATEWAY_ORGANIZATION_MODEL_DENIED`、`SDK_MANAGED_MODEL_DENIED`。恢复已有会话时也会重新检查当前目录和策略，但不会替换快照中的节点模型。
+
+节点 YAML 模型优先于用户本轮的模型选择；它不改变 `speed`、`thinking` 等未在节点 YAML 中配置的 turn 参数。模型选择只由本地定义提供，远程 owner 的 `prepare.step` 不会覆盖它。
+
+### 会话模式优先级
+
+最终会话模式按以下顺序决定，取第一个明确设置的值：
 
 1. 远程 SOP owner 的 `prepare` 响应中的 `step.contextMode`。
 2. 本地匹配节点的 `contextMode`。
@@ -159,13 +184,14 @@ x-staffdeck-approver-authorization: Bearer <审批人的 StaffDeck token>
 
 内部节点会话不会出现在普通会话列表中，也不会把完整内部 transcript 重复写入用户可见对话。重启时应保留主会话的 SOP 持久状态和内部节点会话记录，恢复后才能继续复用当前节点上下文和 wait。
 
-SOP 定义按主会话保存快照。修改定义文件不会重写已有会话的定义；验证修改后的节点配置应新建主会话。修改模块配置后，需要重载到新的运行时实例或重启服务。
+SOP 定义按主会话保存快照。修改节点的 `model` 不会重写已有会话的定义或内部节点 transcript；验证修改后的节点模型应新建主会话。修改模块配置后，需要重载到新的运行时实例或重启服务。
 
 ## 常见问题
 
 | 现象 | 检查方式 |
 | --- | --- |
 | 后续节点不知道前一节点查到的数据 | 检查结果是否写入 `slotUpdates`，以及 owner 是否保存并提供该 slot |
+| 节点模型没有生效 | 检查模型是否写在匹配的 `content.nodes[].model` 上，并确认该模型已加入当前 profile 的 `model.providers.<provider>.models` |
 | 设置模块 `inherit` 后某个节点仍独立运行 | 检查 owner `step.contextMode` 和本地节点覆盖值 |
 | 会话列表里找不到节点会话 | 内部会话默认隐藏，用户继续使用主会话即可 |
 | 改完定义后旧会话行为不变 | 旧会话使用定义快照；用新主会话验证 |

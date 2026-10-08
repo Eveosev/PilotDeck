@@ -153,6 +153,7 @@ sops:
       start_node_id: only
       nodes:
         - node_id: only
+          model: remote/node-model
           assignee_user_id: ${approval.assigneeUserId}
           instruction: Read the approval guide and knowledge record.
           allowed_actions:
@@ -162,7 +163,7 @@ sops:
   await writeFile(join(projectRoot, "pilotdeck.yaml"), `
 schemaVersion: 1
 agent:
-  model: remote/default
+  model: remote/node-model
 model:
   providers:
     remote:
@@ -170,11 +171,8 @@ model:
       url: http://provider.invalid/v1
       apiKey: test-only
       models:
-        default:
-          capabilities:
-            supportsToolUse: true
-            maxContextTokens: 65536
-            maxOutputTokens: 8192
+        node-model:
+          capabilities: { supportsToolUse: true, maxContextTokens: 65536, maxOutputTokens: 8192 }
 modules:
   agentLoop:
     enabled: true
@@ -301,6 +299,8 @@ ${approval.discoveryYaml}
   assert.ok(moduleCalls.includes("context:capture_turn"), evidence);
   assert.ok(moduleCalls.includes("modelProvider:prepare"), evidence);
   assert.ok(moduleCalls.includes("modelProvider:stream"), evidence);
+  assert.ok(modelRequests.length > 0);
+  assert.ok(modelRequests.every(request => request.provider === "remote" && request.model === "node-model"), JSON.stringify(modelRequests));
   assert.ok(moduleCalls.includes("tools:execute"), evidence);
   assert.deepEqual(sopCalls, ["prepare", "prepare", "prepare", "prepare", "submit"], evidence);
   assert.match(JSON.stringify(events), /External sidecar SOP completed/);
@@ -384,6 +384,7 @@ ${approval.discoveryYaml}
     projectKey: projectRoot,
   });
   assert.equal(resumedState?.state.status, "completed", JSON.stringify(resumedState));
+  assert.ok(modelRequests.every(request => request.model === "node-model"), "approval resume keeps the YAML node model");
 
   const rpcFailureEvents: unknown[] = [];
   enableKnowledgeFault = true;
@@ -718,7 +719,8 @@ async function routeModule(
   } else if (slot === "knowledge") {
     result = { operation, accepted: true };
   } else if (slot === "modelProvider" && operation === "prepare") {
-    result = { prepared: { request: payload.request, provider: "remote", model: "default" } };
+    const request = payload.request as Record<string, unknown>;
+    result = { prepared: { request, provider: request.provider, model: request.model } };
   } else if (slot === "modelProvider" && operation === "stream") {
     const modelRequest = (payload.request ?? {}) as Record<string, unknown>;
     compaction.modelRequests?.push(structuredClone(modelRequest));
@@ -729,34 +731,34 @@ async function routeModule(
     const submission = compaction.nextSubmission();
     result = { events: submission
       ? [
-          { type: "request_started", provider: "remote", model: "default" },
+          { type: "request_started", provider: modelRequest.provider, model: modelRequest.model },
           { type: "message_start", role: "assistant" },
           ...toolCall("wait-submit", "submit_step_result", submission),
           { type: "message_end", finishReason: "tool_call" },
         ]
       : hasSubmitResult
       ? [
-          { type: "request_started", provider: "remote", model: "default" },
+          { type: "request_started", provider: modelRequest.provider, model: modelRequest.model },
           { type: "message_start", role: "assistant" },
           { type: "text_delta", text: "External sidecar SOP completed." },
           { type: "message_end", finishReason: "stop" },
         ]
       : hasKnowledgeFault
         ? [
-            { type: "request_started", provider: "remote", model: "default" },
+            { type: "request_started", provider: modelRequest.provider, model: modelRequest.model },
             { type: "message_start", role: "assistant" },
             { type: "text_delta", text: "Knowledge RPC fault observed without advancing SOP." },
             { type: "message_end", finishReason: "stop" },
           ]
       : hasToolResult
         ? [
-          { type: "request_started", provider: "remote", model: "default" },
+          { type: "request_started", provider: modelRequest.provider, model: modelRequest.model },
           { type: "message_start", role: "assistant" },
           ...toolCall("submit-call", "submit_step_result", { status: "completed", replyFragment: "External sidecar SOP completed." }),
           { type: "message_end", finishReason: "tool_call" },
         ]
         : [
-          { type: "request_started", provider: "remote", model: "default" },
+          { type: "request_started", provider: modelRequest.provider, model: modelRequest.model },
           { type: "message_start", role: "assistant" },
           ...toolCall("skill-call", "read_skill", { skillName: "approval-guide" }),
           ...toolCall("lookup-call", "remote_lookup", { key: "approval" }),

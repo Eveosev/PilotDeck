@@ -21,6 +21,41 @@ test("SOP definition loader rejects malformed and duplicate definitions", () => 
     const invalidContextMode = join(root, "invalid-context-mode.yaml");
     writeFileSync(invalidContextMode, "sops:\n  - id: invalid\n    content:\n      nodes:\n        - node_id: start\n          contextMode: shared\n");
     assert.throws(() => loadStaffDeckSopDefinitions(invalidContextMode), /invalid contextMode/);
+
+    for (const [name, value] of [["empty", "''"], ["missing-separator", "model"], ["missing-provider", "/model"],
+      ["missing-model", "provider/"], ["null", "null"], ["number", "42"], ["object", "{provider: model}"],
+      ["whitespace", "'provider/ model'"], ["structure", "'provider//model'"]]) {
+      const invalidModel = join(root, `${name}-model.yaml`);
+      writeFileSync(invalidModel, `sops:\n  - id: invalid\n    content:\n      nodes:\n        - node_id: start\n          model: ${value}\n`);
+      assert.throws(() => loadStaffDeckSopDefinitions(invalidModel), /invalid model/);
+    }
+
+    const nonStringModel = join(root, "non-string-model.yaml");
+    writeFileSync(nonStringModel, "sops:\n  - id: invalid\n    nodes:\n      - node_id: start\n        model: [provider, model]\n");
+    assert.throws(() => loadStaffDeckSopDefinitions(nonStringModel), /invalid model/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("SOP definition loader preserves valid node models in root and content nodes", () => {
+  const root = mkdtempSync(join(tmpdir(), "pilotdeck-sop-node-models-"));
+  try {
+    const definitions = join(root, "models.yaml");
+    writeFileSync(definitions, `sops:
+  - id: root_nodes
+    nodes:
+      - node_id: classify
+        model: openai/gpt-4.1-mini
+  - id: content_nodes
+    content:
+      nodes:
+        - node_id: summarize
+          model: provider/organization/model
+`);
+    const loaded = loadStaffDeckSopDefinitions(definitions);
+    assert.equal((loaded.sops[0]?.nodes as Array<Record<string, unknown>>)[0]?.model, "openai/gpt-4.1-mini");
+    assert.equal(((loaded.sops[1]?.content as Record<string, unknown>).nodes as Array<Record<string, unknown>>)[0]?.model, "provider/organization/model");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
