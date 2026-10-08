@@ -1,5 +1,7 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────
-FROM node:22-bookworm AS builder
+ARG NODE_BUILDER_IMAGE=node:22-bookworm
+ARG NODE_RUNTIME_IMAGE=node:22-bookworm-slim
+FROM ${NODE_BUILDER_IMAGE} AS builder
 
 WORKDIR /build
 
@@ -17,6 +19,8 @@ COPY src/context/memory/edgeclaw-memory-core/ src/context/memory/edgeclaw-memory
 COPY ui/package.json ui/
 COPY packages/sdk/package.json packages/sdk/
 COPY ui/scripts/ ui/scripts/
+# The frontend build resolves its safe default composition profile here.
+COPY products/pilotdeck-staffdeck-sop/profiles/ products/pilotdeck-staffdeck-sop/profiles/
 
 # Install only the Web/Gateway workspaces. Shared appearance sources do not
 # require the Electron workspace or desktop dependencies in this image.
@@ -45,7 +49,7 @@ RUN cd ui && npm run build
 
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────
-FROM node:22-bookworm-slim
+FROM ${NODE_RUNTIME_IMAGE}
 
 WORKDIR /app
 
@@ -73,6 +77,7 @@ COPY --from=builder /build/ui/dist/ ui/dist/
 COPY --from=builder /build/ui/scripts/ ui/scripts/
 COPY --from=builder /build/ui/shared/ ui/shared/
 COPY --from=builder /build/ui/vite.config.js ui/vite.config.js
+COPY --from=builder /build/products/pilotdeck-staffdeck-sop/profiles/ products/pilotdeck-staffdeck-sop/profiles/
 
 # Create PilotDeck state/workspace directories used by the gateway, UI server,
 # permissions, skills/plugins, memory, auth, and router stats.
