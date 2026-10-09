@@ -224,16 +224,30 @@ def load_trace(path: Path) -> list[dict[str, Any]]:
     return records
 
 
+_SIDECAR_TRANSPORTS = frozenset({"stdio", "tcp"})
+
+
 def validate_production_sidecar_proof(
     records: list[dict[str, Any]],
     required_modules: set[str] | None = None,
     required_operations: set[str] | None = None,
+    expected_transport: str | None = None,
 ) -> list[str]:
     proofs = [record for record in records if record.get("kind") == "harness.proof"]
     states = {str(record.get("state")) for record in proofs}
     errors: list[str] = []
-    if not any(record.get("state") == "transport_selected" and record.get("transport") == "stdio" for record in proofs):
-        errors.append("production stdio transport selection proof is missing")
+    selected_transports = {
+        str(record.get("transport"))
+        for record in proofs
+        if record.get("state") == "transport_selected" and isinstance(record.get("transport"), str)
+    }
+    if expected_transport is not None:
+        if expected_transport not in _SIDECAR_TRANSPORTS:
+            raise ValueError(f"expected sidecar transport must be stdio or tcp, got {expected_transport!r}")
+        if expected_transport not in selected_transports:
+            errors.append(f"production {expected_transport} transport selection proof is missing")
+    elif selected_transports.isdisjoint(_SIDECAR_TRANSPORTS):
+        errors.append("production sidecar transport selection proof is missing")
     if "handshake_completed" not in states:
         errors.append("production sidecar handshake proof is missing")
     observed_modules = {

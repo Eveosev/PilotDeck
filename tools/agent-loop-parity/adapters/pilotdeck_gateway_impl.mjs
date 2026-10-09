@@ -561,17 +561,35 @@ if (["plan_mode_host_policy", "plan_mode_bypass_host_policy"].includes(scenario.
     "utf8",
   );
 }
-const gatewayEnv = {
-  ...process.env,
-  ...(mode === "sidecar" ? {
-    PILOTDECK_AGENT_LOOP_TRANSPORT: "stdio",
-    PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND: process.execPath,
-    PILOTDECK_AGENT_LOOP_SIDECAR_PATH: path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js"),
-  } : {
-    PILOTDECK_AGENT_LOOP_TRANSPORT: "native",
-  }),
-};
-push("harness.proof", { state: "transport_selected", transport: mode === "sidecar" ? "stdio" : "native" });
+function resolveSelectedTransport(parityMode) {
+  if (parityMode !== "sidecar") return "native";
+  const requested = String(process.env.PARITY_SIDECAR_TRANSPORT ?? "").trim().toLowerCase();
+  if (requested === "tcp" || requested === "stdio") return requested;
+  return "stdio";
+}
+
+const selectedTransport = resolveSelectedTransport(mode);
+const gatewayEnv = { ...process.env };
+if (selectedTransport === "tcp") {
+  const host = String(process.env.PARITY_TCP_HOST || process.env.PILOTDECK_AGENT_LOOP_TCP_HOST || "127.0.0.1").trim();
+  const port = String(process.env.PARITY_TCP_PORT || process.env.PILOTDECK_AGENT_LOOP_TCP_PORT || "").trim();
+  if (!host) throw new Error("TCP sidecar host is required (PARITY_TCP_HOST or PILOTDECK_AGENT_LOOP_TCP_HOST).");
+  if (!port) throw new Error("TCP sidecar port is required (PARITY_TCP_PORT or PILOTDECK_AGENT_LOOP_TCP_PORT).");
+  gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "tcp";
+  gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_HOST = host;
+  gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_PORT = port;
+  delete gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND;
+  delete gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH;
+} else if (selectedTransport === "stdio") {
+  gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "stdio";
+  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND = process.execPath;
+  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH = path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js");
+  delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_HOST;
+  delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_PORT;
+} else {
+  gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "native";
+}
+push("harness.proof", { state: "transport_selected", transport: selectedTransport });
 
 const observedPersistenceProvider = createObservedPersistenceProvider();
 const local = createLocalGateway({
