@@ -106,6 +106,8 @@ python tools/agent-loop-parity/run.py \
 Rust sidecar 必须遵守与 TS `pilotdeck-agent-loop-sidecar` 相同的 Module Protocol，并在
 `PILOTDECK_AGENT_LOOP_TCP_HOST`（默认 `127.0.0.1`）和 `PILOTDECK_AGENT_LOOP_TCP_PORT` 上监听。
 
+harness 启动 TCP sidecar 时把 stdout/stderr **合并写入** `<output>/tcp-sidecar.log`，并在 `summary.json` 的 `tcpSidecarLog` 记录该路径。不要用 PIPE 捕获长期 sidecar 输出，以免管道缓冲区填满后死锁。启动失败或因 listener 退出而 BLOCKED 时，错误信息会带上该日志末尾约 16 行。正常 `stop_process` 只结束进程，日志留在磁盘上供检查。
+
 ## Negative control
 
 以下两条路径都必须以 `BLOCKED` 结束（`PARITY_MODE=native` 无法提供 sidecar transport/handshake proof）：

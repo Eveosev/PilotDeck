@@ -19,6 +19,7 @@ from run import (
     REQUIRED_GATEWAY_SCENARIOS,
     ROOT,
     adapter_env,
+    append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
     baseline_not_applicable_reason,
     declared_extension_matches,
@@ -27,6 +28,10 @@ from run import (
     resolve_sidecar_transport,
     resolve_tcp_sidecar_target,
     scenario_for_adapter,
+    start_tcp_sidecar,
+    stop_process,
+    tcp_sidecar_log_path,
+    tcp_sidecar_log_tail,
     wait_for_tcp,
 )
 
@@ -856,6 +861,91 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         with socket.create_server(("127.0.0.1", 0)) as server:
             host, port = server.getsockname()[:2]
             wait_for_tcp(host, port, timeout_seconds=1)
+
+    def test_tcp_sidecar_log_tail_returns_last_lines(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = tcp_sidecar_log_path(Path(temporary))
+            self.assertEqual(log_path.name, "tcp-sidecar.log")
+            self.assertEqual(tcp_sidecar_log_tail(log_path), "")
+            log_path.write_text("\n".join(f"line-{index}" for index in range(24)) + "\n", encoding="utf-8")
+            tail = tcp_sidecar_log_tail(log_path, max_lines=8)
+            self.assertTrue(tail.startswith("line-16"))
+            self.assertTrue(tail.endswith("line-23"))
+            self.assertNotIn("line-15", tail)
+
+    def test_start_tcp_sidecar_redirects_stdio_to_log_path(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            log_path = tcp_sidecar_log_path(output)
+            command = (
+                "python3 -c "
+                "'import os, socket, sys, time; "
+                "print(\"sidecar-stdout\", flush=True); "
+                "print(\"sidecar-stderr\", file=sys.stderr, flush=True); "
+                "listener = socket.create_server((os.environ[\"PILOTDECK_AGENT_LOOP_TCP_HOST\"], "
+                "int(os.environ[\"PILOTDECK_AGENT_LOOP_TCP_PORT\"]))); "
+                "time.sleep(30)'"
+            )
+            target = resolve_tcp_sidecar_target(
+                host=None,
+                port=None,
+                command=command,
+                source=output,
+            )
+            process = start_tcp_sidecar(target, output, {}, log_path)
+            try:
+                self.assertTrue(log_path.is_file())
+                text = log_path.read_text(encoding="utf-8")
+                self.assertIn("sidecar-stdout", text)
+                self.assertIn("sidecar-stderr", text)
+                self.assertIsNone(process.stdout)
+                self.assertIsNone(process.stderr)
+            finally:
+                stop_process(process)
+            self.assertTrue(log_path.is_file())
+
+    def test_start_tcp_sidecar_failure_surfaces_log_tail(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            log_path = tcp_sidecar_log_path(output)
+            command = (
+                "python3 -c "
+                "'import sys; "
+                "[print(f\"fail-line-{i}\", file=sys.stderr) for i in range(12)]; "
+                "print(\"sidecar-fatal\", file=sys.stderr); "
+                "raise SystemExit(1)'"
+            )
+            target = resolve_tcp_sidecar_target(
+                host=None,
+                port=None,
+                command=command,
+                source=output,
+            )
+            with self.assertRaises(RuntimeError) as raised:
+                start_tcp_sidecar(target, output, {}, log_path, ready_timeout_seconds=0.4)
+            message = str(raised.exception)
+            self.assertIn("TCP sidecar failed to listen", message)
+            self.assertIn("sidecar-fatal", message)
+            self.assertIn("fail-line-11", message)
+            self.assertTrue(log_path.is_file())
+
+    def test_append_tcp_sidecar_exit_detail_adds_tail_when_listener_died(self) -> None:
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = tcp_sidecar_log_path(Path(temporary))
+            log_path.write_text("boot\nlistener-exit\n", encoding="utf-8")
+            dead = subprocess.Popen(["python3", "-c", "raise SystemExit(0)"])
+            dead.wait(timeout=2)
+            blocked = ["pure_text/pilotdeck-current-sidecar: BLOCKED: connection refused"]
+            append_tcp_sidecar_exit_detail(blocked, log_path=log_path, process=dead)
+            self.assertEqual(len(blocked), 2)
+            self.assertIn("listener-exit", blocked[1])
+            append_tcp_sidecar_exit_detail(blocked, log_path=log_path, process=dead)
+            self.assertEqual(len(blocked), 2)
 
     def test_full_gateway_gate_counts_53_scenarios(self) -> None:
         self.assertEqual(len(REQUIRED_GATEWAY_SCENARIOS), 53)

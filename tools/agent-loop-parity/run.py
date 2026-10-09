@@ -138,7 +138,40 @@ def wait_for_tcp(host: str, port: int, timeout_seconds: float = 5) -> None:
     raise RuntimeError(f"TCP sidecar did not become ready on {host}:{port}: {detail}")
 
 
-def start_tcp_sidecar(target: TcpSidecarTarget, cwd: Path, env: dict[str, str]) -> subprocess.Popen[str]:
+TCP_SIDECAR_LOG_NAME = "tcp-sidecar.log"
+TCP_SIDECAR_LOG_TAIL_LINES = 16
+TCP_SIDECAR_LOG_TAIL_BYTES = 16_384
+
+
+def tcp_sidecar_log_path(output: Path) -> Path:
+    return output / TCP_SIDECAR_LOG_NAME
+
+
+def tcp_sidecar_log_tail(log_path: Path, *, max_lines: int = TCP_SIDECAR_LOG_TAIL_LINES) -> str:
+    """Return the last sidecar log lines for start-failure / BLOCKED messages."""
+    if max_lines < 1 or not log_path.is_file():
+        return ""
+    try:
+        with log_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - TCP_SIDECAR_LOG_TAIL_BYTES), os.SEEK_SET)
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+    lines = chunk.splitlines()
+    if size > TCP_SIDECAR_LOG_TAIL_BYTES and lines:
+        lines = lines[1:]
+    return " | ".join(line.strip() for line in lines[-max_lines:] if line.strip())
+
+
+def start_tcp_sidecar(
+    target: TcpSidecarTarget,
+    cwd: Path,
+    env: dict[str, str],
+    log_path: Path,
+    ready_timeout_seconds: float = 5,
+) -> subprocess.Popen[Any]:
     if not target.start_command:
         raise ValueError("TCP sidecar reuse does not start a process")
     child_env = env.copy()
@@ -147,27 +180,48 @@ def start_tcp_sidecar(target: TcpSidecarTarget, cwd: Path, env: dict[str, str]) 
     # The sidecar is the listener. It must not inherit a host transport selection
     # that would make a Rust/TS binary try to connect instead of listen.
     child_env.pop("PILOTDECK_AGENT_LOOP_TRANSPORT", None)
-    process = subprocess.Popen(
-        shlex.split(target.start_command),
-        cwd=cwd,
-        env=child_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Redirect to a file so a long-lived sidecar cannot fill a PIPE buffer and deadlock.
+    # Popen duplicates the fd; closing the parent handle leaves the child's writes intact.
+    with log_path.open("wb") as log_file:
+        process = subprocess.Popen(
+            shlex.split(target.start_command),
+            cwd=cwd,
+            env=child_env,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+        )
     try:
-        wait_for_tcp(target.host, target.port)
+        wait_for_tcp(target.host, target.port, timeout_seconds=ready_timeout_seconds)
     except Exception:
         process.kill()
-        stdout, stderr = process.communicate()
-        detail = (stderr or stdout or "").strip().splitlines()[-8:]
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+        detail = tcp_sidecar_log_tail(log_path)
         raise RuntimeError(
-            f"TCP sidecar failed to listen on {target.host}:{target.port}: {' | '.join(detail)}"
+            f"TCP sidecar failed to listen on {target.host}:{target.port}: {detail}"
         ) from None
     return process
 
 
-def stop_process(process: subprocess.Popen[str] | None) -> None:
+def append_tcp_sidecar_exit_detail(
+    blocked: list[str],
+    *,
+    log_path: Path | None,
+    process: subprocess.Popen[Any] | None,
+) -> None:
+    """If the listener died and the run is already BLOCKED, attach a log tail."""
+    if log_path is None or process is None or process.poll() is None or not blocked:
+        return
+    tail = tcp_sidecar_log_tail(log_path)
+    if not tail or any(tail in item for item in blocked):
+        return
+    blocked.append(f"tcp-sidecar: BLOCKED: listener exited; last log lines: {tail}")
+
+
+def stop_process(process: subprocess.Popen[Any] | None) -> None:
     if process is None or process.poll() is not None:
         return
     process.terminate()
@@ -684,8 +738,13 @@ def main() -> int:
 
     scenarios = load_scenarios(args.scenario_file, args.scenario, args.suite)
     args.output.mkdir(parents=True, exist_ok=True)
+    tcp_sidecar_log = (
+        tcp_sidecar_log_path(args.output)
+        if tcp_target is not None and tcp_target.start_command
+        else None
+    )
     mock_process, mock_url = start_mock()
-    tcp_process: subprocess.Popen[str] | None = None
+    tcp_process: subprocess.Popen[Any] | None = None
     blocked: list[str] = []
     failed: list[str] = []
     oracle_failures: list[str] = []
@@ -693,111 +752,125 @@ def main() -> int:
     expected_extensions: list[str] = []
     not_applicable: list[str] = []
     warnings: list[str] = []
+    sidecar_ready = True
     try:
-        if tcp_target is not None and tcp_target.start_command:
-            tcp_process = start_tcp_sidecar(tcp_target, args.pilotdeck_root, os.environ.copy())
-        with tempfile.TemporaryDirectory(prefix="pilotdeck-agent-loop-parity-") as temporary:
-            baseline, created = materialize_baseline(args.pilotdeck_root, args.pilotdeck_baseline, Path(temporary))
+        if tcp_target is not None and tcp_target.start_command and tcp_sidecar_log is not None:
             try:
-                if args.comparison in {"baseline", "both"}:
-                    prepare_baseline(baseline)
-                for scenario in scenarios:
-                    sid = str(scenario["scenarioId"])
-                    jobs: dict[str, tuple[str, Path, str, str | None]] = {}
-                    if args.comparison in {"same-version", "both"}:
-                        jobs.update({
-                            "pilotdeck-current-native": ("native", args.pilotdeck_root, "working-tree", args.pilotdeck_native_cmd),
-                            "pilotdeck-current-sidecar": ("sidecar", args.pilotdeck_root, "working-tree", args.pilotdeck_sidecar_cmd),
-                        })
+                tcp_process = start_tcp_sidecar(
+                    tcp_target, args.pilotdeck_root, os.environ.copy(), tcp_sidecar_log
+                )
+            except Exception as error:
+                sidecar_ready = False
+                detail = str(error).strip()
+                tail = tcp_sidecar_log_tail(tcp_sidecar_log)
+                if tail and tail not in detail:
+                    detail = f"{detail}: {tail}" if detail else tail
+                blocked.append(f"tcp-sidecar: BLOCKED: {detail}")
+        if sidecar_ready:
+            with tempfile.TemporaryDirectory(prefix="pilotdeck-agent-loop-parity-") as temporary:
+                baseline, created = materialize_baseline(args.pilotdeck_root, args.pilotdeck_baseline, Path(temporary))
+                try:
                     if args.comparison in {"baseline", "both"}:
-                        reason = baseline_not_applicable_reason(scenario)
-                        if reason:
-                            not_applicable.append(f"{sid}: {reason}")
-                        else:
+                        prepare_baseline(baseline)
+                    for scenario in scenarios:
+                        sid = str(scenario["scenarioId"])
+                        jobs: dict[str, tuple[str, Path, str, str | None]] = {}
+                        if args.comparison in {"same-version", "both"}:
                             jobs.update({
-                                "pilotdeck-baseline-native": ("native", baseline, args.pilotdeck_baseline, args.pilotdeck_native_cmd),
                                 "pilotdeck-current-native": ("native", args.pilotdeck_root, "working-tree", args.pilotdeck_native_cmd),
                                 "pilotdeck-current-sidecar": ("sidecar", args.pilotdeck_root, "working-tree", args.pilotdeck_sidecar_cmd),
                             })
-                    traces: dict[str, Path] = {}
-                    for name, (mode, source, ref, override) in jobs.items():
-                        trace_path = args.output / f"{sid}.{name}.jsonl"
-                        status = run_adapter(
-                            mode, source, ref, scenario, mock_url, trace_path, args.surface,
-                            args.adapter_timeout_seconds, override,
-                            sidecar_transport=sidecar_transport,
-                            tcp_target=tcp_target,
-                        )
-                        if status != "PASS":
-                            blocked.append(f"{sid}/{name}: {status}")
-                            continue
-                        traces[name] = trace_path
-                        oracle_scenario = scenario_for_adapter(scenario, name)
-                        for failure in validate_trace_expectations(load_trace(trace_path), oracle_scenario, "pilotdeck", name):
-                            oracle_failures.append(f"{sid}/{name}: {failure.path} expected={failure.left!r} actual={failure.right!r}")
-                    comparisons = [
-                        ("PilotDeck", "pilotdeck-current-native", "pilotdeck-current-sidecar", False),
-                        ("PilotDeck baseline drift", "pilotdeck-baseline-native", "pilotdeck-current-native", True),
-                        ("PilotDeck baseline sidecar drift", "pilotdeck-baseline-native", "pilotdeck-current-sidecar", True),
-                    ]
-                    for label, left_name, right_name, is_baseline in comparisons:
-                        if left_name not in traces or right_name not in traces:
-                            continue
-                        same_version_contract = SAME_VERSION_COMPARISONS.get(sid, {"mode": "shared"})
-                        comparison = (
-                            compare_baseline_trace_details(
-                                load_trace(traces[left_name]),
-                                load_trace(traces[right_name]),
-                                {**scenario, "baselineComparison": baseline_comparison(scenario)},
+                        if args.comparison in {"baseline", "both"}:
+                            reason = baseline_not_applicable_reason(scenario)
+                            if reason:
+                                not_applicable.append(f"{sid}: {reason}")
+                            else:
+                                jobs.update({
+                                    "pilotdeck-baseline-native": ("native", baseline, args.pilotdeck_baseline, args.pilotdeck_native_cmd),
+                                    "pilotdeck-current-native": ("native", args.pilotdeck_root, "working-tree", args.pilotdeck_native_cmd),
+                                    "pilotdeck-current-sidecar": ("sidecar", args.pilotdeck_root, "working-tree", args.pilotdeck_sidecar_cmd),
+                                })
+                        traces: dict[str, Path] = {}
+                        for name, (mode, source, ref, override) in jobs.items():
+                            trace_path = args.output / f"{sid}.{name}.jsonl"
+                            status = run_adapter(
+                                mode, source, ref, scenario, mock_url, trace_path, args.surface,
+                                args.adapter_timeout_seconds, override,
+                                sidecar_transport=sidecar_transport,
+                                tcp_target=tcp_target,
                             )
-                            if is_baseline
-                            else (
-                                compare_continuable_trace_details(
+                            if status != "PASS":
+                                blocked.append(f"{sid}/{name}: {status}")
+                                continue
+                            traces[name] = trace_path
+                            oracle_scenario = scenario_for_adapter(scenario, name)
+                            for failure in validate_trace_expectations(load_trace(trace_path), oracle_scenario, "pilotdeck", name):
+                                oracle_failures.append(f"{sid}/{name}: {failure.path} expected={failure.left!r} actual={failure.right!r}")
+                        comparisons = [
+                            ("PilotDeck", "pilotdeck-current-native", "pilotdeck-current-sidecar", False),
+                            ("PilotDeck baseline drift", "pilotdeck-baseline-native", "pilotdeck-current-native", True),
+                            ("PilotDeck baseline sidecar drift", "pilotdeck-baseline-native", "pilotdeck-current-sidecar", True),
+                        ]
+                        for label, left_name, right_name, is_baseline in comparisons:
+                            if left_name not in traces or right_name not in traces:
+                                continue
+                            same_version_contract = SAME_VERSION_COMPARISONS.get(sid, {"mode": "shared"})
+                            comparison = (
+                                compare_baseline_trace_details(
                                     load_trace(traces[left_name]),
                                     load_trace(traces[right_name]),
+                                    {**scenario, "baselineComparison": baseline_comparison(scenario)},
                                 )
-                                if same_version_contract.get("comparator") == "continuable_actor_v1"
-                                else compare_trace_details(load_trace(traces[left_name]), load_trace(traces[right_name]))
+                                if is_baseline
+                                else (
+                                    compare_continuable_trace_details(
+                                        load_trace(traces[left_name]),
+                                        load_trace(traces[right_name]),
+                                    )
+                                    if same_version_contract.get("comparator") == "continuable_actor_v1"
+                                    else compare_trace_details(load_trace(traces[left_name]), load_trace(traces[right_name]))
+                                )
                             )
-                        )
-                        report = args.output / f"{sid}-{label.lower().replace(' ', '-')}.md"
-                        write_report(report, f"{sid} {label}", traces[left_name], traces[right_name], comparison)
-                        if comparison.format_warnings:
-                            warnings.append(f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)")
-                        if not is_baseline and same_version_contract.get("mode") == "extension":
-                            if declared_extension_matches(scenario, comparison.semantic, comparison=same_version_contract):
-                                expected_extensions.append(
-                                    f"{sid}/{label}: verified {len(comparison.semantic)} declared transport difference(s)"
-                                )
-                            else:
-                                failed.append(
-                                    f"{sid}/{label}: transport contract mismatch ({len(comparison.semantic)} semantic difference(s))"
-                                )
-                        elif is_baseline and baseline_comparison_mode(scenario) == "extension":
-                            if declared_extension_matches(scenario, comparison.semantic, adapter=right_name):
-                                expected_extensions.append(
-                                    f"{sid}/{label}: verified {len(comparison.semantic)} declared extension difference(s)"
-                                )
-                            else:
-                                failed.append(
-                                    f"{sid}/{label}: extension contract mismatch ({len(comparison.semantic)} semantic difference(s))"
-                                )
-                        elif scenario.get("suite") == "known-gap":
-                            if known_gap_matches(scenario, comparison.semantic):
-                                known_gaps.append(f"{sid}/{label}: reproduced {len(comparison.semantic)} expected difference(s)")
-                            else:
-                                failed.append(f"{sid}/{label}: known-gap declaration mismatch")
-                        elif comparison.semantic:
-                            failed.append(f"{sid}/{label}: {len(comparison.semantic)} semantic difference(s)")
-            finally:
-                remove_baseline(args.pilotdeck_root, baseline, created)
+                            report = args.output / f"{sid}-{label.lower().replace(' ', '-')}.md"
+                            write_report(report, f"{sid} {label}", traces[left_name], traces[right_name], comparison)
+                            if comparison.format_warnings:
+                                warnings.append(f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)")
+                            if not is_baseline and same_version_contract.get("mode") == "extension":
+                                if declared_extension_matches(scenario, comparison.semantic, comparison=same_version_contract):
+                                    expected_extensions.append(
+                                        f"{sid}/{label}: verified {len(comparison.semantic)} declared transport difference(s)"
+                                    )
+                                else:
+                                    failed.append(
+                                        f"{sid}/{label}: transport contract mismatch ({len(comparison.semantic)} semantic difference(s))"
+                                    )
+                            elif is_baseline and baseline_comparison_mode(scenario) == "extension":
+                                if declared_extension_matches(scenario, comparison.semantic, adapter=right_name):
+                                    expected_extensions.append(
+                                        f"{sid}/{label}: verified {len(comparison.semantic)} declared extension difference(s)"
+                                    )
+                                else:
+                                    failed.append(
+                                        f"{sid}/{label}: extension contract mismatch ({len(comparison.semantic)} semantic difference(s))"
+                                    )
+                            elif scenario.get("suite") == "known-gap":
+                                if known_gap_matches(scenario, comparison.semantic):
+                                    known_gaps.append(f"{sid}/{label}: reproduced {len(comparison.semantic)} expected difference(s)")
+                                else:
+                                    failed.append(f"{sid}/{label}: known-gap declaration mismatch")
+                            elif comparison.semantic:
+                                failed.append(f"{sid}/{label}: {len(comparison.semantic)} semantic difference(s)")
+                finally:
+                    remove_baseline(args.pilotdeck_root, baseline, created)
     finally:
+        append_tcp_sidecar_exit_detail(blocked, log_path=tcp_sidecar_log, process=tcp_process)
         stop_process(tcp_process)
         stop_process(mock_process)
     summary = {
         "scenarios": len(scenarios),
         "gateScenarioCount": PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT,
         "sidecarTransport": sidecar_transport,
+        "tcpSidecarLog": str(tcp_sidecar_log) if tcp_sidecar_log is not None else None,
         "provenance": {
             "current": resolve_ref(args.pilotdeck_root, "HEAD"),
             "baseline": resolve_ref(args.pilotdeck_root, args.pilotdeck_baseline)
