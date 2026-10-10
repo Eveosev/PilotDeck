@@ -646,9 +646,41 @@ def _diff_semantic_records(left: list[dict[str, Any]], right: list[dict[str, Any
     return differences
 
 
+def _terminal_outcome(records: list[dict[str, Any]]) -> str | None:
+    for record in reversed(records):
+        if record.get("kind") == "terminal":
+            outcome = record.get("outcome")
+            return outcome if isinstance(outcome, str) else None
+    return None
+
+
+def _drop_optional_cancel_status(
+    groups: dict[tuple[str, str], list[dict[str, Any]]],
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Drop abort-status observations once both sides already cancelled.
+
+    `abort_turn` and the cancelled model response can land in either order.
+    The cancelled terminal remains the contract; a sibling `turn_aborted`
+    status is a scheduling observation, not a second semantic outcome.
+    """
+    result: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for key, records in groups.items():
+        result[key] = [
+            record for record in records
+            if not (
+                record.get("kind") in {"agent.status", "durable.status"}
+                and record.get("event") == "turn_aborted"
+            )
+        ]
+    return result
+
+
 def compare_trace_details(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> Comparison:
     left_channels = project_channel_sequences(left)
     right_channels = project_channel_sequences(right)
+    if _terminal_outcome(left) == "cancelled" and _terminal_outcome(right) == "cancelled":
+        left_channels = _drop_optional_cancel_status(left_channels)
+        right_channels = _drop_optional_cancel_status(right_channels)
     semantic = (
         _partial_order_differences(left, "left")
         + _partial_order_differences(right, "right")

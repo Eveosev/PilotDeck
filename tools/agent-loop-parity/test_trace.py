@@ -1132,6 +1132,28 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         ]
         self.assertTrue(compare_traces(status_order, [status_order[1], status_order[0]]))
 
+    def test_cancelled_terminals_ignore_optional_turn_aborted_status(self) -> None:
+        request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
+        error = {
+            "kind": "model.error",
+            "code": "CANCELLED",
+            "message": "Deterministic model cancellation.",
+            "retryable": False,
+            "attempt": 1,
+        }
+        durable = {
+            "kind": "durable.status",
+            "event": "turn_aborted",
+            "statusKind": "status",
+            "text": "This turn was aborted before completion.",
+        }
+        status = {"kind": "agent.status", "event": "turn_aborted", "detail": {"code": "turn_aborted"}}
+        cancelled = {"kind": "terminal", "outcome": "cancelled"}
+        left = [request, error, durable, status, cancelled]
+        right = [request, error, cancelled]
+        self.assertEqual(compare_traces(left, right), [])
+        self.assertTrue(compare_traces(left, [request, error, {"kind": "terminal", "outcome": "failed"}]))
+
     def test_same_version_deadline_contract_accepts_aa_without_declared_transport_diffs(self) -> None:
         contract = {
             "mode": "extension",

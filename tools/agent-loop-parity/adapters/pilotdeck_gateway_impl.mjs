@@ -195,6 +195,7 @@ class MockModelRuntime {
       yield { type: "text_delta", text: "partial" };
       throw Object.assign(new Error("Deterministic stream interruption."), { code: "stream_interrupted", retryable: false });
     }
+    const cancelScenario = scenario.scenarioId === "cancel";
     const responsePromise = post("/v1/chat/completions", {
       scenarioId: scenario.scenarioId,
       q: scenario.q,
@@ -213,7 +214,7 @@ class MockModelRuntime {
       turnIndex: scenarioTurnIndex,
       turnModelAttempt: scenarioTurnModelAttempt,
       runKey,
-    }, options.signal);
+    }, cancelScenario ? undefined : options.signal);
     const cancelledError = () => Object.assign(new Error("Deterministic model cancellation."), {
       code: "CANCELLED",
       retryable: false,
@@ -231,18 +232,11 @@ class MockModelRuntime {
     const awaitModelResponse = async () => {
       try {
         const payload = await responsePromise;
-        if (payload?.error?.code === "CANCELLED" || options.signal?.aborted) rejectCancelled();
+        if (payload?.error?.code === "CANCELLED") rejectCancelled();
         return payload;
       } catch (error) {
         if (error?.code === "CANCELLED" && error?.message === "Deterministic model cancellation.") {
           throw error;
-        }
-        if (
-          options.signal?.aborted
-          || error?.name === "AbortError"
-          || error?.code === "ABORT_ERR"
-        ) {
-          rejectCancelled();
         }
         throw error;
       }
