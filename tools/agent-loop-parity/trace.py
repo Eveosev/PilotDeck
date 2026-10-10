@@ -65,20 +65,6 @@ _BUDGET_CHANNEL_KINDS = {"context.budget"}
 _AUTO_COMPACT_CHANNEL_KINDS = {
     "compact.boundary", "durable.compaction_completed", "compaction.budget",
 }
-_TOOL_CHANNEL_KINDS = {"tool.call", "tool.start", "tool.finish", "tool.result", "tool.progress"}
-_PERMISSION_CHANNEL_KINDS = {
-    "permission.request", "permission.answer", "permission.decision",
-    "policy.turn", "policy.context",
-}
-_STEER_CHANNEL_KINDS = {"steer.request", "steer.applied"}
-_DURABLE_CHANNEL_KINDS = {"durable.status", "durable.steer", "durable.state"}
-_LIFECYCLE_CHANNEL_KINDS = {"sidecar.lifecycle", "session.lifecycle"}
-_OUTPUT_CHANNEL_KINDS = {"user.output"}
-_TERMINAL_CHANNEL_KINDS = {
-    "terminal", "side_effect.state", "gateway.error", "seed.state", "checkpoint",
-    "fault.injected",
-}
-_CANCEL_CHANNEL_KINDS = {"cancel.requested", "cancel.acknowledged", "cancel.error"}
 
 
 def _generated_id_placeholder(
@@ -434,9 +420,12 @@ def _canonicalize_parallel_tool_lifecycle(records: list[dict[str, Any]]) -> list
 def comparison_channel(record: dict[str, Any]) -> str:
     """Name the independently scheduled stream a record belongs to.
 
-    Native and stdio observe the same actor-local sequences, but host
-    scheduling can interleave next_turn, model, compact, budget, and stream
-    records. Cross-channel order is not semantic; within a channel it is.
+    Only five event classes may interleave across channels: `next_turn`,
+    `model`, `auto_compact`, `budget`, and `stream`. Cross-channel order
+    among those five is ignored; within a channel, order stays strict.
+    Every other event — including unknown kinds — stays on one strict
+    per-actor `core` sequence. Unknown types must not become new
+    ignore-channels.
     """
     kind = str(record.get("kind") or "")
     if kind in _MODEL_CHANNEL_KINDS:
@@ -453,24 +442,7 @@ def comparison_channel(record: dict[str, Any]) -> str:
             return "next_turn"
         if isinstance(event, str) and event.startswith("compact_"):
             return "auto_compact"
-        return "status"
-    if kind in _TOOL_CHANNEL_KINDS:
-        return "tool"
-    if kind in _PERMISSION_CHANNEL_KINDS:
-        return "permission"
-    if kind in _STEER_CHANNEL_KINDS:
-        return "steer"
-    if kind in _DURABLE_CHANNEL_KINDS:
-        return "durable"
-    if kind in _LIFECYCLE_CHANNEL_KINDS:
-        return "lifecycle"
-    if kind in _OUTPUT_CHANNEL_KINDS:
-        return "output"
-    if kind in _TERMINAL_CHANNEL_KINDS:
-        return "terminal"
-    if kind in _CANCEL_CHANNEL_KINDS:
-        return "cancel"
-    return kind or "unknown"
+    return "core"
 
 
 def comparison_actor(record: dict[str, Any]) -> str:
@@ -646,41 +618,9 @@ def _diff_semantic_records(left: list[dict[str, Any]], right: list[dict[str, Any
     return differences
 
 
-def _terminal_outcome(records: list[dict[str, Any]]) -> str | None:
-    for record in reversed(records):
-        if record.get("kind") == "terminal":
-            outcome = record.get("outcome")
-            return outcome if isinstance(outcome, str) else None
-    return None
-
-
-def _drop_optional_cancel_status(
-    groups: dict[tuple[str, str], list[dict[str, Any]]],
-) -> dict[tuple[str, str], list[dict[str, Any]]]:
-    """Drop abort-status observations once both sides already cancelled.
-
-    `abort_turn` and the cancelled model response can land in either order.
-    The cancelled terminal remains the contract; a sibling `turn_aborted`
-    status is a scheduling observation, not a second semantic outcome.
-    """
-    result: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for key, records in groups.items():
-        result[key] = [
-            record for record in records
-            if not (
-                record.get("kind") in {"agent.status", "durable.status"}
-                and record.get("event") == "turn_aborted"
-            )
-        ]
-    return result
-
-
 def compare_trace_details(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> Comparison:
     left_channels = project_channel_sequences(left)
     right_channels = project_channel_sequences(right)
-    if _terminal_outcome(left) == "cancelled" and _terminal_outcome(right) == "cancelled":
-        left_channels = _drop_optional_cancel_status(left_channels)
-        right_channels = _drop_optional_cancel_status(right_channels)
     semantic = (
         _partial_order_differences(left, "left")
         + _partial_order_differences(right, "right")

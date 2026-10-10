@@ -1113,6 +1113,8 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         output = {"kind": "user.output", "text": "ok"}
         terminal = {"kind": "terminal", "outcome": "completed"}
         left = [next_turn, request, budget, stream, compact, response, output, terminal]
+        # Five allowed classes may interleave with each other and with core.
+        # Output still precedes terminal on the single core sequence.
         right = [budget, stream, compact, next_turn, output, request, response, terminal]
         self.assertEqual(compare_traces(left, right), [])
 
@@ -1132,7 +1134,34 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         ]
         self.assertTrue(compare_traces(status_order, [status_order[1], status_order[0]]))
 
-    def test_cancelled_terminals_ignore_optional_turn_aborted_status(self) -> None:
+        # Core events stay on one strict per-actor sequence. Output/terminal
+        # (or tool/permission) reorder is a regression, not scheduler noise.
+        self.assertTrue(compare_traces(
+            [output, terminal],
+            [terminal, output],
+        ))
+        self.assertTrue(compare_traces(
+            [{"kind": "tool.call", "name": "lookup"}, {"kind": "permission.decision", "allowed": True}],
+            [{"kind": "permission.decision", "allowed": True}, {"kind": "tool.call", "name": "lookup"}],
+        ))
+
+    def test_unknown_kinds_stay_on_the_strict_core_sequence(self) -> None:
+        request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        unknown_a = {"kind": "novel.alpha", "state": "one"}
+        unknown_b = {"kind": "novel.beta", "state": "two"}
+        # Unknown kinds must not each become an ignore-channel.
+        self.assertTrue(compare_traces(
+            [unknown_a, unknown_b, terminal],
+            [unknown_b, unknown_a, terminal],
+        ))
+        # An unknown core event may still interleave with the five classes.
+        self.assertEqual(
+            compare_traces([request, unknown_a, terminal], [unknown_a, request, terminal]),
+            [],
+        )
+
+    def test_cancelled_turn_aborted_status_remains_semantic(self) -> None:
         request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
         error = {
             "kind": "model.error",
@@ -1151,8 +1180,11 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         cancelled = {"kind": "terminal", "outcome": "cancelled"}
         left = [request, error, durable, status, cancelled]
         right = [request, error, cancelled]
-        self.assertEqual(compare_traces(left, right), [])
+        # Both sides cancelled is not a waiver for abort-status text or count.
+        self.assertTrue(compare_traces(left, right))
         self.assertTrue(compare_traces(left, [request, error, {"kind": "terminal", "outcome": "failed"}]))
+        same = [request, error, durable, status, cancelled]
+        self.assertEqual(compare_traces(same, json.loads(json.dumps(same))), [])
 
     def test_same_version_deadline_contract_accepts_aa_without_declared_transport_diffs(self) -> None:
         contract = {
@@ -1175,12 +1207,12 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         ))
         observed = [
             type("Difference", (), {
-                "path": "trace.channel[terminal/parent][0].durableStopReason",
+                "path": "trace.channel[core/parent][0].durableStopReason",
                 "left": "aborted_streaming",
                 "right": None,
             })(),
             type("Difference", (), {
-                "path": "trace.channel[terminal/parent][0].resultType",
+                "path": "trace.channel[core/parent][0].resultType",
                 "left": "aborted",
                 "right": None,
             })(),
@@ -1193,7 +1225,7 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         ))
         extra = observed + [
             type("Difference", (), {
-                "path": "trace.channel[terminal/parent][0].outcome",
+                "path": "trace.channel[core/parent][0].outcome",
                 "left": "cancelled",
                 "right": "failed",
             })(),

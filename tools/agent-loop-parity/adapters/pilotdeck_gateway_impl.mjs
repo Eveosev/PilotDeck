@@ -195,7 +195,15 @@ class MockModelRuntime {
       yield { type: "text_delta", text: "partial" };
       throw Object.assign(new Error("Deterministic stream interruption."), { code: "stream_interrupted", retryable: false });
     }
-    const cancelScenario = scenario.scenarioId === "cancel";
+    const abortSignal = options.signal;
+    const forwardModelCancellation = () => {
+      void post("/control/cancel", { runKey }).catch(() => undefined);
+    };
+    if (abortSignal?.aborted) {
+      forwardModelCancellation();
+    } else {
+      abortSignal?.addEventListener("abort", forwardModelCancellation, { once: true });
+    }
     const responsePromise = post("/v1/chat/completions", {
       scenarioId: scenario.scenarioId,
       q: scenario.q,
@@ -214,7 +222,7 @@ class MockModelRuntime {
       turnIndex: scenarioTurnIndex,
       turnModelAttempt: scenarioTurnModelAttempt,
       runKey,
-    }, cancelScenario ? undefined : options.signal);
+    }, abortSignal);
     const cancelledError = () => Object.assign(new Error("Deterministic model cancellation."), {
       code: "CANCELLED",
       retryable: false,
@@ -229,15 +237,38 @@ class MockModelRuntime {
       });
       throw cancelledError();
     };
+    const waitUntilAborted = async (timeoutMs = 2000) => {
+      if (!abortSignal || abortSignal.aborted) return;
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, timeoutMs);
+        abortSignal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          resolve();
+        }, { once: true });
+      });
+    };
+    const isAbortError = (error) =>
+      error?.name === "AbortError"
+      || error?.code === 20
+      || error?.code === "ABORT_ERR";
+    const settleCancelled = async () => {
+      // Product abort and mock CANCELLED can arrive in either order. Wait for
+      // the product abort signal so AgentLoop takes the aborted path instead
+      // of classifying an early CANCELLED as model_error. If abort never
+      // arrives, still throw so the failure stays visible.
+      await waitUntilAborted();
+      rejectCancelled();
+    };
     const awaitModelResponse = async () => {
       try {
         const payload = await responsePromise;
-        if (payload?.error?.code === "CANCELLED") rejectCancelled();
+        if (payload?.error?.code === "CANCELLED") await settleCancelled();
         return payload;
       } catch (error) {
         if (error?.code === "CANCELLED" && error?.message === "Deterministic model cancellation.") {
           throw error;
         }
+        if (isAbortError(error)) await settleCancelled();
         throw error;
       }
     };
@@ -839,7 +870,10 @@ try {
         await post("/control/cancel", { runKey });
         return controlClient.request("abort_turn", { sessionKey, reason: "parity_cancel" }).then(
           () => push("cancel.acknowledged", { sessionKey }),
-          () => push("cancel.acknowledged", { sessionKey }),
+          (error) => push("cancel.error", {
+            sessionKey,
+            message: error instanceof Error ? error.message : String(error),
+          }),
         );
       })
     : undefined;
