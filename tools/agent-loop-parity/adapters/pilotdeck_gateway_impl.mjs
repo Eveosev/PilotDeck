@@ -228,13 +228,10 @@ class MockModelRuntime {
       retryable: false,
     });
     const rejectCancelled = () => {
-      push("model.error", {
-        agentScope,
-        code: "CANCELLED",
-        message: "Deterministic model cancellation.",
-        retryable: false,
-        attempt,
-      });
+      // Do not record a harness model.error here. Native sometimes surfaces
+      // the thrown CANCELLED before the generator is abandoned; sidecar often
+      // stops pulling the host stream first. The product abort path does not
+      // emit this event, and recording it on only one side is a false diff.
       throw cancelledError();
     };
     const waitUntilAborted = async (timeoutMs = 2000) => {
