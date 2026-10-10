@@ -417,6 +417,37 @@ def _canonicalize_parallel_tool_lifecycle(records: list[dict[str, Any]]) -> list
     return result
 
 
+def _canonicalize_durable_steer_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap each durable.steer write to its matching steer.applied.
+
+    Persistence can commit a steer before or after the previous turn's
+    streamed output is observed. The product contract is durable-before-applied
+    (enforced on the raw trace), not a total order against unrelated core
+    events. Unmatched writes stay in encounter order at the end so a missing
+    applied event is still visible.
+    """
+    durables_by_id: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        if record.get("kind") == "durable.steer" and isinstance(record.get("itemId"), str):
+            durables_by_id.setdefault(record["itemId"], []).append(record)
+    used = {item_id: 0 for item_id in durables_by_id}
+    result: list[dict[str, Any]] = []
+    for record in records:
+        if record.get("kind") == "durable.steer" and isinstance(record.get("itemId"), str):
+            continue
+        if record.get("kind") == "steer.applied" and isinstance(record.get("itemId"), str):
+            item_id = record["itemId"]
+            queue = durables_by_id.get(item_id, [])
+            index = used.get(item_id, 0)
+            if index < len(queue):
+                result.append(queue[index])
+                used[item_id] = index + 1
+        result.append(record)
+    for item_id, queue in durables_by_id.items():
+        result.extend(queue[used.get(item_id, 0):])
+    return result
+
+
 def comparison_channel(record: dict[str, Any]) -> str:
     """Name the independently scheduled stream a record belongs to.
 
@@ -463,7 +494,9 @@ def _project_semantic_records(records: list[dict[str, Any]]) -> list[dict[str, A
         for record in records
         if record.get("kind") not in _HARNESS_PROOF_KINDS
     ]
-    return _canonicalize_parallel_tool_lifecycle(projected)
+    return _canonicalize_durable_steer_attachment(
+        _canonicalize_parallel_tool_lifecycle(projected),
+    )
 
 
 def project_channel_sequences(

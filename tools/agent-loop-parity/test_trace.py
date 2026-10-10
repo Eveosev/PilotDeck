@@ -1188,6 +1188,22 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             [],
         )
 
+    def test_durable_steer_attaches_to_applied_without_hiding_values(self) -> None:
+        request = {"kind": "steer.request", "itemId": "s1", "accepted": True}
+        durable = {"kind": "durable.steer", "itemId": "s1", "message": {"text": "steer"}}
+        output = {"kind": "user.output", "text": "draft"}
+        applied = {"kind": "steer.applied", "itemId": "s1", "message": "steer"}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        left = [request, durable, output, applied, terminal]
+        right = [request, output, durable, applied, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        missing = [request, output, applied, terminal]
+        self.assertTrue(compare_traces(left, missing))
+
+        changed = [request, output, {**durable, "message": {"text": "other"}}, applied, terminal]
+        self.assertTrue(compare_traces(left, changed))
+
     def test_cancelled_turn_aborted_status_remains_semantic(self) -> None:
         request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
         error = {
