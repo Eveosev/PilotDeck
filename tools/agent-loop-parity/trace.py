@@ -417,35 +417,81 @@ def _canonicalize_parallel_tool_lifecycle(records: list[dict[str, Any]]) -> list
     return result
 
 
-def _canonicalize_durable_steer_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Snap each durable.steer write to its matching steer.applied.
+def _snap_matched_durables(
+    records: list[dict[str, Any]],
+    *,
+    durable_kind: str,
+    key_of,
+    anchor,
+) -> list[dict[str, Any]]:
+    """Move only durables that have a matching visible anchor.
 
-    Persistence can commit a steer before or after the previous turn's
-    streamed output is observed. The product contract is durable-before-applied
-    (enforced on the raw trace), not a total order against unrelated core
-    events. Unmatched writes stay in encounter order at the end so a missing
-    applied event is still visible.
+    Unmatched writes stay in their original positions so a missing twin
+    remains a core-sequence difference. Matched writes are emitted
+    immediately before the corresponding anchor. Values stay compared.
     """
-    durables_by_id: dict[str, list[dict[str, Any]]] = {}
+    durables: dict[Any, list[dict[str, Any]]] = {}
+    visible_counts: dict[Any, int] = {}
     for record in records:
-        if record.get("kind") == "durable.steer" and isinstance(record.get("itemId"), str):
-            durables_by_id.setdefault(record["itemId"], []).append(record)
-    used = {item_id: 0 for item_id in durables_by_id}
+        if record.get("kind") == durable_kind:
+            key = key_of(record)
+            if key is not None:
+                durables.setdefault(key, []).append(record)
+        if anchor(record):
+            key = key_of(record)
+            if key is not None:
+                visible_counts[key] = visible_counts.get(key, 0) + 1
+    snap_ids = {
+        id(record)
+        for key, queue in durables.items()
+        for record in queue[: visible_counts.get(key, 0)]
+    }
+    used: dict[Any, int] = {}
     result: list[dict[str, Any]] = []
     for record in records:
-        if record.get("kind") == "durable.steer" and isinstance(record.get("itemId"), str):
+        if id(record) in snap_ids:
             continue
-        if record.get("kind") == "steer.applied" and isinstance(record.get("itemId"), str):
-            item_id = record["itemId"]
-            queue = durables_by_id.get(item_id, [])
-            index = used.get(item_id, 0)
+        if anchor(record):
+            key = key_of(record)
+            queue = [item for item in durables.get(key, []) if id(item) in snap_ids]
+            index = used.get(key, 0)
             if index < len(queue):
                 result.append(queue[index])
-                used[item_id] = index + 1
+                used[key] = index + 1
         result.append(record)
-    for item_id, queue in durables_by_id.items():
-        result.extend(queue[used.get(item_id, 0):])
     return result
+
+
+def _canonicalize_durable_steer_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap each matched durable.steer write to its steer.applied."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.steer",
+        key_of=lambda record: record.get("itemId") if isinstance(record.get("itemId"), str) else None,
+        anchor=lambda record: record.get("kind") == "steer.applied",
+    )
+
+
+def _canonicalize_durable_status_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap each matched durable.status write to the visible agent.status."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.status",
+        key_of=lambda record: record.get("event") if isinstance(record.get("event"), str) else None,
+        anchor=lambda record: record.get("kind") == "agent.status",
+    )
+
+
+def _canonicalize_durable_compaction_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap durable.compaction_completed onto the next compact_completed status."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.compaction_completed",
+        key_of=lambda record: "compaction",
+        anchor=lambda record: (
+            record.get("kind") == "agent.status" and record.get("event") == "compact_completed"
+        ),
+    )
 
 
 def comparison_channel(record: dict[str, Any]) -> str:
@@ -494,8 +540,12 @@ def _project_semantic_records(records: list[dict[str, Any]]) -> list[dict[str, A
         for record in records
         if record.get("kind") not in _HARNESS_PROOF_KINDS
     ]
-    return _canonicalize_durable_steer_attachment(
-        _canonicalize_parallel_tool_lifecycle(projected),
+    return _canonicalize_durable_compaction_attachment(
+        _canonicalize_durable_status_attachment(
+            _canonicalize_durable_steer_attachment(
+                _canonicalize_parallel_tool_lifecycle(projected),
+            ),
+        ),
     )
 
 

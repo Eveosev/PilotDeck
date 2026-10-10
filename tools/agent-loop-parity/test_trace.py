@@ -1204,6 +1204,41 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         changed = [request, output, {**durable, "message": {"text": "other"}}, applied, terminal]
         self.assertTrue(compare_traces(left, changed))
 
+    def test_durable_status_attaches_to_visible_status_without_hiding_values(self) -> None:
+        durable = {
+            "kind": "durable.status",
+            "event": "model_request_failed",
+            "statusKind": "error",
+            "text": "Deterministic stream interruption.",
+        }
+        output = {"kind": "user.output", "text": "partial"}
+        status = {"kind": "agent.status", "event": "model_request_failed"}
+        terminal = {"kind": "terminal", "outcome": "failed"}
+        left = [durable, output, status, terminal]
+        right = [output, durable, status, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        missing = [output, status, terminal]
+        self.assertTrue(compare_traces(left, missing))
+
+        changed = [output, {**durable, "text": "other"}, status, terminal]
+        self.assertTrue(compare_traces(left, changed))
+
+    def test_durable_compaction_attaches_to_compact_completed(self) -> None:
+        started = {"kind": "agent.status", "event": "compact_started", "detail": {"trigger": "auto"}}
+        durable = {"kind": "durable.compaction_completed", "status": "compacted"}
+        completed = {
+            "kind": "agent.status",
+            "event": "compact_completed",
+            "detail": {"status": "skipped", "trigger": "auto"},
+        }
+        terminal = {"kind": "terminal", "outcome": "failed"}
+        left = [started, durable, completed, terminal]
+        right = [durable, started, completed, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+        self.assertTrue(compare_traces(left, [started, completed, terminal]))
+        self.assertTrue(compare_traces(left, [started, {**durable, "status": "skipped"}, completed, terminal]))
+
     def test_cancelled_turn_aborted_status_remains_semantic(self) -> None:
         request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
         error = {
