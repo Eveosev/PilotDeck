@@ -59,6 +59,12 @@ _TOOL_LIFECYCLE_PHASE = {
 }
 _HARNESS_PROOF_KINDS = {"harness.proof", "operation.terminal"}
 _REQUIRED_DURABLE_STATUS_EVENTS = {"turn_timeout", "max_budget_reached", "context_budget"}
+_MODEL_CHANNEL_KINDS = {"model.request", "model.response", "model.error"}
+_STREAM_CHANNEL_KINDS = {"model.stream"}
+_BUDGET_CHANNEL_KINDS = {"context.budget"}
+_AUTO_COMPACT_CHANNEL_KINDS = {
+    "compact.boundary", "durable.compaction_completed", "compaction.budget",
+}
 
 
 def _generated_id_placeholder(
@@ -311,6 +317,9 @@ _SEMANTIC_EVENT_FIELDS = {
         "structuredResult", "output", "usage", "frameStatus", "runStatus", "taskFrame", "session",
     },
     "user.output": {"text"},
+    "cancel.requested": set(),
+    "cancel.acknowledged": set(),
+    "cancel.error": {"message"},
 }
 
 
@@ -408,14 +417,156 @@ def _canonicalize_parallel_tool_lifecycle(records: list[dict[str, Any]]) -> list
     return result
 
 
-def project_semantic_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _snap_matched_durables(
+    records: list[dict[str, Any]],
+    *,
+    durable_kind: str,
+    key_of,
+    anchor,
+) -> list[dict[str, Any]]:
+    """Move only durables that have a matching visible anchor.
+
+    Unmatched writes stay in their original positions so a missing twin
+    remains a core-sequence difference. Matched writes are emitted
+    immediately before the corresponding anchor. Values stay compared.
+    """
+    durables: dict[Any, list[dict[str, Any]]] = {}
+    visible_counts: dict[Any, int] = {}
+    for record in records:
+        if record.get("kind") == durable_kind:
+            key = key_of(record)
+            if key is not None:
+                durables.setdefault(key, []).append(record)
+        if anchor(record):
+            key = key_of(record)
+            if key is not None:
+                visible_counts[key] = visible_counts.get(key, 0) + 1
+    snap_ids = {
+        id(record)
+        for key, queue in durables.items()
+        for record in queue[: visible_counts.get(key, 0)]
+    }
+    used: dict[Any, int] = {}
+    result: list[dict[str, Any]] = []
+    for record in records:
+        if id(record) in snap_ids:
+            continue
+        if anchor(record):
+            key = key_of(record)
+            queue = [item for item in durables.get(key, []) if id(item) in snap_ids]
+            index = used.get(key, 0)
+            if index < len(queue):
+                result.append(queue[index])
+                used[key] = index + 1
+        result.append(record)
+    return result
+
+
+def _canonicalize_durable_steer_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap each matched durable.steer write to its steer.applied."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.steer",
+        key_of=lambda record: record.get("itemId") if isinstance(record.get("itemId"), str) else None,
+        anchor=lambda record: record.get("kind") == "steer.applied",
+    )
+
+
+def _canonicalize_durable_status_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap each matched durable.status write to the visible agent.status."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.status",
+        key_of=lambda record: record.get("event") if isinstance(record.get("event"), str) else None,
+        anchor=lambda record: record.get("kind") == "agent.status",
+    )
+
+
+def _canonicalize_durable_compaction_attachment(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snap durable.compaction_completed onto the next compact_completed status."""
+    return _snap_matched_durables(
+        records,
+        durable_kind="durable.compaction_completed",
+        key_of=lambda record: "compaction",
+        anchor=lambda record: (
+            record.get("kind") == "agent.status" and record.get("event") == "compact_completed"
+        ),
+    )
+
+
+def comparison_channel(record: dict[str, Any]) -> str:
+    """Name the independently scheduled stream a record belongs to.
+
+    Only five event classes may interleave across channels: `next_turn`,
+    `model`, `auto_compact`, `budget`, and `stream`. Cross-channel order
+    among those five is ignored; within a channel, order stays strict.
+    Every other event — including unknown kinds — stays on one strict
+    per-actor `core` sequence. Unknown types must not become new
+    ignore-channels.
+    """
+    kind = str(record.get("kind") or "")
+    if kind in _MODEL_CHANNEL_KINDS:
+        return "model"
+    if kind in _STREAM_CHANNEL_KINDS:
+        return "stream"
+    if kind in _BUDGET_CHANNEL_KINDS:
+        return "budget"
+    if kind in _AUTO_COMPACT_CHANNEL_KINDS:
+        return "auto_compact"
+    if kind == "durable.status" and record.get("event") == "context_budget":
+        # Durable twin of the live context.budget observation. Same class as
+        # budget, not a new status ignore-channel.
+        return "budget"
+    if kind == "agent.status":
+        event = record.get("event")
+        if event == "turn_continued":
+            return "next_turn"
+        if event == "context_budget":
+            return "budget"
+        if isinstance(event, str) and event.startswith("compact_"):
+            return "auto_compact"
+    return "core"
+
+
+def comparison_actor(record: dict[str, Any]) -> str:
+    scope = record.get("agentScope")
+    return scope if isinstance(scope, str) and scope else "parent"
+
+
+def _project_semantic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated_ids: dict[tuple[str, str], str] = {}
     projected = [
         _semantic_record(record, generated_ids)
         for record in records
         if record.get("kind") not in _HARNESS_PROOF_KINDS
     ]
-    projected = _canonicalize_parallel_tool_lifecycle(projected)
+    return _canonicalize_durable_compaction_attachment(
+        _canonicalize_durable_status_attachment(
+            _canonicalize_durable_steer_attachment(
+                _canonicalize_parallel_tool_lifecycle(projected),
+            ),
+        ),
+    )
+
+
+def project_channel_sequences(
+    records: list[dict[str, Any]],
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Project records into per-actor, per-channel sequences.
+
+    Each sequence keeps its original relative order. Callers compare those
+    sequences independently so cross-channel interleaving is not a diff.
+    """
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for record in _project_semantic_records(records):
+        record.pop("requestEvidence", None)
+        key = (comparison_channel(record), comparison_actor(record))
+        groups.setdefault(key, []).append(record)
+    return groups
+
+
+def project_semantic_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    projected = _project_semantic_records(records)
     # Parent and host-owned child loops are independently ordered actors. Their
     # internal event order remains strict, but process scheduling does not
     # define a semantic total order between the two streams.
@@ -557,16 +708,23 @@ def _diff_semantic_records(left: list[dict[str, Any]], right: list[dict[str, Any
 
 
 def compare_trace_details(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> Comparison:
-    def semantic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        projected = project_semantic_trace(records)
-        for record in projected:
-            record.pop("requestEvidence", None)
-        return projected
+    left_channels = project_channel_sequences(left)
+    right_channels = project_channel_sequences(right)
     semantic = (
         _partial_order_differences(left, "left")
         + _partial_order_differences(right, "right")
-        + _diff_semantic_records(semantic_records(left), semantic_records(right))
     )
+    for key in sorted(set(left_channels) | set(right_channels)):
+        channel, actor = key
+        for difference in _diff_semantic_records(
+            left_channels.get(key, []),
+            right_channels.get(key, []),
+        ):
+            semantic.append(Difference(
+                difference.path.replace("trace", f"trace.channel[{channel}/{actor}]", 1),
+                difference.left,
+                difference.right,
+            ))
     format_differences = _diff_values(project_format_trace(left), project_format_trace(right))
     return Comparison(semantic=semantic, format_warnings=format_differences)
 

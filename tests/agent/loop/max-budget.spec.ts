@@ -92,6 +92,9 @@ test("maxBudgetUsd stops after the charged model response before tool side effec
   assert.equal(events.some((event) => event.type === "tool_calls_detected"), false);
   const failed = events.find((event) => event.type === "turn_failed");
   assert.equal(failed?.error.code, "agent_max_budget_reached");
+  const status = events.find((event) => event.type === "agent_status" && event.event === "max_budget_reached");
+  assert.equal(status?.type === "agent_status" && status.event, "max_budget_reached");
+  assert.match(String(status?.type === "agent_status" ? status.text : ""), /Reached Gateway-owned maxBudgetUsd/);
   const completed = events.find((event) => event.type === "turn_completed");
   assert.equal(completed?.result.stopReason, "max_budget");
   assert.equal(completed?.result.usage.inputTokens, 1_000);
