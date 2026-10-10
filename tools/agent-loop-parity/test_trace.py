@@ -1145,6 +1145,33 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             [{"kind": "permission.decision", "allowed": True}, {"kind": "tool.call", "name": "lookup"}],
         ))
 
+        # Budget-class twins (live + durable context_budget) may interleave
+        # with core. Other durable status events stay on the core sequence.
+        budget_durable = {
+            "kind": "durable.status",
+            "event": "context_budget",
+            "statusKind": "status",
+            "text": "context_budget",
+        }
+        tool_finish = {"kind": "tool.finish", "name": "agent", "success": True}
+        self.assertEqual(
+            compare_traces(
+                [budget_durable, tool_finish, terminal],
+                [tool_finish, budget_durable, terminal],
+            ),
+            [],
+        )
+        abort_durable = {
+            "kind": "durable.status",
+            "event": "turn_aborted",
+            "statusKind": "status",
+            "text": "This turn was aborted before completion.",
+        }
+        self.assertTrue(compare_traces(
+            [abort_durable, tool_finish, terminal],
+            [tool_finish, abort_durable, terminal],
+        ))
+
     def test_unknown_kinds_stay_on_the_strict_core_sequence(self) -> None:
         request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
         terminal = {"kind": "terminal", "outcome": "completed"}

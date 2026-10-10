@@ -436,10 +436,16 @@ def comparison_channel(record: dict[str, Any]) -> str:
         return "budget"
     if kind in _AUTO_COMPACT_CHANNEL_KINDS:
         return "auto_compact"
+    if kind == "durable.status" and record.get("event") == "context_budget":
+        # Durable twin of the live context.budget observation. Same class as
+        # budget, not a new status ignore-channel.
+        return "budget"
     if kind == "agent.status":
         event = record.get("event")
         if event == "turn_continued":
             return "next_turn"
+        if event == "context_budget":
+            return "budget"
         if isinstance(event, str) and event.startswith("compact_"):
             return "auto_compact"
     return "core"
