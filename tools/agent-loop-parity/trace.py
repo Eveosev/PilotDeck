@@ -59,6 +59,26 @@ _TOOL_LIFECYCLE_PHASE = {
 }
 _HARNESS_PROOF_KINDS = {"harness.proof", "operation.terminal"}
 _REQUIRED_DURABLE_STATUS_EVENTS = {"turn_timeout", "max_budget_reached", "context_budget"}
+_MODEL_CHANNEL_KINDS = {"model.request", "model.response", "model.error"}
+_STREAM_CHANNEL_KINDS = {"model.stream"}
+_BUDGET_CHANNEL_KINDS = {"context.budget"}
+_AUTO_COMPACT_CHANNEL_KINDS = {
+    "compact.boundary", "durable.compaction_completed", "compaction.budget",
+}
+_TOOL_CHANNEL_KINDS = {"tool.call", "tool.start", "tool.finish", "tool.result", "tool.progress"}
+_PERMISSION_CHANNEL_KINDS = {
+    "permission.request", "permission.answer", "permission.decision",
+    "policy.turn", "policy.context",
+}
+_STEER_CHANNEL_KINDS = {"steer.request", "steer.applied"}
+_DURABLE_CHANNEL_KINDS = {"durable.status", "durable.steer", "durable.state"}
+_LIFECYCLE_CHANNEL_KINDS = {"sidecar.lifecycle", "session.lifecycle"}
+_OUTPUT_CHANNEL_KINDS = {"user.output"}
+_TERMINAL_CHANNEL_KINDS = {
+    "terminal", "side_effect.state", "gateway.error", "seed.state", "checkpoint",
+    "fault.injected",
+}
+_CANCEL_CHANNEL_KINDS = {"cancel.requested", "cancel.acknowledged", "cancel.error"}
 
 
 def _generated_id_placeholder(
@@ -311,6 +331,9 @@ _SEMANTIC_EVENT_FIELDS = {
         "structuredResult", "output", "usage", "frameStatus", "runStatus", "taskFrame", "session",
     },
     "user.output": {"text"},
+    "cancel.requested": set(),
+    "cancel.acknowledged": set(),
+    "cancel.error": {"message"},
 }
 
 
@@ -408,14 +431,81 @@ def _canonicalize_parallel_tool_lifecycle(records: list[dict[str, Any]]) -> list
     return result
 
 
-def project_semantic_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def comparison_channel(record: dict[str, Any]) -> str:
+    """Name the independently scheduled stream a record belongs to.
+
+    Native and stdio observe the same actor-local sequences, but host
+    scheduling can interleave next_turn, model, compact, budget, and stream
+    records. Cross-channel order is not semantic; within a channel it is.
+    """
+    kind = str(record.get("kind") or "")
+    if kind in _MODEL_CHANNEL_KINDS:
+        return "model"
+    if kind in _STREAM_CHANNEL_KINDS:
+        return "stream"
+    if kind in _BUDGET_CHANNEL_KINDS:
+        return "budget"
+    if kind in _AUTO_COMPACT_CHANNEL_KINDS:
+        return "auto_compact"
+    if kind == "agent.status":
+        event = record.get("event")
+        if event == "turn_continued":
+            return "next_turn"
+        if isinstance(event, str) and event.startswith("compact_"):
+            return "auto_compact"
+        return "status"
+    if kind in _TOOL_CHANNEL_KINDS:
+        return "tool"
+    if kind in _PERMISSION_CHANNEL_KINDS:
+        return "permission"
+    if kind in _STEER_CHANNEL_KINDS:
+        return "steer"
+    if kind in _DURABLE_CHANNEL_KINDS:
+        return "durable"
+    if kind in _LIFECYCLE_CHANNEL_KINDS:
+        return "lifecycle"
+    if kind in _OUTPUT_CHANNEL_KINDS:
+        return "output"
+    if kind in _TERMINAL_CHANNEL_KINDS:
+        return "terminal"
+    if kind in _CANCEL_CHANNEL_KINDS:
+        return "cancel"
+    return kind or "unknown"
+
+
+def comparison_actor(record: dict[str, Any]) -> str:
+    scope = record.get("agentScope")
+    return scope if isinstance(scope, str) and scope else "parent"
+
+
+def _project_semantic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated_ids: dict[tuple[str, str], str] = {}
     projected = [
         _semantic_record(record, generated_ids)
         for record in records
         if record.get("kind") not in _HARNESS_PROOF_KINDS
     ]
-    projected = _canonicalize_parallel_tool_lifecycle(projected)
+    return _canonicalize_parallel_tool_lifecycle(projected)
+
+
+def project_channel_sequences(
+    records: list[dict[str, Any]],
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Project records into per-actor, per-channel sequences.
+
+    Each sequence keeps its original relative order. Callers compare those
+    sequences independently so cross-channel interleaving is not a diff.
+    """
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for record in _project_semantic_records(records):
+        record.pop("requestEvidence", None)
+        key = (comparison_channel(record), comparison_actor(record))
+        groups.setdefault(key, []).append(record)
+    return groups
+
+
+def project_semantic_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    projected = _project_semantic_records(records)
     # Parent and host-owned child loops are independently ordered actors. Their
     # internal event order remains strict, but process scheduling does not
     # define a semantic total order between the two streams.
@@ -557,16 +647,23 @@ def _diff_semantic_records(left: list[dict[str, Any]], right: list[dict[str, Any
 
 
 def compare_trace_details(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> Comparison:
-    def semantic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        projected = project_semantic_trace(records)
-        for record in projected:
-            record.pop("requestEvidence", None)
-        return projected
+    left_channels = project_channel_sequences(left)
+    right_channels = project_channel_sequences(right)
     semantic = (
         _partial_order_differences(left, "left")
         + _partial_order_differences(right, "right")
-        + _diff_semantic_records(semantic_records(left), semantic_records(right))
     )
+    for key in sorted(set(left_channels) | set(right_channels)):
+        channel, actor = key
+        for difference in _diff_semantic_records(
+            left_channels.get(key, []),
+            right_channels.get(key, []),
+        ):
+            semantic.append(Difference(
+                difference.path.replace("trace", f"trace.channel[{channel}/{actor}]", 1),
+                difference.left,
+                difference.right,
+            ))
     format_differences = _diff_values(project_format_trace(left), project_format_trace(right))
     return Comparison(semantic=semantic, format_warnings=format_differences)
 

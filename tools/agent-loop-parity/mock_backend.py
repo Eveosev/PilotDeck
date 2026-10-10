@@ -33,6 +33,18 @@ class MockHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _sleep_until_cancelled(self, run_key: str, delay_ms: int) -> bool:
+        remaining_ms = delay_ms
+        while remaining_ms > 0:
+            with self.server.state_lock:
+                if run_key in self.server.cancelled:
+                    return True
+            interval = min(10, remaining_ms)
+            time.sleep(interval / 1000)
+            remaining_ms -= interval
+        with self.server.state_lock:
+            return run_key in self.server.cancelled
+
     def do_GET(self) -> None:
         if self.path == "/health":
             self._json(200, {"ok": True, "service": "agent-loop-parity-mock"})
@@ -106,8 +118,15 @@ class MockHandler(BaseHTTPRequestHandler):
         q = str(request.get("q") or "") or _query_from_messages(messages)
         delays = request.get("delays") if isinstance(request.get("delays"), dict) else {}
         delay_ms = int(delays.get("modelMs") or 0)
-        if delay_ms > 0:
-            time.sleep(delay_ms / 1000)
+        if delay_ms > 0 and self._sleep_until_cancelled(run_key, delay_ms):
+            self._json(409, {
+                "error": {
+                    "code": "CANCELLED",
+                    "message": "Deterministic model cancellation.",
+                    "retryable": False,
+                },
+            })
+            return
         has_tool_result = any(_is_tool_result(item) for item in messages)
         if scenario in {"plan_mode_host_policy", "plan_mode_bypass_host_policy"}:
             turn_index = int(request.get("turnIndex") or 0)

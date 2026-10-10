@@ -1099,6 +1099,90 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         request = {"kind": "model.request", "attempt": 2, "modelView": {"messages": []}}
         self.assertTrue(compare_traces([requested, closed, request], [requested, closed]))
 
+    def test_cross_channel_interleaving_is_ignored_while_channel_order_stays_strict(self) -> None:
+        next_turn = {"kind": "agent.status", "event": "turn_continued", "detail": {"reason": "next_turn"}}
+        request = {
+            "kind": "model.request",
+            "attempt": 1,
+            "modelView": {"messages": [{"role": "user", "content": [{"type": "text", "text": "q"}]}]},
+        }
+        response = {"kind": "model.response", "attempt": 1, "modelView": {"content": "ok"}}
+        budget = {"kind": "context.budget", "used": 10, "total": 100, "ratio": 0.1, "state": "ok"}
+        stream = {"kind": "model.stream", "state": "first_delta"}
+        compact = {"kind": "agent.status", "event": "compact_started", "detail": {"trigger": "auto"}}
+        output = {"kind": "user.output", "text": "ok"}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        left = [next_turn, request, budget, stream, compact, response, output, terminal]
+        right = [budget, stream, compact, next_turn, output, request, response, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        reordered_model = [next_turn, response, budget, stream, compact, request, output, terminal]
+        self.assertTrue(compare_traces(left, reordered_model))
+
+        changed_request = json.loads(json.dumps(right))
+        changed_request[5]["modelView"]["messages"][0]["content"][0]["text"] = "changed"
+        self.assertTrue(compare_traces(left, changed_request))
+
+        missing_budget = [next_turn, request, stream, compact, response, output, terminal]
+        self.assertTrue(compare_traces(left, missing_budget))
+
+        status_order = [
+            {"kind": "agent.status", "event": "working"},
+            {"kind": "agent.status", "event": "turn_timeout"},
+        ]
+        self.assertTrue(compare_traces(status_order, [status_order[1], status_order[0]]))
+
+    def test_same_version_deadline_contract_accepts_aa_without_declared_transport_diffs(self) -> None:
+        contract = {
+            "mode": "extension",
+            "allowedDifferences": [
+                {"pathSuffix": "durableStopReason", "baseline": "aborted_streaming", "current": None},
+                {"pathSuffix": "resultType", "baseline": "aborted", "current": None},
+            ],
+        }
+        self.assertTrue(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            [],
+            comparison=contract,
+            require_observed=False,
+        ))
+        self.assertFalse(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            [],
+            comparison=contract,
+        ))
+        observed = [
+            type("Difference", (), {
+                "path": "trace.channel[terminal/parent][0].durableStopReason",
+                "left": "aborted_streaming",
+                "right": None,
+            })(),
+            type("Difference", (), {
+                "path": "trace.channel[terminal/parent][0].resultType",
+                "left": "aborted",
+                "right": None,
+            })(),
+        ]
+        self.assertTrue(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            observed,
+            comparison=contract,
+            require_observed=False,
+        ))
+        extra = observed + [
+            type("Difference", (), {
+                "path": "trace.channel[terminal/parent][0].outcome",
+                "left": "cancelled",
+                "right": "failed",
+            })(),
+        ]
+        self.assertFalse(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            extra,
+            comparison=contract,
+            require_observed=False,
+        ))
+
     def test_parent_abort_requires_acknowledgement_and_one_gateway_terminal(self) -> None:
         records = [
             {

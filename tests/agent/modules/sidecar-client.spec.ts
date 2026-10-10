@@ -287,6 +287,10 @@ test("production sidecar budget module stops before host tool side effects and p
   const statuses = transcript.entries.filter((entry) => entry.type === "agent_status_message");
   assert.equal(statuses.length, 1);
   assert.equal(statuses[0]?.type === "agent_status_message" && statuses[0].event, "max_budget_reached");
+  assert.match(
+    statuses[0]?.type === "agent_status_message" ? statuses[0].text : "",
+    /Reached Gateway-owned maxBudgetUsd/,
+  );
 });
 
 test("production sidecar does not acknowledge a status event when durable persistence fails", async () => {

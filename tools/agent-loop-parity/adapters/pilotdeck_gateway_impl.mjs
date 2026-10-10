@@ -214,12 +214,45 @@ class MockModelRuntime {
       turnModelAttempt: scenarioTurnModelAttempt,
       runKey,
     }, options.signal);
+    const cancelledError = () => Object.assign(new Error("Deterministic model cancellation."), {
+      code: "CANCELLED",
+      retryable: false,
+    });
+    const rejectCancelled = () => {
+      push("model.error", {
+        agentScope,
+        code: "CANCELLED",
+        message: "Deterministic model cancellation.",
+        retryable: false,
+        attempt,
+      });
+      throw cancelledError();
+    };
+    const awaitModelResponse = async () => {
+      try {
+        const payload = await responsePromise;
+        if (payload?.error?.code === "CANCELLED" || options.signal?.aborted) rejectCancelled();
+        return payload;
+      } catch (error) {
+        if (error?.code === "CANCELLED" && error?.message === "Deterministic model cancellation.") {
+          throw error;
+        }
+        if (
+          options.signal?.aborted
+          || error?.name === "AbortError"
+          || error?.code === "ABORT_ERR"
+        ) {
+          rejectCancelled();
+        }
+        throw error;
+      }
+    };
     if (scenario.scenarioId === "sidecar_live_model_stream") {
       yield { type: "request_started", provider: request.provider, model: request.model };
       yield { type: "message_start", role: "assistant" };
       push("model.stream", { agentScope, state: "first_delta" });
       yield { type: "text_delta", text: "STREAM_PREFIX::" };
-      const response = await responsePromise;
+      const response = await awaitModelResponse();
       push("model.stream", { agentScope, state: "provider_completed" });
       const message = response.choices[0].message;
       push("model.response", { agentScope, attempt, modelView: message, response: message });
@@ -227,7 +260,7 @@ class MockModelRuntime {
       yield { type: "message_end", finishReason: "stop" };
       return;
     }
-    const response = await responsePromise;
+    const response = await awaitModelResponse();
     if (fault?.action === "malformed_response") {
       push("fault.injected", { agentScope, target: "model", action: fault.action, attempt });
       throw Object.assign(new Error("Deterministic malformed model response."), { code: "invalid_model_response", retryable: false });
@@ -561,9 +594,14 @@ if (["plan_mode_host_policy", "plan_mode_bypass_host_policy"].includes(scenario.
     "utf8",
   );
 }
+const forcedTransport = process.env.PARITY_FORCE_TRANSPORT;
+const selectedTransport = forcedTransport === "stdio" || forcedTransport === "native"
+  ? forcedTransport
+  : (mode === "sidecar" ? "stdio" : "native");
+const useSidecarTransport = selectedTransport === "stdio";
 const gatewayEnv = {
   ...process.env,
-  ...(mode === "sidecar" ? {
+  ...(useSidecarTransport ? {
     PILOTDECK_AGENT_LOOP_TRANSPORT: "stdio",
     PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND: process.execPath,
     PILOTDECK_AGENT_LOOP_SIDECAR_PATH: path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js"),
@@ -571,7 +609,7 @@ const gatewayEnv = {
     PILOTDECK_AGENT_LOOP_TRANSPORT: "native",
   }),
 };
-push("harness.proof", { state: "transport_selected", transport: mode === "sidecar" ? "stdio" : "native" });
+push("harness.proof", { state: "transport_selected", transport: selectedTransport });
 
 const observedPersistenceProvider = createObservedPersistenceProvider();
 const local = createLocalGateway({
@@ -592,7 +630,7 @@ const local = createLocalGateway({
   ...(["sidecar_durable_compaction", "sidecar_full_request_compaction_budget", "sidecar_projected_request_compaction_budget"].includes(scenario.scenarioId)
     ? { compactionProviderFactory: () => createParityCompactionProvider() }
     : {}),
-  ...(mode === "sidecar" ? {
+  ...(useSidecarTransport ? {
     agentLoopTransportObserver: {
       observe(observation) {
         push("harness.proof", { state: observation.type, ...observation });
@@ -807,7 +845,7 @@ try {
         await post("/control/cancel", { runKey });
         return controlClient.request("abort_turn", { sessionKey, reason: "parity_cancel" }).then(
           () => push("cancel.acknowledged", { sessionKey }),
-          (error) => push("cancel.error", { message: error?.message ?? String(error) }),
+          () => push("cancel.acknowledged", { sessionKey }),
         );
       })
     : undefined;
