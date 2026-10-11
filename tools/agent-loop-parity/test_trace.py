@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from pathlib import Path
 
 from trace import (
     canonicalize,
@@ -14,10 +15,24 @@ from trace import (
     validate_trace_expectations,
 )
 from run import (
+    PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT,
+    REQUIRED_GATEWAY_SCENARIOS,
+    ROOT,
+    adapter_env,
+    append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
     baseline_not_applicable_reason,
     declared_extension_matches,
+    default_ts_tcp_sidecar_command,
+    load_scenarios,
+    resolve_sidecar_transport,
+    resolve_tcp_sidecar_target,
     scenario_for_adapter,
+    start_tcp_sidecar,
+    stop_process,
+    tcp_sidecar_log_path,
+    tcp_sidecar_log_tail,
+    wait_for_tcp,
 )
 
 
@@ -717,6 +732,227 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             validate_production_sidecar_proof(records, {"capability"}, {"capability:execute_batch"}),
             ["production sidecar operation proof is missing: capability:execute_batch"],
         )
+
+    def test_production_sidecar_proof_accepts_tcp_transport_selection(self) -> None:
+        records = [
+            {"kind": "harness.proof", "state": "transport_selected", "transport": "tcp"},
+            {"kind": "harness.proof", "state": "handshake_completed"},
+            {"kind": "harness.proof", "state": "module_call_received", "module": "budget"},
+        ]
+        self.assertEqual(validate_production_sidecar_proof(records, {"budget"}), [])
+        self.assertEqual(
+            validate_production_sidecar_proof(records, {"budget"}, expected_transport="tcp"),
+            [],
+        )
+
+    def test_production_sidecar_proof_still_requires_handshake_for_tcp(self) -> None:
+        records = [{"kind": "harness.proof", "state": "transport_selected", "transport": "tcp"}]
+        self.assertEqual(
+            validate_production_sidecar_proof(records, expected_transport="tcp"),
+            ["production sidecar handshake proof is missing"],
+        )
+
+    def test_production_sidecar_proof_rejects_native_as_sidecar_transport(self) -> None:
+        records = [
+            {"kind": "harness.proof", "state": "transport_selected", "transport": "native"},
+            {"kind": "harness.proof", "state": "handshake_completed"},
+        ]
+        self.assertEqual(
+            validate_production_sidecar_proof(records),
+            ["production sidecar transport selection proof is missing"],
+        )
+        self.assertEqual(
+            validate_production_sidecar_proof(records, expected_transport="tcp"),
+            ["production tcp transport selection proof is missing"],
+        )
+
+    def test_production_sidecar_proof_expected_transport_must_match(self) -> None:
+        stdio_records = [
+            {"kind": "harness.proof", "state": "transport_selected", "transport": "stdio"},
+            {"kind": "harness.proof", "state": "handshake_completed"},
+        ]
+        tcp_records = [
+            {"kind": "harness.proof", "state": "transport_selected", "transport": "tcp"},
+            {"kind": "harness.proof", "state": "handshake_completed"},
+        ]
+        self.assertEqual(
+            validate_production_sidecar_proof(stdio_records, expected_transport="tcp"),
+            ["production tcp transport selection proof is missing"],
+        )
+        self.assertEqual(
+            validate_production_sidecar_proof(tcp_records, expected_transport="stdio"),
+            ["production stdio transport selection proof is missing"],
+        )
+
+    def test_sidecar_transport_selection_prefers_cli_then_env(self) -> None:
+        self.assertEqual(resolve_sidecar_transport(None, {}), "stdio")
+        self.assertEqual(resolve_sidecar_transport("tcp", {}), "tcp")
+        self.assertEqual(resolve_sidecar_transport(None, {"PARITY_SIDECAR_TRANSPORT": "tcp"}), "tcp")
+        self.assertEqual(
+            resolve_sidecar_transport(None, {"PILOTDECK_PARITY_SIDECAR_TRANSPORT": "TCP"}),
+            "tcp",
+        )
+        self.assertEqual(
+            resolve_sidecar_transport("stdio", {"PARITY_SIDECAR_TRANSPORT": "tcp"}),
+            "stdio",
+        )
+        self.assertEqual(
+            resolve_sidecar_transport(None, {"PILOTDECK_AGENT_LOOP_TRANSPORT": "tcp"}),
+            "stdio",
+        )
+        with self.assertRaises(ValueError):
+            resolve_sidecar_transport("native", {})
+
+    def test_tcp_sidecar_target_starts_or_reuses_a_loopback_listener(self) -> None:
+        source = Path("/tmp/pilotdeck-source")
+        reused = resolve_tcp_sidecar_target(
+            host="127.0.0.8",
+            port=9345,
+            command="./rust-sidecar",
+            source=source,
+        )
+        self.assertEqual(reused.host, "127.0.0.8")
+        self.assertEqual(reused.port, 9345)
+        self.assertIsNone(reused.start_command)
+
+        started = resolve_tcp_sidecar_target(
+            host=None,
+            port=None,
+            command=None,
+            source=source,
+            allocate_port=lambda: 41001,
+        )
+        self.assertEqual(started.host, "127.0.0.1")
+        self.assertEqual(started.port, 41001)
+        self.assertEqual(started.start_command, default_ts_tcp_sidecar_command(source))
+
+        rust = resolve_tcp_sidecar_target(
+            host=None,
+            port=None,
+            command="./target/release/pilotdeck-agent-loop-sidecar",
+            source=source,
+            allocate_port=lambda: 41002,
+        )
+        self.assertEqual(rust.start_command, "./target/release/pilotdeck-agent-loop-sidecar")
+        with self.assertRaises(ValueError):
+            resolve_tcp_sidecar_target(host="127.0.0.1", port=None, command=None, source=source)
+
+    def test_adapter_env_exposes_tcp_endpoint_without_forcing_product_transport(self) -> None:
+        scenario = {"scenarioId": "pure_text", "q": "status"}
+        target = resolve_tcp_sidecar_target(
+            host="127.0.0.1",
+            port=9345,
+            command=None,
+            source=Path("/tmp/unused"),
+        )
+        env = adapter_env(
+            scenario, "sidecar", Path("/tmp/src"), "http://127.0.0.1:9",
+            Path("/tmp/out.jsonl"), "working-tree", "inv-1",
+            sidecar_transport="tcp",
+            tcp_target=target,
+        )
+        self.assertEqual(env["PARITY_SIDECAR_TRANSPORT"], "tcp")
+        self.assertEqual(env["PARITY_TCP_HOST"], "127.0.0.1")
+        self.assertEqual(env["PARITY_TCP_PORT"], "9345")
+        self.assertNotEqual(env.get("PILOTDECK_AGENT_LOOP_TRANSPORT"), "tcp")
+
+    def test_wait_for_tcp_accepts_an_open_loopback_port(self) -> None:
+        import socket
+        with socket.create_server(("127.0.0.1", 0)) as server:
+            host, port = server.getsockname()[:2]
+            wait_for_tcp(host, port, timeout_seconds=1)
+
+    def test_tcp_sidecar_log_tail_returns_last_lines(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = tcp_sidecar_log_path(Path(temporary))
+            self.assertEqual(log_path.name, "tcp-sidecar.log")
+            self.assertEqual(tcp_sidecar_log_tail(log_path), "")
+            log_path.write_text("\n".join(f"line-{index}" for index in range(24)) + "\n", encoding="utf-8")
+            tail = tcp_sidecar_log_tail(log_path, max_lines=8)
+            self.assertTrue(tail.startswith("line-16"))
+            self.assertTrue(tail.endswith("line-23"))
+            self.assertNotIn("line-15", tail)
+
+    def test_start_tcp_sidecar_redirects_stdio_to_log_path(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            log_path = tcp_sidecar_log_path(output)
+            command = (
+                "python3 -c "
+                "'import os, socket, sys, time; "
+                "print(\"sidecar-stdout\", flush=True); "
+                "print(\"sidecar-stderr\", file=sys.stderr, flush=True); "
+                "listener = socket.create_server((os.environ[\"PILOTDECK_AGENT_LOOP_TCP_HOST\"], "
+                "int(os.environ[\"PILOTDECK_AGENT_LOOP_TCP_PORT\"]))); "
+                "time.sleep(30)'"
+            )
+            target = resolve_tcp_sidecar_target(
+                host=None,
+                port=None,
+                command=command,
+                source=output,
+            )
+            process = start_tcp_sidecar(target, output, {}, log_path)
+            try:
+                self.assertTrue(log_path.is_file())
+                text = log_path.read_text(encoding="utf-8")
+                self.assertIn("sidecar-stdout", text)
+                self.assertIn("sidecar-stderr", text)
+                self.assertIsNone(process.stdout)
+                self.assertIsNone(process.stderr)
+            finally:
+                stop_process(process)
+            self.assertTrue(log_path.is_file())
+
+    def test_start_tcp_sidecar_failure_surfaces_log_tail(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            log_path = tcp_sidecar_log_path(output)
+            command = (
+                "python3 -c "
+                "'import sys; "
+                "[print(f\"fail-line-{i}\", file=sys.stderr) for i in range(12)]; "
+                "print(\"sidecar-fatal\", file=sys.stderr); "
+                "raise SystemExit(1)'"
+            )
+            target = resolve_tcp_sidecar_target(
+                host=None,
+                port=None,
+                command=command,
+                source=output,
+            )
+            with self.assertRaises(RuntimeError) as raised:
+                start_tcp_sidecar(target, output, {}, log_path, ready_timeout_seconds=0.4)
+            message = str(raised.exception)
+            self.assertIn("TCP sidecar failed to listen", message)
+            self.assertIn("sidecar-fatal", message)
+            self.assertIn("fail-line-11", message)
+            self.assertTrue(log_path.is_file())
+
+    def test_append_tcp_sidecar_exit_detail_adds_tail_when_listener_died(self) -> None:
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = tcp_sidecar_log_path(Path(temporary))
+            log_path.write_text("boot\nlistener-exit\n", encoding="utf-8")
+            dead = subprocess.Popen(["python3", "-c", "raise SystemExit(0)"])
+            dead.wait(timeout=2)
+            blocked = ["pure_text/pilotdeck-current-sidecar: BLOCKED: connection refused"]
+            append_tcp_sidecar_exit_detail(blocked, log_path=log_path, process=dead)
+            self.assertEqual(len(blocked), 2)
+            self.assertIn("listener-exit", blocked[1])
+            append_tcp_sidecar_exit_detail(blocked, log_path=log_path, process=dead)
+            self.assertEqual(len(blocked), 2)
+
+    def test_full_gateway_gate_counts_53_scenarios(self) -> None:
+        self.assertEqual(len(REQUIRED_GATEWAY_SCENARIOS), 53)
+        self.assertEqual(PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT, 53)
+        loaded = load_scenarios(ROOT / "scenarios.json", "all", "all")
+        self.assertEqual(len(loaded), 53)
+        self.assertEqual({item["scenarioId"] for item in loaded}, set(REQUIRED_GATEWAY_SCENARIOS))
 
     def test_sidecar_production_oracles_cover_durable_and_model_evidence(self) -> None:
         scenario = {

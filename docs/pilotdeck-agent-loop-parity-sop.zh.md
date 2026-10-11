@@ -27,7 +27,7 @@
 
 sidecar 必须保持宿主无关。context、model、capability/tool 和 permission 由 host module 或 port 提供；对拍不能用 sidecar 内置的宿主逻辑替代真实 host module。
 
-生产 sidecar 验收还必须证明 Gateway 选择了 `stdio` deployment profile、正式
+生产 sidecar 验收还必须证明 Gateway 选择了 `stdio` 或 `tcp` deployment profile、正式
 `createAgentLoopSidecarRuntimeFactory` 完成 handshake/binding，且预期 host module call 确实到达 dispatcher。
 缺失任一证据都属于 `BLOCKED`；自建 runner 或 `__testAgentLoopFactory` 注入即使语义 trace 相同也不能 PASS。
 
@@ -36,7 +36,7 @@ sidecar 必须保持宿主无关。context、model、capability/tool 和 permiss
 | 链路 | 入口 | 唯一执行差异 |
 | --- | --- | --- |
 | native | 真实 `createAgentSession` / Gateway -> 原生 `AgentLoop` | 无 sidecar |
-| sidecar | 同一 Gateway/Session -> stdio 或其他 Module Protocol adapter -> `AgentLoop` | AgentLoop 通过 sidecar transport 运行 |
+| sidecar | 同一 Gateway/Session -> stdio 或 tcp Module Protocol adapter -> `AgentLoop` | AgentLoop 通过 sidecar transport 运行 |
 
 推荐使用同一版本进行主对拍：当前 native vs 当前 sidecar。`origin/main` 只用于记录产品版本漂移，应单独运行 current native vs baseline native，不能把 baseline 漂移算作 sidecar 差异。
 
