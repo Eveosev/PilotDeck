@@ -10,11 +10,11 @@ describe("createPerfCollector", () => {
     collector.markModelStart();
     collector.markModelEnd();
     collector.markStreamChunk();
-    assert.deepEqual(collector.snapshot(), {
-      turn_ms: null,
-      model_iter_ms: [],
-      stream_chunk_ms: [],
-    });
+    const snapshot = collector.snapshot();
+    assert.equal(snapshot.turn_ms, null);
+    assert.deepEqual(snapshot.model_iter_ms, []);
+    assert.deepEqual(snapshot.stream_chunk_ms, []);
+    assert.equal(snapshot.non_model_ms, null);
   });
 
   it("records turn, model iters, and stream intervals", async () => {
@@ -28,11 +28,37 @@ describe("createPerfCollector", () => {
     collector.markModelEnd();
     collector.markTurnEnd();
     const snapshot = collector.snapshot();
-    assert.ok(snapshot.turn_ms > 0);
+    assert.ok(snapshot.turn_ms > 8);
     assert.equal(snapshot.model_iter_ms.length, 1);
-    assert.ok(snapshot.model_iter_ms[0] > 0);
+    assert.ok(snapshot.model_iter_ms[0] > 8);
     assert.equal(snapshot.stream_chunk_ms.length, 1);
-    assert.ok(snapshot.stream_chunk_ms[0] >= 0);
+    assert.ok(snapshot.stream_chunk_ms[0] > 3);
+    assert.ok(snapshot.non_model_ms != null);
+    assert.ok(snapshot.non_model_ms >= 0);
+  });
+
+  it("derives non_model and between-model gaps", async () => {
+    const collector = createPerfCollector({ enabled: true });
+    collector.markTurnStart();
+    collector.markFirstGatewayEvent();
+    collector.markModelStart();
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    collector.markModelEnd();
+    collector.markToolStart();
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    collector.markToolEnd();
+    collector.markModelStart();
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    collector.markModelEnd();
+    collector.markTurnEnd();
+    const snapshot = collector.snapshot();
+    assert.equal(snapshot.model_iter_ms.length, 2);
+    assert.equal(snapshot.segments.between_model_ms.length, 1);
+    assert.ok(snapshot.segments.between_model_ms[0] > 3);
+    assert.ok(snapshot.segments.tool_ms > 3);
+    assert.ok(snapshot.non_model_ms > snapshot.segments.tool_ms - 1);
+    assert.ok(snapshot.segments.pre_model_ms != null);
+    assert.ok(snapshot.segments.post_model_ms != null);
   });
 
   it("writes rss when a dest is provided", async () => {

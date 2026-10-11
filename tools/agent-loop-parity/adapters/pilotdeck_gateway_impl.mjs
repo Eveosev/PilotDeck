@@ -4,7 +4,27 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
-import { createPerfCollector, writePerfSnapshot } from "../../agent-loop-perf/collector.mjs";
+
+function createNoopPerfCollector() {
+  const noop = () => {};
+  return {
+    enabled: false,
+    markTurnStart: noop,
+    markTurnEnd: noop,
+    markModelStart: noop,
+    markModelEnd: noop,
+    markStreamChunk: noop,
+    markToolStart: noop,
+    markToolEnd: noop,
+    markFirstGatewayEvent: noop,
+    mark: noop,
+    snapshot: () => ({ turn_ms: null, model_iter_ms: [], stream_chunk_ms: [] }),
+  };
+}
+
+const { createPerfCollector, writePerfSnapshot } = process.env.PARITY_PERF === "1"
+  ? await import("../../agent-loop-perf/collector.mjs")
+  : { createPerfCollector: createNoopPerfCollector, writePerfSnapshot: async () => {} };
 
 const sourceRoot = process.env.PARITY_SOURCE_ROOT;
 const sidecarRoot = process.env.PARITY_PILOTDECK_ROOT ?? sourceRoot;
@@ -390,6 +410,7 @@ function createTools() {
       push("tool.call", { name, arguments: input, toolCallId, concurrencySafe, sideEffectCount: 0 });
       push("tool.start", { name, toolCallId, concurrencySafe, sideEffectCount: 0 });
       markToolStarted();
+      perf.markToolStart();
       if (name === "progress_tool") {
         context.progress?.({
           toolCallId,
@@ -416,6 +437,7 @@ function createTools() {
       }, context.abortSignal).finally(() => {
         context.abortSignal?.removeEventListener("abort", forwardCancellation);
       });
+      perf.markToolEnd();
       push("tool.finish", { name, toolCallId, concurrencySafe, success: result.type === "success", error: result.error, sideEffectCount: result.data?.sideEffectCount ?? 0 });
       push("tool.result", { result: { ...result, toolCallId }, toolCallId, concurrencySafe, sideEffectCount: result.data?.sideEffectCount ?? 0 });
       if (result.type === "error") {
@@ -680,6 +702,11 @@ const local = createLocalGateway({
     agentLoopTransportObserver: {
       observe(observation) {
         push("harness.proof", { state: observation.type, ...observation });
+        if (observation.type === "handshake_completed") perf.mark("handshake_completed");
+        if (observation.type === "stream_accepted") perf.mark("stream_accepted");
+        if (observation.type === "module_call_received") {
+          perf.mark("module_call", { module: observation.module, operation: observation.operation });
+        }
       },
     },
   } : {}),
@@ -794,6 +821,7 @@ try {
       });
 
       for await (const event of stream) {
+        perf.markFirstGatewayEvent();
         if (event.type === "tool_call_started" && builtinToolLifecycleNames.has(event.name)) {
           push("tool.call", { name: event.name, toolCallId: event.toolCallId });
           push("tool.start", { name: event.name, toolCallId: event.toolCallId });
@@ -958,6 +986,7 @@ try {
   let terminalErrorCode;
   const builtinToolLifecycleNames = new Set(["agent", "ask_user_question", "read_file", "write_file", "subagent", "send_message"]);
   for await (const event of stream) {
+    perf.markFirstGatewayEvent();
     // These built-ins emit lifecycle only through the Gateway stream. Keep
     // their port-level effects in the same trace vocabulary as parity tools.
     if (event.type === "tool_call_started" && builtinToolLifecycleNames.has(event.name)) {

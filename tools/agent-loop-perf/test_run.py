@@ -78,6 +78,21 @@ class ReportTests(unittest.TestCase):
         self.assertFalse(dirty["primaryBaseline"])
         self.assertEqual(clean["turn_ms"]["n"], 1)
         self.assertEqual(clean["turn_ms"]["p50"], 10.0)
+        self.assertEqual(clean["non_model_ms"]["p50"], 6.0)
+
+    def test_record_command_scrubs_absolute_root(self) -> None:
+        repo = ROOT.parent.parent
+        command = perf.record_command(
+            ["--pilotdeck-root", str(repo), "--iterations", "30"],
+            repo,
+        )
+        self.assertIn("--pilotdeck-root $PWD", command)
+        self.assertNotIn(str(repo), command)
+
+    def test_resolve_base_uses_merge_base(self) -> None:
+        branch, sha = perf.resolve_base(ROOT.parent.parent, "rust_standalone_alpha1")
+        self.assertEqual(branch, "rust_standalone_alpha1")
+        self.assertRegex(sha, r"^[0-9a-f]{7,}$")
 
     def test_write_evidence_includes_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

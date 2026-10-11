@@ -137,6 +137,64 @@ def capture_versions() -> dict[str, str]:
     }
 
 
+def git_dirty(root: Path) -> bool:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return bool((result.stdout or "").strip())
+
+
+def resolve_base(root: Path, branch: str) -> tuple[str, str]:
+    """Resolve (branch, sha) via merge-base; never hardcode a commit."""
+    for candidate in (branch, f"origin/{branch}"):
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", candidate],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if probe.returncode != 0:
+            continue
+        merged = subprocess.run(
+            ["git", "merge-base", "HEAD", candidate],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if merged.returncode == 0 and merged.stdout.strip():
+            return branch, merged.stdout.strip()
+    return branch, resolve_ref(root, "HEAD")
+
+
+def record_command(argv: list[str], root: Path) -> str:
+    """Record the invocation without leaking an absolute --pilotdeck-root."""
+    recorded = ["python3", "tools/agent-loop-perf/run.py"]
+    resolved_root = root.resolve()
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg == "--pilotdeck-root" and index + 1 < len(argv):
+            recorded.extend(["--pilotdeck-root", "$PWD"])
+            index += 2
+            continue
+        try:
+            if Path(arg).resolve() == resolved_root:
+                recorded.append("$PWD")
+                index += 1
+                continue
+        except OSError:
+            pass
+        recorded.append(arg)
+        index += 1
+    return " ".join(recorded)
+
+
 def load_perf_snapshot(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(f"adapter did not write perf snapshot: {path}")
@@ -202,14 +260,39 @@ def run_one(
     model_iter_ms = _float_list(snapshot.get("model_iter_ms"))
     stream_chunk_ms = _float_list(snapshot.get("stream_chunk_ms"))
     rss_kb = snapshot.get("rss_kb")
+    non_model_ms = snapshot.get("non_model_ms")
+    if not isinstance(non_model_ms, (int, float)) or isinstance(non_model_ms, bool):
+        non_model_ms = _round_ms(float(turn_ms) - sum(model_iter_ms))
+    segments = snapshot.get("segments") if isinstance(snapshot.get("segments"), dict) else {}
     return {
         "turn_ms": _round_ms(float(turn_ms)),
         "model_iter_ms": model_iter_ms,
         "stream_chunk_ms": stream_chunk_ms,
+        "non_model_ms": _round_ms(float(non_model_ms)),
+        "segments": {
+            "first_gateway_event_ms": _optional_ms(segments.get("first_gateway_event_ms")),
+            "pre_model_ms": _optional_ms(segments.get("pre_model_ms")),
+            "model_sum_ms": _optional_ms(segments.get("model_sum_ms")) or _round_ms(sum(model_iter_ms)),
+            "between_model_ms": _float_list(segments.get("between_model_ms")),
+            "tool_ms": _optional_ms(segments.get("tool_ms")),
+            "tool_iter_ms": _float_list(segments.get("tool_iter_ms")),
+            "post_model_ms": _optional_ms(segments.get("post_model_ms")),
+            "handshake_ms": _optional_ms(segments.get("handshake_ms")),
+            "stream_accepted_ms": _optional_ms(segments.get("stream_accepted_ms")),
+        },
         "rss_kb": int(rss_kb) if isinstance(rss_kb, (int, float)) and not isinstance(rss_kb, bool) else None,
         "adapter_wall_ms": adapter_wall_ms,
+        "gateway_outside_turn_ms": _round_ms(adapter_wall_ms - float(turn_ms)),
         "metrics_source": "adapter_submit_turn",
+        "harness_await_inside_turn": False,
+        "marks": snapshot.get("marks") if isinstance(snapshot.get("marks"), list) else [],
     }
+
+
+def _optional_ms(value: Any) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return _round_ms(float(value))
+    return None
 
 
 def _float_list(value: Any) -> list[float]:
@@ -233,8 +316,44 @@ def build_scenario_report(
     samples: list[dict[str, Any]],
 ) -> dict[str, Any]:
     turn = [float(item["turn_ms"]) for item in samples]
-    model = flatten([list(item["model_iter_ms"]) for item in samples])
-    chunks = flatten([list(item["stream_chunk_ms"]) for item in samples])
+    model = flatten([list(item.get("model_iter_ms") or []) for item in samples])
+    chunks = flatten([list(item.get("stream_chunk_ms") or []) for item in samples])
+    non_model = [
+        float(item["non_model_ms"]) if item.get("non_model_ms") is not None
+        else _round_ms(float(item["turn_ms"]) - sum(_float_list(item.get("model_iter_ms"))))
+        for item in samples
+    ]
+    pre_model = [
+        float(item["segments"]["pre_model_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict) and item["segments"].get("pre_model_ms") is not None
+    ]
+    post_model = [
+        float(item["segments"]["post_model_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict) and item["segments"].get("post_model_ms") is not None
+    ]
+    between = flatten([
+        list(item["segments"]["between_model_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict)
+    ])
+    tool = [
+        float(item["segments"]["tool_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict) and item["segments"].get("tool_ms") is not None
+    ]
+    handshake = [
+        float(item["segments"]["handshake_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict) and item["segments"].get("handshake_ms") is not None
+    ]
+    first_event = [
+        float(item["segments"]["first_gateway_event_ms"])
+        for item in samples
+        if isinstance(item.get("segments"), dict) and item["segments"].get("first_gateway_event_ms") is not None
+    ]
+    outside = [float(item["gateway_outside_turn_ms"]) for item in samples if item.get("gateway_outside_turn_ms") is not None]
     rss = [int(item["rss_kb"]) for item in samples if item.get("rss_kb") is not None]
     return {
         "scenarioId": scenario_id,
@@ -244,11 +363,24 @@ def build_scenario_report(
         "samples": samples,
         "turn_ms": summarize(turn),
         "model_iter_ms": summarize(model),
+        "non_model_ms": summarize(non_model),
         "stream_chunk_ms": summarize(chunks),
+        "segments": {
+            "first_gateway_event_ms": summarize(first_event),
+            "pre_model_ms": summarize(pre_model),
+            "post_model_ms": summarize(post_model),
+            "between_model_ms": summarize(between),
+            "tool_ms": summarize(tool),
+            "handshake_ms": summarize(handshake),
+            "gateway_outside_turn_ms": summarize(outside),
+        },
         "rss_kb_note": {
             "n": len(rss),
             "p50": percentile([float(item) for item in rss], 50) if rss else None,
-            "scope": "adapter/host Node process VmRSS at turn end; optional, not a gate",
+            "scope": (
+                "adapter/host Node process VmRSS at turn end; excludes sidecar "
+                "child/listener; macOS is null; optional, not a gate"
+            ),
         },
     }
 
@@ -280,11 +412,8 @@ def run_transport(
     tcp_target = None
     tcp_process = None
     tcp_log = None
-    sidecar_transport = resolve_sidecar_transport(None) if transport != "native" else "stdio"
-    if transport == "stdio":
-        sidecar_transport = "stdio"
-    elif transport == "tcp":
-        sidecar_transport = "tcp"
+    sidecar_transport = None if transport == "native" else resolve_sidecar_transport(transport)
+    if transport == "tcp":
         tcp_target = resolve_tcp_sidecar_target(
             host=tcp_host,
             port=tcp_port,
@@ -336,6 +465,15 @@ def run_transport(
                 "p50": report["model_iter_ms"]["p50"],
                 "p95": report["model_iter_ms"]["p95"],
             },
+            "non_model_ms": {
+                "n": report["non_model_ms"]["n"],
+                "p50": report["non_model_ms"]["p50"],
+                "p95": report["non_model_ms"]["p95"],
+            },
+            "segments": {
+                key: {"n": value["n"], "p50": value["p50"], "p95": value["p95"]}
+                for key, value in report["segments"].items()
+            },
         }
         for sid, report in reports.items()
         if not report["delay_injected"]
@@ -385,6 +523,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pilotdeck-tcp-host")
     parser.add_argument("--pilotdeck-tcp-port", type=int)
     parser.add_argument("--pilotdeck-tcp-sidecar-cmd")
+    parser.add_argument(
+        "--base-branch",
+        default=os.environ.get("PERF_BASE_BRANCH", "rust_standalone_alpha1"),
+        help="Branch used for provenance merge-base (default: rust_standalone_alpha1).",
+    )
     args = parser.parse_args(argv)
     if args.iterations < 1:
         raise ValueError("--iterations must be >= 1")
@@ -398,21 +541,24 @@ def main(argv: list[str] | None = None) -> int:
     output = (args.output or (source / "evidence" / "perf-baseline")).resolve()
     output.mkdir(parents=True, exist_ok=True)
     versions = capture_versions()
-    command = " ".join(["python3", "tools/agent-loop-perf/run.py", *map(str, sys.argv[1:] if argv is None else argv)])
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    command = record_command(raw_argv, source)
+    base_branch, base_sha = resolve_base(source, args.base_branch)
     provenance_base = {
         "gitSha": resolve_ref(source, "HEAD"),
+        "gitDirty": git_dirty(source),
         "node": versions["node"],
         "python": versions["python"],
         "pythonFull": versions["pythonFull"],
         "command": command,
-        "pilotdeckRoot": str(source),
+        "pilotdeckRoot": "$PWD",
         "iterationsRequested": args.iterations,
         "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
         "delayPolicy": "keep" if args.keep_delays else "zero",
         "metrics": "tools/agent-loop-perf/METRICS.md",
         "productDefaultTransport": "native",
-        "baseBranch": "rust_standalone_alpha1",
-        "baseSha": "5fa81190680a6cf5728045148ccdf5c7315fc0be",
+        "baseBranch": base_branch,
+        "baseSha": base_sha,
     }
     mock_process, mock_url = start_mock()
     started = datetime.now(timezone.utc)

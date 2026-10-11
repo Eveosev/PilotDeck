@@ -1,6 +1,6 @@
 # PilotDeck AgentLoop 性能基线 harness
 
-对同一场景在 `native` / TS-stdio / TS-tcp 下各跑 ≥30 次，采集 `turn_ms`、`model_iter_ms[]`、`stream_chunk_ms[]`，写出 P50/P95 JSON。
+对同一场景在 `native` / TS-stdio / TS-tcp 下各跑 ≥30 次，采集 `turn_ms`、`model_iter_ms[]`、`non_model_ms`、`segments.*`、`stream_chunk_ms[]`，写出 P50/P95 JSON。
 
 复用 [`../agent-loop-parity/`](../agent-loop-parity/) 的 gateway adapter、mock backend 和 T-P0a-00 TCP bootstrap。**不改变产品默认 transport（仍为 native）。**
 
@@ -72,4 +72,4 @@ node --test tools/agent-loop-perf/collector.test.mjs
 
 ## JSON 形状
 
-每个 transport 文件包含 raw 样本、按场景的 P50/P95、`delay_injected`、以及 provenance（git SHA、node/python、命令）。`primaryBaseline` 只含 `delay_injected=false` 的场景。
+每个 transport 文件包含 raw 样本、按场景的 P50/P95、`non_model_ms` / `segments`、`delay_injected`、以及 provenance（`gitSha`、`gitDirty`、`baseSha`=merge-base、node/python、命令里的 root 记为 `$PWD`）。`primaryBaseline` 只含 `delay_injected=false` 的场景。默认 parity 路径不再 import collector（只有 `PARITY_PERF=1` 才动态加载）。
