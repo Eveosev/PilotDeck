@@ -1,0 +1,468 @@
+"""Performance baseline harness for PilotDeck AgentLoop transports.
+
+Reuses tools/agent-loop-parity adapters, mock backend, and TCP sidecar
+bootstrap. Product default transport stays native; this harness only
+selects stdio/tcp for measurement.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import math
+import os
+import subprocess
+import sys
+import tempfile
+import time
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+PERF_ROOT = Path(__file__).resolve().parent
+PARITY_DIR = PERF_ROOT.parent / "agent-loop-parity"
+PARITY_ROOT = PARITY_DIR
+
+
+def _load_parity_run() -> Any:
+    """Load tools/agent-loop-parity/run.py without colliding with this file."""
+    if str(PARITY_DIR) not in sys.path:
+        sys.path.insert(0, str(PARITY_DIR))
+    name = "agent_loop_parity_run"
+    cached = sys.modules.get(name)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(name, PARITY_DIR / "run.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load tools/agent-loop-parity/run.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_parity = _load_parity_run()
+load_scenarios = _parity.load_scenarios
+resolve_ref = _parity.resolve_ref
+resolve_sidecar_transport = _parity.resolve_sidecar_transport
+resolve_tcp_sidecar_target = _parity.resolve_tcp_sidecar_target
+run_adapter = _parity.run_adapter
+start_mock = _parity.start_mock
+start_tcp_sidecar = _parity.start_tcp_sidecar
+stop_process = _parity.stop_process
+tcp_sidecar_log_path = _parity.tcp_sidecar_log_path
+
+DEFAULT_SCENARIOS = ("pure_text", "single_tool")
+DEFAULT_TRANSPORTS = ("native", "stdio", "tcp")
+DELAY_MAP_KEYS = ("delays", "toolDelays")
+HOST_OVERHEAD_DEFINITION = (
+    "native has no sidecar/module_call. This gate treats turn_ms(native) as "
+    "the in-process host baseline. P1 relative overhead is "
+    "(candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms)."
+)
+
+
+def apply_delay_policy(scenario: dict[str, Any], *, zero: bool = True) -> tuple[dict[str, Any], bool]:
+    """Zero scenario mock delays unless the caller keeps them.
+
+    Returns the (possibly copied) scenario and delay_injected. After the
+    default zeroing policy, delay_injected is true only when a positive delay
+    remains (hard-coded and not overridable).
+    """
+    prepared = deepcopy(scenario)
+    if zero:
+        for key in DELAY_MAP_KEYS:
+            value = prepared.get(key)
+            if isinstance(value, dict):
+                prepared[key] = {name: 0 for name in value}
+    return prepared, has_nonzero_delay(prepared)
+
+
+def has_nonzero_delay(scenario: dict[str, Any]) -> bool:
+    for key in DELAY_MAP_KEYS:
+        value = scenario.get(key)
+        if not isinstance(value, dict):
+            continue
+        for raw in value.values():
+            try:
+                if float(raw) > 0:
+                    return True
+            except (TypeError, ValueError):
+                if raw:
+                    return True
+    return False
+
+
+def percentile(samples: list[float], p: float) -> float | None:
+    """Inclusive-rank percentile with linear interpolation.
+
+    P50/P95 use rank = p/100 * (n-1). Empty input returns None.
+    """
+    if not samples:
+        return None
+    if p < 0 or p > 100:
+        raise ValueError(f"percentile must be in [0, 100], got {p}")
+    ordered = sorted(float(item) for item in samples)
+    if len(ordered) == 1:
+        return _round_ms(ordered[0])
+    rank = (p / 100.0) * (len(ordered) - 1)
+    low = int(math.floor(rank))
+    high = int(math.ceil(rank))
+    if low == high:
+        return _round_ms(ordered[low])
+    frac = rank - low
+    return _round_ms(ordered[low] * (1.0 - frac) + ordered[high] * frac)
+
+
+def summarize(samples: list[float]) -> dict[str, Any]:
+    return {
+        "n": len(samples),
+        "p50": percentile(samples, 50),
+        "p95": percentile(samples, 95),
+        "raw": [_round_ms(item) for item in samples],
+    }
+
+
+def _round_ms(value: float) -> float:
+    return round(float(value), 3)
+
+
+def capture_versions() -> dict[str, str]:
+    node = subprocess.run(["node", "--version"], text=True, capture_output=True, check=False)
+    return {
+        "python": sys.version.split()[0],
+        "pythonFull": sys.version,
+        "node": (node.stdout or node.stderr or "").strip(),
+    }
+
+
+def load_perf_snapshot(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError(f"adapter did not write perf snapshot: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError(f"perf snapshot must be an object: {path}")
+    return payload
+
+
+def run_one(
+    *,
+    transport: str,
+    source: Path,
+    scenario: dict[str, Any],
+    mock: str,
+    output: Path,
+    timeout_seconds: float,
+    tcp_target: Any,
+) -> dict[str, Any]:
+    mode = "native" if transport == "native" else "sidecar"
+    sidecar_transport = "stdio" if transport == "native" else transport
+    trace_path = output
+    if trace_path.exists():
+        trace_path.unlink()
+    perf_path = Path(f"{trace_path}.perf.json")
+    if perf_path.exists():
+        perf_path.unlink()
+    env_was = os.environ.get("PARITY_PERF")
+    out_was = os.environ.get("PARITY_PERF_OUT")
+    os.environ["PARITY_PERF"] = "1"
+    os.environ["PARITY_PERF_OUT"] = str(perf_path)
+    wall_started = time.perf_counter()
+    try:
+        status = run_adapter(
+            mode,
+            source,
+            "working-tree",
+            scenario,
+            mock,
+            trace_path,
+            "gateway",
+            timeout_seconds,
+            None,
+            sidecar_transport=sidecar_transport,
+            tcp_target=tcp_target,
+        )
+    finally:
+        if env_was is None:
+            os.environ.pop("PARITY_PERF", None)
+        else:
+            os.environ["PARITY_PERF"] = env_was
+        if out_was is None:
+            os.environ.pop("PARITY_PERF_OUT", None)
+        else:
+            os.environ["PARITY_PERF_OUT"] = out_was
+    adapter_wall_ms = _round_ms((time.perf_counter() - wall_started) * 1000)
+    if status != "PASS":
+        raise RuntimeError(status)
+    snapshot = load_perf_snapshot(perf_path)
+    turn_ms = snapshot.get("turn_ms")
+    if not isinstance(turn_ms, (int, float)) or isinstance(turn_ms, bool):
+        raise RuntimeError("perf snapshot is missing turn_ms")
+    model_iter_ms = _float_list(snapshot.get("model_iter_ms"))
+    stream_chunk_ms = _float_list(snapshot.get("stream_chunk_ms"))
+    rss_kb = snapshot.get("rss_kb")
+    return {
+        "turn_ms": _round_ms(float(turn_ms)),
+        "model_iter_ms": model_iter_ms,
+        "stream_chunk_ms": stream_chunk_ms,
+        "rss_kb": int(rss_kb) if isinstance(rss_kb, (int, float)) and not isinstance(rss_kb, bool) else None,
+        "adapter_wall_ms": adapter_wall_ms,
+        "metrics_source": "adapter_submit_turn",
+    }
+
+
+def _float_list(value: Any) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    result: list[float] = []
+    for item in value:
+        if isinstance(item, (int, float)) and not isinstance(item, bool):
+            result.append(_round_ms(float(item)))
+    return result
+
+
+def flatten(values: list[list[float]]) -> list[float]:
+    return [item for group in values for item in group]
+
+
+def build_scenario_report(
+    scenario_id: str,
+    *,
+    delay_injected: bool,
+    samples: list[dict[str, Any]],
+) -> dict[str, Any]:
+    turn = [float(item["turn_ms"]) for item in samples]
+    model = flatten([list(item["model_iter_ms"]) for item in samples])
+    chunks = flatten([list(item["stream_chunk_ms"]) for item in samples])
+    rss = [int(item["rss_kb"]) for item in samples if item.get("rss_kb") is not None]
+    return {
+        "scenarioId": scenario_id,
+        "delay_injected": delay_injected,
+        "primaryBaseline": not delay_injected,
+        "iterations": len(samples),
+        "samples": samples,
+        "turn_ms": summarize(turn),
+        "model_iter_ms": summarize(model),
+        "stream_chunk_ms": summarize(chunks),
+        "rss_kb_note": {
+            "n": len(rss),
+            "p50": percentile([float(item) for item in rss], 50) if rss else None,
+            "scope": "adapter/host Node process VmRSS at turn end; optional, not a gate",
+        },
+    }
+
+
+def load_named_scenarios(scenario_file: Path, names: list[str]) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for name in names:
+        found = load_scenarios(scenario_file, name, "all")
+        if not found:
+            raise ValueError(f"unknown PilotDeck scenario: {name}")
+        selected.append(found[0])
+    return selected
+
+
+def run_transport(
+    *,
+    transport: str,
+    source: Path,
+    scenarios: list[dict[str, Any]],
+    iterations: int,
+    timeout_seconds: float,
+    work: Path,
+    mock: str,
+    zero_delays: bool,
+    tcp_sidecar_cmd: str | None,
+    tcp_host: str | None,
+    tcp_port: int | None,
+) -> dict[str, Any]:
+    tcp_target = None
+    tcp_process = None
+    tcp_log = None
+    sidecar_transport = resolve_sidecar_transport(None) if transport != "native" else "stdio"
+    if transport == "stdio":
+        sidecar_transport = "stdio"
+    elif transport == "tcp":
+        sidecar_transport = "tcp"
+        tcp_target = resolve_tcp_sidecar_target(
+            host=tcp_host,
+            port=tcp_port,
+            command=tcp_sidecar_cmd,
+            source=source,
+        )
+        if tcp_target.start_command:
+            tcp_log = tcp_sidecar_log_path(work)
+            tcp_process = start_tcp_sidecar(tcp_target, source, os.environ.copy(), tcp_log)
+    reports: dict[str, Any] = {}
+    try:
+        for scenario in scenarios:
+            prepared, delay_injected = apply_delay_policy(scenario, zero=zero_delays)
+            sid = str(prepared["scenarioId"])
+            samples: list[dict[str, Any]] = []
+            for iteration in range(1, iterations + 1):
+                trace_path = work / f"{sid}.{transport}.{iteration}.jsonl"
+                sample = run_one(
+                    transport=transport,
+                    source=source,
+                    scenario=prepared,
+                    mock=mock,
+                    output=trace_path,
+                    timeout_seconds=timeout_seconds,
+                    tcp_target=tcp_target,
+                )
+                sample["iteration"] = iteration
+                samples.append(sample)
+                print(
+                    json.dumps({
+                        "event": "iteration",
+                        "transport": transport,
+                        "scenarioId": sid,
+                        "iteration": iteration,
+                        "turn_ms": sample["turn_ms"],
+                        "delay_injected": delay_injected,
+                    }, ensure_ascii=False),
+                    flush=True,
+                )
+            reports[sid] = build_scenario_report(sid, delay_injected=delay_injected, samples=samples)
+    finally:
+        stop_process(tcp_process)
+    primary = {
+        sid: {
+            "delay_injected": report["delay_injected"],
+            "turn_ms": {"n": report["turn_ms"]["n"], "p50": report["turn_ms"]["p50"], "p95": report["turn_ms"]["p95"]},
+            "model_iter_ms": {
+                "n": report["model_iter_ms"]["n"],
+                "p50": report["model_iter_ms"]["p50"],
+                "p95": report["model_iter_ms"]["p95"],
+            },
+        }
+        for sid, report in reports.items()
+        if not report["delay_injected"]
+    }
+    excluded = [sid for sid, report in reports.items() if report["delay_injected"]]
+    return {
+        "transport": transport,
+        "sidecarTransport": sidecar_transport if transport != "native" else None,
+        "tcpSidecarLog": str(tcp_log) if tcp_log is not None else None,
+        "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
+        "delayPolicy": "zero" if zero_delays else "keep",
+        "primaryBaseline": primary,
+        "excludedFromPrimary": excluded,
+        "scenarios": reports,
+    }
+
+
+def write_transport_evidence(
+    path: Path,
+    payload: dict[str, Any],
+    *,
+    provenance: dict[str, Any],
+) -> None:
+    document = {
+        **payload,
+        "provenance": provenance,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def parse_csv(value: str) -> list[str]:
+    items = [item.strip() for item in value.split(",")]
+    return [item for item in items if item]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pilotdeck-root", type=Path, required=True)
+    parser.add_argument("--scenario-file", type=Path, default=PARITY_ROOT / "scenarios.json")
+    parser.add_argument("--scenarios", default=",".join(DEFAULT_SCENARIOS))
+    parser.add_argument("--transports", default=",".join(DEFAULT_TRANSPORTS))
+    parser.add_argument("--iterations", type=int, default=30)
+    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--adapter-timeout-seconds", type=float, default=60)
+    parser.add_argument("--keep-delays", action="store_true", help="Do not zero scenario delays.* / toolDelays.*")
+    parser.add_argument("--pilotdeck-tcp-host")
+    parser.add_argument("--pilotdeck-tcp-port", type=int)
+    parser.add_argument("--pilotdeck-tcp-sidecar-cmd")
+    args = parser.parse_args(argv)
+    if args.iterations < 1:
+        raise ValueError("--iterations must be >= 1")
+    transports = parse_csv(args.transports)
+    unknown = [item for item in transports if item not in DEFAULT_TRANSPORTS]
+    if unknown:
+        raise ValueError(f"unsupported transports: {', '.join(unknown)}")
+    scenario_names = parse_csv(args.scenarios)
+    scenarios = load_named_scenarios(args.scenario_file, scenario_names)
+    source = args.pilotdeck_root.resolve()
+    output = (args.output or (source / "evidence" / "perf-baseline")).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    versions = capture_versions()
+    command = " ".join(["python3", "tools/agent-loop-perf/run.py", *map(str, sys.argv[1:] if argv is None else argv)])
+    provenance_base = {
+        "gitSha": resolve_ref(source, "HEAD"),
+        "node": versions["node"],
+        "python": versions["python"],
+        "pythonFull": versions["pythonFull"],
+        "command": command,
+        "pilotdeckRoot": str(source),
+        "iterationsRequested": args.iterations,
+        "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
+        "delayPolicy": "keep" if args.keep_delays else "zero",
+        "metrics": "tools/agent-loop-perf/METRICS.md",
+        "productDefaultTransport": "native",
+        "baseBranch": "rust_standalone_alpha1",
+        "baseSha": "5fa81190680a6cf5728045148ccdf5c7315fc0be",
+    }
+    mock_process, mock_url = start_mock()
+    started = datetime.now(timezone.utc)
+    try:
+        with tempfile.TemporaryDirectory(prefix="pilotdeck-agent-loop-perf-") as temporary:
+            work = Path(temporary)
+            for transport in transports:
+                transport_started = datetime.now(timezone.utc)
+                report = run_transport(
+                    transport=transport,
+                    source=source,
+                    scenarios=scenarios,
+                    iterations=args.iterations,
+                    timeout_seconds=args.adapter_timeout_seconds,
+                    work=work,
+                    mock=mock_url,
+                    zero_delays=not args.keep_delays,
+                    tcp_sidecar_cmd=args.pilotdeck_tcp_sidecar_cmd,
+                    tcp_host=args.pilotdeck_tcp_host,
+                    tcp_port=args.pilotdeck_tcp_port,
+                )
+                provenance = {
+                    **provenance_base,
+                    "startedAt": transport_started.isoformat(),
+                    "finishedAt": datetime.now(timezone.utc).isoformat(),
+                }
+                dest = output / f"{transport}.json"
+                write_transport_evidence(dest, report, provenance=provenance)
+                print(json.dumps({
+                    "event": "wrote",
+                    "transport": transport,
+                    "path": str(dest),
+                    "primaryBaseline": report["primaryBaseline"],
+                    "excludedFromPrimary": report["excludedFromPrimary"],
+                }, ensure_ascii=False), flush=True)
+    finally:
+        stop_process(mock_process)
+    summary = {
+        "output": str(output),
+        "transports": transports,
+        "scenarios": scenario_names,
+        "iterations": args.iterations,
+        "startedAt": started.isoformat(),
+        "finishedAt": datetime.now(timezone.utc).isoformat(),
+        "provenance": provenance_base,
+    }
+    (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

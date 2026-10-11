@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
+import { createPerfCollector, writePerfSnapshot } from "../../agent-loop-perf/collector.mjs";
 
 const sourceRoot = process.env.PARITY_SOURCE_ROOT;
 const sidecarRoot = process.env.PARITY_PILOTDECK_ROOT ?? sourceRoot;
@@ -92,6 +93,8 @@ let markToolStarted;
 const toolStarted = new Promise((resolve) => {
   markToolStarted = resolve;
 });
+const perf = createPerfCollector();
+const perfOut = process.env.PARITY_PERF_OUT || (perf.enabled ? `${traceOut}.perf.json` : "");
 const push = (kind, extra = {}) => {
   const record = { kind, scenarioId: scenario.scenarioId, q: scenario.q, invocationId, sequence: sequence++, ...extra };
   trace.push(record);
@@ -161,6 +164,8 @@ async function waitForScopedModelResponses({ timeoutMs = 5000, agentScope, count
 
 class MockModelRuntime {
   async *stream(request, options = {}) {
+    perf.markModelStart();
+    try {
     modelAttempt += 1;
     scenarioTurnModelAttempt += 1;
     const invocationAttempt = modelAttempt;
@@ -309,6 +314,9 @@ class MockModelRuntime {
     } else {
       yield { type: "text_delta", text: message.content ?? "" };
       yield { type: "message_end", finishReason: "stop" };
+    }
+    } finally {
+      perf.markModelEnd();
     }
   }
 
@@ -770,6 +778,7 @@ try {
       scenarioTurnModelAttempt = 0;
       push("policy.turn", { permissionMode: observedPermissionMode, runMode: observedPermissionMode === "plan" ? "plan" : "agent" });
 
+      perf.markTurnStart();
       const stream = client.stream("submit_turn", {
         sessionKey,
         channelKey: "test",
@@ -830,11 +839,15 @@ try {
           }
         }
         if (event.type === "assistant_text_delta") {
+          perf.markStreamChunk();
           visibleOutput += event.text;
           push("user.output", { text: event.text });
         }
         if (event.type === "plan_mode_changed") observedPermissionMode = event.mode;
-        if (event.type === "turn_completed") terminal = event;
+        if (event.type === "turn_completed") {
+          perf.markTurnEnd();
+          terminal = event;
+        }
         if (event.type === "error") {
           terminalErrorCode = event.code;
           push("gateway.error", { code: event.code, message: event.message });
@@ -858,7 +871,9 @@ try {
       resultType: terminal?.result?.type,
     });
     await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+    await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   } else {
+  perf.markTurnStart();
   const stream = client.stream("submit_turn", {
     sessionKey,
     channelKey: "test",
@@ -1001,10 +1016,12 @@ try {
       push("tool.progress", { toolCallId: event.toolCallId, toolName: event.toolName, message: event.message, metadata: event.metadata });
     }
     if (event.type === "assistant_text_delta") {
+      perf.markStreamChunk();
       visibleOutput += event.text;
       push("user.output", { text: event.text });
     }
     if (event.type === "turn_completed") {
+      perf.markTurnEnd();
       terminal = event;
       terminalCount += 1;
     }
@@ -1117,6 +1134,7 @@ try {
     durableErrorCode: durableTurnResult?.errors?.[0]?.code,
   });
   await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+  await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   }
 } finally {
   debug("closing deployment");
