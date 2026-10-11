@@ -234,6 +234,7 @@ def declared_extension_matches(
     *,
     comparison: dict[str, Any] | None = None,
     adapter: str | None = None,
+    require_observed: bool | None = None,
 ) -> bool:
     """Accept only exhaustively declared baseline/current differences.
 
@@ -241,10 +242,19 @@ def declared_extension_matches(
     difference needs a matching contract with an exact baseline/current value;
     declarations that are not observed are also failures, preventing stale
     allowlists from silently masking a newly shared behavior.
+
+    Same-version / A/A comparisons may pass `require_observed=False` so a
+    declared native/sidecar transport difference is allowed when present and
+    ignored when both sides are the same implementation.
     """
     comparison = comparison or baseline_comparison(scenario)
-    if not differences and comparison.get("allowEvidencedBudgetDrift") is True:
-        return True
+    if require_observed is None:
+        require_observed = comparison.get("requireObservedDifferences", True) is not False
+    if not differences:
+        if require_observed is False:
+            return True
+        if comparison.get("allowEvidencedBudgetDrift") is True:
+            return True
     if comparison.get("comparator") == "continuable_actor_v1":
         # compare_continuable_trace_details has already enforced the narrow
         # actor/state contract and returns no semantic differences only when
@@ -569,10 +579,16 @@ def main() -> int:
                         if comparison.format_warnings:
                             warnings.append(f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)")
                         if not is_baseline and same_version_contract.get("mode") == "extension":
-                            if declared_extension_matches(scenario, comparison.semantic, comparison=same_version_contract):
-                                expected_extensions.append(
-                                    f"{sid}/{label}: verified {len(comparison.semantic)} declared transport difference(s)"
-                                )
+                            if declared_extension_matches(
+                                scenario,
+                                comparison.semantic,
+                                comparison=same_version_contract,
+                                require_observed=False,
+                            ):
+                                if comparison.semantic:
+                                    expected_extensions.append(
+                                        f"{sid}/{label}: verified {len(comparison.semantic)} declared transport difference(s)"
+                                    )
                             else:
                                 failed.append(
                                     f"{sid}/{label}: transport contract mismatch ({len(comparison.semantic)} semantic difference(s))"

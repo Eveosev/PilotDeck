@@ -1099,6 +1099,222 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         request = {"kind": "model.request", "attempt": 2, "modelView": {"messages": []}}
         self.assertTrue(compare_traces([requested, closed, request], [requested, closed]))
 
+    def test_cross_channel_interleaving_is_ignored_while_channel_order_stays_strict(self) -> None:
+        next_turn = {"kind": "agent.status", "event": "turn_continued", "detail": {"reason": "next_turn"}}
+        request = {
+            "kind": "model.request",
+            "attempt": 1,
+            "modelView": {"messages": [{"role": "user", "content": [{"type": "text", "text": "q"}]}]},
+        }
+        response = {"kind": "model.response", "attempt": 1, "modelView": {"content": "ok"}}
+        budget = {"kind": "context.budget", "used": 10, "total": 100, "ratio": 0.1, "state": "ok"}
+        stream = {"kind": "model.stream", "state": "first_delta"}
+        compact = {"kind": "agent.status", "event": "compact_started", "detail": {"trigger": "auto"}}
+        output = {"kind": "user.output", "text": "ok"}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        left = [next_turn, request, budget, stream, compact, response, output, terminal]
+        # Five allowed classes may interleave with each other and with core.
+        # Output still precedes terminal on the single core sequence.
+        right = [budget, stream, compact, next_turn, output, request, response, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        reordered_model = [next_turn, response, budget, stream, compact, request, output, terminal]
+        self.assertTrue(compare_traces(left, reordered_model))
+
+        changed_request = json.loads(json.dumps(right))
+        changed_request[5]["modelView"]["messages"][0]["content"][0]["text"] = "changed"
+        self.assertTrue(compare_traces(left, changed_request))
+
+        missing_budget = [next_turn, request, stream, compact, response, output, terminal]
+        self.assertTrue(compare_traces(left, missing_budget))
+
+        status_order = [
+            {"kind": "agent.status", "event": "working"},
+            {"kind": "agent.status", "event": "turn_timeout"},
+        ]
+        self.assertTrue(compare_traces(status_order, [status_order[1], status_order[0]]))
+
+        # Core events stay on one strict per-actor sequence. Output/terminal
+        # (or tool/permission) reorder is a regression, not scheduler noise.
+        self.assertTrue(compare_traces(
+            [output, terminal],
+            [terminal, output],
+        ))
+        self.assertTrue(compare_traces(
+            [{"kind": "tool.call", "name": "lookup"}, {"kind": "permission.decision", "allowed": True}],
+            [{"kind": "permission.decision", "allowed": True}, {"kind": "tool.call", "name": "lookup"}],
+        ))
+
+        # Budget-class twins (live + durable context_budget) may interleave
+        # with core. Other durable status events stay on the core sequence.
+        budget_durable = {
+            "kind": "durable.status",
+            "event": "context_budget",
+            "statusKind": "status",
+            "text": "context_budget",
+        }
+        tool_finish = {"kind": "tool.finish", "name": "agent", "success": True}
+        self.assertEqual(
+            compare_traces(
+                [budget_durable, tool_finish, terminal],
+                [tool_finish, budget_durable, terminal],
+            ),
+            [],
+        )
+        abort_durable = {
+            "kind": "durable.status",
+            "event": "turn_aborted",
+            "statusKind": "status",
+            "text": "This turn was aborted before completion.",
+        }
+        self.assertTrue(compare_traces(
+            [abort_durable, tool_finish, terminal],
+            [tool_finish, abort_durable, terminal],
+        ))
+
+    def test_unknown_kinds_stay_on_the_strict_core_sequence(self) -> None:
+        request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        unknown_a = {"kind": "novel.alpha", "state": "one"}
+        unknown_b = {"kind": "novel.beta", "state": "two"}
+        # Unknown kinds must not each become an ignore-channel.
+        self.assertTrue(compare_traces(
+            [unknown_a, unknown_b, terminal],
+            [unknown_b, unknown_a, terminal],
+        ))
+        # An unknown core event may still interleave with the five classes.
+        self.assertEqual(
+            compare_traces([request, unknown_a, terminal], [unknown_a, request, terminal]),
+            [],
+        )
+
+    def test_durable_steer_attaches_to_applied_without_hiding_values(self) -> None:
+        request = {"kind": "steer.request", "itemId": "s1", "accepted": True}
+        durable = {"kind": "durable.steer", "itemId": "s1", "message": {"text": "steer"}}
+        output = {"kind": "user.output", "text": "draft"}
+        applied = {"kind": "steer.applied", "itemId": "s1", "message": "steer"}
+        terminal = {"kind": "terminal", "outcome": "completed"}
+        left = [request, durable, output, applied, terminal]
+        right = [request, output, durable, applied, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        missing = [request, output, applied, terminal]
+        self.assertTrue(compare_traces(left, missing))
+
+        changed = [request, output, {**durable, "message": {"text": "other"}}, applied, terminal]
+        self.assertTrue(compare_traces(left, changed))
+
+    def test_durable_status_attaches_to_visible_status_without_hiding_values(self) -> None:
+        durable = {
+            "kind": "durable.status",
+            "event": "model_request_failed",
+            "statusKind": "error",
+            "text": "Deterministic stream interruption.",
+        }
+        output = {"kind": "user.output", "text": "partial"}
+        status = {"kind": "agent.status", "event": "model_request_failed"}
+        terminal = {"kind": "terminal", "outcome": "failed"}
+        left = [durable, output, status, terminal]
+        right = [output, durable, status, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+
+        missing = [output, status, terminal]
+        self.assertTrue(compare_traces(left, missing))
+
+        changed = [output, {**durable, "text": "other"}, status, terminal]
+        self.assertTrue(compare_traces(left, changed))
+
+    def test_durable_compaction_attaches_to_compact_completed(self) -> None:
+        started = {"kind": "agent.status", "event": "compact_started", "detail": {"trigger": "auto"}}
+        durable = {"kind": "durable.compaction_completed", "status": "compacted"}
+        completed = {
+            "kind": "agent.status",
+            "event": "compact_completed",
+            "detail": {"status": "skipped", "trigger": "auto"},
+        }
+        terminal = {"kind": "terminal", "outcome": "failed"}
+        left = [started, durable, completed, terminal]
+        right = [durable, started, completed, terminal]
+        self.assertEqual(compare_traces(left, right), [])
+        self.assertTrue(compare_traces(left, [started, completed, terminal]))
+        self.assertTrue(compare_traces(left, [started, {**durable, "status": "skipped"}, completed, terminal]))
+
+    def test_cancelled_turn_aborted_status_remains_semantic(self) -> None:
+        request = {"kind": "model.request", "attempt": 1, "modelView": {"messages": []}}
+        error = {
+            "kind": "model.error",
+            "code": "CANCELLED",
+            "message": "Deterministic model cancellation.",
+            "retryable": False,
+            "attempt": 1,
+        }
+        durable = {
+            "kind": "durable.status",
+            "event": "turn_aborted",
+            "statusKind": "status",
+            "text": "This turn was aborted before completion.",
+        }
+        status = {"kind": "agent.status", "event": "turn_aborted", "detail": {"code": "turn_aborted"}}
+        cancelled = {"kind": "terminal", "outcome": "cancelled"}
+        left = [request, error, durable, status, cancelled]
+        right = [request, error, cancelled]
+        # Both sides cancelled is not a waiver for abort-status text or count.
+        self.assertTrue(compare_traces(left, right))
+        self.assertTrue(compare_traces(left, [request, error, {"kind": "terminal", "outcome": "failed"}]))
+        same = [request, error, durable, status, cancelled]
+        self.assertEqual(compare_traces(same, json.loads(json.dumps(same))), [])
+
+    def test_same_version_deadline_contract_accepts_aa_without_declared_transport_diffs(self) -> None:
+        contract = {
+            "mode": "extension",
+            "allowedDifferences": [
+                {"pathSuffix": "durableStopReason", "baseline": "aborted_streaming", "current": None},
+                {"pathSuffix": "resultType", "baseline": "aborted", "current": None},
+            ],
+        }
+        self.assertTrue(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            [],
+            comparison=contract,
+            require_observed=False,
+        ))
+        self.assertFalse(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            [],
+            comparison=contract,
+        ))
+        observed = [
+            type("Difference", (), {
+                "path": "trace.channel[core/parent][0].durableStopReason",
+                "left": "aborted_streaming",
+                "right": None,
+            })(),
+            type("Difference", (), {
+                "path": "trace.channel[core/parent][0].resultType",
+                "left": "aborted",
+                "right": None,
+            })(),
+        ]
+        self.assertTrue(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            observed,
+            comparison=contract,
+            require_observed=False,
+        ))
+        extra = observed + [
+            type("Difference", (), {
+                "path": "trace.channel[core/parent][0].outcome",
+                "left": "cancelled",
+                "right": "failed",
+            })(),
+        ]
+        self.assertFalse(declared_extension_matches(
+            {"scenarioId": "deadline"},
+            extra,
+            comparison=contract,
+            require_observed=False,
+        ))
+
     def test_parent_abort_requires_acknowledgement_and_one_gateway_terminal(self) -> None:
         records = [
             {

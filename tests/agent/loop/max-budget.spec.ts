@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AgentLoop } from "../../../src/agent/loop/AgentLoop.js";
+import { AgentLoop, formatModelRequestFailureMessage } from "../../../src/agent/loop/AgentLoop.js";
 import type { AgentRuntimeConfig } from "../../../src/agent/runtime/AgentRuntimeConfig.js";
 import type { AgentRouterRuntime, AgentRuntimeDependencies } from "../../../src/agent/runtime/AgentRuntimeDependencies.js";
 import type { CanonicalModelEvent } from "../../../src/model/protocol/canonical.js";
@@ -92,7 +92,77 @@ test("maxBudgetUsd stops after the charged model response before tool side effec
   assert.equal(events.some((event) => event.type === "tool_calls_detected"), false);
   const failed = events.find((event) => event.type === "turn_failed");
   assert.equal(failed?.error.code, "agent_max_budget_reached");
+  const status = events.find((event) => event.type === "agent_status" && event.event === "max_budget_reached");
+  assert.equal(status?.type === "agent_status" && status.event, "max_budget_reached");
+  assert.match(String(status?.type === "agent_status" ? status.text : ""), /Reached Gateway-owned maxBudgetUsd/);
   const completed = events.find((event) => event.type === "turn_completed");
   assert.equal(completed?.result.stopReason, "max_budget");
   assert.equal(completed?.result.usage.inputTokens, 1_000);
+});
+
+test("model_request_failed agent_status carries factory kind and text on the wire", async () => {
+  const router: AgentRouterRuntime = {
+    invalidateSticky: () => ({ orchestrating: false }),
+    decide: async ({ request }) => ({
+      provider: request.provider,
+      model: request.model,
+      scenarioType: "default",
+      isSubagent: false,
+      orchestrating: false,
+      resolvedFrom: "explicit",
+      mutations: {},
+    }),
+    execute: async function* (): AsyncIterable<CanonicalModelEvent> {
+      throw new Error("provider exploded");
+    },
+    stream: async function* (): AsyncIterable<CanonicalModelEvent> {},
+    materializeRequest: (decision, request) => ({ ...request, provider: decision.provider, model: decision.model }),
+    observeUsage: () => undefined,
+  };
+  const config: AgentRuntimeConfig = {
+    provider: "test",
+    model: "budget-model",
+    cwd: "/workspace/project",
+    permissionMode: "bypassPermissions",
+    permissionContext: createDefaultPermissionContext({
+      cwd: "/workspace/project",
+      mode: "bypassPermissions",
+      canPrompt: false,
+      bypassAvailable: true,
+    }),
+  };
+  const dependencies: AgentRuntimeDependencies = {
+    router,
+    tools: {
+      registry: new ToolRegistry(),
+      scheduler: { executeAll: async () => [] },
+    },
+    context: {
+      prepareForModel: async (input) => ({
+        messages: input.messages,
+        systemPrompt: undefined,
+        systemPromptParts: [],
+        tools: input.tools,
+        diagnostics: [],
+        boundaries: [],
+      }),
+      applyToolResults: async (input) => ({ messages: input.messages, diagnostics: [] }),
+      recoverFromModelError: async () => ({ type: "give_up", reason: "test" }),
+      captureTurn: async () => undefined,
+    },
+  };
+  const loop = new AgentLoop(config, dependencies);
+  const events: any[] = [];
+  for await (const event of loop.run({
+    sessionId: "failed-session",
+    turnId: "failed-turn",
+    messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
+  })) {
+    events.push(event);
+  }
+
+  const status = events.find((event) => event.type === "agent_status" && event.event === "model_request_failed");
+  assert.equal(status?.type === "agent_status" && status.event, "model_request_failed");
+  assert.equal(status?.type === "agent_status" && status.kind, "error");
+  assert.equal(status?.type === "agent_status" && status.text, formatModelRequestFailureMessage("provider exploded", undefined));
 });

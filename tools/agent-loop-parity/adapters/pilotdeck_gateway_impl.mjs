@@ -195,6 +195,15 @@ class MockModelRuntime {
       yield { type: "text_delta", text: "partial" };
       throw Object.assign(new Error("Deterministic stream interruption."), { code: "stream_interrupted", retryable: false });
     }
+    const abortSignal = options.signal;
+    const forwardModelCancellation = () => {
+      void post("/control/cancel", { runKey }).catch(() => undefined);
+    };
+    if (abortSignal?.aborted) {
+      forwardModelCancellation();
+    } else {
+      abortSignal?.addEventListener("abort", forwardModelCancellation, { once: true });
+    }
     const responsePromise = post("/v1/chat/completions", {
       scenarioId: scenario.scenarioId,
       q: scenario.q,
@@ -213,13 +222,59 @@ class MockModelRuntime {
       turnIndex: scenarioTurnIndex,
       turnModelAttempt: scenarioTurnModelAttempt,
       runKey,
-    }, options.signal);
+    }, abortSignal);
+    const cancelledError = () => Object.assign(new Error("Deterministic model cancellation."), {
+      code: "CANCELLED",
+      retryable: false,
+    });
+    const rejectCancelled = () => {
+      // Do not record a harness model.error here. Native sometimes surfaces
+      // the thrown CANCELLED before the generator is abandoned; sidecar often
+      // stops pulling the host stream first. The product abort path does not
+      // emit this event, and recording it on only one side is a false diff.
+      throw cancelledError();
+    };
+    const waitUntilAborted = async (timeoutMs = 2000) => {
+      if (!abortSignal || abortSignal.aborted) return;
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, timeoutMs);
+        abortSignal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          resolve();
+        }, { once: true });
+      });
+    };
+    const isAbortError = (error) =>
+      error?.name === "AbortError"
+      || error?.code === 20
+      || error?.code === "ABORT_ERR";
+    const settleCancelled = async () => {
+      // Product abort and mock CANCELLED can arrive in either order. Wait for
+      // the product abort signal so AgentLoop takes the aborted path instead
+      // of classifying an early CANCELLED as model_error. If abort never
+      // arrives, still throw so the failure stays visible.
+      await waitUntilAborted();
+      rejectCancelled();
+    };
+    const awaitModelResponse = async () => {
+      try {
+        const payload = await responsePromise;
+        if (payload?.error?.code === "CANCELLED") await settleCancelled();
+        return payload;
+      } catch (error) {
+        if (error?.code === "CANCELLED" && error?.message === "Deterministic model cancellation.") {
+          throw error;
+        }
+        if (isAbortError(error)) await settleCancelled();
+        throw error;
+      }
+    };
     if (scenario.scenarioId === "sidecar_live_model_stream") {
       yield { type: "request_started", provider: request.provider, model: request.model };
       yield { type: "message_start", role: "assistant" };
       push("model.stream", { agentScope, state: "first_delta" });
       yield { type: "text_delta", text: "STREAM_PREFIX::" };
-      const response = await responsePromise;
+      const response = await awaitModelResponse();
       push("model.stream", { agentScope, state: "provider_completed" });
       const message = response.choices[0].message;
       push("model.response", { agentScope, attempt, modelView: message, response: message });
@@ -227,7 +282,7 @@ class MockModelRuntime {
       yield { type: "message_end", finishReason: "stop" };
       return;
     }
-    const response = await responsePromise;
+    const response = await awaitModelResponse();
     if (fault?.action === "malformed_response") {
       push("fault.injected", { agentScope, target: "model", action: fault.action, attempt });
       throw Object.assign(new Error("Deterministic malformed model response."), { code: "invalid_model_response", retryable: false });
@@ -561,9 +616,14 @@ if (["plan_mode_host_policy", "plan_mode_bypass_host_policy"].includes(scenario.
     "utf8",
   );
 }
+const forcedTransport = process.env.PARITY_FORCE_TRANSPORT;
+const selectedTransport = forcedTransport === "stdio" || forcedTransport === "native"
+  ? forcedTransport
+  : (mode === "sidecar" ? "stdio" : "native");
+const useSidecarTransport = selectedTransport === "stdio";
 const gatewayEnv = {
   ...process.env,
-  ...(mode === "sidecar" ? {
+  ...(useSidecarTransport ? {
     PILOTDECK_AGENT_LOOP_TRANSPORT: "stdio",
     PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND: process.execPath,
     PILOTDECK_AGENT_LOOP_SIDECAR_PATH: path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js"),
@@ -571,7 +631,7 @@ const gatewayEnv = {
     PILOTDECK_AGENT_LOOP_TRANSPORT: "native",
   }),
 };
-push("harness.proof", { state: "transport_selected", transport: mode === "sidecar" ? "stdio" : "native" });
+push("harness.proof", { state: "transport_selected", transport: selectedTransport });
 
 const observedPersistenceProvider = createObservedPersistenceProvider();
 const local = createLocalGateway({
@@ -592,7 +652,7 @@ const local = createLocalGateway({
   ...(["sidecar_durable_compaction", "sidecar_full_request_compaction_budget", "sidecar_projected_request_compaction_budget"].includes(scenario.scenarioId)
     ? { compactionProviderFactory: () => createParityCompactionProvider() }
     : {}),
-  ...(mode === "sidecar" ? {
+  ...(useSidecarTransport ? {
     agentLoopTransportObserver: {
       observe(observation) {
         push("harness.proof", { state: observation.type, ...observation });
@@ -807,7 +867,10 @@ try {
         await post("/control/cancel", { runKey });
         return controlClient.request("abort_turn", { sessionKey, reason: "parity_cancel" }).then(
           () => push("cancel.acknowledged", { sessionKey }),
-          (error) => push("cancel.error", { message: error?.message ?? String(error) }),
+          (error) => push("cancel.error", {
+            sessionKey,
+            message: error instanceof Error ? error.message : String(error),
+          }),
         );
       })
     : undefined;
