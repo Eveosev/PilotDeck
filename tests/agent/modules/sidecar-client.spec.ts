@@ -293,6 +293,39 @@ test("production sidecar budget module stops before host tool side effects and p
   );
 });
 
+test("production sidecar persists content_filter_stop durable status as error", async () => {
+  const transcript = new InMemoryTranscriptWriter();
+  const model: ModelInvokerPort = {
+    async prepare({ request }) {
+      return { request, provider: request.provider, model: request.model };
+    },
+    async *stream() {
+      yield { type: "message_start", role: "assistant" } as const;
+      yield { type: "text_delta", text: "filtered answer" } as const;
+      yield { type: "message_end", finishReason: "content_filter" } as const;
+    },
+  };
+  const session = sidecarSession("sidecar-content-filter-session", model, noopTools(), transcript);
+
+  const events = [];
+  for await (const event of session.submit({ type: "text", text: "ask" }, {
+    turnId: "sidecar-content-filter-turn",
+  })) events.push(event);
+
+  const statuses = transcript.entries.filter((entry) => entry.type === "agent_status_message");
+  const filterStatus = statuses.find((entry) => (
+    entry.type === "agent_status_message" && entry.event === "content_filter_stop"
+  ));
+  assert.ok(filterStatus);
+  assert.equal(filterStatus.type === "agent_status_message" && filterStatus.kind, "error");
+  assert.match(
+    filterStatus.type === "agent_status_message" ? filterStatus.text : "",
+    /content filtering/,
+  );
+  const completed = events.find((event) => event.type === "turn_completed");
+  assert.equal(completed?.type === "turn_completed" && completed.result.type, "success");
+});
+
 test("production sidecar does not acknowledge a status event when durable persistence fails", async () => {
   const transcript = new InMemoryTranscriptWriter();
   transcript.recordAgentStatusMessage = async () => {

@@ -19,7 +19,7 @@ const config = {
   },
 };
 
-test("native and sidecar compositions preserve the B0 agent-status event shape", async () => {
+test("native and sidecar turn_aborted agent_status carries factory kind and text", async () => {
   const native = AgentLoop.fromDependencies(config, {
     router: {} as never,
     tools: { registry: { list: () => [] } as never, scheduler: { executeAll: async () => [] } as never },
@@ -34,10 +34,11 @@ test("native and sidecar compositions preserve the B0 agent-status event shape",
   const nativeStatus = await abortedStatus(native);
   const sidecarStatus = await abortedStatus(sidecar);
 
-  assert.equal(nativeStatus.kind, undefined);
-  assert.equal(nativeStatus.text, undefined);
-  assert.equal(sidecarStatus.kind, undefined);
-  assert.equal(sidecarStatus.text, undefined);
+  assert.equal(nativeStatus.event, "turn_aborted");
+  assert.equal(nativeStatus.kind, "status");
+  assert.equal(nativeStatus.text, "This turn was aborted before completion.");
+  assert.equal(sidecarStatus.kind, "status");
+  assert.equal(sidecarStatus.text, "This turn was aborted before completion.");
   assert.deepEqual(sidecarStatus, nativeStatus);
 });
 
