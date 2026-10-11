@@ -1,0 +1,30 @@
+{
+  "output": "/workspace/evidence/perf-baseline",
+  "transports": [
+    "native",
+    "stdio",
+    "tcp"
+  ],
+  "scenarios": [
+    "pure_text",
+    "single_tool"
+  ],
+  "iterations": 30,
+  "startedAt": "2026-10-11T17:07:21.618132+00:00",
+  "finishedAt": "2026-10-11T17:12:48.010946+00:00",
+  "provenance": {
+    "gitSha": "df1ce0457f1b3b93e13a3b4382257486f140d149",
+    "node": "v22.14.0",
+    "python": "3.12.3",
+    "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root /workspace --iterations 30 --output evidence/perf-baseline",
+    "pilotdeckRoot": "/workspace",
+    "iterationsRequested": 30,
+    "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+    "delayPolicy": "zero",
+    "metrics": "tools/agent-loop-perf/METRICS.md",
+    "productDefaultTransport": "native",
+    "baseBranch": "rust_standalone_alpha1",
+    "baseSha": "5fa81190680a6cf5728045148ccdf5c7315fc0be"
+  }
+}

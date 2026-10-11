@@ -1,0 +1,961 @@
+{
+  "transport": "tcp",
+  "sidecarTransport": "tcp",
+  "tcpSidecarLog": "/tmp/pilotdeck-agent-loop-perf-0d60292v/tcp-sidecar.log",
+  "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+  "delayPolicy": "zero",
+  "primaryBaseline": {
+    "pure_text": {
+      "delay_injected": false,
+      "turn_ms": {
+        "n": 30,
+        "p50": 572.678,
+        "p95": 616.591
+      },
+      "model_iter_ms": {
+        "n": 30,
+        "p50": 17.788,
+        "p95": 20.45
+      }
+    },
+    "single_tool": {
+      "delay_injected": false,
+      "turn_ms": {
+        "n": 30,
+        "p50": 677.001,
+        "p95": 726.116
+      },
+      "model_iter_ms": {
+        "n": 60,
+        "p50": 22.198,
+        "p95": 25.182
+      }
+    }
+  },
+  "excludedFromPrimary": [],
+  "scenarios": {
+    "pure_text": {
+      "scenarioId": "pure_text",
+      "delay_injected": false,
+      "primaryBaseline": true,
+      "iterations": 30,
+      "samples": [
+        {
+          "turn_ms": 607.276,
+          "model_iter_ms": [
+            20.998
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269404,
+          "adapter_wall_ms": 1752.103,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 1
+        },
+        {
+          "turn_ms": 579.044,
+          "model_iter_ms": [
+            19.069
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 314608,
+          "adapter_wall_ms": 1730.816,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 2
+        },
+        {
+          "turn_ms": 586.634,
+          "model_iter_ms": [
+            17.991
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 276132,
+          "adapter_wall_ms": 1729.871,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 3
+        },
+        {
+          "turn_ms": 572.466,
+          "model_iter_ms": [
+            18.905
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 276240,
+          "adapter_wall_ms": 1737.609,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 4
+        },
+        {
+          "turn_ms": 583.179,
+          "model_iter_ms": [
+            17.531
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 266560,
+          "adapter_wall_ms": 1741.785,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 5
+        },
+        {
+          "turn_ms": 575.885,
+          "model_iter_ms": [
+            17.241
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 274092,
+          "adapter_wall_ms": 1720.796,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 6
+        },
+        {
+          "turn_ms": 570.942,
+          "model_iter_ms": [
+            17.317
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 273976,
+          "adapter_wall_ms": 1689.978,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 7
+        },
+        {
+          "turn_ms": 562.366,
+          "model_iter_ms": [
+            17.862
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 275044,
+          "adapter_wall_ms": 1689.024,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 8
+        },
+        {
+          "turn_ms": 573.642,
+          "model_iter_ms": [
+            17.306
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 270500,
+          "adapter_wall_ms": 1682.108,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 9
+        },
+        {
+          "turn_ms": 594.382,
+          "model_iter_ms": [
+            19.071
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 265240,
+          "adapter_wall_ms": 1740.155,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 10
+        },
+        {
+          "turn_ms": 598.233,
+          "model_iter_ms": [
+            16.305
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268540,
+          "adapter_wall_ms": 1736.018,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 11
+        },
+        {
+          "turn_ms": 561.889,
+          "model_iter_ms": [
+            19.685
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 266284,
+          "adapter_wall_ms": 1674.137,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 12
+        },
+        {
+          "turn_ms": 552.214,
+          "model_iter_ms": [
+            17.861
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 274120,
+          "adapter_wall_ms": 1690.212,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 13
+        },
+        {
+          "turn_ms": 569.778,
+          "model_iter_ms": [
+            17.683
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 267928,
+          "adapter_wall_ms": 1692.553,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 14
+        },
+        {
+          "turn_ms": 570.603,
+          "model_iter_ms": [
+            18.768
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 306064,
+          "adapter_wall_ms": 1698.4,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 15
+        },
+        {
+          "turn_ms": 599.443,
+          "model_iter_ms": [
+            17.142
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 276284,
+          "adapter_wall_ms": 1750.879,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 16
+        },
+        {
+          "turn_ms": 560.866,
+          "model_iter_ms": [
+            17.518
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 273104,
+          "adapter_wall_ms": 1694.078,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 17
+        },
+        {
+          "turn_ms": 571.295,
+          "model_iter_ms": [
+            18.516
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 271088,
+          "adapter_wall_ms": 1698.202,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 18
+        },
+        {
+          "turn_ms": 595.603,
+          "model_iter_ms": [
+            17.896
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 273052,
+          "adapter_wall_ms": 1724.176,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 19
+        },
+        {
+          "turn_ms": 572.889,
+          "model_iter_ms": [
+            17.807
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 271092,
+          "adapter_wall_ms": 1698.528,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 20
+        },
+        {
+          "turn_ms": 571.135,
+          "model_iter_ms": [
+            17.189
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 267748,
+          "adapter_wall_ms": 1704.034,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 21
+        },
+        {
+          "turn_ms": 576.23,
+          "model_iter_ms": [
+            17.705
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 274048,
+          "adapter_wall_ms": 1696.333,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 22
+        },
+        {
+          "turn_ms": 565.646,
+          "model_iter_ms": [
+            17.363
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 275788,
+          "adapter_wall_ms": 1718.709,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 23
+        },
+        {
+          "turn_ms": 547.267,
+          "model_iter_ms": [
+            16.925
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268564,
+          "adapter_wall_ms": 1664.348,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 24
+        },
+        {
+          "turn_ms": 571.887,
+          "model_iter_ms": [
+            17.562
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 270384,
+          "adapter_wall_ms": 1726.141,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 25
+        },
+        {
+          "turn_ms": 541.046,
+          "model_iter_ms": [
+            17.274
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 314624,
+          "adapter_wall_ms": 1662.226,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 26
+        },
+        {
+          "turn_ms": 624.212,
+          "model_iter_ms": [
+            24.062
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 267712,
+          "adapter_wall_ms": 1834.241,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 27
+        },
+        {
+          "turn_ms": 661.867,
+          "model_iter_ms": [
+            17.769
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269592,
+          "adapter_wall_ms": 1881.169,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 28
+        },
+        {
+          "turn_ms": 574.691,
+          "model_iter_ms": [
+            18.335
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 313644,
+          "adapter_wall_ms": 1747.124,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 29
+        },
+        {
+          "turn_ms": 564.145,
+          "model_iter_ms": [
+            19.781
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 311364,
+          "adapter_wall_ms": 1689.908,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 30
+        }
+      ],
+      "turn_ms": {
+        "n": 30,
+        "p50": 572.678,
+        "p95": 616.591,
+        "raw": [
+          607.276,
+          579.044,
+          586.634,
+          572.466,
+          583.179,
+          575.885,
+          570.942,
+          562.366,
+          573.642,
+          594.382,
+          598.233,
+          561.889,
+          552.214,
+          569.778,
+          570.603,
+          599.443,
+          560.866,
+          571.295,
+          595.603,
+          572.889,
+          571.135,
+          576.23,
+          565.646,
+          547.267,
+          571.887,
+          541.046,
+          624.212,
+          661.867,
+          574.691,
+          564.145
+        ]
+      },
+      "model_iter_ms": {
+        "n": 30,
+        "p50": 17.788,
+        "p95": 20.45,
+        "raw": [
+          20.998,
+          19.069,
+          17.991,
+          18.905,
+          17.531,
+          17.241,
+          17.317,
+          17.862,
+          17.306,
+          19.071,
+          16.305,
+          19.685,
+          17.861,
+          17.683,
+          18.768,
+          17.142,
+          17.518,
+          18.516,
+          17.896,
+          17.807,
+          17.189,
+          17.705,
+          17.363,
+          16.925,
+          17.562,
+          17.274,
+          24.062,
+          17.769,
+          18.335,
+          19.781
+        ]
+      },
+      "stream_chunk_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "raw": []
+      },
+      "rss_kb_note": {
+        "n": 30,
+        "p50": 273078.0,
+        "scope": "adapter/host Node process VmRSS at turn end; optional, not a gate"
+      }
+    },
+    "single_tool": {
+      "scenarioId": "single_tool",
+      "delay_injected": false,
+      "primaryBaseline": true,
+      "iterations": 30,
+      "samples": [
+        {
+          "turn_ms": 676.13,
+          "model_iter_ms": [
+            18.067,
+            24.318
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 273660,
+          "adapter_wall_ms": 1803.544,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 1
+        },
+        {
+          "turn_ms": 663.163,
+          "model_iter_ms": [
+            17.199,
+            23.32
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268528,
+          "adapter_wall_ms": 1784.649,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 2
+        },
+        {
+          "turn_ms": 676.852,
+          "model_iter_ms": [
+            21.462,
+            23.498
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 276228,
+          "adapter_wall_ms": 1814.099,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 3
+        },
+        {
+          "turn_ms": 675.105,
+          "model_iter_ms": [
+            16.659,
+            24.138
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 265188,
+          "adapter_wall_ms": 1797.823,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 4
+        },
+        {
+          "turn_ms": 679.061,
+          "model_iter_ms": [
+            18.084,
+            24.546
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 272636,
+          "adapter_wall_ms": 1838.288,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 5
+        },
+        {
+          "turn_ms": 695.699,
+          "model_iter_ms": [
+            17.694,
+            24.076
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 265452,
+          "adapter_wall_ms": 1833.094,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 6
+        },
+        {
+          "turn_ms": 674.173,
+          "model_iter_ms": [
+            18.345,
+            23.13
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 270116,
+          "adapter_wall_ms": 1807.53,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 7
+        },
+        {
+          "turn_ms": 698.876,
+          "model_iter_ms": [
+            19.058,
+            24.954
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269148,
+          "adapter_wall_ms": 1850.765,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 8
+        },
+        {
+          "turn_ms": 696.727,
+          "model_iter_ms": [
+            18.515,
+            24.43
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268032,
+          "adapter_wall_ms": 1825.695,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 9
+        },
+        {
+          "turn_ms": 678.427,
+          "model_iter_ms": [
+            19.087,
+            23.91
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 266348,
+          "adapter_wall_ms": 1840.675,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 10
+        },
+        {
+          "turn_ms": 663.479,
+          "model_iter_ms": [
+            17.647,
+            25.181
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 271128,
+          "adapter_wall_ms": 1785.038,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 11
+        },
+        {
+          "turn_ms": 672.833,
+          "model_iter_ms": [
+            17.039,
+            24.05
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269396,
+          "adapter_wall_ms": 1813.374,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 12
+        },
+        {
+          "turn_ms": 668.539,
+          "model_iter_ms": [
+            16.313,
+            24.013
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 266732,
+          "adapter_wall_ms": 1813.438,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 13
+        },
+        {
+          "turn_ms": 685.429,
+          "model_iter_ms": [
+            16.927,
+            25.196
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 271644,
+          "adapter_wall_ms": 1829.852,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 14
+        },
+        {
+          "turn_ms": 653.754,
+          "model_iter_ms": [
+            16.933,
+            23.674
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269624,
+          "adapter_wall_ms": 1778.367,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 15
+        },
+        {
+          "turn_ms": 742.615,
+          "model_iter_ms": [
+            17.156,
+            23.209
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268868,
+          "adapter_wall_ms": 1872.567,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 16
+        },
+        {
+          "turn_ms": 677.151,
+          "model_iter_ms": [
+            16.901,
+            24.516
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269348,
+          "adapter_wall_ms": 1805.114,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 17
+        },
+        {
+          "turn_ms": 672.149,
+          "model_iter_ms": [
+            21.126,
+            24.384
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 272084,
+          "adapter_wall_ms": 1820.085,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 18
+        },
+        {
+          "turn_ms": 688.496,
+          "model_iter_ms": [
+            17.153,
+            24.087
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 272436,
+          "adapter_wall_ms": 1820.862,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 19
+        },
+        {
+          "turn_ms": 678.586,
+          "model_iter_ms": [
+            16.955,
+            23.158
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 273312,
+          "adapter_wall_ms": 1822.076,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 20
+        },
+        {
+          "turn_ms": 666.075,
+          "model_iter_ms": [
+            16.932,
+            24.969
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 267248,
+          "adapter_wall_ms": 1883.634,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 21
+        },
+        {
+          "turn_ms": 655.594,
+          "model_iter_ms": [
+            16.35,
+            24.436
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 268356,
+          "adapter_wall_ms": 1777.513,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 22
+        },
+        {
+          "turn_ms": 662.395,
+          "model_iter_ms": [
+            16.694,
+            22.934
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 265332,
+          "adapter_wall_ms": 1787.458,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 23
+        },
+        {
+          "turn_ms": 673.052,
+          "model_iter_ms": [
+            17.254,
+            24.167
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 266804,
+          "adapter_wall_ms": 1808.221,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 24
+        },
+        {
+          "turn_ms": 685.167,
+          "model_iter_ms": [
+            20.046,
+            24.009
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 270116,
+          "adapter_wall_ms": 1812.287,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 25
+        },
+        {
+          "turn_ms": 695.943,
+          "model_iter_ms": [
+            20.48,
+            23.391
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 263424,
+          "adapter_wall_ms": 1841.803,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 26
+        },
+        {
+          "turn_ms": 705.95,
+          "model_iter_ms": [
+            18.412,
+            23.658
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 269900,
+          "adapter_wall_ms": 1851.666,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 27
+        },
+        {
+          "turn_ms": 682.995,
+          "model_iter_ms": [
+            17.011,
+            23.637
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 274156,
+          "adapter_wall_ms": 1849.613,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 28
+        },
+        {
+          "turn_ms": 670.709,
+          "model_iter_ms": [
+            16.193,
+            35.788
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 267864,
+          "adapter_wall_ms": 1825.061,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 29
+        },
+        {
+          "turn_ms": 748.59,
+          "model_iter_ms": [
+            17.577,
+            26.868
+          ],
+          "stream_chunk_ms": [],
+          "rss_kb": 263988,
+          "adapter_wall_ms": 1910.657,
+          "metrics_source": "adapter_submit_turn",
+          "iteration": 30
+        }
+      ],
+      "turn_ms": {
+        "n": 30,
+        "p50": 677.001,
+        "p95": 726.116,
+        "raw": [
+          676.13,
+          663.163,
+          676.852,
+          675.105,
+          679.061,
+          695.699,
+          674.173,
+          698.876,
+          696.727,
+          678.427,
+          663.479,
+          672.833,
+          668.539,
+          685.429,
+          653.754,
+          742.615,
+          677.151,
+          672.149,
+          688.496,
+          678.586,
+          666.075,
+          655.594,
+          662.395,
+          673.052,
+          685.167,
+          695.943,
+          705.95,
+          682.995,
+          670.709,
+          748.59
+        ]
+      },
+      "model_iter_ms": {
+        "n": 60,
+        "p50": 22.198,
+        "p95": 25.182,
+        "raw": [
+          18.067,
+          24.318,
+          17.199,
+          23.32,
+          21.462,
+          23.498,
+          16.659,
+          24.138,
+          18.084,
+          24.546,
+          17.694,
+          24.076,
+          18.345,
+          23.13,
+          19.058,
+          24.954,
+          18.515,
+          24.43,
+          19.087,
+          23.91,
+          17.647,
+          25.181,
+          17.039,
+          24.05,
+          16.313,
+          24.013,
+          16.927,
+          25.196,
+          16.933,
+          23.674,
+          17.156,
+          23.209,
+          16.901,
+          24.516,
+          21.126,
+          24.384,
+          17.153,
+          24.087,
+          16.955,
+          23.158,
+          16.932,
+          24.969,
+          16.35,
+          24.436,
+          16.694,
+          22.934,
+          17.254,
+          24.167,
+          20.046,
+          24.009,
+          20.48,
+          23.391,
+          18.412,
+          23.658,
+          17.011,
+          23.637,
+          16.193,
+          35.788,
+          17.577,
+          26.868
+        ]
+      },
+      "stream_chunk_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "raw": []
+      },
+      "rss_kb_note": {
+        "n": 30,
+        "p50": 269248.0,
+        "scope": "adapter/host Node process VmRSS at turn end; optional, not a gate"
+      }
+    }
+  },
+  "provenance": {
+    "gitSha": "df1ce0457f1b3b93e13a3b4382257486f140d149",
+    "node": "v22.14.0",
+    "python": "3.12.3",
+    "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root /workspace --iterations 30 --output evidence/perf-baseline",
+    "pilotdeckRoot": "/workspace",
+    "iterationsRequested": 30,
+    "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+    "delayPolicy": "zero",
+    "metrics": "tools/agent-loop-perf/METRICS.md",
+    "productDefaultTransport": "native",
+    "baseBranch": "rust_standalone_alpha1",
+    "baseSha": "5fa81190680a6cf5728045148ccdf5c7315fc0be",
+    "startedAt": "2026-10-11T17:11:01.220509+00:00",
+    "finishedAt": "2026-10-11T17:12:47.997378+00:00"
+  }
+}
