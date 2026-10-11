@@ -84,7 +84,11 @@
       },
       {
         "from": "resources/rust",
-        "to": "rust"
+        "to": "rust",
+        "filter": [
+          "**/*",
+          "!.gitkeep"
+        ]
       },
       {
         "from": ".runtime/app",

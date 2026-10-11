@@ -62,11 +62,14 @@ let closed = false;
 const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
 lines.on("line", (line) => {
   if (!line.trim()) return;
-  if (waiters.length > 0) waiters.shift()(line);
+  if (waiters.length > 0) waiters.shift().resolve(line);
   else pending.push(line);
 });
 lines.on("close", () => {
   closed = true;
+  while (waiters.length > 0) {
+    waiters.shift().reject(new Error(`sidecar closed stdout before handshake finished.\n${stderr}`));
+  }
 });
 
 function nextLine(timeoutMs = 8_000) {
@@ -74,11 +77,35 @@ function nextLine(timeoutMs = 8_000) {
   if (closed) return Promise.reject(new Error(`sidecar closed stdout before handshake finished.\n${stderr}`));
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
+      const index = waiters.findIndex((waiter) => waiter.reject === rejectWaiter);
+      if (index >= 0) waiters.splice(index, 1);
       reject(new Error(`timed out waiting for sidecar JSONL.\n${stderr}`));
     }, timeoutMs);
-    waiters.push((line) => {
+    function rejectWaiter(error) {
       clearTimeout(timer);
-      resolve(line);
+      reject(error);
+    }
+    waiters.push({
+      resolve: (line) => {
+        clearTimeout(timer);
+        resolve(line);
+      },
+      reject: rejectWaiter,
+    });
+  });
+}
+
+function waitForExit(timeoutMs = 8_000) {
+  if (child.exitCode !== null || child.signalCode) {
+    return Promise.resolve({ code: child.exitCode, signal: child.signalCode, timedOut: false });
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({ code: child.exitCode, signal: child.signalCode, timedOut: true });
+    }, timeoutMs);
+    child.once("exit", (code, signal) => {
+      clearTimeout(timer);
+      resolve({ code, signal, timedOut: false });
     });
   });
 }
@@ -150,7 +177,22 @@ try {
   assert(Array.isArray(payload.methods), "capabilities payload must include a methods array");
   assert(payload.transport === "stdio", `expected transport=stdio, got ${String(payload.transport)}`);
 
-  console.log("[verify-rust-hello] PASS existence + hello→capabilities transport=stdio");
+  try {
+    child.stdin.end();
+  } catch {
+    fail("failed to close sidecar stdin after handshake");
+  }
+  const exit = await waitForExit();
+  if (exit.timedOut) {
+    child.kill("SIGTERM");
+    fail("sidecar did not exit after stdin close (hang); SIGTERM is not a PASS");
+  }
+  if (exit.signal) {
+    fail(`sidecar terminated by signal ${exit.signal}; expected clean exit 0`);
+  }
+  assert(exit.code === 0, `sidecar exitCode must be 0 after handshake, got ${exit.code}`);
+
+  console.log("[verify-rust-hello] PASS existence + hello→capabilities transport=stdio exit=0");
   console.log(`[verify-rust-hello] binary=${rustHelloDest}`);
   console.log(`[verify-rust-hello] moduleId=${hello.moduleId}`);
   console.log(`[verify-rust-hello] moduleInstanceId=${hello.moduleInstanceId}`);
@@ -158,18 +200,8 @@ try {
   console.log(`[verify-rust-hello] capabilitiesVersion=${hello.capabilitiesVersion}`);
   process.exitCode = 0;
 } catch (error) {
-  fail(error instanceof Error ? error.message : String(error));
-} finally {
-  try {
-    child.stdin.end();
-  } catch {
-    // Process may already have closed stdin.
-  }
-  const deadline = Date.now() + 3_000;
-  while (child.exitCode === null && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  if (child.exitCode === null) {
+  if (child.exitCode === null && child.signalCode == null) {
     child.kill("SIGTERM");
   }
+  fail(error instanceof Error ? error.message : String(error));
 }

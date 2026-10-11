@@ -19,7 +19,7 @@ import {
   resolvePlaywrightInstallMode,
   resolvePlaywrightMirrorMode,
 } from "./download-playwright-browsers.mjs";
-import { buildRustHello } from "./rust-hello.mjs";
+import { maybeBuildRustHello } from "./rust-hello.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -490,9 +490,7 @@ function rewriteUiServerSourceImports(serverRoot) {
 }
 
 const rustOnly = process.argv.includes("--rust-only");
-buildRustHello({
-  requireCargo: rustOnly || process.env.PILOTDECK_DESKTOP_REQUIRE_RUST === "1",
-});
+maybeBuildRustHello();
 if (rustOnly) {
   process.exit(0);
 }

@@ -34,8 +34,11 @@ jobs:
         with:
           node-version: 22.23.1
 
+      - name: Packaging opt-in and extraResources checks
+        run: node --test apps/desktop/scripts/rust-hello-packaging.test.mjs
+
       - name: cargo build --release
-        run: cargo build --release
+        run: cargo --version && rustc --version && cargo build --release
 
       - name: Stage rust hello via build-runtime rust substep
         run: node apps/desktop/scripts/build-runtime.mjs --rust-only

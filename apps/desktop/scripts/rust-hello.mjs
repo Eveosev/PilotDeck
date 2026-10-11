@@ -10,15 +10,18 @@ export const RUST_HELLO_BIN = "pilotdeck-agent-loop-hello";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const desktopRoot = resolve(__dirname, "..");
 export const repoRoot = resolve(desktopRoot, "..", "..");
+export const rustHelloDestName = process.platform === "win32" ? `${RUST_HELLO_BIN}.exe` : RUST_HELLO_BIN;
 export const rustResourcesDir = resolve(desktopRoot, "resources", "rust");
-export const rustHelloDest = resolve(rustResourcesDir, RUST_HELLO_BIN);
+export const rustHelloDest = resolve(rustResourcesDir, rustHelloDestName);
 export const rustHelloManifest = resolve(repoRoot, "crates", "pilotdeck-agent-loop-hello", "Cargo.toml");
-export const rustHelloCargoOutput = resolve(
-  repoRoot,
-  "target",
-  "release",
-  process.platform === "win32" ? `${RUST_HELLO_BIN}.exe` : RUST_HELLO_BIN,
-);
+export const rustHelloCargoOutput = resolve(repoRoot, "target", "release", rustHelloDestName);
+
+/** Explicit opt-in only. Full `dev` / `pack` / `dist:*` must not run cargo. */
+export function rustHelloOptedIn({ argv = process.argv, env = process.env } = {}) {
+  return argv.includes("--rust-only")
+    || env.PILOTDECK_DESKTOP_RUST === "1"
+    || env.PILOTDECK_DESKTOP_REQUIRE_RUST === "1";
+}
 
 function commandExists(command) {
   const lookup = spawnSync(process.platform === "win32" ? "where" : "which", [command], {
@@ -29,13 +32,13 @@ function commandExists(command) {
 
 /**
  * Workspace `cargo build --release` for the hello crate, then copy the binary
- * to `apps/desktop/resources/rust/pilotdeck-agent-loop-hello`.
+ * to `apps/desktop/resources/rust/pilotdeck-agent-loop-hello` (`.exe` on Windows).
  *
- * `build-runtime.mjs` always invokes this before its Node runtime work.
- * When cargo is missing it skips unless `requireCargo` is set (the `--rust-only`
- * substep and `verify-rust-hello.mjs` always require cargo).
+ * Callers that need the binary (`--rust-only`, verify, or an opt-in env) pass
+ * `requireCargo: true`. Full desktop pack/dev/dist must not call this unless
+ * `rustHelloOptedIn()` is true.
  */
-export function buildRustHello({ requireCargo = false } = {}) {
+export function buildRustHello({ requireCargo = true } = {}) {
   if (!commandExists("cargo")) {
     if (requireCargo) {
       throw new Error("cargo is required to build pilotdeck-agent-loop-hello");
@@ -67,4 +70,15 @@ export function buildRustHello({ requireCargo = false } = {}) {
   }
   console.log(`[desktop] staged rust hello: ${rustHelloDest}`);
   return { skipped: false, dest: rustHelloDest };
+}
+
+/**
+ * No-op unless `--rust-only` or `PILOTDECK_DESKTOP_RUST=1` /
+ * `PILOTDECK_DESKTOP_REQUIRE_RUST=1`. Does not look at whether cargo is on PATH.
+ */
+export function maybeBuildRustHello(options = {}) {
+  if (!rustHelloOptedIn(options)) {
+    return { skipped: true, reason: "not-opted-in" };
+  }
+  return { ...buildRustHello({ requireCargo: true }), reason: "opt-in" };
 }

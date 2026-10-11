@@ -17,22 +17,27 @@ starts Node. Packaging copies `apps/desktop/resources/rust/` into `Resources/rus
 via `build.extraResources`. `mac.signIgnore` stays only the Playwright browsers
 path.
 
-The binary is gitignored and rebuilt locally:
+Rust is **opt-in**. `dev` / `pack` / `dist:*` and a plain `build-runtime.mjs`
+do **not** invoke cargo, even when cargo is on `PATH`. Packaging jobs that claim
+PKG-14 must set `PILOTDECK_DESKTOP_RUST=1` (or `PILOTDECK_DESKTOP_REQUIRE_RUST=1`)
+or call the rust substep:
 
 ```bash
 # A1 — workspace cargo output
 cargo build --release
 # → target/release/pilotdeck-agent-loop-hello
 
-# A2 — rust substep that build-runtime.mjs always runs first (when cargo exists)
+# A2 — rust substep (the only build-runtime path that always runs cargo)
 node apps/desktop/scripts/build-runtime.mjs --rust-only
 # → apps/desktop/resources/rust/pilotdeck-agent-loop-hello
 
-# A4 — existence + stdio hello→capabilities (builds via the rust substep if missing)
+# A4 — existence + stdio hello→capabilities + clean exit 0
+# (builds via the rust substep if the staged binary is missing)
 node apps/desktop/scripts/verify-rust-hello.mjs
 ```
 
-Black-box steps and status live in [`checklists/PKG.md`](checklists/PKG.md).
+The binary is gitignored and rebuilt by those opt-in commands. Black-box steps
+and status live in [`checklists/PKG.md`](checklists/PKG.md).
 
 The desktop process starts the existing PilotDeck gateway and UI server as local
 child processes, then opens the packaged Web UI inside an Electron window.
