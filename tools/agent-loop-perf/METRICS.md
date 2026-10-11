@@ -64,23 +64,23 @@ stdio 是 **每 turn 冷 spawn 一个 Node sidecar**（`src/agent/modules/transp
 | tcp 热 | `start_tcp_sidecar` 一次，之后只 `connect()` |
 | native | 无 sidecar / 无 handshake |
 
-committed 30 次分段（P50）把 stdio `single_tool − pure_text` 钉死了：
+干净树 30 次分段（P50，`gitSha=collectSha=248d7fbb`，`gitDirty=false`）把 stdio `single_tool − pure_text` 钉死了：
 
 | | turn P50 | handshake | pre_model | between | tool | post_model |
 |---|---|---|---|---|---|---|
-| native `pure_text` | 582 | — | **552** | — | — | 14 |
-| native `single_tool` | 675 | — | 546 | 78 | 2 | 14 |
-| stdio `pure_text` | 1076 | **508** | 1029 | — | — | 27 |
-| stdio `single_tool` | 1570 | **508** | 1007 | 92 | 2 | **428** |
-| tcp `pure_text` | 620 | 81 | 587 | — | — | 15 |
-| tcp `single_tool` | 799 | 85 | 619 | 101 | 3 | 15 |
+| native `pure_text` | 563 | — | **536** | — | — | 14 |
+| native `single_tool` | 658 | — | 522 | 76 | 2 | 13 |
+| stdio `pure_text` | 1035 | **495** | 971 | — | — | 43 |
+| stdio `single_tool` | 1561 | **502** | 997 | 89 | 2 | **431** |
+| tcp `pure_text` | 627 | 80 | 591 | — | — | 15 |
+| tcp `single_tool` | 699 | 77 | 555 | 89 | 2 | 14 |
 
 结论：
 
-1. **不是**每个 model/tool 再 spawn。handshake P50 在两个 stdio 场景都是 508ms，对应一次 `spawn(node, sidecar.js)` + hello/capabilities。
-2. mock tool 本身只有 ~2ms。`between_model_ms` 三 transport 都在 ~80–100ms。
-3. stdio 多出来的 ~494ms（1570−1076）**几乎全在 `post_model_ms`**（P50 428 / P95 433，非常紧）：最后一次 model 结束后，要等到 sidecar `execute` 收尾并打出 `turn_completed`。这与 `AgentLoopSidecarRunner.run` 里 `Promise.race(next, sleep(500))` 的心跳窗口同量级（`agentLoopSidecarClient.ts` 约 L383–390）。native/tcp 的 post_model 仍是 ~14–15ms。
-4. tcp 热连接 handshake ~81ms，形态 native ≈ tcp ≪ stdio，印证「冷 stdio vs 热 tcp」。
+1. **不是**每个 model/tool 再 spawn。handshake P50 在两个 stdio 场景都是 ~495–502ms，对应一次 `spawn(node, sidecar.js)` + hello/capabilities。
+2. mock tool 本身只有 ~2ms。`between_model_ms` 三 transport 都在 ~80–90ms。
+3. stdio 多出来的 ~526ms（1561−1035）**几乎全在 `post_model_ms`**（P50 431 / P95 435，非常紧）：最后一次 model 结束后，要等到 sidecar `execute` 收尾并打出 `turn_completed`。这与 `AgentLoopSidecarRunner.run` 里 `Promise.race(next, sleep(500))` 的心跳窗口同量级（`agentLoopSidecarClient.ts` 约 L383–390）。native/tcp 的 post_model 仍是 ~13–15ms。
+4. tcp 热连接 handshake ~77–80ms，形态 native ≈ tcp ≪ stdio，印证「冷 stdio vs 热 tcp」。
 
 `non_model_ms` 已写入每条 sample 和 `primaryBaseline`，给 P1 D4 当诚实锚点。
 

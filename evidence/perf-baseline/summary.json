@@ -10,11 +10,12 @@
     "single_tool"
   ],
   "iterations": 30,
-  "startedAt": "2026-10-11T17:44:46.538208+00:00",
-  "finishedAt": "2026-10-11T17:50:29.340000+00:00",
+  "startedAt": "2026-10-11T17:57:16.886678+00:00",
+  "finishedAt": "2026-10-11T18:02:51.992622+00:00",
   "provenance": {
-    "gitSha": "da859d43e7719b58374993b6da6cb5ee348999c2",
-    "gitDirty": true,
+    "gitSha": "248d7fbbc639fc461baa503b3d3d41a17c6ad6b5",
+    "collectSha": "248d7fbbc639fc461baa503b3d3d41a17c6ad6b5",
+    "gitDirty": false,
     "node": "v22.14.0",
     "python": "3.12.3",
     "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",

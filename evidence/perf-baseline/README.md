@@ -13,9 +13,25 @@ python3 tools/agent-loop-perf/run.py \
 
 产品默认 transport 仍是 native。本目录只记录测量结果，不设 Rust 性能门禁。
 
-## 本机 30×3（分段后重跑）
+## Provenance（已校正）
 
-`delay_injected=false`，全部进入主基线表。`stream_chunk_ms` 在这两个场景为空。`command` 里的 root 记为 `$PWD`。`baseSha` 来自 `git merge-base HEAD rust_standalone_alpha1`。采集时若工作区有未提交改动，`gitDirty=true`。
+在干净工作树上采集（`git status` 无改动），再单独提交本目录：
+
+| 字段 | 值 |
+|---|---|
+| `gitSha` / `collectSha` | `248d7fbbc639fc461baa503b3d3d41a17c6ad6b5`（采集时 HEAD / harness commit） |
+| `gitDirty` | `false` |
+| `baseSha` | `5fa81190680a6cf5728045148ccdf5c7315fc0be`（`merge-base HEAD rust_standalone_alpha1`） |
+| `delayPolicy` | `zero` |
+| `command` | `python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --iterations 30 --output evidence/perf-baseline` |
+
+证据 commit 的 parent 必须等于 `collectSha`。`evidenceCommit` 是加 JSON 的那次 commit，不能写进 JSON（SHA 依赖文件内容）。核对：`git rev-parse HEAD^` == `provenance.collectSha`。
+
+上一轮 committed 证据误标 `gitSha=da859d43` / `gitDirty=true`（脏树采集后才提交）。本轮已作废并重采。
+
+## 本机 30×3（干净树重跑）
+
+`delay_injected=false`，全部进入主基线表。`stream_chunk_ms` 在这两个场景为空。`command` 里的 root 记为 `$PWD`。
 
 形态仍是 **stdio ≫ native ≈ tcp**。绝对值随机器波动；P1 必须同机同跑。
 
@@ -23,27 +39,27 @@ python3 tools/agent-loop-perf/run.py \
 
 | transport | scenario | n | turn P50 | turn P95 | model P50 | non_model P50 |
 |---|---|---|---|---|---|---|
-| native | pure_text | 30 | 581.674 | 628.928 | 15.163 | 565.359 |
-| native | single_tool | 30 | 675.082 | 770.125 | 21.470 | 639.768 |
-| stdio | pure_text | 30 | 1075.599 | 1599.900 | 19.249 | 1055.351 |
-| stdio | single_tool | 30 | 1570.086 | 1667.800 | 23.782 | 1526.157 |
-| tcp | pure_text | 30 | 619.774 | 660.345 | 18.468 | 600.784 |
-| tcp | single_tool | 30 | 798.683 | 873.757 | 25.840 | 742.846 |
+| native | pure_text | 30 | 562.539 | 635.265 | 14.593 | 548.566 |
+| native | single_tool | 30 | 657.619 | 710.911 | 21.056 | 620.132 |
+| stdio | pure_text | 30 | 1034.601 | 1072.259 | 18.263 | 1016.452 |
+| stdio | single_tool | 30 | 1560.990 | 1667.653 | 23.755 | 1517.247 |
+| tcp | pure_text | 30 | 626.612 | 683.733 | 19.218 | 605.715 |
+| tcp | single_tool | 30 | 699.232 | 788.391 | 22.027 | 655.355 |
 
 ### 构成（P50，R1）
 
 | transport | scenario | pre_model | handshake | between | tool | post_model | outside turn |
 |---|---|---|---|---|---|---|---|
-| native | pure_text | **552** | — | — | — | 14 | 723 |
-| native | single_tool | 546 | — | 78 | 2 | 14 | 1068 |
-| stdio | pure_text | 1029 | **508** | — | — | 27 | 1149 |
-| stdio | single_tool | 1007 | **508** | 92 | 2 | **428** | 738 |
-| tcp | pure_text | 587 | 81 | — | — | 15 | 1161 |
-| tcp | single_tool | 619 | 85 | 101 | 3 | 15 | 1195 |
+| native | pure_text | **536** | — | — | — | 14 | 694 |
+| native | single_tool | 522 | — | 76 | 2 | 13 | 1059 |
+| stdio | pure_text | 971 | **495** | — | — | 43 | 1114 |
+| stdio | single_tool | 997 | **502** | 89 | 2 | **431** | 738 |
+| tcp | pure_text | 591 | 80 | — | — | 15 | 1176 |
+| tcp | single_tool | 555 | 77 | 89 | 2 | 14 | 1146 |
 
 - native ~530ms 非 model = 冷 session 的 `pre_model_ms`（`SessionRouter` create），不是 harness `post("/control/state")`。
-- stdio `single_tool − pure_text` ≈ +494ms ≈ `post_model` 428ms（P95 433，很紧），不是二次 spawn（handshake 两边都是 508）。
-- tcp 热 listener，handshake ~80ms；stdio 每 turn 冷 spawn。
+- stdio `single_tool − pure_text` ≈ +526ms ≈ `post_model` 431ms（P95 435，很紧），不是二次 spawn（handshake 两边都是 ~500ms）。
+- tcp 热 listener，handshake ~77–80ms；stdio 每 turn 冷 spawn。
 - `gateway_outside_turn_ms` 是 Gateway 启停，不在 `turn_ms` 里。
 
 native「宿主开销」= `turn_ms(native)` 本身，不是 module_call。P1 相对开销用 `(candidate_P95 - native_P95)` 对照 `max(native_P95×10%, 5ms)`，并同时看 `non_model_ms`。
