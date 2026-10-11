@@ -14,7 +14,7 @@
 | `model_iter_ms` | 单次 model request→response（含流结束） | 多轮则逐次再汇总 |
 | `non_model_ms` | `turn_ms − sum(model_iter_ms)` | P1 对照时必须同时看这一项，避免把会话/sidecar 冷启动当成 model 开销 |
 | `stream_chunk_ms` | 相邻流块到达间隔 | 无流场景可空数组 |
-| `host_overhead_ms`（native） | **不是** module_call；native 无 sidecar | 见下一节 |
+| `host_overhead_ms`（native） | native 无 sidecar；D4 锚仍是 `turn_ms(native)` | 含冷进程首次 in-process `try_auto_compact`；见构成说明 |
 | `rss_kb` | `/proc/self/status` 的 adapter/host Node `VmRSS` | 不含 sidecar 进程；macOS 为 `null`；不是本关门禁 |
 
 `adapter_wall_ms` / `gateway_outside_turn_ms` 仅作调试：整段 adapter 进程（含 Gateway 启动/拆除）。主表只用 `turn_ms`。
@@ -46,11 +46,13 @@
 
 ### 为什么 native `pure_text` 的 ~530ms 不在 model 里
 
-`pure_text` 每次 iteration 都是**新 adapter 进程 + 新 sessionKey**。`submit_turn` 第一次命中 `SessionRouter.getOrCreateActive` 的 create 分支（`src/gateway/SessionRouter.ts` 约 L173–181），在 turn 内做会话物化、AgentLoop 装配、写 user 消息、跑 loop、再持久化 assistant / `turn_completed`。
+每次 iteration 都是**新 adapter 进程 + 新 sessionKey**，所以本基线测的是**冷进程首 turn**，不是长寿 Gateway 上的稳态 turn。
 
-mock model 本身只有十几毫秒（`MockModelRuntime.stream` → `POST /v1/chat/completions`，`delays.*=0`）。分段后大头是 **`pre_model_ms`**（一次调查样本：native `pure_text` turn 624 / model 15 / non_model 609 / **pre_model 594** / post_model 15 / first_event 88 / `gateway_outside_turn` 815）。也就是 ~97% 的 `turn_ms` 花在第一次 `model.request` **之前** 的冷 session 装配，不是 model HTTP，也不是 harness 的 `post("/control/state")`（该调用在 `markTurnEnd` 之后）。
+mock model 本身只有十几毫秒（`MockModelRuntime.stream` → `POST /v1/chat/completions`，`delays.*=0`）。分段后大头是 **`pre_model_ms`**（committed P50：native `pure_text` pre 536 / turn 563，约占 95%）。这不是 model HTTP，也不是 harness 的 `post("/control/state")`（该调用在 `markTurnEnd` 之后）。
 
-P1 若只用 `turn_ms(native)` 当 D4 锚，锚的是「冷 session 的宿主 turn」，不是「一次 model HTTP」。相对开销应同时看 `non_model_ms` / `pre_model_ms` 和 `model_iter_ms`。
+**主体不是 `SessionRouter` 冷 session 创建。** 窗口里可以出现 `SessionRouter.getOrCreateActive` 的 create 分支，但 sidecar marks 显示 `pre_model` 的大头是进程内**第一次** host `context.try_auto_compact` module_call（tcp 约 430–470ms，stdio 约 404ms）；同一 turn 第二次调用只要约 36ms。这是冷进程首次调用的 lazy init（tokenizer / 编码器一类），是 per-process 成本。native 的 536 与 tcp 扣掉 handshake 后的约 511 同量级，大概率是同一笔。
+
+P1 若只用 `turn_ms(native)` 当 D4 锚，锚的是「冷进程首 turn」，不是「一次 model HTTP」，也不是长寿进程上的稳态 turn（后者可能只有约 100–150ms，本关未测）。相对开销应同时看 `non_model_ms` / `pre_model_ms` 和 `model_iter_ms`。P1 可另加「同进程第 2 turn（热）」当稳态锚（本关不实现）。
 
 ### 为什么 stdio `single_tool − pure_text` ≈ +500ms（native 同差值只有 ~90ms）
 
@@ -79,19 +81,19 @@ stdio 是 **每 turn 冷 spawn 一个 Node sidecar**（`src/agent/modules/transp
 
 1. **不是**每个 model/tool 再 spawn。handshake P50 在两个 stdio 场景都是 ~495–502ms，对应一次 `spawn(node, sidecar.js)` + hello/capabilities。
 2. mock tool 本身只有 ~2ms。`between_model_ms` 三 transport 都在 ~80–90ms。
-3. stdio 多出来的 ~526ms（1561−1035）**几乎全在 `post_model_ms`**（P50 431 / P95 435，非常紧）：最后一次 model 结束后，要等到 sidecar `execute` 收尾并打出 `turn_completed`。这与 `AgentLoopSidecarRunner.run` 里 `Promise.race(next, sleep(500))` 的心跳窗口同量级（`agentLoopSidecarClient.ts` 约 L383–390）。native/tcp 的 post_model 仍是 ~13–15ms。
+3. stdio 多出来的 ~526ms（1561−1035）**几乎全在 `post_model_ms`**（P50 431 / P95 435）。**不是** host 端 `Promise.race(next, sleep(500))` 自己加的时：那段循环在长寿 host 里，事件一到 `next` 就赢（`agentLoopSidecarClient.ts` 约 L382–414）。更可能的是 stdio 路径在 turn 窗内包含**子进程退出等待**（`close → closeChild → waitForExit`，`stdioAgentLoopSidecarConnection.ts`），退出时机被一个约 500ms 的定时器量化（相位依赖，跨机可能双峰；具体是哪个定时器 TBD）。native/tcp 的 post_model 仍是 ~13–15ms。
 4. tcp 热连接 handshake ~77–80ms，形态 native ≈ tcp ≪ stdio，印证「冷 stdio vs 热 tcp」。
 
 `non_model_ms` 已写入每条 sample 和 `primaryBaseline`，给 P1 D4 当诚实锚点。
 
-### sidecar 500ms pump 的位置
+### sidecar host pump 与 stdio 退出量化
 
-`src/agent/modules/transport/agentLoopSidecarClient.ts`（`AgentLoopSidecarRunner.run`）：`Promise.race([iterator.next(), sleep(500)])`。仅 sidecar 路径；native 没有。用途是把 host 事件/heartbeat 泵出来，不是固定加时。
+host `AgentLoopSidecarRunner.run` 里的 `Promise.race([iterator.next(), sleep(500)])`（`agentLoopSidecarClient.ts`）在长寿 host 进程里泵事件；`next` 先到就走 event 分支，**解释不了** stdio `post_model` 的 ~431ms。stdio 窗内独有的是 child exit wait；committed stdio `pure_text` 有 28/30 条 `turn_end − stream_accepted` 落在 533±5ms，说明完成时刻被约 500ms 定时器量化。定时器身份 TBD。
 
 ## native「宿主开销」
 
-- native 路径无 sidecar / module_call。
-- 本关不发明伪开销；以 `turn_ms(native)` 为内嵌宿主基线（冷 session）。
+- native 路径无 sidecar。`turn_ms(native)` 仍包含进程内首次 `context.try_auto_compact`（见上）。
+- 本关不发明伪开销；以 `turn_ms(native)` 为内嵌宿主基线（**冷进程首 turn**）。
 - P1 相对开销：`candidate_P95 - native_P95`，对照 `max(native_P95×10%, 5ms)`。
 - **同机、同一次 run** 里同时跑 native / 候选 / tcp。committed JSON 只作形态和量级参考，**不作跨机门禁数**（QA/Arch 的 P50 可到 1.6×）。比较 `non_model_ms` 时同样遵守。
 
@@ -113,8 +115,9 @@ stdio 是 **每 turn 冷 spawn 一个 Node sidecar**（`src/agent/modules/transp
 
 - `gitSha` / `collectSha`：采集时的 `HEAD`，二者必须相同。
 - `gitDirty`：默认必须为 `false`。脏树直接拒绝，除非 `--allow-dirty`。
-- 推荐顺序：先提交 harness → 干净树上采集 → 再单独提交证据。证据 commit 的 parent 等于 `collectSha`。
-- `evidenceCommit`（加 JSON 的那次 commit）不能写进 JSON：该 SHA 依赖文件内容，无法在采集时预知。核对时看 `git rev-parse HEAD^` == `provenance.collectSha`。
+- 本目录 evidence 采于干净树 `248d7fbbc639fc461baa503b3d3d41a17c6ad6b5`（`gitDirty=false`）。`812b8da3` 是加 JSON 的 evidence commit（当时 `HEAD^ == collectSha`）。
+- 此后 tip 上可以只有文档 commit（例如 R8 归因更正），此时 **`HEAD^ == collectSha` 不必再成立**。核对 JSON 时看 `gitSha == collectSha == 248d7fbb` 且 `gitDirty=false`，不要用后来的 tip。
+- `evidenceCommit`（加 JSON 的那次 commit）不能写进 JSON：该 SHA 依赖文件内容，无法在采集时预知。
 
 ## 已知局限（R4–R6）
 

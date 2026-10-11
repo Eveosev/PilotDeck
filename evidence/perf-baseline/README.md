@@ -25,7 +25,7 @@ python3 tools/agent-loop-perf/run.py \
 | `delayPolicy` | `zero` |
 | `command` | `python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --iterations 30 --output evidence/perf-baseline` |
 
-证据 commit 的 parent 必须等于 `collectSha`。`evidenceCommit` 是加 JSON 的那次 commit，不能写进 JSON（SHA 依赖文件内容）。核对：`git rev-parse HEAD^` == `provenance.collectSha`。
+JSON 采于干净树 `248d7fbb`（`gitDirty=false`）。加 JSON 的 evidence commit 是 `812b8da3`（当时 parent = `collectSha`）。此后 tip 上可以只有文档 commit，此时 **`HEAD^ == collectSha` 不必再成立**。核对 JSON 时看 `gitSha == collectSha == 248d7fbb` 且 `gitDirty=false`，不要用后来的 tip。`evidenceCommit` 不能写进 JSON（SHA 依赖文件内容）。
 
 上一轮 committed 证据误标 `gitSha=da859d43` / `gitDirty=true`（脏树采集后才提交）。本轮已作废并重采。
 
@@ -57,9 +57,9 @@ python3 tools/agent-loop-perf/run.py \
 | tcp | pure_text | 591 | 80 | — | — | 15 | 1176 |
 | tcp | single_tool | 555 | 77 | 89 | 2 | 14 | 1146 |
 
-- native ~530ms 非 model = 冷 session 的 `pre_model_ms`（`SessionRouter` create），不是 harness `post("/control/state")`。
-- stdio `single_tool − pure_text` ≈ +526ms ≈ `post_model` 431ms（P95 435，很紧），不是二次 spawn（handshake 两边都是 ~500ms）。
+- native ~530ms 非 model = **冷进程首 turn** 的 `pre_model_ms`。主体是进程内第一次 host `context.try_auto_compact`（sidecar marks：tcp 约 430–470ms，stdio 约 404ms；第二次约 36ms），**不是** `SessionRouter` 冷 session 创建。`SessionRouter` 仍可能出现在窗口内，但不是主因。不是 harness `post("/control/state")`。
+- stdio `single_tool − pure_text` ≈ +526ms ≈ `post_model` 431ms（P95 435），不是二次 spawn（handshake 两边都是 ~500ms）。**不是** host `Promise.race(next, sleep(500))` 加时（长寿 host 里 `next` 先到就赢）。更可能是窗内 **child exit wait**（`close → closeChild → waitForExit`），退出被约 500ms 定时器量化（相位依赖，跨机可能双峰；定时器身份 TBD）。
 - tcp 热 listener，handshake ~77–80ms；stdio 每 turn 冷 spawn。
 - `gateway_outside_turn_ms` 是 Gateway 启停，不在 `turn_ms` 里。
 
-native「宿主开销」= `turn_ms(native)` 本身，不是 module_call。P1 相对开销用 `(candidate_P95 - native_P95)` 对照 `max(native_P95×10%, 5ms)`，并同时看 `non_model_ms`。
+native「宿主开销」= `turn_ms(native)` 本身（冷进程首 turn，含首次 `try_auto_compact`）。P1 相对开销用 `(candidate_P95 - native_P95)` 对照 `max(native_P95×10%, 5ms)`，并同时看 `non_model_ms`。P1 可另加同进程第 2 turn（热）当稳态锚（本关不实现）。
