@@ -9,6 +9,31 @@ pnpm install --frozen-lockfile
 pnpm --filter pilotdeck-desktop dev
 ```
 
+## Rust hello sidecar (PKG-14)
+
+S0 ships a handshake-only Rust binary (`pilotdeck-agent-loop-hello`) beside the
+existing Node runtime. It is **not** the product default: `spawnRuntime` still
+starts Node. Packaging copies `apps/desktop/resources/rust/` into `Resources/rust/`
+via `build.extraResources`. `mac.signIgnore` stays only the Playwright browsers
+path.
+
+The binary is gitignored and rebuilt locally:
+
+```bash
+# A1 — workspace cargo output
+cargo build --release
+# → target/release/pilotdeck-agent-loop-hello
+
+# A2 — rust substep that build-runtime.mjs always runs first (when cargo exists)
+node apps/desktop/scripts/build-runtime.mjs --rust-only
+# → apps/desktop/resources/rust/pilotdeck-agent-loop-hello
+
+# A4 — existence + stdio hello→capabilities (builds via the rust substep if missing)
+node apps/desktop/scripts/verify-rust-hello.mjs
+```
+
+Black-box steps and status live in [`checklists/PKG.md`](checklists/PKG.md).
+
 The desktop process starts the existing PilotDeck gateway and UI server as local
 child processes, then opens the packaged Web UI inside an Electron window.
 
