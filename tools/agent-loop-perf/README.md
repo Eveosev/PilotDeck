@@ -28,7 +28,7 @@ python3 tools/agent-loop-perf/run.py \
 - `evidence/perf-baseline/tcp.json`
 - `evidence/perf-baseline/summary.json`（命令与 provenance）
 
-默认场景：`pure_text,single_tool`。默认会把 `delays.*` / `toolDelays.*` 置 0。
+默认场景：`pure_text,single_tool`。默认会把 `delays.*` / `toolDelays.*` 置 0。提交证据前必须在干净工作树上采集（`gitDirty=false`，`gitSha`/`collectSha` = 当时 HEAD）；脏树会直接拒绝，除非 `--allow-dirty`。
 
 ## 抽样复跑（QA）
 
@@ -72,4 +72,4 @@ node --test tools/agent-loop-perf/collector.test.mjs
 
 ## JSON 形状
 
-每个 transport 文件包含 raw 样本、按场景的 P50/P95、`non_model_ms` / `segments`、`delay_injected`、以及 provenance（`gitSha`、`gitDirty`、`baseSha`=merge-base、node/python、命令里的 root 记为 `$PWD`）。`primaryBaseline` 只含 `delay_injected=false` 的场景。默认 parity 路径不再 import collector（只有 `PARITY_PERF=1` 才动态加载）。
+每个 transport 文件包含 raw 样本、按场景的 P50/P95、`non_model_ms` / `segments`、`delay_injected`、以及 provenance（`gitSha`/`collectSha` = 采集时 HEAD，`gitDirty`，`baseSha`=merge-base、node/python、命令里的 root 记为 `$PWD`）。证据提交后，该 commit 的 parent 应等于 `collectSha`；`evidenceCommit` 是加证据的那次 commit，不能写进 JSON（SHA 依赖文件内容）。`primaryBaseline` 只含 `delay_injected=false` 的场景。默认 parity 路径不再 import collector（只有 `PARITY_PERF=1` 才动态加载）。

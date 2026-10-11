@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -88,6 +89,28 @@ class ReportTests(unittest.TestCase):
         )
         self.assertIn("--pilotdeck-root $PWD", command)
         self.assertNotIn(str(repo), command)
+
+    def test_git_dirty_matches_porcelain(self) -> None:
+        self.assertIsInstance(perf.git_dirty(ROOT.parent.parent), bool)
+
+    def test_resolve_collect_sha_refuses_dirty_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "perf@example.test"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.name", "perf"], cwd=repo, check=True)
+            (repo / "marker").write_text("clean\n", encoding="utf-8")
+            subprocess.run(["git", "add", "marker"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=repo, check=True, capture_output=True)
+            sha, dirty = perf.resolve_collect_sha(repo, allow_dirty=False)
+            self.assertFalse(dirty)
+            self.assertTrue(sha)
+            (repo / "marker").write_text("dirty\n", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                perf.resolve_collect_sha(repo, allow_dirty=False)
+            dirty_sha, dirty = perf.resolve_collect_sha(repo, allow_dirty=True)
+            self.assertTrue(dirty)
+            self.assertEqual(dirty_sha, sha)
 
     def test_resolve_base_uses_merge_base(self) -> None:
         branch, sha = perf.resolve_base(ROOT.parent.parent, "rust_standalone_alpha1")

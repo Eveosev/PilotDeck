@@ -109,6 +109,13 @@ committed 30 次分段（P50）把 stdio `single_tool − pure_text` 钉死了�
 - 报告 P50、P95；保留 raw 毫秒数组。
 - 百分位：inclusive-rank，`rank = p/100 * (n-1)`，线性插值；见 `percentile()`。
 
+## Provenance
+
+- `gitSha` / `collectSha`：采集时的 `HEAD`，二者必须相同。
+- `gitDirty`：默认必须为 `false`。脏树直接拒绝，除非 `--allow-dirty`。
+- 推荐顺序：先提交 harness → 干净树上采集 → 再单独提交证据。证据 commit 的 parent 等于 `collectSha`。
+- `evidenceCommit`（加 JSON 的那次 commit）不能写进 JSON：该 SHA 依赖文件内容，无法在采集时预知。核对时看 `git rev-parse HEAD^` == `provenance.collectSha`。
+
 ## 已知局限（R4–R6）
 
 - **跨机**：committed 绝对值不能当另一台机器上的 Rust 门禁。P1 必须同机同跑。

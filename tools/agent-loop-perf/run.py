@@ -172,6 +172,18 @@ def resolve_base(root: Path, branch: str) -> tuple[str, str]:
     return branch, resolve_ref(root, "HEAD")
 
 
+def resolve_collect_sha(root: Path, *, allow_dirty: bool) -> tuple[str, bool]:
+    """Return (HEAD, dirty). Refuse a dirty tree unless allow_dirty."""
+    collect_sha = resolve_ref(root, "HEAD")
+    dirty = git_dirty(root)
+    if dirty and not allow_dirty:
+        raise RuntimeError(
+            "working tree is dirty; collect on a clean HEAD so provenance.gitSha "
+            "matches the commit, or pass --allow-dirty"
+        )
+    return collect_sha, dirty
+
+
 def record_command(argv: list[str], root: Path) -> str:
     """Record the invocation without leaking an absolute --pilotdeck-root."""
     recorded = ["python3", "tools/agent-loop-perf/run.py"]
@@ -528,6 +540,11 @@ def main(argv: list[str] | None = None) -> int:
         default=os.environ.get("PERF_BASE_BRANCH", "rust_standalone_alpha1"),
         help="Branch used for provenance merge-base (default: rust_standalone_alpha1).",
     )
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Allow collecting evidence on a dirty worktree. Default: refuse.",
+    )
     args = parser.parse_args(argv)
     if args.iterations < 1:
         raise ValueError("--iterations must be >= 1")
@@ -544,9 +561,11 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     command = record_command(raw_argv, source)
     base_branch, base_sha = resolve_base(source, args.base_branch)
+    collect_sha, dirty = resolve_collect_sha(source, allow_dirty=args.allow_dirty)
     provenance_base = {
-        "gitSha": resolve_ref(source, "HEAD"),
-        "gitDirty": git_dirty(source),
+        "gitSha": collect_sha,
+        "collectSha": collect_sha,
+        "gitDirty": dirty,
         "node": versions["node"],
         "python": versions["python"],
         "pythonFull": versions["pythonFull"],
