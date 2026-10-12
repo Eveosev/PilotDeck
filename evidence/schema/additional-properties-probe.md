@@ -28,5 +28,5 @@ Method: raw JSON text → `JSON.parse` → validator. No protocol change.
 - schema implication: `additionalProperties: true` plus two `not: required` groups
   (`attemptId`/`stepId`, `moduleInstanceId`/`connectionGeneration`)
 
-gitSha: `64647f5396f3ab34e056c6b2e60690bef2247b78`
-gitDirty: `true`
+gitSha: `b394d2c07346d01ad570aa779139967d291c7c7d`
+gitDirty: `false`
