@@ -5,4 +5,4 @@
     Checking memchr v2.8.3
     Checking pilotdeck-agent-loop v0.1.0 (/workspace/crates/pilotdeck-agent-loop)
     Checking pilotdeck-agent-loop-hello v0.1.0 (/workspace/crates/pilotdeck-agent-loop-hello)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.08s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.02s

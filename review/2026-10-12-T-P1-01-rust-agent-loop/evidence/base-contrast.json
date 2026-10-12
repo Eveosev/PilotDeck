@@ -1,7 +1,7 @@
 {
   "lockTest": "cargo test -p pilotdeck-agent-loop --test lock",
   "current": {
-    "gitSha": "29babbc740e6987d1430ef4085f91e16bf7bb6dc",
+    "gitSha": "2b492df382999a0bdbb21406cce964760503ef5c",
     "exit": 0,
     "result": "PASS",
     "tests": 5
