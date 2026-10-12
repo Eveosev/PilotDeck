@@ -5,7 +5,7 @@
  * Compares accept/reject only. Does not change protocol behavior.
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -98,12 +98,16 @@ function runA1() {
   const secondGenerationDiffEmpty = first.status === 0 && second.status === 0 && after === onDisk && after === built;
 
   const dirtyMarker = resolve(ROOT, "evidence/schema/.a1-dirty-tree-probe");
-  writeFileSync(dirtyMarker, "dirty\n");
-  const dirtyRun = spawnSync(process.execPath, [resolve(here, "generate-module-protocol-schema.mjs")], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
-  unlinkSync(dirtyMarker);
+  let dirtyRun;
+  try {
+    writeFileSync(dirtyMarker, "dirty\n");
+    dirtyRun = spawnSync(process.execPath, [resolve(here, "generate-module-protocol-schema.mjs")], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+  } finally {
+    if (existsSync(dirtyMarker)) unlinkSync(dirtyMarker);
+  }
   const dirtyTreeRefused = dirtyRun.status === 2 && /dirty/i.test(`${dirtyRun.stdout}\n${dirtyRun.stderr}`);
 
   return {
@@ -189,12 +193,22 @@ const requiredConditionals = [
 ];
 const missingConditionals = requiredConditionals.filter((name) => !negatives.some((sample) => sample.conditional === name));
 
+function describeJsonNumber(value) {
+  if (value === Infinity) return "Infinity";
+  if (value === -Infinity) return "-Infinity";
+  if (typeof value === "number" && Number.isNaN(value)) return "NaN";
+  return value;
+}
+
 const edges = JSON.parse(readFileSync(edgePath, "utf8")).samples;
 const edgeComparisons = edges.map((sample) => {
   const parsed = parseRaw(sample.raw);
   const ts = tsAccepts(parsed);
   const schemaOk = schemaAccepts(validate, parsed);
   const expectedAccept = sample.expect === "accept";
+  const parsedNumber = sample.bound
+    ? (parsed.sequence ?? parsed.lastAppliedSequence)
+    : undefined;
   return {
     id: sample.id,
     bound: sample.bound,
@@ -204,13 +218,12 @@ const edgeComparisons = edges.map((sample) => {
     match: ts === schemaOk,
     matchesExpect: ts === expectedAccept && schemaOk === expectedAccept,
     tP1RustSerdeParseRisk: sample.tP1RustSerdeParseRisk === true,
+    token: sample.token,
     note: sample.note,
     objectIsNegativeZero: sample.id.includes("negative-zero")
       ? Object.is(parsed.sequence ?? parsed.lastAppliedSequence, -0)
       : undefined,
-    jsParsedNumber: sample.bound
-      ? (parsed.sequence ?? parsed.lastAppliedSequence)
-      : undefined,
+    jsParsedNumber: parsedNumber === undefined ? undefined : describeJsonNumber(parsedNumber),
     raw: sample.raw,
   };
 });
@@ -225,12 +238,18 @@ const looseComparisons = looseControlSamples.map((sample) => {
   return {
     id: sample.id,
     rule: sample.rule,
+    conditional: sample.conditional,
     ts: decisionOf(ts),
     loosenedSchema: decisionOf(loose),
     mismatch: ts !== loose,
   };
 });
-const loosenedControlFail = looseComparisons.some((item) => item.mismatch && item.ts === "reject" && item.loosenedSchema === "accept");
+const loosenedPerRule = Object.fromEntries(requiredConditionals.map((name) => {
+  const items = looseComparisons.filter((item) => item.conditional === name);
+  const fail = items.some((item) => item.mismatch && item.ts === "reject" && item.loosenedSchema === "accept");
+  return [name, { compared: items.length, fail, ids: items.map((item) => item.id) }];
+}));
+const loosenedControlFail = requiredConditionals.every((name) => loosenedPerRule[name].fail);
 
 const expressibleMismatches = [
   ...traceComparisons.filter((item) => !item.match),
@@ -240,10 +259,35 @@ const expressibleMismatches = [
 
 const inexpressibleRules = [];
 
+function countDecisions(items) {
+  return {
+    accept: items.filter((item) => item.ts === "accept").length,
+    reject: items.filter((item) => item.ts === "reject").length,
+  };
+}
+
+function perSourceCounts(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const source = item.source ?? "unknown";
+    const current = groups.get(source) ?? { total: 0, accept: 0, reject: 0 };
+    current.total += 1;
+    current[item.ts] += 1;
+    groups.set(source, current);
+  }
+  return Object.fromEntries([...groups.entries()].sort((left, right) => left[0].localeCompare(right[0])));
+}
+
 const a2 = {
+  corpus: {
+    kind: "synthetic-templates",
+    description: "Synthetic template messages materialized from the 53 tools/agent-loop-parity scenario metadata (REQUIRED_GATEWAY_SCENARIOS). Not live wire traces.",
+  },
   scenarios: scenarios.length,
   scenarioIds: scenarios.map((scenario) => scenario.scenarioId),
   totalCompared: traceComparisons.length,
+  decisions: countDecisions(traceComparisons),
+  perSource: perSourceCounts(traceComparisons),
   expressibleMismatches: expressibleMismatches.filter((item) => traceComparisons.some((trace) => trace.id === item.id)).length,
   inexpressibleRules: inexpressibleRules.length,
   mismatches: expressibleMismatches.filter((item) => traceComparisons.some((trace) => trace.id === item.id)),
@@ -260,28 +304,43 @@ const a3 = {
   loosenedSchemaControl: {
     result: loosenedControlFail ? "FAIL" : "UNEXPECTED_PASS",
     mustFail: true,
+    perRuleEvery: true,
     compared: looseComparisons.length,
+    perRule: loosenedPerRule,
     mismatches: looseComparisons.filter((item) => item.mismatch),
   },
 };
 
+const contractVersions = schema["x-pilotdeck"]?.contractVersions;
 const a4 = {
-  protocolVersion: schema["x-pilotdeck"]?.contractVersions?.protocolVersion,
-  capabilitiesVersion: schema["x-pilotdeck"]?.contractVersions?.capabilitiesVersion,
-  storageConfigVersionWrittenAsContract: schema["x-pilotdeck"]?.contractVersions?.storageConfigVersion != null,
+  protocolVersion: contractVersions?.protocolVersion,
+  capabilitiesVersion: contractVersions?.capabilitiesVersion,
+  annotationsOnly: true,
+  storageConfigVersionWrittenAsContract: contractVersions?.storageConfigVersion != null,
   notContractVersions: schema["x-pilotdeck"]?.notContractVersions ?? [],
-  matchesSource: schema["x-pilotdeck"]?.contractVersions?.protocolVersion === contract.protocolVersion
-    && schema["x-pilotdeck"]?.contractVersions?.capabilitiesVersion === contract.capabilitiesVersionField
+  matchesSource: contractVersions?.protocolVersion?.field === "protocolVersion"
+    && contractVersions?.protocolVersion?.value === contract.protocolVersion
+    && contractVersions?.capabilitiesVersion?.field === "capabilitiesVersion"
+    && contractVersions?.capabilitiesVersion?.value === null
+    && contractVersions?.capabilitiesVersion?.negotiated === true
     && (schema["x-pilotdeck"]?.notContractVersions ?? []).includes("storageConfigVersion"),
 };
 
 const rustRisk = {
   name: "T-P1 Rust serde parse risk",
+  ajvMustRunStrict: true,
+  note: [
+    "JSON.parse may collapse 1.0 / exponent forms (1e2, 1E0, 100e-2) to JS integers,",
+    "keep Object.is(-0,-0), lose precision above 2^53, and turn 1e400 into Infinity.",
+    "Rust serde_json may keep f64, reject exponent-as-integer, preserve signed zero,",
+    "or error on overflow instead of Infinity. ajv must run strict:true for parity with this schema.",
+  ].join(" "),
   samples: edgeComparisons
     .filter((item) => item.tP1RustSerdeParseRisk)
     .map((item) => ({
       id: item.id,
-      rawNumberToken: item.raw.includes("1.0") ? "1.0" : "-0",
+      rawNumberToken: item.token
+        ?? (item.raw.includes("1.0") ? "1.0" : item.raw.includes("-0") ? "-0" : undefined),
       jsAfterJSONParse: item.jsParsedNumber,
       objectIsNegativeZero: item.objectIsNegativeZero,
       ts: item.ts,
@@ -300,6 +359,7 @@ const report = {
   validator: {
     ajv: AJV_VERSION,
     jsonSchemaDraft: JSON_SCHEMA_DRAFT,
+    ajvStrict: true,
     typescriptFunction: "validateModuleMessage",
   },
   additionalProperties: {
@@ -342,8 +402,14 @@ Top-level and payload extra fields are accepted (\`true\`). Rejected by name onl
 
 ## A2 53-scenario accept/reject replay
 
+A2 corpus is **synthetic template messages** materialized from the 53
+\`tools/agent-loop-parity\` scenario metadata (\`REQUIRED_GATEWAY_SCENARIOS\`).
+These are **not** live wire traces.
+
 - scenarios: **${a2.scenarios}**
 - total compared: **${a2.totalCompared}**
+- accept/reject: **${a2.decisions.accept}/${a2.decisions.reject}**
+- per-source counts: ${Object.entries(a2.perSource).map(([source, count]) => `\`${source}\` ${count.total} (${count.accept}/${count.reject})`).join(", ")}
 - expressible mismatches: **${a2.expressibleMismatches}** (must be 0)
 - inexpressible rules: **${a2.inexpressibleRules}** (listed separately; schema was not loosened)
 
@@ -354,19 +420,25 @@ ${a2.mismatches.length ? a2.mismatches.map((item) => `- MISMATCH \`${item.id}\` 
 - negatives: ${a3.negatives}; both reject: \`${a3.allRejectedByBoth}\`
 - missing message types: ${a3.missingMessageTypes.length ? a3.missingMessageTypes.join(", ") : "(none)"}
 - missing conditionals: ${a3.missingConditionals.length ? a3.missingConditionals.join(", ") : "(none)"}
-- edges match expect: \`${a3.edgesMatchExpect}\`
-- loosened-schema control: **${a3.loosenedSchemaControl.result}** (must FAIL)
+- edges: ${a3.edgeSamples}; match expect: \`${a3.edgesMatchExpect}\`
+- loosened-schema control: **${a3.loosenedSchemaControl.result}** (must FAIL; per-rule every)
+
+${Object.entries(a3.loosenedSchemaControl.perRule).map(([name, row]) => `- \`${name}\`: compared=${row.compared} fail=${row.fail}`).join("\n")}
 
 ## A4 contract versions
 
-- protocolVersion: \`${a4.protocolVersion}\`
-- capabilitiesVersion: \`${a4.capabilitiesVersion}\`
+Versions in \`x-pilotdeck.contractVersions\` are **annotations**; the schema does not enforce them.
+
+- protocolVersion: \`${JSON.stringify(a4.protocolVersion)}\`
+- capabilitiesVersion: \`${JSON.stringify(a4.capabilitiesVersion)}\`
 - storageConfigVersion written as contract: \`${a4.storageConfigVersionWrittenAsContract}\`
 - notContractVersions: ${a4.notContractVersions.join(", ")}
 
 ## T-P1 Rust serde parse risk
 
-Named note for \`1.0\` / \`-0\` after JSON.parse. Both JS validators accept the integer-like values; a Rust \`serde\` integer field may not.
+${rustRisk.note}
+
+ajv must run \`strict: true\` for parity with this schema.
 
 ${rustRisk.samples.map((item) => `- \`${item.id}\` token=${item.rawNumberToken} js=${item.jsAfterJSONParse} negativeZero=${item.objectIsNegativeZero}`).join("\n")}
 
@@ -380,7 +452,7 @@ console.log(JSON.stringify({
   gitSha: recordedSha,
   gitDirty: recordedDirty,
   A1: { ok: a1.reproducible && a1.dirtyTreeRefused },
-  A2: { totalCompared: a2.totalCompared, expressibleMismatches: a2.expressibleMismatches, inexpressibleRules: a2.inexpressibleRules },
+  A2: { totalCompared: a2.totalCompared, decisions: a2.decisions, expressibleMismatches: a2.expressibleMismatches, inexpressibleRules: a2.inexpressibleRules },
   A3: { allRejectedByBoth: a3.allRejectedByBoth, loosened: a3.loosenedSchemaControl.result },
   A4: a4,
 }, null, 2));

@@ -203,7 +203,8 @@ export function buildModuleProtocolSchema(contract = extractProtocolContract()) 
     description: [
       "Generated from src/agent/modules/protocol.ts validateModuleMessage only.",
       "JSON Schema draft 2020-12; additionalProperties true on message and payload",
-      "(empirically matching the validator). Contract versions: protocolVersion and",
+      "(empirically matching the validator). x-pilotdeck.contractVersions are",
+      "annotations only; this schema does not enforce protocolVersion or",
       "capabilitiesVersion. storageConfigVersion is not a contract version.",
     ].join(" "),
     type: "object",
@@ -225,8 +226,8 @@ export function buildModuleProtocolSchema(contract = extractProtocolContract()) 
       ajv: AJV_VERSION,
       additionalProperties: true,
       contractVersions: {
-        protocolVersion: contract.protocolVersion,
-        capabilitiesVersion: contract.capabilitiesVersionField,
+        protocolVersion: { field: "protocolVersion", value: contract.protocolVersion },
+        capabilitiesVersion: { field: "capabilitiesVersion", value: null, negotiated: true },
       },
       notContractVersions: [contract.storageConfigVersionField],
     },
@@ -344,7 +345,6 @@ export function buildModuleProtocolSchema(contract = extractProtocolContract()) 
           messageId: { $ref: "#/$defs/id" },
           inReplyTo: { $ref: "#/$defs/id" },
           ok: { type: "boolean" },
-          final: { type: "boolean" },
           outcome: { $ref: "#/$defs/outcome" },
         },
         allOf: [finalImpliesOutcome, outcomeIfPresent],
@@ -398,6 +398,7 @@ export function stringifySchema(schema) {
 
 export function compileSchema(schema, options = {}) {
   const ajv = new Ajv2020({
+    // strict is required for accept/reject parity with validateModuleMessage.
     strict: true,
     allErrors: true,
     validateSchema: true,
@@ -667,6 +668,34 @@ export function materializeScenarioTrace(scenario) {
       },
     });
   }
+
+  messages.push({
+    source: "result_unknown",
+    message: {
+      kind: "event",
+      eventType: "execute.unknown",
+      streamId: `stream-${id}`,
+      sequence: 2,
+      runId: `run-${id}`,
+      operationId: `op-${id}`,
+      requestId: `req-${id}`,
+      final: true,
+      outcome: "result_unknown",
+      payload: { scenarioId: id },
+    },
+  });
+  messages.push({
+    source: "result_unknown",
+    message: {
+      kind: "response",
+      messageId: `unknown-${id}`,
+      inReplyTo: `execute-${id}`,
+      requestId: `req-${id}`,
+      ok: false,
+      final: true,
+      outcome: "result_unknown",
+    },
+  });
 
   if (outcome === "failed" || scenario.expected?.errorCode) {
     messages.push({

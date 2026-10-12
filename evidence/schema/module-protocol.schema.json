@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pilotdeck.dev/schema/module-protocol.schema.json",
   "title": "PilotDeck agent-loop ↔ sidecar Module Protocol",
-  "description": "Generated from src/agent/modules/protocol.ts validateModuleMessage only. JSON Schema draft 2020-12; additionalProperties true on message and payload (empirically matching the validator). Contract versions: protocolVersion and capabilitiesVersion. storageConfigVersion is not a contract version.",
+  "description": "Generated from src/agent/modules/protocol.ts validateModuleMessage only. JSON Schema draft 2020-12; additionalProperties true on message and payload (empirically matching the validator). x-pilotdeck.contractVersions are annotations only; this schema does not enforce protocolVersion or capabilitiesVersion. storageConfigVersion is not a contract version.",
   "type": "object",
   "oneOf": [
     {
@@ -42,8 +42,15 @@
     "ajv": "8.20.0",
     "additionalProperties": true,
     "contractVersions": {
-      "protocolVersion": "2.0",
-      "capabilitiesVersion": "capabilitiesVersion"
+      "protocolVersion": {
+        "field": "protocolVersion",
+        "value": "2.0"
+      },
+      "capabilitiesVersion": {
+        "field": "capabilitiesVersion",
+        "value": null,
+        "negotiated": true
+      }
     },
     "notContractVersions": [
       "storageConfigVersion"
@@ -396,9 +403,6 @@
           "$ref": "#/$defs/id"
         },
         "ok": {
-          "type": "boolean"
-        },
-        "final": {
           "type": "boolean"
         },
         "outcome": {
