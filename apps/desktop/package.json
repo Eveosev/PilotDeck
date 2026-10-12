@@ -10,6 +10,8 @@
   "main": "dist/main.js",
   "scripts": {
     "build:runtime": "node scripts/build-runtime.mjs",
+    "build:rust-hello": "node scripts/build-runtime.mjs --rust-only",
+    "verify:rust-hello": "node scripts/verify-rust-hello.mjs",
     "compile": "tsc -p tsconfig.json",
     "dev": "node scripts/build-runtime.mjs && tsc -p tsconfig.json && electron .",
     "pack": "node scripts/build-runtime.mjs && tsc -p tsconfig.json && electron-builder --dir",
@@ -75,6 +77,14 @@
       {
         "from": "resources/git",
         "to": "git",
+        "filter": [
+          "**/*",
+          "!.gitkeep"
+        ]
+      },
+      {
+        "from": "resources/rust",
+        "to": "rust",
         "filter": [
           "**/*",
           "!.gitkeep"

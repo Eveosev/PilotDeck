@@ -1,0 +1,47 @@
+name: Rust hello
+
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**
+      - apps/desktop/package.json
+      - apps/desktop/scripts/build-runtime.mjs
+      - apps/desktop/scripts/rust-hello.mjs
+      - apps/desktop/scripts/verify-rust-hello.mjs
+      - apps/desktop/scripts/rust-hello-packaging.test.mjs
+      - apps/desktop/checklists/PKG.md
+      - apps/desktop/resources/rust/**
+      - .github/workflows/rust-hello.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64:
+    name: Linux x64 hello handshake
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@1.83.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.1
+
+      - name: Packaging opt-in and extraResources checks
+        run: node --test apps/desktop/scripts/rust-hello-packaging.test.mjs
+
+      - name: cargo build --release
+        run: cargo --version && rustc --version && cargo build --release
+
+      - name: Stage rust hello via build-runtime rust substep
+        run: node apps/desktop/scripts/build-runtime.mjs --rust-only
+
+      - name: Verify hello handshake
+        run: node apps/desktop/scripts/verify-rust-hello.mjs

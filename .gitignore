@@ -179,6 +179,11 @@ apps/desktop/resources/*.tar
 apps/desktop/resources/node/
 apps/desktop/resources/git/*
 !apps/desktop/resources/git/.gitkeep
+apps/desktop/resources/rust/*
+!apps/desktop/resources/rust/.gitkeep
+
+# Rust workspace output
+/target/
 apps/desktop/resources/.git-download/
 apps/desktop/resources/.node-download/
 apps/desktop/resources/.installer-tools/

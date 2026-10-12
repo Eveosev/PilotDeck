@@ -19,6 +19,7 @@ import {
   resolvePlaywrightInstallMode,
   resolvePlaywrightMirrorMode,
 } from "./download-playwright-browsers.mjs";
+import { maybeBuildRustHello } from "./rust-hello.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -486,6 +487,12 @@ function rewriteUiServerSourceImports(serverRoot) {
   }
 
   visit(serverRoot);
+}
+
+const rustOnly = process.argv.includes("--rust-only");
+maybeBuildRustHello();
+if (rustOnly) {
+  process.exit(0);
 }
 
 run(process.execPath, [resolve(desktopRoot, "scripts", "download-node.mjs")], desktopRoot);
