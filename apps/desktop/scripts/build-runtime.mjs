@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -766,15 +767,26 @@ function verifyRuntimeNativeModule(moduleName, label, runtimeArch) {
 
 export {
   collectRelativeImportSpecifiers,
+  isExecutedAsMain,
   rewriteUiServerSourceImports,
+  verifyRuntime,
   verifyRuntimeUiServerRelativeImports,
 };
 
 function isExecutedAsMain() {
   const entry = process.argv[1];
-  return Boolean(entry) && fileURLToPath(import.meta.url) === resolve(entry);
+  if (!entry) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
+  } catch {
+    return false;
+  }
 }
 
 if (isExecutedAsMain()) {
+  if (process.argv.includes("--probe-main")) {
+    process.stdout.write("executed-as-main\n");
+    process.exit(0);
+  }
   runDesktopRuntimeBuild();
 }
