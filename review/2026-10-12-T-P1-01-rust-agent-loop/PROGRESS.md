@@ -184,4 +184,12 @@ Regenerated `evidence/t-p1-01/` on clean collect head `a0f5e9fe`. **collection g
 
 ## 2026-10-12 R2-2 provenance pointer
 
-Evidence **payload tip** = `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b`. This commit only aligns provenance pointers (`gitSha` / `collectHead` and the same fields in `base-contrast.json` / `report.md`) to that tip. Emitted / cargo logs / clippy / roundtrip binaries were **not** rewritten. New HEAD tip = this commit SHA. Author did not force-push or amend. F-5 unchanged.
+Analyst+QA 口径（不 amend）：
+
+- evidence **content tip** = `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b`（含重生 evidence 的那笔）
+- `provenance.gitSha` / `collectHead` = 该 content tip
+- **HEAD tip** = 本提交（未 force / 未 amend）
+- `git diff 16b274aa HEAD` 只动 `evidence/t-p1-01/provenance.json` 与 `review/`
+- `git diff 16b274aa HEAD -- crates/` 为空
+
+`54bc007d` 曾改 `base-contrast.json` / `report.md`；本提交将这两份恢复为 `16b274aa` 字节。emitted / cargo 日志未重写。F-5 未改。
