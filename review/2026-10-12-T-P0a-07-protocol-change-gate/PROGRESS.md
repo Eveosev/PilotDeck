@@ -11,8 +11,8 @@
 | --- | --- | --- |
 | — | R2 审阅点 | `9da4ee1df3df9169df8a7f1f8ad327a0ecb2ceaa` |
 | 1 | 文档（R2-1…R2-7） | `14b1a71ee8a63371c79a830f656482657e2a25a6` |
-| 2 | 本证据提交（parent = 采集 SHA） | （落地后 = 本提交） |
-| 3 | F-7 删除 `review/**/evidence` 原始件 | （后继提交） |
+| 2 | 证据提交（parent = 采集 SHA） | `3f5baf7c7055e2f7c2a9baae640d7aa452327006` |
+| 3 | F-7 删除 `review/**/evidence` 原始件 | 本提交 |
 
 采集时 **`gitDirty=false`**，`gitSha=14b1a71ee8a63371c79a830f656482657e2a25a6`。
 
@@ -66,14 +66,14 @@ QA 举例「加 optional 字段」。若只改 TypeScript 类型、不改 `MODUL
 
 ## F-7 待删除文件清单
 
-下一提交将删除 `review/2026-10-12-T-P0a-07-protocol-change-gate/evidence/` 下全部原始日志。保留本目录的 `DECISION.md` / `PROGRESS.md` / `REVIEW_RESULT.md` / `REVIEW_RESULT_R2.md` / `REVIEW_PROMPT.md`。
+本提交删除 `review/2026-10-12-T-P0a-07-protocol-change-gate/evidence/` 下全部原始日志。保留本目录的 `DECISION.md` / `PROGRESS.md` / `REVIEW_RESULT.md` / `REVIEW_RESULT_R2.md` / `REVIEW_PROMPT.md`。清单中的 sha256 对应删除前 blob（证据提交 `3f5baf7c`）。
 
 原始件已复制为 PR artifacts：`/opt/cursor/artifacts/T-P0a-07-f7-raw/`（以及 `r3_verbatim_sequence.txt`）。
 
 sha256 为文件内容（blob bytes）的 SHA-256。
 
 
-删除文件数：**81**。
+删除文件数：**81**（git 跟踪 **79** + gitignore 的 `*.log` **2**：`r1-verbatim/old-sequence-dirty.log`、`r1-verbatim/verbatim-sequence.log`；后者只存在工作树，已从磁盘移除并列入本清单 / artifacts）。
 
 | path | sha256 | collection gitSha |
 | --- | --- | --- |

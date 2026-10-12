@@ -1,1 +1,0 @@
-check7_exit=0

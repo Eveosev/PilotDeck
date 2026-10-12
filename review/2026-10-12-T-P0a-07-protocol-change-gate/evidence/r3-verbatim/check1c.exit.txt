@@ -1,1 +1,0 @@
-check1c_exit=0
