@@ -7,6 +7,12 @@ import os from 'node:os';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const generatedFrontendProfile = JSON.parse((
+  /export const generatedFrontendProfile = (\{[\s\S]*\})\s+as const;/.exec(
+    await fs.readFile(path.join(root, 'ui/src/composition/generated/frontend-modules.ts'), 'utf8'),
+  ) ?? []
+)[1] ?? '');
+if (!generatedFrontendProfile?.modules) throw new Error('generatedFrontendProfile.modules is required for the /api/modules/runtime mock');
 const mac = process.platform === 'darwin';
 const platformName = mac ? 'mac' : process.platform === 'linux' ? 'linux' : 'windows';
 const artifactDir = process.env.PILOTDECK_CHROME_ARTIFACTS || path.join(root, 'outputs/desktop-chrome-review');
@@ -46,6 +52,16 @@ try {
     else if (url.pathname.includes('/cron')) body = { jobs: [] };
     else missing.add(url.pathname);
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.route(url => url.pathname === '/api/modules/runtime', async route => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        modules: generatedFrontendProfile.modules,
+        gatewayCapabilities: [],
+        runtime: { gatewayState: 'ready', unavailableSlots: [] },
+      }),
+    });
   });
   await page.route('**/sw.js', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
   await page.routeWebSocket('**/ws**', socket => {
