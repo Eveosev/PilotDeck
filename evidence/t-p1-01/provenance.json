@@ -1,8 +1,8 @@
 {
   "task": "T-P1-01",
   "slice": "PR-A S0-S2 Round-2 R2-1/R2-2 (F-4 closed; F-5 deferred to PR-B)",
-  "gitSha": "4daa7a082fbb4783e97033d05705a1e8f4a74c88",
-  "collectHead": "a0f5e9fe4f7a1b1b65e9bf7c87d6e92e76a4bf06",
+  "gitSha": "16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b",
+  "collectHead": "16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b",
   "gitDirty": false,
   "base": "1da663a2",
   "branch": "pilotdeck-rust/T-P1-01-agent-loop-a",
@@ -29,5 +29,5 @@
     "totalPassed": 38,
     "totalFailed": 0
   },
-  "note": "Collected on clean tree a0f5e9fe (review-only mutation log). Crate/code tip is 4daa7a08 (R2-1 deadline lock tests). First-wins parse_json_line mutation was applied locally, recorded as FAIL, then reverted (not committed). mask_f3.sh --live emitted-messages.json exit 0."
+  "note": "Evidence payload tip and provenance pointer are 16b274aa (R2-2 regen). First-wins parse_json_line mutation was applied locally, recorded as FAIL, then reverted (not committed). mask_f3.sh --live emitted-messages.json exit 0."
 }

@@ -181,3 +181,7 @@ Regenerated `evidence/t-p1-01/` on clean collect head `a0f5e9fe`. **collection g
 | evidence/t-p1-01/report.md | `ab6f11b9efb336e1086175f18a7a6c71f2aa730c8897df758a8457958a19930a` | `4daa7a08` |
 | evidence/t-p1-01/roundtrip.json | `e7c3ebbf71d0a4f3054243cc6c054f673428d0729aa80e1eee0c3afcc11f36fa` | `4daa7a08` |
 | evidence/t-p1-01/rust-decisions.json | `a5182f26dde9911f5b7bf7cd585737f0242d08978241cd52910ff827c7a2c7e8` | `4daa7a08` |
+
+## 2026-10-12 R2-2 provenance pointer
+
+Evidence **payload tip** = `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b`. This commit only aligns provenance pointers (`gitSha` / `collectHead` and the same fields in `base-contrast.json` / `report.md`) to that tip. Emitted / cargo logs / clippy / roundtrip binaries were **not** rewritten. New HEAD tip = this commit SHA. Author did not force-push or amend. F-5 unchanged.

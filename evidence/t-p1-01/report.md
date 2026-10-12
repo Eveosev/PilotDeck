@@ -1,7 +1,7 @@
 # T-P1-01 PR-A evidence (Round-2 R2-1 / R2-2)
 
-Collected on clean tree `a0f5e9fe4f7a1b1b65e9bf7c87d6e92e76a4bf06` (`gitDirty=false`).
-Code tip: `4daa7a082fbb4783e97033d05705a1e8f4a74c88` (R2-1 deadline lock tests).
+Collected on evidence payload tip `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b` (`gitDirty=false`).
+Code tip: `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b` (R2-2 regen; includes R2-1 deadline lock tests).
 Base: `rust_standalone_alpha1@1da663a2`.
 F-4 closed. F-5 stub payload / B4 TS-host E2E: **deferred to PR-B**.
 
@@ -54,7 +54,7 @@ Author mutations (uncommitted, reverted): S1/S2/S3/F4a/F4b all EXIT 101. See `re
 
 ## Base contrast
 
-`cargo test -p pilotdeck-agent-loop --test lock` on `1da663a2`: FAIL (`package ID specification did not match any packages`). On code SHA `4daa7a08`: PASS (5 tests).
+`cargo test -p pilotdeck-agent-loop --test lock` on `1da663a2`: FAIL (`package ID specification did not match any packages`). On code SHA `16b274aa`: PASS (5 tests).
 
 ## Scope
 
