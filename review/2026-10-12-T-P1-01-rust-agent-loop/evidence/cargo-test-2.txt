@@ -21,7 +21,7 @@ test sidecar::tests::status_and_stale_cancel_and_unsupported_resume_ack ... ok
 test sidecar::tests::timeout_cancel_is_result_unknown ... ok
 test time::tests::roundtrips_unix_epoch ... ok
 
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop-a39f3662e46a13c8)
 
@@ -31,19 +31,21 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
      Running tests/lock.rs (target/debug/deps/lock-438b9ec1db28a560)
 
-running 3 tests
+running 4 tests
 test crate_exports_validate_module_message_and_stdio_bin ... ok
 test execute_is_in_scope_unlike_hello_crate ... ok
+test invalid_message_fixture_covers_each_protocol_type ... ok
 test workspace_lists_pilotdeck_agent_loop_crate ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/roundtrip.rs (target/debug/deps/roundtrip-4b0e0e9f620743b2)
 
-running 1 test
+running 2 tests
+test invalid_messages_rejected_by_ajv_ts_and_rust ... ok
 test rust_emitted_messages_roundtrip_schema_and_ts ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
 
      Running tests/sidecar_stdio.rs (target/debug/deps/sidecar_stdio-b6a8c406e94be63c)
 

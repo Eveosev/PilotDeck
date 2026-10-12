@@ -1,0 +1,105 @@
+{
+  "decisions": [
+    {
+      "code": "INVALID_MESSAGE",
+      "id": "invalid-not-object",
+      "ok": false
+    },
+    {
+      "code": "INVALID_KIND",
+      "id": "invalid-kind",
+      "ok": false
+    },
+    {
+      "code": "INVALID_METHOD",
+      "id": "invalid-method",
+      "ok": false
+    },
+    {
+      "code": "INVALID_HANDSHAKE_REQUEST",
+      "id": "hello-missing-payload",
+      "ok": false
+    },
+    {
+      "code": "INVALID_HANDSHAKE_REQUEST",
+      "id": "capabilities-payload-array",
+      "ok": false
+    },
+    {
+      "code": "MISSING_EXECUTE_FIELD",
+      "id": "execute-missing-requestId",
+      "ok": false
+    },
+    {
+      "code": "MISSING_EXECUTE_FIELD",
+      "id": "execute-missing-payload",
+      "ok": false
+    },
+    {
+      "code": "UNSUPPORTED_FIELD",
+      "id": "execute-attemptId",
+      "ok": false
+    },
+    {
+      "code": "UNSUPPORTED_FIELD",
+      "id": "execute-stepId",
+      "ok": false
+    },
+    {
+      "code": "INVALID_MODULE",
+      "id": "module_call-invalid-module",
+      "ok": false
+    },
+    {
+      "code": "INVALID_CANCEL_REQUEST",
+      "id": "cancel-missing-reason",
+      "ok": false
+    },
+    {
+      "code": "INVALID_STATUS_REQUEST",
+      "id": "status-missing-requestId",
+      "ok": false
+    },
+    {
+      "code": "INVALID_RESUME_REQUEST",
+      "id": "resume-missing-binding",
+      "ok": false
+    },
+    {
+      "code": "INVALID_ACK_REQUEST",
+      "id": "ack-sequence-negative-one",
+      "ok": false
+    },
+    {
+      "code": "MISSING_OUTCOME",
+      "id": "event-final-missing-outcome",
+      "ok": false
+    },
+    {
+      "code": "UNSUPPORTED_FIELD",
+      "id": "event-moduleInstanceId",
+      "ok": false
+    },
+    {
+      "code": "UNSUPPORTED_FIELD",
+      "id": "event-connectionGeneration",
+      "ok": false
+    },
+    {
+      "code": "INVALID_RESPONSE",
+      "id": "response-missing-inReplyTo",
+      "ok": false
+    },
+    {
+      "code": "MISSING_OUTCOME",
+      "id": "response-final-missing-outcome",
+      "ok": false
+    },
+    {
+      "code": "INVALID_ERROR",
+      "id": "error-invalid-retryability",
+      "ok": false
+    }
+  ],
+  "validator": "validate_module_message"
+}

@@ -1,9 +1,12 @@
 {
   "schema": "evidence/schema/module-protocol.schema.json",
   "typescriptFunction": "validateModuleMessage",
+  "rustFunction": null,
   "ajvStrict": true,
+  "expect": "agree",
   "total": 19,
   "mismatch": 0,
+  "expectViolations": 0,
   "tsAccept": 19,
   "schemaAccept": 19,
   "byType": {
