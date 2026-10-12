@@ -270,6 +270,7 @@ function MainAreaV2Content(props: MainAreaV2Props) {
                 selectedSession && 'cursor-text',
               )}
               title={headerTitle}
+              data-desktop-no-drag={selectedSession ? '' : undefined}
               onDoubleClick={selectedSession ? beginSessionTitleRename : undefined}
             >
               {headerTitle}
