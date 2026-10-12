@@ -148,4 +148,16 @@ New tests (R2-1, analyst+QA):
 - `sidecar::tests::attempt_deadline_during_stub_sleep_is_result_unknown`
 - `sidecar::tests::earliest_deadline_uses_sooner_of_operation_and_attempt`
 
-Author mutations S1–S3 + F4a/F4b and evidence regen land in the next commits after this code tip.
+`cargo test --workspace -- --test-threads=1`: **38 passed / 0 failed** (lib 25, lock 5, roundtrip 2, sidecar_stdio 6). clippy workspace `-D warnings`: exit 0. **F-5 not changed.**
+
+Author mutations (temp patches, not committed). Collection gitSha: `4daa7a082fbb4783e97033d05705a1e8f4a74c88`.
+
+| run | command | exit | output sha256 |
+|---|---|---:|---|
+| cargo test --workspace | `cargo test --workspace -- --test-threads=1` | **0** | `efd0ab727c5761a1f8fa667c9959f54bff3e804977df28a0efb21bff52131a0b` |
+| clippy workspace | `cargo clippy --workspace --all-targets -- -D warnings` | **0** | `43dcab358c51fd140364b8cbc1cc12ffd5301425590bca209e5d65f959bf58b0` |
+| S1 (unexpired deadline → immediate result_unknown) | `cargo test -p pilotdeck-agent-loop --lib future_deadline_completes_when_not_expired` | **101** | `c32c832738096c87eb164682108217392fa38fbc6310ed8d3c8abb2ef3c24375` |
+| S2 (ignore attemptDeadline) | `cargo test -p pilotdeck-agent-loop --lib attempt_deadline_during_stub_sleep` | **101** | `2091bb8d52cd8026fd3f5b231f5421f5382299bd25512a60732ebe7c6de3980e` |
+| S3 (max instead of min) | `cargo test -p pilotdeck-agent-loop --lib earliest_deadline_uses_sooner` | **101** | `109755b5aa9cd5681cbc490aad50925f960e097a035b78b11fa880de385a340f` |
+| F4a (delete mid-execute deadline check) | `cargo test -p pilotdeck-agent-loop --lib runtime_deadline_during_stub_sleep` | **101** | `5920bd4d11d2ea374ee6802a9a164ceed20083bd1d7a3f33b42ade68ae148d03` |
+| F4b (Z-only `parse_iso_ms`) | `cargo test -p pilotdeck-agent-loop --lib expired_offset_iso_deadline` | **101** | `68631f39dd172618b29e1b232c5c8f759e38c0c426d647cdd621f213623ba893` |
