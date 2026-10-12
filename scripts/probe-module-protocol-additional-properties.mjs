@@ -4,17 +4,33 @@
  * to measure additionalProperties behavior. protocol.ts is the only runtime
  * input. Does not change protocol or runtime behavior.
  */
+import { spawnSync, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { execSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+if (!process.execArgv.some((flag) => flag.includes("strip-types"))) {
+  const replayed = spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", ...process.argv.slice(1)],
+    { stdio: "inherit" },
+  );
+  process.exit(replayed.status ?? 1);
+}
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const protocolUrl = new URL("../src/agent/modules/protocol.ts", import.meta.url);
-const { validateModuleMessage } = await import(protocolUrl.href);
+const protocolPath = resolve(root, "src/agent/modules/protocol.ts");
+const { validateModuleMessage } = await import(pathToFileURL(protocolPath).href);
 
 function git(command) {
   return execSync(command, { cwd: root, encoding: "utf8" }).trim();
+}
+
+const recordedSha = git("git rev-parse HEAD");
+const recordedDirty = git("git status --porcelain") !== "";
+if (recordedDirty) {
+  console.error("probe-module-protocol-additional-properties requires a clean git tree so evidence can record gitDirty=false");
+  process.exit(2);
 }
 
 function parseRaw(raw) {
@@ -190,8 +206,8 @@ const report = {
   probe: "validateModuleMessage additionalProperties",
   input: "src/agent/modules/protocol.ts",
   method: "raw JSON text → JSON.parse → validateModuleMessage",
-  gitSha: git("git rev-parse HEAD"),
-  gitDirty: git("git status --porcelain") !== "",
+  gitSha: recordedSha,
+  gitDirty: recordedDirty,
   cases,
   conclusion,
 };
