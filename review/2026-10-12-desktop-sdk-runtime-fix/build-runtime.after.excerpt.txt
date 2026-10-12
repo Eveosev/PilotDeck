@@ -1,0 +1,55 @@
+--- head ---
+[desktop] /exec-daemon/node /workspace/apps/desktop/scripts/download-node.mjs (/workspace/apps/desktop)
+[desktop] downloading https://nodejs.org/dist/v22.23.1/node-v22.23.1-linux-x64.tar.gz
+[desktop] extracting /workspace/apps/desktop/resources/.node-download/node-v22.23.1-linux-x64.tar.gz
+[desktop] bundled Node ready: /workspace/apps/desktop/resources/node/bin/node
+[desktop] /workspace/apps/desktop/resources/node/bin/node /home/ubuntu/.nvm/versions/node/v22.23.3/bin/pnpm --dir /workspace run build (/workspace)
+
+> pilotdeck@0.1.0 prebuild /workspace
+> npm run check:runtime && pnpm --filter @pilotdeck/sdk build && cd src/context/memory/edgeclaw-memory-core && npm run build
+
+
+> pilotdeck@0.1.0 check:runtime
+> node scripts/check-node-runtime.mjs
+
+
+> @pilotdeck/sdk@0.1.0-alpha.0 prebuild /workspace/packages/sdk
+> node -e "require('node:fs').rmSync('dist', { recursive: true, force: true })"
+
+
+> @pilotdeck/sdk@0.1.0-alpha.0 build /workspace/packages/sdk
+> tsc -p tsconfig.json
+
+
+> edgeclaw-memory-core@0.0.0 build
+> node -e "require('fs').rmSync('lib',{recursive:true,force:true})" && tsc -p tsconfig.json
+
+
+> pilotdeck@0.1.0 build /workspace
+> node -e "require('fs').rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json && node -e "const fs=require('fs'); fs.cpSync('src/extension/plugins/builtin','dist/src/extension/plugins/builtin',{recursive:true}); fs.cpSync('ui/server','dist/ui/server',{recursive:true})"
+
+
+
+--- tail ---
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 22.97s
+
+> pilotdeck-ui@0.1.0 postbuild /workspace/ui
+> node ../scripts/write-web-build-metadata.mjs dist
+
+[desktop] /workspace/apps/desktop/resources/node/bin/node /home/ubuntu/.nvm/versions/node/v22.23.3/bin/pnpm install --prod --ignore-workspace --config.node-linker=hoisted --frozen-lockfile --prefer-offline (/workspace/apps/desktop/.runtime-install)
+Lockfile is up to date, resolution step is skipped
+Packages: +459
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 0, reused 1, downloaded 0, added 0
+Progress: resolved 0, reused 435, downloaded 0, added 459, done
+
+devDependencies: skipped
+
+Done in 795ms using pnpm v10.32.1
+[desktop] skipping Playwright browser preinstall (lazy mode)
+[desktop] staged runtime ready: /workspace/apps/desktop/.runtime/app
+[desktop] staged runtime size: 184.5 MB
+
+build-runtime-exit=0

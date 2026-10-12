@@ -1,0 +1,3 @@
+=== AFTER: verifyRuntimePackageManifest ===
+verifyRuntimePackageManifest: PASS
+verify-after-exit=0
