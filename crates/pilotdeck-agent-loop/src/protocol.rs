@@ -355,10 +355,6 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn raw(text: &str) -> Value {
-        serde_json::from_str(text).expect("fixture must be JSON")
-    }
-
     #[test]
     fn hello_and_capabilities_require_payload_object() {
         assert!(validate_module_message(&json!({
@@ -429,9 +425,10 @@ mod tests {
 
     #[test]
     fn execute_duplicate_keys_last_wins_like_json_parse() {
-        let value = raw(
+        let value = parse_json_line(
             r#"{"kind":"request","messageId":"m","method":"execute","runId":"run-1","operationId":"op-1","requestId":"first","payload":{"prompt":"A"},"requestId":"second","payload":{"prompt":"B","scenario":"pure_text"}}"#,
-        );
+        )
+        .expect("execute fixture must parse");
         assert_eq!(value["requestId"], "second");
         assert_eq!(value["payload"]["prompt"], "B");
         assert!(validate_module_message(&value).is_ok());

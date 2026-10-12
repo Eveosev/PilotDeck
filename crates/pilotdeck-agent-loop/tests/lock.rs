@@ -66,6 +66,24 @@ fn execute_is_in_scope_unlike_hello_crate() {
 }
 
 #[test]
+fn crate_rust_version_matches_hello_msrv() {
+    let crate_manifest =
+        fs::read_to_string(repo_root().join("crates/pilotdeck-agent-loop/Cargo.toml"))
+            .expect("pilotdeck-agent-loop Cargo.toml");
+    let hello_manifest =
+        fs::read_to_string(repo_root().join("crates/pilotdeck-agent-loop-hello/Cargo.toml"))
+            .expect("hello Cargo.toml");
+    assert!(
+        crate_manifest.contains("rust-version = \"1.83\""),
+        "pilotdeck-agent-loop must declare rust-version 1.83 to match hello/MSRV"
+    );
+    assert!(
+        hello_manifest.contains("rust-version = \"1.83\""),
+        "hello crate rust-version is the MSRV baseline"
+    );
+}
+
+#[test]
 fn invalid_message_fixture_covers_each_protocol_type() {
     let path = repo_root().join("crates/pilotdeck-agent-loop/fixtures/invalid-messages.json");
     let parsed: serde_json::Value =

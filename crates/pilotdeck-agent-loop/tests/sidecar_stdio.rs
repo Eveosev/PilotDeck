@@ -117,6 +117,25 @@ fn s1_execute_rejects_forbidden_fields() {
 }
 
 #[test]
+fn s1_execute_rejects_step_id() {
+    let mut sidecar = spawn_sidecar();
+    sidecar.send_json(&json!({
+        "kind": "request",
+        "messageId": "ex-step",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "op-1",
+        "requestId": "req-1",
+        "payload": {},
+        "stepId": "step-1"
+    }));
+    let lines = sidecar.wait_for(|msgs| !msgs.is_empty(), FAST);
+    assert_eq!(lines[0]["kind"], "error");
+    assert_eq!(lines[0]["code"], "UNSUPPORTED_FIELD");
+    let _ = sidecar.close();
+}
+
+#[test]
 fn s2_cancel_status_and_explicit_resume_ack_reject() {
     let mut sidecar = spawn_sidecar();
     sidecar.send_json(&json!({
