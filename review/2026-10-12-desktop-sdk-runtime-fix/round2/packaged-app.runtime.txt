@@ -1,0 +1,26 @@
+2026-10-12T12:53:23.918Z PilotDeck Desktop runtime starting from /opt/PilotDeck/resources/runtime
+2026-10-12T12:53:23.918Z PilotDeck home ready at /tmp/pilotdeck-deb-smoke-A2pb1o/pilot-home
+2026-10-12T12:53:23.925Z Playwright browsers path: /tmp/pilotdeck-deb-smoke-A2pb1o/config/pilotdeck-desktop/playwright-browsers
+2026-10-12T12:53:23.932Z [server] spawn /opt/PilotDeck/resources/node/bin/node server/index.js
+2026-10-12T12:53:24.467Z [server] [2m════════════════════════════════════════════════════════════[0m
+2026-10-12T12:53:24.467Z [server] [36m[INFO][0m App Installation: [1m/opt/PilotDeck/resources/runtime/ui[0m
+2026-10-12T12:53:24.467Z [server] [36m[INFO][0m Database: [2m../../../../../tmp/pilotdeck-deb-smoke-A2pb1o/pilot-home/auth.db[0m
+2026-10-12T12:53:24.467Z [server]        [2m(Using custom DATABASE_PATH from environment)[0m
+2026-10-12T12:53:24.467Z [server] [2m════════════════════════════════════════════════════════════[0m
+2026-10-12T12:53:24.579Z [server] SERVER_PORT from runtime config: 3001
+2026-10-12T12:53:24.634Z [server] Database initialized successfully
+2026-10-12T12:53:24.634Z [server] Database migrations completed successfully
+2026-10-12T12:53:24.635Z [server] (node:11887) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-12T12:53:24.635Z [server] (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T12:53:24.842Z [server] [36m[INFO][0m Web UI login is disabled (default). Using built-in user. Set PILOTDECK_DISABLE_LOCAL_AUTH=0 to require username/password.
+2026-10-12T12:53:24.848Z [server] Web Push notifications configured
+2026-10-12T12:53:24.848Z [server] [36m[INFO][0m Chat execution routed through PilotDeck gateway (src/gateway).
+2026-10-12T12:53:24.848Z [server] [36m[INFO][0m Starting in production mode...
+2026-10-12T12:53:24.853Z [server] [2m═══════════════════════════════════════════════════════════════[0m
+2026-10-12T12:53:24.853Z [server]   [1mPilotDeck Server - Ready[0m
+2026-10-12T12:53:24.853Z [server] [2m═══════════════════════════════════════════════════════════════[0m
+2026-10-12T12:53:24.853Z [server] [36m[INFO][0m Server URL:  [1mhttp://localhost:3001[0m
+2026-10-12T12:53:24.853Z [server] [36m[INFO][0m Installed at: [2m/opt/PilotDeck/resources/runtime/ui[0m
+2026-10-12T12:53:24.853Z [server] [34m[TIP][0m  Run "pilotdeck status" for full configuration details
+2026-10-12T12:53:24.858Z [server] [pilotdeck-config-watcher] watching /tmp/pilotdeck-deb-smoke-A2pb1o/pilot-home/pilotdeck.yaml
+2026-10-12T12:53:24.940Z PilotDeck Web UI ready: http://127.0.0.1:3001

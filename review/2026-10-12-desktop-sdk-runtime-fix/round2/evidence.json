@@ -1,0 +1,56 @@
+{
+  "title": "desktop-sdk-runtime-fix-round2",
+  "recordedAt": "2026-10-12T12:53:33.503Z",
+  "gitSha": "e9cd55478a7502d037f8843a413c28f1839e951b",
+  "collectSha": "e9cd55478a7502d037f8843a413c28f1839e951b",
+  "gitDirty": false,
+  "baseSha": "1da663a21d40ef5e309c86423a235550c79f91ff",
+  "previousEvidenceSha": "d60aee42341073b12977d0bd8e858a80d7d7bf0c",
+  "codeCommits": [
+    "efa1d2b156363bec558bfc4f6b983dee6cb7bce8",
+    "e9cd55478a7502d037f8843a413c28f1839e951b"
+  ],
+  "branch": "pilotdeck-rust/desktop-sdk-runtime-fix",
+  "commands": [
+    {
+      "name": "ui-server-runtime-imports.test.mjs on d60aee42 build-runtime.mjs (D6 control)",
+      "exitCode": 1,
+      "note": "names publicHostWire.js"
+    },
+    {
+      "name": "same test after mutating only extensions back to .js",
+      "exitCode": 1,
+      "note": "names publicHostWire.js"
+    },
+    {
+      "name": "ui-server-runtime-imports.test.mjs on e9cd5547",
+      "exitCode": 0
+    },
+    {
+      "name": "PILOTDECK_DESKTOP_SKIP_RUNTIME_BUILD=1 node apps/desktop/scripts/build-runtime.mjs",
+      "exitCode": 0
+    },
+    {
+      "name": "verifyRuntimePackageManifest (D1 full listing)",
+      "exitCode": 0,
+      "note": "@pilotdeck/sdk: expected file:../../../packages/sdk, found file:../../../packages/sdk"
+    },
+    {
+      "name": "electron-builder --linux deb --x64 --publish never",
+      "exitCode": 0
+    },
+    {
+      "name": "apt-get install PilotDeck-0.1.0-linux-amd64.deb",
+      "exitCode": 0
+    },
+    {
+      "name": "xvfb packaged-app launch smoke",
+      "exitCode": 0,
+      "note": "UI ready http://127.0.0.1:3001, no ERR_MODULE_NOT_FOUND"
+    }
+  ],
+  "windowsArm64Rerun": {
+    "attempted": true,
+    "result": "GitHub rejected rerun: job cannot be rerun / Resource not accessible by integration (403)"
+  }
+}

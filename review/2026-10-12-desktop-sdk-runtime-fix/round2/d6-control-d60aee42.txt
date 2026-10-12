@@ -1,0 +1,29 @@
+TAP version 13
+# Subtest: ui/server relative imports resolve after rewrite, including .mjs (D6)
+not ok 1 - ui/server relative imports resolve after rewrite, including .mjs (D6)
+  ---
+  duration_ms: 18.059938
+  location: '/workspace/apps/desktop/scripts/ui-server-runtime-imports.test.mjs:139:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Desktop runtime missing relative import target:
+    publicHostWire.js imported as ../../src/composition/publicHostWire.js from ui/server/pilotdeck-host-capability-gateway.mjs
+    publicHostWire.js imported as ../../src/composition/publicHostWire.js from ui/server/pilotdeck-host-remote-transport.mjs
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    verifyUiServerRelativeImports (file:///workspace/apps/desktop/scripts/ui-server-runtime-imports.test.mjs:111:11)
+    TestContext.<anonymous> (file:///workspace/apps/desktop/scripts/ui-server-runtime-imports.test.mjs:145:7)
+    Test.runInAsyncScope (node:async_hooks:211:14)
+    Test.run (node:internal/test_runner/test:979:25)
+    Test.start (node:internal/test_runner/test:877:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 102.180513
