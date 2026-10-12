@@ -1,0 +1,66 @@
+v22.23.3
+d84f3e8cbd6d01eda5574ef371c7da540259e2ff
+PASS schema-current
+STEP_1a_exit=0
+generated evidence/schema/module-protocol.schema.json from src/agent/modules/protocol.ts
+protocolVersion=2.0
+capabilitiesVersion=capabilitiesVersion
+notContract=storageConfigVersion
+STEP_generate_exit=0
+STEP_1c_exit=0
+{
+  "gitSha": "d84f3e8cbd6d01eda5574ef371c7da540259e2ff",
+  "gitDirty": false,
+  "A1": {
+    "ok": true
+  },
+  "A2": {
+    "totalCompared": 648,
+    "decisions": {
+      "accept": 648,
+      "reject": 0
+    },
+    "expressibleMismatches": 0,
+    "inexpressibleRules": 0
+  },
+  "A3": {
+    "allRejectedByBoth": true,
+    "loosened": "FAIL"
+  },
+  "A4": {
+    "protocolVersion": {
+      "field": "protocolVersion",
+      "value": "2.0"
+    },
+    "capabilitiesVersion": {
+      "field": "capabilitiesVersion",
+      "value": null,
+      "negotiated": true
+    },
+    "annotationsOnly": true,
+    "storageConfigVersionWrittenAsContract": false,
+    "notContractVersions": [
+      "storageConfigVersion"
+    ],
+    "matchesSource": true
+  }
+}
+wrote /workspace/evidence/schema/replay-report.json
+wrote /workspace/evidence/schema/replay-report.md
+STEP_replay_exit=0
+STEP_restore_exit=0
+expressibleMismatches 0
+inexpressibleRules 0
+A1.reproducible True dirtyTreeRefused True
+STEP_2_exit=0
+allRejectedByBoth True
+loosened FAIL
+missingMessageTypes []
+missingConditionals []
+edgesMatchExpect True
+STEP_3_exit=0
+d84f3e8cbd6d01eda5574ef371c7da540259e2ff
+gitSha d84f3e8cbd6d01eda5574ef371c7da540259e2ff
+gitDirty False
+HEAD d84f3e8cbd6d01eda5574ef371c7da540259e2ff
+STEP_7_exit=0

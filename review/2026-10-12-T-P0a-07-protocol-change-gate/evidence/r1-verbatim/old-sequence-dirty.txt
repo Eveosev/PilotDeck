@@ -1,0 +1,7 @@
+--- first replay (will dirty tracked reports) ---
+old_replay1_exit=0
+ M evidence/schema/replay-report.json
+ M evidence/schema/replay-report.md
+--- second replay without restore (expect exit 2) ---
+old_replay2_exit=2
+replay-module-protocol-schema requires a clean git tree so evidence can record gitDirty=false
