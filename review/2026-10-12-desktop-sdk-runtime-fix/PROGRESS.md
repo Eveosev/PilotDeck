@@ -1,6 +1,6 @@
 # Desktop SDK runtime packaging — progress
 
-R2 follow-ups from the 2026-10-12 review. Required items land in this PR; F-* stay tracked here.
+R2/R3 follow-ups. Required items land in this PR; F-* / R2-3 / R2-4 / R3-2–R3-4 stay tracked here (not fixed in the R3 docs commit).
 
 ## This round
 
@@ -9,15 +9,30 @@ R2 follow-ups from the 2026-10-12 review. Required items land in this PR; F-* st
 | R2-1 | done | Export `rewriteUiServerSourceImports` and `verifyRuntime` from `build-runtime.mjs`. Tests import those real functions (no source-copied rewrite/verify). Added a test that the relative-import verifier throws when a transitively imported file is missing. Local verifier mutation recorded as FAIL; mutation not committed. |
 | R2-2 | done | `isExecutedAsMain()` realpaths both `process.argv[1]` and the `import.meta.url` path before comparing. Test runs the script via a symlink (`--probe-main`). |
 | F-7 | approved | Raw logs / screenshots / binaries archived to a Cursor artifact tarball, then deleted in the next commit. PRs #1–#5 `evidence/` untouched. |
+| R3-1 | done | Renamed the three CI issue rows (were mislabeled F-2/F-5/F-6) to CI-1/CI-2/CI-3. Registered real F-2/F-5/F-6, R2-3, R2-4, R3-2, R3-3, R3-4 as follow-ups. |
+| R3-5 | done | README(s) under `review/` no longer point at deleted files; packaging file count is 4. |
 
-## Follow-up plan
+## CI issues (not this PR)
 
 | ID | Owner / next | Plan |
 |---|---|---|
-| F-2 | separate UI PR | Linux DEB chrome e2e (`ui/e2e/desktop-chrome.smoke.mjs:237`) expects `.workspace-header h1[data-desktop-no-drag=""]`. Same miss on base `1da663a2` and this PR: neither `h1` in `MainAreaV2.tsx` (L59, L267–274) has the attribute. Unit `MainAreaV2.test.tsx:131` fails identically on both SHAs. Do not mix a UI attribute fix into desktop packaging. |
-| F-5 | CI / maintainer | Windows arm64 PortableGit 504 (job `114797233974`) could not be rerun (`gh run rerun` and Actions API returned 403 / "job cannot be rerun"). Re-run on a later push with a token that can retry failed jobs, or wait for the next Desktop Windows arm64 workflow. Not a packaging-code defect. |
-| F-6 | separate UI PR | Pre-existing Web Regression on `rust_standalone_alpha1`: `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` cannot find the `updateAndRestart` button role. Outside desktop packaging scope. |
-| F-7 | done (this pair of commits) | Approved. Archive table below; deletion is the following commit only. |
+| CI-1 | separate UI PR | Linux DEB chrome e2e (`ui/e2e/desktop-chrome.smoke.mjs:237`) expects `.workspace-header h1[data-desktop-no-drag=""]`. Same miss on base `1da663a2` and this PR: neither `h1` in `MainAreaV2.tsx` (L59, L267–274) has the attribute. Unit `MainAreaV2.test.tsx:131` fails identically on both SHAs. Do not mix a UI attribute fix into desktop packaging. |
+| CI-2 | CI / maintainer | Windows arm64 PortableGit 504 (job `114797233974`) could not be rerun (`gh run rerun` and Actions API returned 403 / "job cannot be rerun"). Re-run on a later push with a token that can retry failed jobs, or wait for the next Desktop Windows arm64 workflow. Not a packaging-code defect. |
+| CI-3 | separate UI PR | Pre-existing Web Regression on `rust_standalone_alpha1`: `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` cannot find the `updateAndRestart` button role. Outside desktop packaging scope. |
+
+## Follow-up plan (not fixed now)
+
+| ID | Owner / next | Plan |
+|---|---|---|
+| F-2 | later packaging PR | `rmSync` guard. `materializeRuntimeSdk` (dest), `prepareRuntimeTree` (`.runtime-install` / `runtimeRoot`), and `removeIfExists` call `rmSync(..., { recursive: true, force: true })` with no prefix check. Refuse deletes whose resolved path is outside the intended runtime/install root. |
+| F-5 | later packaging PR | Mapping unit test. Export `createRuntimeDependencies` / `FILE_RUNTIME_DEPENDENCIES` (or `verifyRuntimePackageManifest`) and assert `@pilotdeck/sdk` maps to `file:../../../packages/sdk`, not `workspace:*`. |
+| F-6 | later packaging PR | Unreachable symlink check and stale sdk under SKIP. After `rmSync`+`copyFiltered`, `lstatSync(dest).isSymbolicLink()` in `materializeRuntimeSdk` cannot fire. `PILOTDECK_DESKTOP_SKIP_RUNTIME_BUILD=1` skips rebuilding `packages/sdk` but still materializes whatever is on disk, so a stale sdk can be staged. |
+| R2-3 | later packaging PR | `--probe-main` is a production CLI hook added for the R2-2 symlink test. Gate it behind a test-only env or an exported helper so `node build-runtime.mjs --probe-main` is not public surface. |
+| R2-4 | later packaging PR | `verifyRuntimeUiServerRelativeImports` swallows `readFileSync` failures (`catch { continue; }`), so an unreadable queued file never becomes a missing-import error. Treat unreadable targets as missing. |
+| R3-2 | later packaging PR | Restore `runtimeRoot` when `verifyRuntime` throws (wrap the L711 assignment in `finally`). Add tests that (1) `verifyRuntime` reaches the L704 `verifyRuntimeUiServerRelativeImports` call, and (2) `isRuntimeTestModule` skips `*.test.*` / `*.spec.*`. |
+| R3-3 | later packaging PR | Remove `isExecutedAsMain` silent `catch { return false; }`. A `realpathSync` failure (broken symlink, EPERM) must not be treated as “not main”. |
+| R3-4 | later packaging PR | Windows `symlinkSync` EPERM. The R2-2 test creates a symlink to `build-runtime.mjs`; that throws EPERM without Developer Mode. Skip or use a Windows-safe fallback. |
+| F-7 | done | Approved. Archive table below; deletion was the following commit (`46ca9718`). |
 
 ## F-7 archive
 

@@ -1,13 +1,12 @@
 # Desktop SDK runtime packaging fix
 
-Evidence collected on the clean code commit, then added in this follow-up commit.
+Evidence was collected on clean code commits, then later archived (F-7). Raw logs / screenshots / JSON dumps are not in git; see `PROGRESS.md` for the archive table and tarball sha256.
 
-- gitSha / collectSha: `37fc654e49982ec6ab3b508b96dfb367afaa71b3`
-- gitDirty: `false` (recorded before these files were written)
+- first code gitSha: `37fc654e49982ec6ab3b508b96dfb367afaa71b3`
 - baseSha: `1da663a21d40ef5e309c86423a235550c79f91ff` (`rust_standalone_alpha1`)
 - recordedAt: `2026-10-12T11:49:11Z`
 
-The code commit changes only three files: `apps/desktop/scripts/build-runtime.mjs`, `apps/desktop/runtime/package.json`, `apps/desktop/runtime/pnpm-lock.yaml`.
+The packaging + test surface is **4 files**: `apps/desktop/scripts/build-runtime.mjs`, `apps/desktop/runtime/package.json`, `apps/desktop/runtime/pnpm-lock.yaml`, `apps/desktop/scripts/ui-server-runtime-imports.test.mjs`.
 
 ## Root cause
 
@@ -20,7 +19,7 @@ The code commit changes only three files: `apps/desktop/scripts/build-runtime.mj
 | `verifyRuntimePackageManifest` using 1da663a2 `runtime/package.json` + base mapper | control | **1** |
 | `verifyRuntimePackageManifest` after the fix | after | **0** |
 | `pnpm --dir apps/desktop/runtime install --frozen-lockfile --ignore-workspace` (D5) | after | **0** |
-| `pnpm --filter pilotdeck-desktop test` | after | **0** (148 pass / 0 fail / 1 skip) |
+| `pnpm --filter pilotdeck-desktop test` | after | **0** |
 | `node apps/desktop/scripts/build-runtime.mjs` default path, non-rust | after | **0** |
 | `git diff 1da663a2 -- .github/workflows/rust-hello.yml` (D5) | after | **0**, empty |
 
@@ -36,11 +35,9 @@ CI on the previous Desktop lineage (run `38198749065`, Linux DEB x64) failed at 
 
 ## D3 — SDK is real built files
 
-Raw command transcripts: `verify-manifest.base.txt`, `verify-manifest.after.txt`, `desktop-tests.after.txt`, `runtime-frozen-lockfile.txt`, `build-runtime.after.excerpt.txt`, `rust-hello-untouched.txt`, `d3-sdk-not-symlink.txt`.
+After the default runtime build (transcripts archived, F-7):
 
-See `d3-sdk-not-symlink.txt`. After the default runtime build:
-
-- `apps/desktop/.runtime/app/node_modules/@pilotdeck/sdk` is a **directory**, not a symlink (`readlink: not a symlink`, `stat type=directory`).
+- `apps/desktop/.runtime/app/node_modules/@pilotdeck/sdk` is a **directory**, not a symlink.
 - Built output is present: `dist/index.js` and the rest of `packages/sdk` `dist/*.js`.
 - `verifyRuntime` also asserts this path exists and is not a symlink, then imports `dist/src/cli/pilotdeck.js`.
 
@@ -48,8 +45,8 @@ See `d3-sdk-not-symlink.txt`. After the default runtime build:
 
 - Code commit does not include `.github/workflows/rust-hello.yml`.
 - `git diff 1da663a2 -- .github/workflows/rust-hello.yml` is empty.
-- Rust hello on this SHA already succeeded: https://github.com/Eveosev/PilotDeck/actions/runs/38244573407
+- Rust hello on the first evidence SHA succeeded: https://github.com/Eveosev/PilotDeck/actions/runs/38244573407
 
 ## Remaining CI red lights (not this bug)
 
-Web Regression on `rust_standalone_alpha1` already fails in `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` (`updateAndRestart` button role). That is a pre-existing UI test, outside desktop packaging scope.
+Tracked as **CI-3**: Web Regression on `rust_standalone_alpha1` already fails in `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` (`updateAndRestart` button role). That is a pre-existing UI test, outside desktop packaging scope.
