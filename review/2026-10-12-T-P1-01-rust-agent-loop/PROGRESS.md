@@ -138,3 +138,14 @@ Author mutations (temp patches, not committed). Collection gitSha: `5278f3cdecdc
 | clippy crate | `cargo clippy -p pilotdeck-agent-loop --all-targets -- -D warnings` | **0** | `88a569d35bd42131d36417ebe64e9bdaa0de810acd070571a9871e8b87e33eb0` |
 | F4a (delete mid-execute deadline check) | `cargo test -p pilotdeck-agent-loop --lib runtime_deadline_during_stub_sleep` | **101** (slept 505ms → completed) | `08208204b9af34592fcf1d9f06ddaf3641405212a76818c98e646a3aa4c43a31` |
 | F4b (Z-only `parse_iso_ms`) | `cargo test -p pilotdeck-agent-loop --lib expired_offset_iso_deadline` | **101** (`ok: true`, deadline ignored) | `7548f393cd506feffe1d5a2a5b92bbe0bcf45b378a3ed02eef8fd69716591087` |
+
+## 2026-10-12 Round-2 R2-1 / R2-2
+
+Reviewer @fce2463c: **conditional_pass**. F-4 closed; F-5 still PR-B. This follow-up only adds deadline lock tests (no F-5 product change).
+
+New tests (R2-1, analyst+QA):
+- `sidecar::tests::future_deadline_completes_when_not_expired`
+- `sidecar::tests::attempt_deadline_during_stub_sleep_is_result_unknown`
+- `sidecar::tests::earliest_deadline_uses_sooner_of_operation_and_attempt`
+
+Author mutations S1–S3 + F4a/F4b and evidence regen land in the next commits after this code tip.

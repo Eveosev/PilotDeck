@@ -52,3 +52,9 @@ resume/ack；真实模型调用（P3）；T-P1-02 harness；性能测量（T-P1-
   - 验收：`operationDeadline = now+100ms` + `delayMs = 500` → Rust 必须 `result_unknown`/`DEADLINE_EXCEEDED`，不能 `completed`。
   - `parse_iso_ms` 认 `Z`、`+00:00`/`+08:00` 等 `±HH:MM`，以及 Date.parse 能认的无后缀时间。已过期带偏移时间必须当已过期 deadline，不能当“没有 deadline”。
 - **F-5：显式延至 PR-B**，列为 **B4 前置必过项**（stub final payload 补 `sessionId`/`turnId`；cancelled 给出 `type:"aborted"` shape）。**本轮代码不改 F-5。**
+
+## 2026-10-12 Round-2 Reviewer（@fce2463c，conditional_pass）
+
+- F-4 closed。F-5 仍延 PR-B，本轮不改。
+- R2-1（挡 ready）：补 future-deadline→completed、attemptDeadline 运行期到期、两者取 earliest（更早的那个到期即超时）。
+- R2-2：在代码 tip 重生 `evidence/t-p1-01/`，`provenance.gitSha` = 收集时的代码 tip。

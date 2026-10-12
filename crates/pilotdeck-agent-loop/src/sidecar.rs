@@ -1041,6 +1041,95 @@ mod tests {
     }
 
     #[test]
+    fn future_deadline_completes_when_not_expired() {
+        let (sidecar, sink) = collect();
+        let deadline = format_unix_ms(now_unix_ms() + 60_000);
+        let line = format!(
+            r#"{{"kind":"request","messageId":"ex-far","method":"execute","runId":"run-far","operationId":"op-far","requestId":"req-far","operationDeadline":"{deadline}","payload":{{"delayMs":20,"scenario":"pure_text"}}}}"#
+        );
+        sidecar.handle_line(&line);
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        assert_eq!(terminal["outcome"], "completed");
+        assert_eq!(terminal["eventType"], "agent.execute.completed");
+        assert_ne!(terminal["outcome"], "result_unknown");
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("code") != Some(&Value::String("DEADLINE_EXCEEDED".into()))),
+            "unexpired deadline must not emit DEADLINE_EXCEEDED, have {lines:?}"
+        );
+    }
+
+    #[test]
+    fn attempt_deadline_during_stub_sleep_is_result_unknown() {
+        const DELAY_MS: u64 = 500;
+        let (sidecar, sink) = collect();
+        let deadline = format_unix_ms(now_unix_ms() + 100);
+        let line = format!(
+            r#"{{"kind":"request","messageId":"ex-ad","method":"execute","runId":"run-ad","operationId":"op-ad","requestId":"req-ad","attemptDeadline":"{deadline}","payload":{{"delayMs":500,"scenario":"pure_text"}}}}"#
+        );
+        let started = Instant::now();
+        sidecar.handle_line(&line);
+        sidecar.join();
+        let elapsed = started.elapsed();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(
+            elapsed < Duration::from_millis(DELAY_MS),
+            "attemptDeadline must beat stub delay {DELAY_MS}ms, took {elapsed:?}"
+        );
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        assert_eq!(terminal["outcome"], "result_unknown");
+        assert_eq!(terminal["eventType"], "agent.execute.result_unknown");
+        assert_eq!(terminal["code"], "DEADLINE_EXCEEDED");
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("outcome") != Some(&Value::String("completed".into()))),
+            "attemptDeadline must not complete, have {lines:?}"
+        );
+    }
+
+    #[test]
+    fn earliest_deadline_uses_sooner_of_operation_and_attempt() {
+        const DELAY_MS: u64 = 800;
+        let (sidecar, sink) = collect();
+        let later = format_unix_ms(now_unix_ms() + 5_000);
+        let sooner = format_unix_ms(now_unix_ms() + 100);
+        let line = format!(
+            r#"{{"kind":"request","messageId":"ex-min","method":"execute","runId":"run-min","operationId":"op-min","requestId":"req-min","operationDeadline":"{later}","attemptDeadline":"{sooner}","payload":{{"delayMs":800,"scenario":"pure_text"}}}}"#
+        );
+        let started = Instant::now();
+        sidecar.handle_line(&line);
+        sidecar.join();
+        let elapsed = started.elapsed();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(
+            elapsed < Duration::from_millis(DELAY_MS),
+            "earlier attemptDeadline must beat stub delay and the later operationDeadline, took {elapsed:?}"
+        );
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        assert_eq!(terminal["outcome"], "result_unknown");
+        assert_eq!(terminal["code"], "DEADLINE_EXCEEDED");
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("outcome") != Some(&Value::String("completed".into()))),
+            "min deadline must not wait for the later field, have {lines:?}"
+        );
+    }
+
+    #[test]
     fn execute_finished_run_mismatch_is_rejected() {
         let (sidecar, sink) = collect();
         sidecar.handle_line(
