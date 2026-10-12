@@ -491,7 +491,7 @@ function prunePackageSpecificFiles() {
 }
 
 function rewriteUiServerSourceImports(serverRoot) {
-  const extensions = new Set([".js"]);
+  const extensions = new Set([".js", ".mjs"]);
 
   function visit(path) {
     const stat = statSync(path);
@@ -515,40 +515,128 @@ function rewriteUiServerSourceImports(serverRoot) {
   visit(serverRoot);
 }
 
-const rustOnly = process.argv.includes("--rust-only");
-maybeBuildRustHello();
-if (rustOnly) {
-  process.exit(0);
-}
+const RELATIVE_FROM_IMPORT = /(?:\bimport\b|\bexport\b)[\s\S]*?\bfrom\s*['"](\.[^'"]+)['"]/g;
+const RELATIVE_BARE_IMPORT = /\bimport\s*['"](\.[^'"]+)['"]/g;
+const RELATIVE_DYNAMIC_IMPORT = /\bimport\s*\(\s*['"](\.[^'"]+)['"]\s*\)/g;
 
-run(process.execPath, [resolve(desktopRoot, "scripts", "download-node.mjs")], desktopRoot);
-assertBundledNodeRuntime();
-if (process.platform === "win32") {
-  run(process.execPath, [resolve(desktopRoot, "scripts", "download-git-bash.mjs")], desktopRoot);
-}
-
-if (process.env.PILOTDECK_DESKTOP_SKIP_RUNTIME_BUILD !== "1") {
-  runPnpm(["--dir", repoRoot, "run", "build"]);
-  runPnpm(
-    ["--dir", repoRoot, "--filter", "pilotdeck-ui", "run", "build"],
-    repoRoot,
-    { ...process.env, VITE_PILOTDECK_DESKTOP_BUILD: DESKTOP_BUILD },
-  );
-}
-
-const sourceRequired = [
-  resolve(repoRoot, "dist", "src", "cli", "pilotdeck.js"),
-  resolve(repoRoot, "ui", "dist", "index.html"),
-  resolve(repoRoot, "ui", "server", "index.js"),
-  resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "lib", "index.js"),
-  resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "ui-source", "index.html"),
-  resolve(repoRoot, "packages", "sdk", "dist", "index.js"),
-];
-
-for (const file of sourceRequired) {
-  if (!existsSync(file)) {
-    throw new Error(`Desktop runtime source prerequisite missing: ${file}`);
+function collectRelativeImportSpecifiers(source) {
+  const specifiers = new Set();
+  for (const pattern of [RELATIVE_FROM_IMPORT, RELATIVE_BARE_IMPORT, RELATIVE_DYNAMIC_IMPORT]) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      const specifier = match[1];
+      if (specifier) specifiers.add(specifier);
+    }
   }
+  return [...specifiers];
+}
+
+function resolveRelativeImportTarget(fromFile, specifier) {
+  const dest = resolve(dirname(fromFile), specifier);
+  const candidates = [
+    dest,
+    `${dest}.js`,
+    `${dest}.mjs`,
+    resolve(dest, "index.js"),
+    resolve(dest, "index.mjs"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function listRuntimeModuleFiles(root, extensions) {
+  const files = [];
+  function visit(path) {
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      for (const entry of cpSafeReadDir(path)) {
+        visit(resolve(path, entry));
+      }
+      return;
+    }
+    if (extensions.has(path.slice(path.lastIndexOf(".")))) {
+      files.push(path);
+    }
+  }
+  if (existsSync(root)) visit(root);
+  return files;
+}
+
+function verifyRuntimeUiServerRelativeImports(root, label = "runtime") {
+  const serverRoot = resolve(root, "ui", "server");
+  const entries = listRuntimeModuleFiles(serverRoot, new Set([".js", ".mjs"]));
+  const missing = [];
+  const seen = new Set();
+  const queue = [...entries];
+
+  while (queue.length > 0) {
+    const file = queue.pop();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    let source;
+    try {
+      source = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    for (const specifier of collectRelativeImportSpecifiers(source)) {
+      const resolved = resolveRelativeImportTarget(file, specifier);
+      if (!resolved) {
+        const targetName = specifier.split("/").pop() || specifier;
+        missing.push(
+          `${targetName} imported as ${specifier} from ${relative(root, file).replaceAll("\\", "/")}`,
+        );
+        continue;
+      }
+      if (!seen.has(resolved)) queue.push(resolved);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Desktop ${label} missing relative import target:\n${missing.sort().join("\n")}`,
+    );
+  }
+}
+
+function runDesktopRuntimeBuild() {
+  const rustOnly = process.argv.includes("--rust-only");
+  maybeBuildRustHello();
+  if (rustOnly) {
+    process.exit(0);
+  }
+
+  run(process.execPath, [resolve(desktopRoot, "scripts", "download-node.mjs")], desktopRoot);
+  assertBundledNodeRuntime();
+  if (process.platform === "win32") {
+    run(process.execPath, [resolve(desktopRoot, "scripts", "download-git-bash.mjs")], desktopRoot);
+  }
+
+  if (process.env.PILOTDECK_DESKTOP_SKIP_RUNTIME_BUILD !== "1") {
+    runPnpm(["--dir", repoRoot, "run", "build"]);
+    runPnpm(
+      ["--dir", repoRoot, "--filter", "pilotdeck-ui", "run", "build"],
+      repoRoot,
+      { ...process.env, VITE_PILOTDECK_DESKTOP_BUILD: DESKTOP_BUILD },
+    );
+  }
+
+  const sourceRequired = [
+    resolve(repoRoot, "dist", "src", "cli", "pilotdeck.js"),
+    resolve(repoRoot, "ui", "dist", "index.html"),
+    resolve(repoRoot, "ui", "server", "index.js"),
+    resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "lib", "index.js"),
+    resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "ui-source", "index.html"),
+    resolve(repoRoot, "packages", "sdk", "dist", "index.js"),
+  ];
+
+  for (const file of sourceRequired) {
+    if (!existsSync(file)) {
+      throw new Error(`Desktop runtime source prerequisite missing: ${file}`);
+    }
+  }
+
+  stageRuntime(defaultRuntimeRoot, process.env, { runtimeArch: targetRuntimeArch });
+  verifyRuntime(defaultRuntimeRoot, "runtime", targetRuntimeArch);
 }
 
 function stageRuntime(root, env = process.env, options = {}) {
@@ -606,6 +694,7 @@ function verifyRuntime(root, label = "runtime", runtimeArch = targetRuntimeArch)
     throw new Error(`Desktop ${label} should not include tsx: ${resolve(runtimeRoot, "node_modules", "tsx")}`);
   }
 
+  verifyRuntimeUiServerRelativeImports(runtimeRoot, label);
   verifyRuntimeNativeModule("better-sqlite3", label, runtimeArch);
   verifyRuntimeModuleImport(resolve(runtimeRoot, "dist", "src", "cli", "pilotdeck.js"), label, runtimeArch);
   verifyRuntimeModuleImport(resolve(runtimeRoot, "ui", "server", "services", "spreadsheetPreview.js"), label, runtimeArch);
@@ -669,5 +758,17 @@ function verifyRuntimeNativeModule(moduleName, label, runtimeArch) {
   }
 }
 
-stageRuntime(defaultRuntimeRoot, process.env, { runtimeArch: targetRuntimeArch });
-verifyRuntime(defaultRuntimeRoot, "runtime", targetRuntimeArch);
+export {
+  collectRelativeImportSpecifiers,
+  rewriteUiServerSourceImports,
+  verifyRuntimeUiServerRelativeImports,
+};
+
+function isExecutedAsMain() {
+  const entry = process.argv[1];
+  return Boolean(entry) && fileURLToPath(import.meta.url) === resolve(entry);
+}
+
+if (isExecutedAsMain()) {
+  runDesktopRuntimeBuild();
+}
