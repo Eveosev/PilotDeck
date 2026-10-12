@@ -7,15 +7,15 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   AJV_VERSION,
   JSON_SCHEMA_DRAFT,
+  PROTOCOL_PATH,
   PROTOCOL_REL,
   ROOT,
   SCHEMA_PATH,
   SCHEMA_REL,
-  assertCleanTree,
   buildModuleProtocolSchema,
   compileSchema,
   decisionOf,
@@ -39,7 +39,7 @@ if (!process.execArgv.some((flag) => flag.includes("strip-types"))) {
   process.exit(replayed.status ?? 1);
 }
 
-const { validateModuleMessage } = await import(new URL("../../src/agent/modules/protocol.ts", import.meta.url).href);
+const { validateModuleMessage } = await import(pathToFileURL(PROTOCOL_PATH).href);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const negativePath = resolve(ROOT, "evidence/schema/fixtures/negative-samples.json");
