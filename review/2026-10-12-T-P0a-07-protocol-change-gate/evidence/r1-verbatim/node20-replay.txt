@@ -1,0 +1,2 @@
+Running node v20.20.2 (npm v10.8.2)
+/home/ubuntu/.nvm/versions/node/v20.20.2/bin/node: bad option: --experimental-strip-types

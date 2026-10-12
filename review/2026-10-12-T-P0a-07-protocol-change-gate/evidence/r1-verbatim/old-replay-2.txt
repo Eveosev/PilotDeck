@@ -1,0 +1,1 @@
+replay-module-protocol-schema requires a clean git tree so evidence can record gitDirty=false
