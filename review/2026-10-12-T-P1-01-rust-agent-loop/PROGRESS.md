@@ -117,4 +117,24 @@ Collection gitSha: `090c9f873959da26a61ef9aead3297b4aa2804ea`
 | V1 (sequence 0→99 on first event) | `mask_f3.sh --committed /tmp/f3-v1.json` | **1** | `94f6c083e030cd9bfbe750402351ea7073f4e797d3636b428cb301f57eb0598c` |
 | V2 (drop last message) | `mask_f3.sh --committed /tmp/f3-v2.json` | **1** | `225acedd3e73e8cd746bed7fd842241167eb2945ef27a807dcaed5d7549ee59e` |
 
-F-4 / F-5 not touched.
+F-4 / F-5 were still pending when this mask commit landed.
+
+## 2026-10-12 F-4 (Payne: PR-A this round)
+
+Code: `sleep_cancellable` / `runtime_deadline_exceeded` poll `operationDeadline`+`attemptDeadline` during stub sleep; `parse_iso_ms` accepts `Z`, `±HH:MM`, unsuffixed. **F-5 not changed** (no `sessionId`/`turnId` / aborted shape).
+
+New tests:
+- `sidecar::tests::runtime_deadline_during_stub_sleep_is_result_unknown`
+- `sidecar::tests::expired_offset_iso_deadline_is_rejected_not_ignored`
+- `time::tests::parse_iso_ms_accepts_z_offsets_and_unsuffixed`
+
+`cargo test --workspace -- --test-threads=1`: **35 passed / 0 failed** (lib 22, lock 5, roundtrip 2, sidecar_stdio 6). clippy `-p pilotdeck-agent-loop --all-targets -- -D warnings`: exit 0.
+
+Author mutations (temp patches, not committed). Collection gitSha: `5278f3cdecdc01bfc2c46ca2bfb0b55bb91f8300` (plus the `parse_hhmm_offset` `u32` annotation used when running).
+
+| run | command | exit | output sha256 |
+|---|---|---:|---|
+| cargo test --workspace | `cargo test --workspace -- --test-threads=1` | **0** | `53772bd0969eaa0c821c0245634d0ab2bc17526a1cb7b120b86071e9f7da46b8` |
+| clippy crate | `cargo clippy -p pilotdeck-agent-loop --all-targets -- -D warnings` | **0** | `88a569d35bd42131d36417ebe64e9bdaa0de810acd070571a9871e8b87e33eb0` |
+| F4a (delete mid-execute deadline check) | `cargo test -p pilotdeck-agent-loop --lib runtime_deadline_during_stub_sleep` | **101** (slept 505ms → completed) | `08208204b9af34592fcf1d9f06ddaf3641405212a76818c98e646a3aa4c43a31` |
+| F4b (Z-only `parse_iso_ms`) | `cargo test -p pilotdeck-agent-loop --lib expired_offset_iso_deadline` | **101** (`ok: true`, deadline ignored) | `7548f393cd506feffe1d5a2a5b92bbe0bcf45b378a3ed02eef8fd69716591087` |

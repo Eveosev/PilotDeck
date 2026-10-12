@@ -52,7 +52,7 @@ fn split_iso_offset(value: &str) -> Option<(&str, i64)> {
 }
 
 fn parse_hhmm_offset(offset: &str) -> Option<i64> {
-    let (hour, minute) = if let Some((hour, minute)) = offset.split_once(':') {
+    let (hour, minute): (u32, u32) = if let Some((hour, minute)) = offset.split_once(':') {
         (hour.parse().ok()?, minute.parse().ok()?)
     } else if offset.len() == 4 && offset.bytes().all(|b| b.is_ascii_digit()) {
         (offset[..2].parse().ok()?, offset[2..].parse().ok()?)
