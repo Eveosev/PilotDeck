@@ -489,7 +489,7 @@ PilotDeck has an open plugin architecture with a strict boundary between the ope
 
 Thanks to everyone who has contributed code, feedback, and ideas. New contributors are warmly welcome — let's build the next-gen agent OS together.
 
-Workflow: **Fork → feature branch → PR**. See [CONTRIBUTING.md](CONTRIBUTING.md). PRs that touch Module Protocol trigger paths (`protocol.ts`, schema scripts, fixtures, or `tools/agent-loop-parity/{run.py,scenarios.json}`) must follow the [Module Protocol sync gate](evidence/protocol-sync-gate.md).
+Workflow: **Fork → feature branch → PR**. See [CONTRIBUTING.md](CONTRIBUTING.md). PRs that touch Module Protocol trigger paths (full list in CONTRIBUTING / the [Module Protocol sync gate](evidence/protocol-sync-gate.md); the two lists must stay identical) must follow that gate.
 
 ---
 

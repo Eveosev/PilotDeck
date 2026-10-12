@@ -2,7 +2,7 @@
 
 - 任务：T-P0a-07（文档先行，**不做 CI / git hook**）
 - 基线：`rust_standalone_alpha1@1da663a2`
-- **前提：Node >= 22**（`node -v` 主版本 ≥ 22）。1a / generate 只 `readFileSync` `protocol.ts`，**不要**给它们加 `--experimental-strip-types`。replay 脚本会自己用该 flag 再 exec 一次；Node 20 会 `bad option` 并以 **exit 9** 退出。
+- **前提：Node 22**（`package.json` engines `>=22.13.0 <23`；`.nvmrc` 为 `v22`）。1a / generate 只 `readFileSync` `protocol.ts`，**不要**给它们加 `--experimental-strip-types`。replay 脚本会自己用该 flag 再 exec 一次；**Node < 22.6**（含 Node 20 与 22.0–22.5）会 `bad option` 并以 **exit 9** 退出。
 - 依赖：仓库根 `pnpm install`（ajv 8.20.0）。
 - 原则：**同步，不冻结**。触发文件（见下）可以改，但必须在**同一 PR** 内把 schema / replay / 样本 / parity / Rust adapter（自 T-P1-01 起）/ 版本评估 / 干净树证据一起落地。
 - Schema 口径（R2-3）：**hand-mapped + source anchors + replay**，不是从 TypeScript 类型自动推导。生成器只从源码抽取版本常量、`MODULE_CALL_TARGETS`、`isOutcome` 枚举，并断言若干 `validateModuleMessage` 锚点。
@@ -20,16 +20,24 @@ scripts/generate-module-protocol-schema.mjs
 scripts/replay-module-protocol-schema.mjs
 evidence/schema/fixtures/negative-samples.json
 evidence/schema/fixtures/edge-samples.json
+evidence/schema/module-protocol.schema.json
+evidence/schema/replay-report.json
+evidence/schema/replay-report.md
+evidence/protocol-sync-gate.md
 tools/agent-loop-parity/run.py
 tools/agent-loop-parity/scenarios.json
+package.json
+pnpm-lock.yaml
 ```
+
+`package.json` / `pnpm-lock.yaml` 列入列表，是因为 lib 把 `ajv` 版本写进 schema；只升级 ajv 也会让 1a 变成 stale。`docs/pilotdeck-module-protocol-v2.schema.json` 是手写 profile，**不**在本列表（改它不单独触发 generate/replay）。本列表与 [CONTRIBUTING.md](../CONTRIBUTING.md) **必须逐字相同**。
 
 ## 适用范围
 
 | 改动 | 是否走本门禁 |
 | --- | --- |
 | `src/agent/modules/protocol.ts`（契约或校验） | 是（检查 1–7） |
-| 上表其余触发路径（手写映射、generate/replay、fixtures、parity runner/场景表） | 是（检查 1–3、7；4/5/6 可 N/A，除非改了运行时 accept/reject 或版本） |
+| 上表其余触发路径（手写映射、generate/replay、fixtures、schema 产物、replay 报告、本文件、parity runner/场景表、`package.json` / lock） | 是（检查 1–3、7；4/5/6 可 N/A，除非改了运行时 accept/reject 或版本） |
 | `crates/` Rust adapter（T-P1-01 起） | 是（检查 5）；须与协议改动同 PR |
 | 仅更新 `evidence/schema/module-protocol.schema.json` / replay 报告 / 本文件 | 按对应检查执行；不强制 live parity |
 | 未改触发路径、也未改 `crates/` 协议处理的普通功能 PR | 否 |
@@ -41,7 +49,7 @@ tools/agent-loop-parity/scenarios.json
 | **0** | 通过 | generate、replay、1a（schema-current）、`git diff --exit-code`、cargo、parity runner |
 | **1** | 未通过（schema-stale / acceptance failed / summary 不是 53） | 1a、replay、检查 2/3/7 的 python 断言、parity |
 | **2** | 脏树拒绝 | generate、replay（`git status --porcelain` 非空） |
-| **9** | Node < 22：`--experimental-strip-types` 为未知选项 | **仅 replay**（及其自再 exec）。1a / generate 无此 flag，Node 20 不会因该选项退出 9 |
+| **9** | Node < 22.6：`--experimental-strip-types` 为未知选项 | **仅 replay**（及其自再 exec）。1a / generate 无此 flag，不会因该选项退出 9 |
 
 ## 前置：干净树
 
@@ -55,7 +63,7 @@ git rev-parse HEAD
 
 | 项 | 期望 |
 | --- | --- |
-| `node -v` | `v22.*` 或更高 |
+| `node -v` | Node 22（engines `>=22.13.0 <23`） |
 | `git status --porcelain` | 空（无输出） |
 | exit | 0 |
 
@@ -65,7 +73,9 @@ git rev-parse HEAD
 
 每条都给出：**精确命令**、**期望输出 / 退出码**、**证据路径**。
 
-检查 **2、3、7 共用一次 replay**。replay **会改写** 已跟踪的 `evidence/schema/replay-report.json` 与 `replay-report.md`（`gitSha` 变成当前 HEAD）。若按「检查 2 跑一遍、检查 3 再跑一遍、检查 7 再跑一遍」，第二次起树已脏，replay **exit 2**。官方顺序：replay **一次** → 报告拷到临时目录 → **立刻 restore** 跟踪文件 → 2/3/7 只读临时副本。下面「一次 replay + restore」必须按原文连跑，树保持干净。
+检查 **2、3、7 共用一次 replay**。replay **会改写** 已跟踪的 `evidence/schema/replay-report.json` 与 `replay-report.md`（`gitSha` 变成当前 HEAD）。若按「检查 2 跑一遍、检查 3 再跑一遍、检查 7 再跑一遍」，第二次起树已脏，replay **exit 2**。官方顺序：replay **一次** → 记下 `replay_exit` → 报告拷到临时目录 → **立刻 restore** 跟踪文件 → 若 `replay_exit != 0` 则带着该码退出 → 否则 2/3/7 只读临时副本。
+
+**执行方式（与 CONTRIBUTING 相同，两处必须一起改）**：把命令块存成文件，用 **`bash -e <file>`** 从仓库根执行。不要逐行粘进交互式 zsh（默认未开 `interactivecomments`，`# …` 会报 `command not found: #`；若必须粘贴，先 `setopt interactivecomments`）。下面「一次 replay + restore」必须按原文连跑；restore 在失败路径也会执行，成功路径上树保持干净。
 
 ### 1. Schema 重生 + 二次生成 diff 为空
 
@@ -99,7 +109,7 @@ console.log("PASS schema-current");
 | --- | --- |
 | 可抽取契约已改、尚未 regen | **FAIL schema-stale**，exit **1** |
 | 已 regen 并提交 schema | **PASS schema-current**，exit **0** |
-| 锚点 / 枚举漂移（`extractProtocolContract` throw） | **FAIL**，exit **1**，stderr 未捕获异常，形如 `Error: validateModuleMessage lost …` / `… drifted …` / `MODULE_CALL_TARGETS is unexpectedly short` / `protocol.ts lost …`。视为检查失败，按局限 F-5 同步 `scripts/lib/module-protocol-schema.mjs` 映射后再 regen。不要当成环境故障。 |
+| 锚点 / 枚举漂移（`extractProtocolContract` throw） | **FAIL**，exit **1**，stderr 未捕获异常。完整形态：`Error: protocol.ts is missing …`（如 `protocol.ts is missing MODULE_PROTOCOL_VERSION`）/ `Error: protocol.ts is missing function …`（如 `protocol.ts is missing function validateModuleMessage`）/ `Error: protocol.ts function … is not closed`（如 `protocol.ts function validateModuleMessage is not closed`）/ `Error: validateModuleMessage lost …` / `… drifted …` / `MODULE_CALL_TARGETS is unexpectedly short` / `protocol.ts lost …`。任何未捕获 `Error:` 都视为检查失败，按局限 F-5 同步 `scripts/lib/module-protocol-schema.mjs` 映射后再 regen。不要当成环境故障。 |
 | 证据 | 命令 stdout / stderr；PR 内 `git diff -- evidence/schema/module-protocol.schema.json` |
 
 类型上新增 optional 字段、或只改 `validateModuleMessage` 里未被抽取/锚定的规则时，1a 可能仍 PASS。这是已知局限 **F-5**（手写映射），不能单靠本条放行。
@@ -116,7 +126,7 @@ git diff -- evidence/schema/module-protocol.schema.json
 | exit（generate） | **0** |
 | stdout | `generated evidence/schema/module-protocol.schema.json from src/agent/modules/protocol.ts` 以及 `protocolVersion=…` / `capabilitiesVersion=capabilitiesVersion` / `notContract=storageConfigVersion` |
 | 脏树 | exit **2**，stderr 含 `dirty`（generate 只对 `assertCleanTree` catch → 2） |
-| 锚点 / 枚举漂移 | exit **1**，stderr 未捕获 `Error: … lost …` / `… drifted …`（与 1a 同形）。视为 FAIL，同步 lib 映射后再 regen。 |
+| 锚点 / 枚举漂移 | exit **1**，stderr 未捕获（与 1a 同形）：`Error: protocol.ts is missing …` / `Error: protocol.ts is missing function …` / `Error: protocol.ts function … is not closed` / `Error: … lost …` / `… drifted …` / `MODULE_CALL_TARGETS is unexpectedly short` / `protocol.ts lost …`。视为 FAIL，同步 lib 映射后再 regen。 |
 | 契约可抽取变化 | `git diff` **非空**；把新 schema 纳入同一 PR |
 | 无契约抽取变化 | `git diff` 空；用检查 2 抓 validator 漂移 |
 | 证据 | `evidence/schema/module-protocol.schema.json`；如 profile 受影响则还有 `docs/pilotdeck-module-protocol-v2.schema.json` |
@@ -146,16 +156,18 @@ git diff --exit-code -- evidence/schema/module-protocol.schema.json
 set -o pipefail
 export PROTOCOL_REPLAY_OUT="${PROTOCOL_REPLAY_OUT:-/tmp/protocol-sync-replay}"
 mkdir -p "$PROTOCOL_REPLAY_OUT"
-node scripts/replay-module-protocol-schema.mjs | tee "$PROTOCOL_REPLAY_OUT/stdout.txt"
+replay_exit=0
+node scripts/replay-module-protocol-schema.mjs | tee "$PROTOCOL_REPLAY_OUT/stdout.txt" || replay_exit=$?
 cp evidence/schema/replay-report.json "$PROTOCOL_REPLAY_OUT/replay-report.json"
 cp evidence/schema/replay-report.md "$PROTOCOL_REPLAY_OUT/replay-report.md"
 git checkout -- evidence/schema/replay-report.json evidence/schema/replay-report.md
 test -z "$(git status --porcelain)"
+if [ "$replay_exit" -ne 0 ]; then exit "$replay_exit"; fi
 ```
 
 | 项 | 期望 |
 | --- | --- |
-| replay exit | **0**（失败 **1**；脏树 **2**；Node 20 **9**） |
+| replay exit | **0**（失败 **1**；脏树 **2**；Node < 22.6 **9**）。先 restore，再 `exit "$replay_exit"`。 |
 | `tee` 里的 JSON | `A1.ok === true`；`A2.expressibleMismatches === 0`；`A3.allRejectedByBoth === true`；`A3.loosened === "FAIL"` |
 | restore 后 `git status --porcelain` | 空 |
 | 证据 | `$PROTOCOL_REPLAY_OUT/replay-report.json`、`$PROTOCOL_REPLAY_OUT/replay-report.md`、`$PROTOCOL_REPLAY_OUT/stdout.txt` |
@@ -233,10 +245,13 @@ sys.exit(0 if ok else 1)'
 
 ### 4. Parity：相关场景复跑
 
-`protocol.ts` 或 `tools/agent-loop-parity/{run.py,scenarios.json}` 改变运行时 accept/reject、消息形状或场景集时，复跑 gateway sidecar 对拍（产品默认 transport 仍是 native；本命令只跑对拍）。需要已能 `pnpm build` 的 Node >= 22 环境，**不**依赖 nvm。
+`protocol.ts` 或 `tools/agent-loop-parity/{run.py,scenarios.json}` 改变运行时 accept/reject、消息形状或场景集时，复跑 gateway sidecar 对拍（产品默认 transport 仍是 native；本命令只跑对拍）。需要已能 `pnpm build` 的 Node 22（engines `>=22.13.0 <23`）环境，**不**依赖 nvm。
+
+用 `bash` 执行本段，或保持下面的 `( … )` 子 shell，避免交互粘贴时末尾 `exit` 关掉当前终端。`pnpm build` 失败时以 **exit 2** 结束，不再往下跑 runner。
 
 ```bash
-pnpm build
+(
+pnpm build || exit 2
 python3 tools/agent-loop-parity/run.py \
   --pilotdeck-root "$PWD" \
   --comparison same-version \
@@ -256,6 +271,7 @@ sys.exit(0 if ok else 1)'
 summary_exit=$?
 if [ "$runner_exit" -ne 0 ]; then exit "$runner_exit"; fi
 exit "$summary_exit"
+)
 ```
 
 整段只用 `python3`（不要混用 `python`）。`run.py` 在 failed/blocked 时仍可能写出 `scenarios=53` 的 summary，所以**必须以 `runner_exit` 为准**；summary 再排除 `blocked` / `failed` / `oracleFailures`。
@@ -369,7 +385,7 @@ sys.exit(0 if r["gitSha"]==head and r["gitDirty"] is False else 1)'
 
 ## Contributing
 
-完整片段与**可复制命令块**见仓库根 [CONTRIBUTING.md](../CONTRIBUTING.md)。触及触发路径的 PR 必须按本页 1–7 执行，并在 PR 正文逐项打勾或写 N/A 理由。
+完整片段与**可复制命令块**见仓库根 [CONTRIBUTING.md](../CONTRIBUTING.md)。**本页与 CONTRIBUTING 的命令块 / 触发路径列表必须同步修改**；以 CONTRIBUTING 为准（QA 原文连跑的对象是 CONTRIBUTING）。日后 CI 可以把命令块抽成脚本后再收敛为一份。触及触发路径的 PR 必须按本页 1–7 执行，并在 PR 正文逐项打勾或写 N/A 理由。
 
 ---
 
@@ -393,4 +409,4 @@ PR#5：`pilotdeck-rust/T-P0a-01-protocol-schema`，合入 `1da663a2`。该 PR **
 
 ## 本任务空跑（文档 PR 自身）
 
-本 PR 不改 `src/`、不改 CI、不改依赖。对**本 PR 树**按 CONTRIBUTING 命令块连跑 1a / 1c / 一次 replay / 2 / 3 / 5 / 6 / 7，树须保持干净。检查 4 按 PR#5 口径记 N/A。G2/G3 空跑日志在 `review/2026-10-12-T-P0a-07-protocol-change-gate/evidence/`。
+本 PR 不改 `src/`、不改 CI、不改依赖。对**本 PR 树**按 CONTRIBUTING 命令块（`bash -e`）连跑 1a / 1c / 一次 replay / 2 / 3 / 5 / 6 / 7，树须保持干净。检查 4 按 PR#5 口径记 N/A。G2/G3 / 原文连跑日志见 `review/2026-10-12-T-P0a-07-protocol-change-gate/PROGRESS.md` 清单与 PR artifacts（F-7 删除 `review/**/evidence/` 原始日志后以该清单为准）。

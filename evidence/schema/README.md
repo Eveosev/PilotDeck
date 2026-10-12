@@ -41,9 +41,10 @@ and per-source totals.
 
 ## Commands
 
-Requires **Node >= 22** and a clean tree. Official protocol-change sequence
-(including restore after replay) is the copy-paste block in
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md). Probe only:
+Requires **Node 22** (engines `>=22.13.0 <23`) and a clean tree. Official
+protocol-change sequence is the CONTRIBUTING copy-paste block, run with
+**`bash -e <file>`** (restore after replay, then `exit "$replay_exit"`).
+Probe only:
 
 ```bash
 node scripts/generate-module-protocol-schema.mjs
@@ -58,4 +59,4 @@ control that must FAIL (every conditional rule). It rewrites
 `replay-report.json` / `.md`; copy them out and
 `git checkout --` those two files before any second official command.
 Do not add `--experimental-strip-types` to generate; replay re-execs itself
-(Node 20 → exit 9).
+(Node < 22.6 → exit 9).
