@@ -909,6 +909,7 @@ mod tests {
             |lines| lines.iter().any(|m| m["inReplyTo"] == "ex-slow"),
             500,
         );
+        thread::sleep(Duration::from_millis(50));
         let started = Instant::now();
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"cancel-1","method":"cancel","runId":"run-c","operationId":"op-c","requestId":"req-c","reason":"user_cancelled"}"#,
@@ -934,6 +935,7 @@ mod tests {
             |lines| lines.iter().any(|m| m["inReplyTo"] == "ex-t"),
             500,
         );
+        thread::sleep(Duration::from_millis(50));
         let started = Instant::now();
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"cancel-t","method":"cancel","runId":"run-t","operationId":"op-t","requestId":"req-t","reason":"timeout:run-t"}"#,

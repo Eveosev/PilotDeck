@@ -189,6 +189,7 @@ fn s2_cancel_status_and_explicit_resume_ack_reject() {
         "method": "status",
         "requestId": "req-c"
     }));
+    std::thread::sleep(Duration::from_millis(50));
     let started = Instant::now();
     sidecar.send_json(&json!({
         "kind": "request",
