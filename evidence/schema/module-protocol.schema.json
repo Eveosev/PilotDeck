@@ -1,0 +1,598 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pilotdeck.dev/schema/module-protocol.schema.json",
+  "title": "PilotDeck agent-loop ↔ sidecar Module Protocol",
+  "description": "Generated from src/agent/modules/protocol.ts validateModuleMessage only. JSON Schema draft 2020-12; additionalProperties true on message and payload (empirically matching the validator). Contract versions: protocolVersion and capabilitiesVersion. storageConfigVersion is not a contract version.",
+  "type": "object",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/executeRequest"
+    },
+    {
+      "$ref": "#/$defs/moduleCallRequest"
+    },
+    {
+      "$ref": "#/$defs/cancelRequest"
+    },
+    {
+      "$ref": "#/$defs/statusRequest"
+    },
+    {
+      "$ref": "#/$defs/resumeRequest"
+    },
+    {
+      "$ref": "#/$defs/ackRequest"
+    },
+    {
+      "$ref": "#/$defs/handshakeRequest"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/error"
+    }
+  ],
+  "x-pilotdeck": {
+    "generatedFrom": "src/agent/modules/protocol.ts",
+    "jsonSchemaDraft": "2020-12",
+    "ajv": "8.20.0",
+    "additionalProperties": true,
+    "contractVersions": {
+      "protocolVersion": "2.0",
+      "capabilitiesVersion": "capabilitiesVersion"
+    },
+    "notContractVersions": [
+      "storageConfigVersion"
+    ]
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "cancelled",
+        "result_unknown"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "resumeSequence": {
+      "type": "integer",
+      "minimum": -1
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "moduleInstanceId",
+        "connectionGeneration"
+      ],
+      "properties": {
+        "moduleInstanceId": {
+          "$ref": "#/$defs/id"
+        },
+        "connectionGeneration": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "retryability": {
+      "type": "string",
+      "enum": [
+        "safe",
+        "unsafe",
+        "retry_after_status"
+      ]
+    },
+    "executeRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "runId",
+        "operationId",
+        "requestId",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "execute"
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "operationId": {
+          "$ref": "#/$defs/id"
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operationDeadline": {
+          "type": "string"
+        },
+        "attemptDeadline": {
+          "type": "string"
+        },
+        "attemptId": true,
+        "stepId": true
+      },
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "attemptId"
+                ],
+                "properties": {
+                  "attemptId": true
+                }
+              },
+              {
+                "required": [
+                  "stepId"
+                ],
+                "properties": {
+                  "stepId": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "moduleCallRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "runId",
+        "operationId",
+        "requestId",
+        "module",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "module_call"
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "operationId": {
+          "$ref": "#/$defs/id"
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "module": {
+          "type": "string",
+          "enum": [
+            "model",
+            "budget",
+            "turn",
+            "capability",
+            "permission",
+            "checkpoint",
+            "context",
+            "skills",
+            "knowledge",
+            "lifecycle",
+            "event"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "cancelRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "runId",
+        "operationId",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "cancel"
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "operationId": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "statusRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "requestId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "status"
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "resumeRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "streamId",
+        "previousBinding",
+        "lastAppliedSequence"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "resume"
+        },
+        "streamId": {
+          "$ref": "#/$defs/id"
+        },
+        "previousBinding": {
+          "$ref": "#/$defs/binding"
+        },
+        "lastAppliedSequence": {
+          "$ref": "#/$defs/resumeSequence"
+        }
+      }
+    },
+    "ackRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "streamId",
+        "lastAppliedSequence"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "ack"
+        },
+        "streamId": {
+          "$ref": "#/$defs/id"
+        },
+        "lastAppliedSequence": {
+          "$ref": "#/$defs/sequence"
+        }
+      }
+    },
+    "handshakeRequest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "method",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "enum": [
+            "hello",
+            "capabilities"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "inReplyTo",
+        "ok"
+      ],
+      "properties": {
+        "kind": {
+          "const": "response"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "inReplyTo": {
+          "$ref": "#/$defs/id"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "final": {
+                "const": true
+              }
+            },
+            "required": [
+              "final"
+            ]
+          },
+          "then": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "$ref": "#/$defs/outcome"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": true
+            }
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "$ref": "#/$defs/outcome"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "eventType",
+        "streamId",
+        "sequence",
+        "runId",
+        "operationId",
+        "requestId",
+        "final",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "const": "event"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "eventType": {
+          "$ref": "#/$defs/id"
+        },
+        "streamId": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence": {
+          "$ref": "#/$defs/sequence"
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "operationId": {
+          "$ref": "#/$defs/id"
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "code": {
+          "$ref": "#/$defs/id"
+        },
+        "moduleInstanceId": true,
+        "connectionGeneration": true
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "final": {
+                "const": true
+              }
+            },
+            "required": [
+              "final"
+            ]
+          },
+          "then": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "$ref": "#/$defs/outcome"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": true
+            }
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "$ref": "#/$defs/outcome"
+              }
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "moduleInstanceId"
+                ],
+                "properties": {
+                  "moduleInstanceId": true
+                }
+              },
+              {
+                "required": [
+                  "connectionGeneration"
+                ],
+                "properties": {
+                  "connectionGeneration": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "messageId",
+        "code",
+        "message",
+        "retryability"
+      ],
+      "properties": {
+        "kind": {
+          "const": "error"
+        },
+        "messageId": {
+          "$ref": "#/$defs/id"
+        },
+        "code": {
+          "$ref": "#/$defs/id"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retryability": {
+          "$ref": "#/$defs/retryability"
+        }
+      }
+    }
+  }
+}
