@@ -1,13 +1,14 @@
 {
   "task": "T-P1-01",
-  "slice": "PR-A S0-S2 follow-up gaps 4/5/6 (B4 deferred to PR-B)",
-  "gitSha": "29babbc740e6987d1430ef4085f91e16bf7bb6dc",
+  "slice": "PR-A S0-S2 Round-2 R2-1/R2-2 (F-4 closed; F-5 deferred to PR-B)",
+  "gitSha": "4daa7a082fbb4783e97033d05705a1e8f4a74c88",
+  "collectHead": "a0f5e9fe4f7a1b1b65e9bf7c87d6e92e76a4bf06",
   "gitDirty": false,
   "base": "1da663a2",
   "branch": "pilotdeck-rust/T-P1-01-agent-loop-a",
   "target": "rust_standalone_alpha1",
-  "collectedAt": "2026-10-12T13:26:46Z",
-  "toolchain": "1.83.0",
+  "collectedAt": "2026-10-12T16:58:08Z",
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
   "rustVersionCrate": "1.83",
   "rustVersionHello": "1.83",
   "ajv": "8.20.0",
@@ -19,5 +20,14 @@
   "protocol": "src/agent/modules/protocol.ts",
   "clippyAfterCargoClean": true,
   "b4TsHostE2e": "deferred-to-PR-B",
-  "note": "Collected on the clean code commit before this evidence-only child commit. First-wins mutation of parse_json_line was applied locally, recorded as FAIL, then reverted (not committed)."
+  "f5StubPayload": "deferred-to-PR-B",
+  "testCounts": {
+    "lib": 25,
+    "lock": 5,
+    "roundtrip": 2,
+    "sidecar_stdio": 6,
+    "totalPassed": 38,
+    "totalFailed": 0
+  },
+  "note": "Collected on clean tree a0f5e9fe (review-only mutation log). Crate/code tip is 4daa7a08 (R2-1 deadline lock tests). First-wins parse_json_line mutation was applied locally, recorded as FAIL, then reverted (not committed). mask_f3.sh --live emitted-messages.json exit 0."
 }

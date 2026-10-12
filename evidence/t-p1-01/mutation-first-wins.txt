@@ -1,10 +1,11 @@
 cargo test -p pilotdeck-agent-loop --lib last_wins -- --nocapture
 MUTATION: parse_json_line first-wins (uncommitted; reverted after this run)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+   Compiling pilotdeck-agent-loop v0.1.0 (/workspace/crates/pilotdeck-agent-loop)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.93s
      Running unittests src/lib.rs (target/debug/deps/pilotdeck_agent_loop-a301c6cb5e35cf23)
 
 running 1 test
-thread 'protocol::tests::execute_duplicate_keys_last_wins_like_json_parse' panicked at crates/pilotdeck-agent-loop/src/protocol.rs:474:9:
+thread 'protocol::tests::execute_duplicate_keys_last_wins_like_json_parse' panicked at crates/pilotdeck-agent-loop/src/protocol.rs:440:9:
 assertion `left == right` failed
   left: String("first")
  right: "second"
@@ -16,7 +17,7 @@ failures:
 failures:
     protocol::tests::execute_duplicate_keys_last_wins_like_json_parse
 
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
 
 error: test failed, to rerun pass `-p pilotdeck-agent-loop --lib`
 EXIT:101

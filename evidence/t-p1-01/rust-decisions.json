@@ -1,4 +1,5 @@
 {
+  "validator": "validate_module_message",
   "decisions": [
     {
       "code": "INVALID_MESSAGE",

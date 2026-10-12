@@ -1,5 +1,5 @@
 {
-  "schema": "evidence/schema/module-protocol.schema.json",
+  "schema": "/workspace/evidence/schema/module-protocol.schema.json",
   "typescriptFunction": "validateModuleMessage",
   "rustFunction": "validate_module_message",
   "ajvStrict": true,

@@ -161,3 +161,23 @@ Author mutations (temp patches, not committed). Collection gitSha: `4daa7a082fbb
 | S3 (max instead of min) | `cargo test -p pilotdeck-agent-loop --lib earliest_deadline_uses_sooner` | **101** | `109755b5aa9cd5681cbc490aad50925f960e097a035b78b11fa880de385a340f` |
 | F4a (delete mid-execute deadline check) | `cargo test -p pilotdeck-agent-loop --lib runtime_deadline_during_stub_sleep` | **101** | `5920bd4d11d2ea374ee6802a9a164ceed20083bd1d7a3f33b42ade68ae148d03` |
 | F4b (Z-only `parse_iso_ms`) | `cargo test -p pilotdeck-agent-loop --lib expired_offset_iso_deadline` | **101** | `68631f39dd172618b29e1b232c5c8f759e38c0c426d647cdd621f213623ba893` |
+
+## 2026-10-12 R2-2 evidence regen
+
+Regenerated `evidence/t-p1-01/` on clean collect head `a0f5e9fe`. **collection gitSha (code tip) = `4daa7a082fbb4783e97033d05705a1e8f4a74c88`**. `mask_f3.sh --live evidence/t-p1-01/emitted-messages.json` exit **0**. Test counts: **38/0**. F-5 unchanged. `mask_f3.sh` remains the F-7 exception; no review/ raw files added.
+
+| path | sha256 | collection gitSha |
+|---|---|---|
+| evidence/t-p1-01/base-contrast.json | `edbcaf95feee9319fd5db3d9af5a6ef0fe770dc5f2744e44f0fb6320eb1394fc` | `4daa7a08` |
+| evidence/t-p1-01/base-lock.txt | `3248b81a3b8426fd9342b69e580b1c6c914d4ee26ae0af093c0371b86daa829a` | `4daa7a08` |
+| evidence/t-p1-01/cargo-clippy.txt | `3d142d4d50beb7b60d15b3c59af3b58c895f03d63d87690d0259dea4f15acc93` | `4daa7a08` |
+| evidence/t-p1-01/cargo-test-1.txt | `fe7b15d74ea0f87b7be6cf3e55e98ec5c75a6d1419f66d8dd2ee50a565387dd3` | `4daa7a08` |
+| evidence/t-p1-01/cargo-test-2.txt | `092f36fe5c5aba6b2a0e996721d27242230a80f4fa21c8601fb8dfc31ecaac67` | `4daa7a08` |
+| evidence/t-p1-01/cargo-test.json | `5796c5eb19e5a7a2af6b6022e06fc3cad9f0193455be33a53711a69562fed8cb` | `4daa7a08` |
+| evidence/t-p1-01/emitted-messages.json | `711362be8ae5dab7aefee28b65eac0b9c9b2ac36985258c237843fbeccaef044` | `4daa7a08` |
+| evidence/t-p1-01/invalid-roundtrip.json | `3bae23614e006691b498568902d096450e9060520bf89af9ffcfe744f138e059` | `4daa7a08` |
+| evidence/t-p1-01/mutation-first-wins.txt | `67f8ff926c8b15e3f5ae6f3ebac8d763ed8dc8675eba1804b8f177b954768c25` | `4daa7a08` |
+| evidence/t-p1-01/provenance.json | `8492ecfe4317b2c210aa8a5a7dfe38d3353e207a05e881a9ab987dc20546a7c2` | `4daa7a08` |
+| evidence/t-p1-01/report.md | `ab6f11b9efb336e1086175f18a7a6c71f2aa730c8897df758a8457958a19930a` | `4daa7a08` |
+| evidence/t-p1-01/roundtrip.json | `e7c3ebbf71d0a4f3054243cc6c054f673428d0729aa80e1eee0c3afcc11f36fa` | `4daa7a08` |
+| evidence/t-p1-01/rust-decisions.json | `a5182f26dde9911f5b7bf7cd585737f0242d08978241cd52910ff827c7a2c7e8` | `4daa7a08` |

@@ -1,8 +1,9 @@
-# T-P1-01 PR-A evidence (gaps 4 / 5 / 6)
+# T-P1-01 PR-A evidence (Round-2 R2-1 / R2-2)
 
-Collected on clean code commit `29babbc740e6987d1430ef4085f91e16bf7bb6dc` (`gitDirty=false`).
+Collected on clean tree `a0f5e9fe4f7a1b1b65e9bf7c87d6e92e76a4bf06` (`gitDirty=false`).
+Code tip: `4daa7a082fbb4783e97033d05705a1e8f4a74c88` (R2-1 deadline lock tests).
 Base: `rust_standalone_alpha1@1da663a2`.
-B4 TS-host E2E: **not in this follow-up** (deferred to PR-B).
+F-4 closed. F-5 stub payload / B4 TS-host E2E: **deferred to PR-B**.
 
 ## Commands
 
@@ -10,73 +11,54 @@ B4 TS-host E2E: **not in this follow-up** (deferred to PR-B).
 cargo test --workspace -- --test-threads=1   # twice, both exit 0
 cargo clean
 cargo clippy --workspace --all-targets -- -D warnings   # exit 0; Checking pilotdeck-agent-loop
-```
-
-Gap 5 mutation (uncommitted, reverted):
-
-```
-# locally change parse_json_line to first-wins
-cargo test -p pilotdeck-agent-loop --lib last_wins -- --nocapture
-# FAIL exit 101; then git checkout -- crates/pilotdeck-agent-loop/src/protocol.rs
+T_P1_01_EMITTED_OUT=evidence/t-p1-01/emitted-messages.json \
+  cargo test -p pilotdeck-agent-loop --test roundtrip rust_emitted_messages_roundtrip_schema_and_ts
+review/2026-10-12-T-P1-01-rust-agent-loop/mask_f3.sh --live evidence/t-p1-01/emitted-messages.json
+# exit 0; 19 messages; field sets match; masked bytes identical
 ```
 
 ## Test counts
 
 | Suite | Passed | Failed |
 | --- | ---: | ---: |
-| lib (`protocol`/`sidecar`/`time`) | 18 | 0 |
+| lib (`protocol`/`sidecar`/`time`) | 25 | 0 |
 | `--test lock` | 5 | 0 |
 | `--test roundtrip` | 2 | 0 |
-| `--test sidecar_stdio` | 5 | 0 |
+| `--test sidecar_stdio` | 6 | 0 |
 | hello crate + doc-tests | 0 | 0 |
-| **total** | **30** | **0** |
+| **total** | **38** | **0** |
 
 Second `cargo test` run: same pass/fail counts. No network.
 
-Delta vs previous evidence (28): +1 `s1_execute_rejects_step_id` (Gap 4), +1 `crate_rust_version_matches_hello_msrv` (Gap 6).
+Delta vs previous evidence (30): +F-4 runtime/offset/ISO tests and +R2-1 future/attempt/min deadline tests.
 
-## Gap 4 — execute + stepId rejected (stdio)
+## R2-1 deadline locks
 
-`sidecar_stdio::s1_execute_rejects_step_id` sends a valid-looking execute with `stepId` over the real binary. Sidecar replies `kind=error`, `code=UNSUPPORTED_FIELD`. PASS.
+- `future_deadline_completes_when_not_expired` — unexpired `operationDeadline` + short `delayMs` → `completed`
+- `attempt_deadline_during_stub_sleep_is_result_unknown` — `attemptDeadline=now+100ms` + `delayMs=500` → `result_unknown` / `DEADLINE_EXCEEDED`
+- `earliest_deadline_uses_sooner_of_operation_and_attempt` — earlier of the two fields wins
 
-## Gap 5 — last-wins via `parse_json_line`
+Author mutations (uncommitted, reverted): S1/S2/S3/F4a/F4b all EXIT 101. See `review/2026-10-12-T-P1-01-rust-agent-loop/PROGRESS.md`.
 
-`execute_duplicate_keys_last_wins_like_json_parse` now calls `parse_json_line` (not a local `raw()` helper). PASS: `requestId=second`, `payload.prompt=B`.
+## Emitted corpus
 
-First-wins mutation (uncommitted): `requestId` became `"first"`; test FAILED:
+19 messages (response 9 / event 3 / error 7) including `agent.execute.completed` and `agent.execute.cancelled`. `mask_f3.sh` vs `0e60f9e4` committed sample: exit 0.
 
-```
-assertion `left == right` failed
-  left: String("first")
- right: "second"
-test protocol::tests::execute_duplicate_keys_last_wins_like_json_parse ... FAILED
-test result: FAILED. 0 passed; 1 failed
-EXIT:101
-```
+## Gap 5 first-wins mutation (uncommitted, reverted)
 
-Mutation was reverted; not in the code commit.
-
-## Gap 6 — rust-version / MSRV
-
-`crates/pilotdeck-agent-loop/Cargo.toml` already declared `rust-version = "1.83"`, matching hello and `rust-toolchain.toml` (`1.83.0`). Workspace root has no `rust-version`. **No Cargo.toml field was added or changed.** A lock test now pins the existing value so drift fails the suite.
+`parse_json_line` forced first `requestId`/`prompt`. `execute_duplicate_keys_last_wins_like_json_parse` FAILED, EXIT 101.
 
 ## Clippy
 
-`cargo clean` then `cargo clippy --workspace --all-targets -- -D warnings` shows:
-
-```
-Checking pilotdeck-agent-loop v0.1.0
-Checking pilotdeck-agent-loop-hello v0.1.0
-Finished ...
-```
+`cargo clean` then `cargo clippy --workspace --all-targets -- -D warnings` shows `Checking pilotdeck-agent-loop` and exit 0.
 
 ## Base contrast
 
-`cargo test -p pilotdeck-agent-loop --test lock` on `1da663a2`: FAIL (`package ID specification did not match any packages`). On this code SHA: PASS (5 tests).
+`cargo test -p pilotdeck-agent-loop --test lock` on `1da663a2`: FAIL (`package ID specification did not match any packages`). On code SHA `4daa7a08`: PASS (5 tests).
 
-## Scope check
+## Scope
 
 - `src/`, `package.json` / lockfile, CI: unchanged
 - `crates/pilotdeck-agent-loop-hello`: unchanged
 - Transport: stdio JSONL only (no TCP)
-- No B4 TS-host E2E (deferred to PR-B)
+- F-5 stub `sessionId`/`turnId` / aborted shape: not changed

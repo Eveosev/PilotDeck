@@ -1,5 +1,5 @@
 {
-  "schema": "evidence/schema/module-protocol.schema.json",
+  "schema": "/workspace/evidence/schema/module-protocol.schema.json",
   "typescriptFunction": "validateModuleMessage",
   "rustFunction": null,
   "ajvStrict": true,
@@ -11,8 +11,8 @@
   "schemaAccept": 19,
   "byType": {
     "response": 9,
-    "error": 7,
-    "event": 3
+    "event": 3,
+    "error": 7
   },
   "results": [
     {
@@ -47,7 +47,7 @@
     },
     {
       "id": "emitted-3",
-      "type": "response",
+      "type": "event",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -57,7 +57,7 @@
     },
     {
       "id": "emitted-4",
-      "type": "response",
+      "type": "event",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -87,7 +87,7 @@
     },
     {
       "id": "emitted-7",
-      "type": "error",
+      "type": "response",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -97,7 +97,7 @@
     },
     {
       "id": "emitted-8",
-      "type": "error",
+      "type": "response",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -107,7 +107,7 @@
     },
     {
       "id": "emitted-9",
-      "type": "error",
+      "type": "response",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -127,7 +127,7 @@
     },
     {
       "id": "emitted-11",
-      "type": "event",
+      "type": "error",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -167,7 +167,7 @@
     },
     {
       "id": "emitted-15",
-      "type": "response",
+      "type": "error",
       "ts": "accept",
       "schema": "accept",
       "match": true,
@@ -177,23 +177,23 @@
     },
     {
       "id": "emitted-16",
+      "type": "error",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "tsOk": true,
+      "schemaOk": true,
+      "source": "rust-sidecar"
+    },
+    {
+      "id": "emitted-17",
       "type": "response",
       "ts": "accept",
       "schema": "accept",
       "match": true,
       "tsOk": true,
       "schemaOk": true,
-      "source": "rust-sidecar-completed"
-    },
-    {
-      "id": "emitted-17",
-      "type": "event",
-      "ts": "accept",
-      "schema": "accept",
-      "match": true,
-      "tsOk": true,
-      "schemaOk": true,
-      "source": "rust-sidecar-completed"
+      "source": "rust-sidecar"
     },
     {
       "id": "emitted-18",
@@ -203,7 +203,7 @@
       "match": true,
       "tsOk": true,
       "schemaOk": true,
-      "source": "rust-sidecar-completed"
+      "source": "rust-sidecar"
     }
   ]
 }
