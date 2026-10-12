@@ -227,7 +227,8 @@ impl Sidecar {
             }
         }
 
-        if deadline_already_exceeded(&request) {
+        let deadline_at_ms = earliest_deadline_ms(&request);
+        if deadline_at_ms.is_some_and(|deadline| deadline <= now_unix_ms()) {
             self.accept_operation(&run_id, &operation_id, &request_id);
             self.record_final(&operation_id, &request_id, "failed");
             self.emit(json!({
@@ -282,6 +283,7 @@ impl Sidecar {
                 payload,
                 cancel,
                 deadline_exceeded,
+                deadline_at_ms,
             });
         });
         self.inner.joins.lock().expect("joins lock").push(handle);
@@ -471,12 +473,18 @@ struct StubJob {
     payload: Value,
     cancel: Arc<AtomicBool>,
     deadline_exceeded: Arc<AtomicBool>,
+    deadline_at_ms: Option<i64>,
 }
 
 fn run_stub_execute(job: StubJob) {
     let delay = stub_delay_ms(&job.payload);
     let mut sequence: u64 = 0;
-    let cancelled_during_delay = sleep_cancellable(delay, &job.cancel);
+    let cancelled_during_delay = sleep_cancellable(
+        delay,
+        &job.cancel,
+        &job.deadline_exceeded,
+        job.deadline_at_ms,
+    );
     if cancelled_during_delay {
         emit_cancelled_terminal(&job, sequence);
         return;
@@ -504,7 +512,9 @@ fn run_stub_execute(job: StubJob) {
     }));
     sequence += 1;
 
-    if job.cancel.load(Ordering::SeqCst) {
+    if job.cancel.load(Ordering::SeqCst)
+        || runtime_deadline_exceeded(job.deadline_at_ms, &job.deadline_exceeded)
+    {
         emit_cancelled_terminal(&job, sequence);
         return;
     }
@@ -607,10 +617,17 @@ fn record_final_locked(ops: &mut Operations, operation_id: &str, request_id: &st
     }
 }
 
-fn sleep_cancellable(delay_ms: u64, cancel: &AtomicBool) -> bool {
+fn sleep_cancellable(
+    delay_ms: u64,
+    cancel: &AtomicBool,
+    deadline_exceeded: &AtomicBool,
+    deadline_at_ms: Option<i64>,
+) -> bool {
     let mut remaining = delay_ms;
     while remaining > 0 {
-        if cancel.load(Ordering::SeqCst) {
+        if cancel.load(Ordering::SeqCst)
+            || runtime_deadline_exceeded(deadline_at_ms, deadline_exceeded)
+        {
             return true;
         }
         let slice = remaining.min(STUB_POLL_MS);
@@ -618,6 +635,17 @@ fn sleep_cancellable(delay_ms: u64, cancel: &AtomicBool) -> bool {
         remaining = remaining.saturating_sub(slice);
     }
     cancel.load(Ordering::SeqCst)
+        || runtime_deadline_exceeded(deadline_at_ms, deadline_exceeded)
+}
+
+fn runtime_deadline_exceeded(deadline_at_ms: Option<i64>, deadline_exceeded: &AtomicBool) -> bool {
+    if let Some(deadline) = deadline_at_ms {
+        if now_unix_ms() >= deadline {
+            deadline_exceeded.store(true, Ordering::SeqCst);
+            return true;
+        }
+    }
+    false
 }
 
 fn stub_delay_ms(payload: &Value) -> u64 {
@@ -685,8 +713,7 @@ fn stub_scenario(payload: &Value) -> String {
         .to_string()
 }
 
-fn deadline_already_exceeded(request: &Value) -> bool {
-    let now = now_unix_ms();
+fn earliest_deadline_ms(request: &Value) -> Option<i64> {
     ["operationDeadline", "attemptDeadline"]
         .into_iter()
         .filter_map(|field| {
@@ -696,7 +723,6 @@ fn deadline_already_exceeded(request: &Value) -> bool {
                 .and_then(parse_iso_ms)
         })
         .min()
-        .is_some_and(|deadline| deadline <= now)
 }
 
 fn control_failure(message_id: &str, in_reply_to: &str, code: &str) -> Value {
@@ -757,6 +783,7 @@ fn next_token_from(token: &AtomicU64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time::format_unix_ms;
     use std::sync::mpsc;
     use std::time::Instant;
 
@@ -949,6 +976,68 @@ mod tests {
             .unwrap();
         assert_eq!(terminal["code"], "DEADLINE_EXCEEDED");
         assert_cancel_won_before_message(&lines, "result_unknown", DELAY_MS, elapsed);
+    }
+
+    #[test]
+    fn runtime_deadline_during_stub_sleep_is_result_unknown() {
+        const DELAY_MS: u64 = 500;
+        let (sidecar, sink) = collect();
+        let deadline = format_unix_ms(now_unix_ms() + 100);
+        let line = format!(
+            r#"{{"kind":"request","messageId":"ex-dl","method":"execute","runId":"run-dl","operationId":"op-dl","requestId":"req-dl","operationDeadline":"{deadline}","payload":{{"delayMs":500,"scenario":"pure_text"}}}}"#
+        );
+        let started = Instant::now();
+        sidecar.handle_line(&line);
+        sidecar.join();
+        let elapsed = started.elapsed();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(
+            elapsed < Duration::from_millis(DELAY_MS),
+            "runtime deadline must beat stub delay {DELAY_MS}ms, took {elapsed:?}"
+        );
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        assert_eq!(terminal["outcome"], "result_unknown");
+        assert_eq!(terminal["eventType"], "agent.execute.result_unknown");
+        assert_eq!(terminal["code"], "DEADLINE_EXCEEDED");
+        assert_eq!(terminal["sequence"], 0);
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("outcome") != Some(&Value::String("completed".into()))),
+            "runtime deadline must not complete, have {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("eventType").and_then(Value::as_str) != Some("agent.message")),
+            "deadline must win before agent.message, have {lines:?}"
+        );
+    }
+
+    #[test]
+    fn expired_offset_iso_deadline_is_rejected_not_ignored() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-iso","method":"execute","runId":"run-iso","operationId":"op-iso","requestId":"req-iso","operationDeadline":"2020-01-01T00:00:00+00:00","payload":{"scenario":"pure_text","delayMs":500}}"#,
+        );
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let rejected = lines
+            .iter()
+            .find(|m| m["inReplyTo"] == "ex-iso")
+            .expect("deadline response");
+        assert_eq!(rejected["ok"], false);
+        assert_eq!(rejected["code"], "DEADLINE_EXCEEDED");
+        assert_eq!(rejected["outcome"], "failed");
+        assert!(
+            lines
+                .iter()
+                .all(|m| m.get("outcome") != Some(&Value::String("completed".into()))),
+            "+00:00 expired deadline must not be ignored, have {lines:?}"
+        );
     }
 
     #[test]

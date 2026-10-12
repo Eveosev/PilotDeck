@@ -24,7 +24,48 @@ pub fn format_unix_ms(ms: i64) -> String {
 }
 
 pub fn parse_iso_ms(value: &str) -> Option<i64> {
-    let body = value.trim().strip_suffix('Z')?;
+    let value = value.trim();
+    let (body, offset_ms) = split_iso_offset(value)?;
+    let naive = parse_naive_local_ms(body)?;
+    Some(naive - offset_ms)
+}
+
+fn split_iso_offset(value: &str) -> Option<(&str, i64)> {
+    if let Some(body) = value.strip_suffix('Z').or_else(|| value.strip_suffix('z')) {
+        return Some((body, 0));
+    }
+    let t = value.find('T')?;
+    let time = &value[t + 1..];
+    if let Some(rel) = time.rfind(['+', '-']) {
+        let abs = t + 1 + rel;
+        let sign = if value.as_bytes().get(abs) == Some(&b'+') {
+            1i64
+        } else {
+            -1
+        };
+        let offset_ms = parse_hhmm_offset(&value[abs + 1..])?;
+        Some((&value[..abs], sign * offset_ms))
+    } else {
+        // Unsuffixed date-time: treat as UTC (Date.parse accepts it).
+        Some((value, 0))
+    }
+}
+
+fn parse_hhmm_offset(offset: &str) -> Option<i64> {
+    let (hour, minute) = if let Some((hour, minute)) = offset.split_once(':') {
+        (hour.parse().ok()?, minute.parse().ok()?)
+    } else if offset.len() == 4 && offset.bytes().all(|b| b.is_ascii_digit()) {
+        (offset[..2].parse().ok()?, offset[2..].parse().ok()?)
+    } else {
+        return None;
+    };
+    if hour > 23 || minute > 59 {
+        return None;
+    }
+    Some(i64::from(hour) * 3_600_000 + i64::from(minute) * 60_000)
+}
+
+fn parse_naive_local_ms(body: &str) -> Option<i64> {
     let (date, time) = body.split_once('T')?;
     let mut date_parts = date.split('-');
     let year: i32 = date_parts.next()?.parse().ok()?;
@@ -107,6 +148,28 @@ mod tests {
         assert_eq!(
             parse_iso_ms("2026-09-01T00:00:00.000Z"),
             Some(1_788_220_800_000)
+        );
+    }
+
+    #[test]
+    fn parse_iso_ms_accepts_z_offsets_and_unsuffixed() {
+        assert_eq!(parse_iso_ms("1970-01-01T00:00:00.000Z"), Some(0));
+        assert_eq!(parse_iso_ms("1970-01-01T00:00:00.000+00:00"), Some(0));
+        assert_eq!(parse_iso_ms("1970-01-01T00:00:00.000-00:00"), Some(0));
+        assert_eq!(parse_iso_ms("1970-01-01T00:00:00"), Some(0));
+        assert_eq!(parse_iso_ms("1970-01-01T08:00:00+08:00"), Some(0));
+        assert_eq!(
+            parse_iso_ms("2026-10-12T08:00:00+08:00"),
+            parse_iso_ms("2026-10-12T00:00:00Z")
+        );
+        assert_eq!(
+            parse_iso_ms("2026-10-12T08:00:00-05:00"),
+            parse_iso_ms("2026-10-12T13:00:00Z")
+        );
+        let expired = parse_iso_ms("2020-01-01T00:00:00+00:00").expect("+00:00 must parse");
+        assert!(
+            expired < now_unix_ms(),
+            "2020-01-01T00:00:00+00:00 must be an expired instant, got {expired}"
         );
     }
 }

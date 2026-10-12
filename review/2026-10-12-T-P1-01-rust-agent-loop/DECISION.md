@@ -44,3 +44,11 @@ resume/ack；真实模型调用（P3）；T-P1-02 harness；性能测量（T-P1-
 ## 2026-10-12 19:45 补充（分析师/QA 意见）
 - 重复键若选「照 JSON.parse」：Rust 必须先解析为 `serde_json::Value`（后者覆盖）再转结构体，或自定义 Deserialize；禁止直接 serde derive（默认 duplicate field 拒）。用例用多字段消息（execute payload）证明取后一个值。
 - 评审目录统一为本目录；QA 验收口径见 QA-ACCEPTANCE.md（S0–S4 映射）。
+
+## 2026-10-12 Payne：F-4 / F-5（Round-2 前）
+
+- **F-4：本轮 PR-A（#8）必修。** 运行期 deadline 计时 + ISO `±HH:MM` 解析，对齐 TS `agentLoopSidecarServer.ts:223-253` / `:697-702`。
+  - stub sleep（`sleep_cancellable`）持续比较 `operationDeadline` / `attemptDeadline`；未到期定期检查，到期自行置 `deadline_exceeded` 并走与 cancel 同类中断，产出 `result_unknown` / `DEADLINE_EXCEEDED`。不得只靠 host cancel。
+  - 验收：`operationDeadline = now+100ms` + `delayMs = 500` → Rust 必须 `result_unknown`/`DEADLINE_EXCEEDED`，不能 `completed`。
+  - `parse_iso_ms` 认 `Z`、`+00:00`/`+08:00` 等 `±HH:MM`，以及 Date.parse 能认的无后缀时间。已过期带偏移时间必须当已过期 deadline，不能当“没有 deadline”。
+- **F-5：显式延至 PR-B**，列为 **B4 前置必过项**（stub final payload 补 `sessionId`/`turnId`；cancelled 给出 `type:"aborted"` shape）。**本轮代码不改 F-5。**

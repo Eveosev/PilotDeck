@@ -50,7 +50,7 @@ B4（TS host 端到端）已延至 PR-B，见 DECISION / Payne；PR-A 不验 B4�
 - F-3: live roundtrip 先 `ex-done` completed，再 `ex-1` delay 2000 + cancel；`T_P1_01_EMITTED_OUT` 落盘。
 - F-6: cancel 无 requestId 时省略该键。
 - F-9: 已结束 operationId + 不同 runId → `OPERATION_RUN_MISMATCH`。
-- F-4 / F-5: **未改**（pending Payne）。
+- F-4 / F-5: 当时 **未改**（pending Payne）。Payne 后决定：F-4 本轮 PR-A 必修；F-5 延至 PR-B（见 DECISION「2026-10-12 Payne：F-4 / F-5」）。
 - F-10: **延至 S4**（检查+插入同一把锁；JoinHandle 回收；delayMs 上限）。stdio 单线程 dispatch 目前无害。
 - F-12: **接受 1.83.0**（`rust-toolchain.toml` 固定 `channel = "1.83.0"`；本机 `rustc -V` 与 `cargo +1.83.0 test` 均为 1.83.0）。不再把 QA 机上的 1.85.1 当作 crate MSRV。
 
