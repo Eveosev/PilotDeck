@@ -128,6 +128,113 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
     let _ = fs::remove_file(tmp);
 }
 
+const REQUIRED_INVALID_TYPES: &[&str] = &[
+    "invalid/message",
+    "invalid/kind",
+    "request/hello",
+    "request/capabilities",
+    "request/execute",
+    "request/cancel",
+    "request/status",
+    "request/resume",
+    "request/ack",
+    "request/module_call",
+    "event",
+    "response",
+    "error",
+];
+
+#[test]
+fn invalid_messages_rejected_by_ajv_ts_and_rust() {
+    let fixture = repo_root().join("crates/pilotdeck-agent-loop/fixtures/invalid-messages.json");
+    let parsed: Value = serde_json::from_str(&fs::read_to_string(&fixture).unwrap()).unwrap();
+    let samples = parsed["samples"].as_array().expect("samples array");
+    assert!(samples.len() >= REQUIRED_INVALID_TYPES.len());
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut rust_decisions = Vec::new();
+    for sample in samples {
+        let id = sample["id"].as_str().expect("sample.id");
+        let message_type = sample["messageType"].as_str().expect("sample.messageType");
+        seen.insert(message_type.to_string());
+        let raw = sample["raw"].as_str().expect("sample.raw");
+        let value: Value = serde_json::from_str(raw).unwrap_or_else(|error| {
+            panic!("invalid fixture {id} is not JSON: {error}");
+        });
+        let validation = pilotdeck_agent_loop::validate_module_message(&value);
+        assert!(
+            !validation.is_ok(),
+            "Rust validator must reject {id} ({message_type})"
+        );
+        rust_decisions.push(json!({
+            "id": id,
+            "ok": false,
+            "code": validation.code(),
+        }));
+    }
+    for required in REQUIRED_INVALID_TYPES {
+        assert!(
+            seen.contains(*required),
+            "invalid fixture missing message type {required}; have {seen:?}"
+        );
+    }
+    assert!(
+        samples
+            .iter()
+            .any(|sample| sample["id"] == "execute-attemptId"),
+        "must include execute attemptId reject"
+    );
+    assert!(
+        samples
+            .iter()
+            .any(|sample| sample["id"] == "execute-stepId"),
+        "must include execute stepId reject"
+    );
+
+    let rust_path = tempfile_path();
+    fs::write(
+        &rust_path,
+        serde_json::to_string_pretty(&json!({
+            "validator": "validate_module_message",
+            "decisions": rust_decisions,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let script = repo_root().join("crates/pilotdeck-agent-loop/scripts/roundtrip-validate.mjs");
+    let output = Command::new("node")
+        .arg(&script)
+        .arg("--messages")
+        .arg(&fixture)
+        .arg("--expect")
+        .arg("reject")
+        .arg("--rust-decisions")
+        .arg(&rust_path)
+        .current_dir(repo_root())
+        .output()
+        .expect("node invalid roundtrip");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "ajv/TS/Rust reject corpus failed\nstatus={}\nstdout={stdout}\nstderr={stderr}",
+        output.status
+    );
+    let report: Value = serde_json::from_str(stdout.trim()).unwrap_or_else(|error| {
+        panic!("invalid roundtrip report JSON: {error}\n{stdout}");
+    });
+    assert_eq!(report["mismatch"], 0, "three-way mismatch: {report}");
+    assert_eq!(
+        report["expectViolations"], 0,
+        "an oracle accepted a negative: {report}"
+    );
+    assert_eq!(report["tsAccept"], 0);
+    assert_eq!(report["schemaAccept"], 0);
+    assert_eq!(report["rustAccept"], 0);
+    let _ = fs::remove_file(rust_path);
+}
+
 fn count_kinds(lines: &[Value]) -> std::collections::BTreeMap<String, usize> {
     let mut map = std::collections::BTreeMap::new();
     for message in lines {

@@ -64,3 +64,28 @@ fn execute_is_in_scope_unlike_hello_crate() {
     assert!(pilotdeck_agent_loop::validate_module_message(&request).is_ok());
     assert_eq!(pilotdeck_agent_loop::MODULE_ID, "pilotdeck-agent-loop");
 }
+
+#[test]
+fn invalid_message_fixture_covers_each_protocol_type() {
+    let path = repo_root().join("crates/pilotdeck-agent-loop/fixtures/invalid-messages.json");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).expect("invalid fixture")).unwrap();
+    let samples = parsed["samples"].as_array().expect("samples");
+    let types: std::collections::BTreeSet<_> = samples
+        .iter()
+        .filter_map(|sample| sample["messageType"].as_str())
+        .collect();
+    for required in [
+        "request/hello",
+        "request/capabilities",
+        "request/execute",
+        "request/cancel",
+        "request/status",
+        "event",
+        "response",
+        "error",
+        "invalid/kind",
+    ] {
+        assert!(types.contains(required), "missing {required} in {types:?}");
+    }
+}
