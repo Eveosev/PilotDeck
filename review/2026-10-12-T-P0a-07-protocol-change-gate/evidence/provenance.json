@@ -1,33 +1,23 @@
 {
   "task": "T-P0a-07",
   "kind": "dry-run-evidence",
-  "round": "R1",
-  "gitSha": "d84f3e8cbd6d01eda5574ef371c7da540259e2ff",
+  "round": "R2",
+  "gitSha": "8004fb21598abccd5ad7bcae5c7d62ecc58c1458",
   "gitDirty": false,
   "baseSha": "1da663a21d40ef5e309c86423a235550c79f91ff",
   "baseBranch": "rust_standalone_alpha1",
-  "docsCommit": "d84f3e8cbd6d01eda5574ef371c7da540259e2ff",
-  "r1DocsCommits": [
-    "b4c581d9679ec14d37b175dfa5d0b75cf17748f1",
-    "d84f3e8cbd6d01eda5574ef371c7da540259e2ff"
-  ],
-  "note": "Collected on a clean tree at docsCommit after the R1 docs commits. This evidence directory is a follow-up commit; do not expect HEAD == gitSha after it lands.",
+  "docsCommit": "8004fb21598abccd5ad7bcae5c7d62ecc58c1458",
+  "note": "Collected on a clean tree at docsCommit after the R2 docs commit. This evidence directory is a follow-up commit; do not expect HEAD == gitSha after it lands.",
+  "f3": {
+    "baselineProvenance": "corrected check1a_exit=0 generate1_exit=0 to match check1a.txt / generate-1.txt / QA",
+    "exitFiles": [
+      "baseline/check1a.exit.txt",
+      "baseline/generate1.exit.txt"
+    ]
+  },
   "verbatimSequence": {
-    "log": "r1-verbatim/verbatim-sequence.txt",
+    "log": "r2-verbatim/verbatim-sequence.txt",
     "checks1a1c237": "all exit 0",
     "treeAfter": "clean"
-  },
-  "oldSequenceSecondReplayExit": 2,
-  "node20ReplayExit": 9,
-  "tempBranchesNotPushed": {
-    "g2": {
-      "branch": "tmp/T-P0a-07-dry-g2",
-      "protocolCommit": "f019dca634ab8b12419d3f8c18cea9dfbbd71a7f",
-      "schemaCommit": "6f37ee7751b43f0fe92b189a300a2a9bd0db8f04"
-    },
-    "g3": {
-      "branch": "tmp/T-P0a-07-dry-g3",
-      "protocolCommit": "b052c7318edd7a31ce9647587a80d43a4b5845cd"
-    }
   }
 }

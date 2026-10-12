@@ -1,5 +1,8 @@
 docsSha=6be324cd3ce5f7248cc3952a33b9ca04fe7e1242
 gitDirty=0
-check1a_exit=1
-generate1_exit=1
+check1a_exit=0
+generate1_exit=0
 second_gen_diff_exit=0
+# R2 F-3: first write used PIPESTATUS/tee after a missing-ajv attempt and
+# wrongly recorded 1/1. Logs (check1a.txt / generate-1.txt) and QA were 0/0.
+# Corrected to match those logs. Split copies: check1a.exit.txt, generate1.exit.txt.
