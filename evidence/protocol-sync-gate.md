@@ -11,7 +11,7 @@ CI 路径触发自动检查**不在本任务**。Payne 已锁定：门禁文档�
 
 ## 触发路径（日后 CI `paths:` 原样复制）
 
-任一 PR 触及下列路径之一，即适用本门禁：
+任一 PR 触及下列路径之一，即适用本门禁。修改 `protocol.ts` 时，纯注释 / 格式改动可在 PR 正文声明检查 4/5/6 为 N/A，但仍须跑 1a + 2。
 
 ```
 src/agent/modules/protocol.ts
@@ -28,7 +28,8 @@ tools/agent-loop-parity/scenarios.json
 
 | 改动 | 是否走本门禁 |
 | --- | --- |
-| 上表任一触发路径 | 是 |
+| `src/agent/modules/protocol.ts`（契约或校验） | 是（检查 1–7） |
+| 上表其余触发路径（手写映射、generate/replay、fixtures、parity runner/场景表） | 是（检查 1–3、7；4/5/6 可 N/A，除非改了运行时 accept/reject 或版本） |
 | `crates/` Rust adapter（T-P1-01 起） | 是（检查 5）；须与协议改动同 PR |
 | 仅更新 `evidence/schema/module-protocol.schema.json` / replay 报告 / 本文件 | 按对应检查执行；不强制 live parity |
 | 未改触发路径、也未改 `crates/` 协议处理的普通功能 PR | 否 |
@@ -98,7 +99,8 @@ console.log("PASS schema-current");
 | --- | --- |
 | 可抽取契约已改、尚未 regen | **FAIL schema-stale**，exit **1** |
 | 已 regen 并提交 schema | **PASS schema-current**，exit **0** |
-| 证据 | 命令 stdout；PR 内 `git diff -- evidence/schema/module-protocol.schema.json` |
+| 锚点 / 枚举漂移（`extractProtocolContract` throw） | **FAIL**，exit **1**，stderr 未捕获异常，形如 `Error: validateModuleMessage lost …` / `… drifted …` / `MODULE_CALL_TARGETS is unexpectedly short` / `protocol.ts lost …`。视为检查失败，按局限 F-5 同步 `scripts/lib/module-protocol-schema.mjs` 映射后再 regen。不要当成环境故障。 |
+| 证据 | 命令 stdout / stderr；PR 内 `git diff -- evidence/schema/module-protocol.schema.json` |
 
 类型上新增 optional 字段、或只改 `validateModuleMessage` 里未被抽取/锚定的规则时，1a 可能仍 PASS。这是已知局限 **F-5**（手写映射），不能单靠本条放行。
 
@@ -113,7 +115,8 @@ git diff -- evidence/schema/module-protocol.schema.json
 | --- | --- |
 | exit（generate） | **0** |
 | stdout | `generated evidence/schema/module-protocol.schema.json from src/agent/modules/protocol.ts` 以及 `protocolVersion=…` / `capabilitiesVersion=capabilitiesVersion` / `notContract=storageConfigVersion` |
-| 脏树 | exit **2**，stderr 含 `dirty` |
+| 脏树 | exit **2**，stderr 含 `dirty`（generate 只对 `assertCleanTree` catch → 2） |
+| 锚点 / 枚举漂移 | exit **1**，stderr 未捕获 `Error: … lost …` / `… drifted …`（与 1a 同形）。视为 FAIL，同步 lib 映射后再 regen。 |
 | 契约可抽取变化 | `git diff` **非空**；把新 schema 纳入同一 PR |
 | 无契约抽取变化 | `git diff` 空；用检查 2 抓 validator 漂移 |
 | 证据 | `evidence/schema/module-protocol.schema.json`；如 profile 受影响则还有 `docs/pilotdeck-module-protocol-v2.schema.json` |
@@ -159,6 +162,8 @@ test -z "$(git status --porcelain)"
 
 协议确实变了、需要把新报告纳入 PR 时：从 `$PROTOCOL_REPLAY_OUT` 拷回跟踪文件，**单独证据提交**（采集 SHA = 该证据提交的 parent）。不要在 JSON 里写尚未产生的 evidence commit SHA。本门禁的 2→3→7 **验证**只读临时副本，不把跟踪报告留在脏状态。
 
+replay **无论成败**都会 `writeFileSync` 跟踪报告（含 `gitSha`）。**exit 1**（acceptance failed）同样留下脏树；修完后若再跑 replay，须先 `git checkout -- evidence/schema/replay-report.json evidence/schema/replay-report.md`（或先提交报告），否则下一次会 **exit 2**。
+
 ---
 
 ### 2. Replay：可表达错配 = 0
@@ -171,7 +176,7 @@ r=json.load(open(os.path.join(os.environ["PROTOCOL_REPLAY_OUT"],"replay-report.j
 print("expressibleMismatches", r["A2"]["expressibleMismatches"])
 print("inexpressibleRules", r["A2"]["inexpressibleRules"])
 print("A1.reproducible", r["A1"]["reproducible"], "dirtyTreeRefused", r["A1"]["dirtyTreeRefused"])
-ok = (r["A2"]["expressibleMismatches"]==0 and r["A2"]["inexpressibleRules"]==0
+ok = (r["A2"]["expressibleMismatches"]==0
       and r["A1"]["reproducible"] and r["A1"]["dirtyTreeRefused"])
 sys.exit(0 if ok else 1)'
 ```
@@ -179,7 +184,8 @@ sys.exit(0 if ok else 1)'
 | 项 | 期望 |
 | --- | --- |
 | exit | **0** |
-| 打印 | `expressibleMismatches 0`；`inexpressibleRules 0`；`A1.reproducible True`；`dirtyTreeRefused True` |
+| 打印 | `expressibleMismatches 0`；`A1.reproducible True`；`dirtyTreeRefused True` |
+| `inexpressibleRules` | 当前恒为 **0**（脚本 `const inexpressibleRules = []`，未实现自动识别，也不计入 replay `failed`）。若人工发现不可表达规则，在 **PR 正文单列**，自动化放到 T-P0a-04。 |
 | 语料 | 53 条 `tools/agent-loop-parity` 场景的**合成模板**（不是 live wire） |
 | 证据 | `$PROTOCOL_REPLAY_OUT/replay-report.json` 的 `A2` |
 
@@ -193,6 +199,8 @@ sys.exit(0 if ok else 1)'
 
 - `evidence/schema/fixtures/negative-samples.json`（每消息类型 ≥1 条负样本；条件规则 `final-implies-outcome` / `forbidden-attemptId-stepId` / `forbidden-binding-on-event` 仍须有样本）
 - `evidence/schema/fixtures/edge-samples.json`（`1.0` / `-0` / 指数 / 溢出 / 额外字段 / 空 id / `response.final` 非布尔 等）
+
+**fixtures 改动先提交**，再跑（或复用）replay。未提交的 fixture 会让 `git status --porcelain` 非空，replay **exit 2**。
 
 然后**不要重跑 replay**。读同一次临时报告：
 
@@ -235,15 +243,27 @@ python3 tools/agent-loop-parity/run.py \
   --surface gateway \
   --scenario all \
   --output /tmp/pilotdeck-agent-loop-parity
-python3 -c 'import json,sys; s=json.load(open("/tmp/pilotdeck-agent-loop-parity/summary.json"));
-print("scenarios", s.get("scenarios"), "gate", s.get("gateScenarioCount"));
-raise SystemExit(0 if s.get("scenarios")==53 and s.get("gateScenarioCount")==53 else 1)'
+runner_exit=$?
+echo "runner_exit=$runner_exit"
+python3 -c 'import json,sys
+s=json.load(open("/tmp/pilotdeck-agent-loop-parity/summary.json"))
+print("scenarios", s.get("scenarios"), "gate", s.get("gateScenarioCount"))
+blocked=bool(s.get("blocked")); failed=bool(s.get("failed")); oracle=bool(s.get("oracleFailures"))
+print("blocked", blocked, "failed", failed, "oracleFailures", oracle)
+ok = (s.get("scenarios")==53 and s.get("gateScenarioCount")==53
+      and not blocked and not failed and not oracle)
+sys.exit(0 if ok else 1)'
+summary_exit=$?
+if [ "$runner_exit" -ne 0 ]; then exit "$runner_exit"; fi
+exit "$summary_exit"
 ```
+
+整段只用 `python3`（不要混用 `python`）。`run.py` 在 failed/blocked 时仍可能写出 `scenarios=53` 的 summary，所以**必须以 `runner_exit` 为准**；summary 再排除 `blocked` / `failed` / `oracleFailures`。
 
 | 项 | 期望 |
 | --- | --- |
-| runner exit | **0**（1 = oracle/语义差异；2 = 环境/adapter `BLOCKED`，不得当成通过） |
-| `summary.json` | `scenarios == 53` 且 `gateScenarioCount == 53` |
+| `runner_exit` | **0**（1 = oracle/语义差异；2 = 环境/adapter `BLOCKED`）。片段最后的 `exit` 必须等于 runner 的非零码，不能只看 summary 计数。 |
+| `summary.json` | `scenarios == 53` 且 `gateScenarioCount == 53`，且 `blocked` / `failed` / `oracleFailures` 皆空 |
 | 证据 | `/tmp/pilotdeck-agent-loop-parity/summary.json`（以及 runner 写出的 traces）；PR 把结论摘到 `review/<date>-<task>/evidence/` 或 PR 正文。不要把 `/tmp` traces 提交进 Git。 |
 
 仅改 schema 生成器 / fixtures、**未**改 `validateModuleMessage` 行为且未改 parity runner/场景表时，可用检查 2 的合成 53 场景 replay 代替 live wire；在 PR 正文写明「parity = synthetic replay，非 live」。PR#5 即此口径。
@@ -292,7 +312,7 @@ cargo test --workspace
 git grep -nE "MODULE_PROTOCOL_VERSION|capabilitiesVersion|storageConfigVersion" -- src/agent/modules/protocol.ts
 ```
 
-在 PR 正文或 `review/<date>-<task>/evidence/version-eval.md` 写明三选一：
+在 PR 正文或 `review/<date>-<task>/evidence/version-eval.md` 写明三选一；若改了 `protocol.ts` 的校验/字段，同时逐处列出对应的 `scripts/lib/module-protocol-schema.mjs` 映射改动或 N/A（人工审查，局限 F-5）：
 
 1. **不升级** — 向后兼容（只加可忽略 optional / 不改 accept 集）。
 2. **升级 `MODULE_PROTOCOL_VERSION`** — 消息形状或必填/拒绝规则不兼容。

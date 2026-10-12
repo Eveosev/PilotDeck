@@ -18,7 +18,8 @@ tools/agent-loop-parity/run.py
 tools/agent-loop-parity/scenarios.json
 ```
 
-Prerequisite: **Node >= 22**, `pnpm install`, clean git tree. The protocol is
+Comment-only / formatting edits to `protocol.ts` may mark checks 4–6 N/A
+in the PR body, but still run 1a + 2. Prerequisite: **Node >= 22**, `pnpm install`, clean git tree. The protocol is
 **not frozen**. Schema is **hand-mapped + source anchors + replay** (limit
 **F-5**). Field-mutation fuzz is **R2-1** (T-P0a-04). Path-triggered CI is
 **not** enabled yet.
@@ -77,7 +78,7 @@ r=json.load(open(os.path.join(os.environ["PROTOCOL_REPLAY_OUT"],"replay-report.j
 print("expressibleMismatches", r["A2"]["expressibleMismatches"])
 print("inexpressibleRules", r["A2"]["inexpressibleRules"])
 print("A1.reproducible", r["A1"]["reproducible"], "dirtyTreeRefused", r["A1"]["dirtyTreeRefused"])
-ok = (r["A2"]["expressibleMismatches"]==0 and r["A2"]["inexpressibleRules"]==0
+ok = (r["A2"]["expressibleMismatches"]==0
       and r["A1"]["reproducible"] and r["A1"]["dirtyTreeRefused"])
 sys.exit(0 if ok else 1)'
 
