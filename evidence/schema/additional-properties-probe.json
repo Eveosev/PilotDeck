@@ -1,0 +1,264 @@
+{
+  "task": "T-P0a-01",
+  "probe": "validateModuleMessage additionalProperties",
+  "input": "src/agent/modules/protocol.ts",
+  "method": "raw JSON text → JSON.parse → validateModuleMessage",
+  "gitSha": "64647f5396f3ab34e056c6b2e60690bef2247b78",
+  "gitDirty": true,
+  "cases": [
+    {
+      "id": "execute-extra-top-level",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"unexpectedTopLevel\":\"keep\"}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "message-1",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "payload": {},
+        "unexpectedTopLevel": "keep"
+      },
+      "ok": true
+    },
+    {
+      "id": "execute-extra-payload",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{\"unexpectedPayload\":1}}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "message-1",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "payload": {
+          "unexpectedPayload": 1
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "execute-attemptId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\"}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "message-1",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "payload": {},
+        "attemptId": "attempt-1"
+      },
+      "ok": false,
+      "code": "UNSUPPORTED_FIELD",
+      "message": "attemptId and stepId are not public fields."
+    },
+    {
+      "id": "execute-stepId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"stepId\":\"step-1\"}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "message-1",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "payload": {},
+        "stepId": "step-1"
+      },
+      "ok": false,
+      "code": "UNSUPPORTED_FIELD",
+      "message": "attemptId and stepId are not public fields."
+    },
+    {
+      "id": "execute-attemptId-and-extra",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\",\"unexpectedTopLevel\":true}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "message-1",
+        "method": "execute",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "payload": {},
+        "attemptId": "attempt-1",
+        "unexpectedTopLevel": true
+      },
+      "ok": false,
+      "code": "UNSUPPORTED_FIELD",
+      "message": "attemptId and stepId are not public fields."
+    },
+    {
+      "id": "event-extra-top-level",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"unexpectedTopLevel\":\"keep\"}",
+      "parsed": {
+        "kind": "event",
+        "eventType": "model.delta",
+        "streamId": "stream-1",
+        "sequence": 0,
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "final": false,
+        "payload": {},
+        "unexpectedTopLevel": "keep"
+      },
+      "ok": true
+    },
+    {
+      "id": "event-extra-payload",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{\"unexpectedPayload\":{\"nested\":true}}}",
+      "parsed": {
+        "kind": "event",
+        "eventType": "model.delta",
+        "streamId": "stream-1",
+        "sequence": 0,
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "final": false,
+        "payload": {
+          "unexpectedPayload": {
+            "nested": true
+          }
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "event-moduleInstanceId",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"moduleInstanceId\":\"instance-1\"}",
+      "parsed": {
+        "kind": "event",
+        "eventType": "model.delta",
+        "streamId": "stream-1",
+        "sequence": 0,
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "final": false,
+        "payload": {},
+        "moduleInstanceId": "instance-1"
+      },
+      "ok": false,
+      "code": "UNSUPPORTED_FIELD",
+      "message": "Connection binding belongs to transport context."
+    },
+    {
+      "id": "event-connectionGeneration",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"connectionGeneration\":\"generation-1\"}",
+      "parsed": {
+        "kind": "event",
+        "eventType": "model.delta",
+        "streamId": "stream-1",
+        "sequence": 0,
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "final": false,
+        "payload": {},
+        "connectionGeneration": "generation-1"
+      },
+      "ok": false,
+      "code": "UNSUPPORTED_FIELD",
+      "message": "Connection binding belongs to transport context."
+    },
+    {
+      "id": "response-extra-top-level",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"unexpectedTopLevel\":\"keep\"}",
+      "parsed": {
+        "kind": "response",
+        "messageId": "response-1",
+        "inReplyTo": "message-1",
+        "ok": true,
+        "unexpectedTopLevel": "keep"
+      },
+      "ok": true
+    },
+    {
+      "id": "response-extra-payload",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"payload\":{\"unexpectedPayload\":\"keep\"}}",
+      "parsed": {
+        "kind": "response",
+        "messageId": "response-1",
+        "inReplyTo": "message-1",
+        "ok": true,
+        "payload": {
+          "unexpectedPayload": "keep"
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "module-call-extra-top-level-and-payload",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"model\",\"unexpectedTopLevel\":\"keep\",\"payload\":{\"operation\":\"prepare\",\"unexpectedPayload\":true}}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "call-1",
+        "method": "module_call",
+        "runId": "run-1",
+        "operationId": "operation-1",
+        "requestId": "request-1",
+        "module": "model",
+        "unexpectedTopLevel": "keep",
+        "payload": {
+          "operation": "prepare",
+          "unexpectedPayload": true
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "handshake-extra-top-level-and-payload",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"hello-1\",\"method\":\"hello\",\"unexpectedTopLevel\":\"keep\",\"payload\":{\"unexpectedPayload\":true}}",
+      "parsed": {
+        "kind": "request",
+        "messageId": "hello-1",
+        "method": "hello",
+        "unexpectedTopLevel": "keep",
+        "payload": {
+          "unexpectedPayload": true
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "error-extra-top-level",
+      "raw": "{\"kind\":\"error\",\"messageId\":\"error-1\",\"code\":\"BROKEN\",\"message\":\"broken\",\"retryability\":\"safe\",\"unexpectedTopLevel\":\"keep\"}",
+      "parsed": {
+        "kind": "error",
+        "messageId": "error-1",
+        "code": "BROKEN",
+        "message": "broken",
+        "retryability": "safe",
+        "unexpectedTopLevel": "keep"
+      },
+      "ok": true
+    }
+  ],
+  "conclusion": {
+    "additionalProperties": true,
+    "topLevel": true,
+    "payload": true,
+    "rejectedByNameOnly": [
+      "attemptId",
+      "connectionGeneration",
+      "moduleInstanceId",
+      "stepId"
+    ],
+    "schemaImplication": {
+      "additionalProperties": true,
+      "notRequiredGroups": [
+        [
+          "attemptId",
+          "stepId"
+        ],
+        [
+          "moduleInstanceId",
+          "connectionGeneration"
+        ]
+      ]
+    }
+  }
+}
