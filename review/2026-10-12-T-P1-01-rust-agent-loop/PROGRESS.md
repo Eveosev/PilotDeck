@@ -2,7 +2,7 @@
 
 - PR: Eveosev/PilotDeck#8 — **draft** → `rust_standalone_alpha1`
 - Branch: `pilotdeck-rust/T-P1-01-agent-loop-a`
-- Base: `1da663a2` · code: `2b492df3` · tip (this evidence child, before F-7 deletion): see git log
+- Base: `1da663a2` · code: `2b492df3` · previous tip `846402ac` · merge `7e7cb662` · M `7d488a1b`
 - Diff vs first progress note: tip is no longer `5ea8d3ce` / 34 files.
 
 ## Slices
@@ -79,3 +79,26 @@ The next commit (F-7) removes these raw files under `review/2026-10-12-T-P1-01-r
 | review/2026-10-12-T-P1-01-rust-agent-loop/evidence/rustc-version.txt | `8f3838b3461758410db44782198e9b1b605206168ce553bdfb409820838c699e` | `2b492df3` |
 
 **18 files** scheduled for F-7 deletion. After that commit, `review/2026-10-12-T-P1-01-rust-agent-loop/` keeps only DECISION.md, PROGRESS.md, REVIEW_RESULT.md, QA-ACCEPTANCE.md.
+
+## 2026-10-12 mainline sync
+
+Merged `origin/rust_standalone_alpha1` **M=`7d488a1b5607df51b91b3b0a596298d633638cc2`** into `pilotdeck-rust/T-P1-01-agent-loop-a` (no rebase / no force-push). F-4 / F-5 not touched.
+
+| | SHA |
+|---|---|
+| previous tip | `846402ace0500b5c9744a751234cc81e585eed5d` |
+| M | `7d488a1b5607df51b91b3b0a596298d633638cc2` |
+| merge-base(846402ac, M) | `1da663a21d40ef5e309c86423a235550c79f91ff` |
+| merge commit | `7e7cb662e7dee71e9425b86634f4d716cbaf2e55` |
+
+Conflicts: **none**. Merge commit has no non-conflict edits (ort; only `ui/src/components/app-shell/MainAreaV2.tsx` from M).
+
+Equality check (`':!review'`):
+
+```
+git diff 846402ac 7e7cb662 -- . ':!review'
+git diff $(git merge-base 846402ac 7d488a1b) 7d488a1b -- . ':!review'
+```
+
+Both sha256: `89f448a80985d9fd9330710a2e89d558f13f2a8e8b61e95ec3f58ed457fa141b` — **EQUAL=yes**.
+The shared diff is the desktop `data-desktop-no-drag` one-liner on session title `h1`.
