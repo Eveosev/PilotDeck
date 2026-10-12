@@ -1,0 +1,4 @@
+generated evidence/schema/module-protocol.schema.json from src/agent/modules/protocol.ts
+protocolVersion=2.0
+capabilitiesVersion=capabilitiesVersion
+notContract=storageConfigVersion

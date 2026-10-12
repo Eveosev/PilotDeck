@@ -1,0 +1,21 @@
+{
+  "task": "T-P0a-07",
+  "kind": "dry-run-evidence",
+  "gitSha": "6be324cd3ce5f7248cc3952a33b9ca04fe7e1242",
+  "gitDirty": false,
+  "baseSha": "1da663a21d40ef5e309c86423a235550c79f91ff",
+  "baseBranch": "rust_standalone_alpha1",
+  "docsCommit": "6be324cd3ce5f7248cc3952a33b9ca04fe7e1242",
+  "note": "Collected on a clean tree at docsCommit. This evidence directory is a follow-up commit; do not expect HEAD == gitSha after it lands.",
+  "tempBranchesNotPushed": {
+    "g2": {
+      "branch": "tmp/T-P0a-07-dry-g2",
+      "protocolCommit": "f019dca634ab8b12419d3f8c18cea9dfbbd71a7f",
+      "schemaCommit": "6f37ee7751b43f0fe92b189a300a2a9bd0db8f04"
+    },
+    "g3": {
+      "branch": "tmp/T-P0a-07-dry-g3",
+      "protocolCommit": "b052c7318edd7a31ce9647587a80d43a4b5845cd"
+    }
+  }
+}

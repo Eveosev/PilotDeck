@@ -1,0 +1,5 @@
+src/agent/modules/protocol.ts:1:export const MODULE_PROTOCOL_VERSION = "2.0" as const;
+src/agent/modules/protocol.ts:118:  capabilitiesVersion: string;
+src/agent/modules/protocol.ts:212:  protocolVersion?: typeof MODULE_PROTOCOL_VERSION;
+src/agent/modules/protocol.ts:216:  capabilitiesVersion?: string;
+src/agent/modules/protocol.ts:422:  storageConfigVersion?: string;

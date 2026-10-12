@@ -1,0 +1,14 @@
+diff --git a/evidence/schema/module-protocol.schema.json b/evidence/schema/module-protocol.schema.json
+index ea5730ab..52ef3d28 100644
+--- a/evidence/schema/module-protocol.schema.json
++++ b/evidence/schema/module-protocol.schema.json
+@@ -223,7 +223,8 @@
+             "skills",
+             "knowledge",
+             "lifecycle",
+-            "event"
++            "event",
++            "notes"
+           ]
+         },
+         "payload": {
