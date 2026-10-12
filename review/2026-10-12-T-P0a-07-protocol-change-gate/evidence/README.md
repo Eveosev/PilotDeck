@@ -21,7 +21,7 @@
 | 7 | **0** | `gitSha d84f3e8c…` == HEAD；`gitDirty False` |
 | 终态树 | 空 | 跟踪的 `replay-report.*` 已 restore，未留下脏文件 |
 
-对照（旧顺序，**不要**当通过步骤）：连续两次 replay、中间不 restore → 第一次改写跟踪报告，**第二次 exit 2**。见 `r1-verbatim/old-sequence-dirty.log`。
+对照（旧顺序，**不要**当通过步骤）：连续两次 replay、中间不 restore → 第一次改写跟踪报告，**第二次 exit 2**。见 `r1-verbatim/old-sequence-dirty.txt`。原文连跑全文：`r1-verbatim/verbatim-sequence.txt`。
 
 Node 20：`node scripts/replay-module-protocol-schema.mjs` → **exit 9**（`bad option: --experimental-strip-types`）。见 `r1-verbatim/node20-replay.exit.txt`。
 

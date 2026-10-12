@@ -13,7 +13,7 @@
   ],
   "note": "Collected on a clean tree at docsCommit after the R1 docs commits. This evidence directory is a follow-up commit; do not expect HEAD == gitSha after it lands.",
   "verbatimSequence": {
-    "log": "r1-verbatim/verbatim-sequence.log",
+    "log": "r1-verbatim/verbatim-sequence.txt",
     "checks1a1c237": "all exit 0",
     "treeAfter": "clean"
   },
