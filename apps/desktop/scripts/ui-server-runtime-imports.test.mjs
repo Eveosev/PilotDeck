@@ -48,10 +48,14 @@ function makeTransitiveMissingFixture() {
   const root = mkdtempSync(join(tmpdir(), "pilotdeck-ui-imports-missing-"));
   const serverRoot = resolve(root, "ui", "server");
   mkdirSync(serverRoot, { recursive: true });
-  writeFileSync(resolve(serverRoot, "index.js"), "import './mid.mjs';\n");
+  mkdirSync(resolve(root, "dist", "src", "composition"), { recursive: true });
   writeFileSync(
-    resolve(serverRoot, "mid.mjs"),
-    "import { leaf } from './does-not-exist-leaf.js';\nexport const value = leaf;\n",
+    resolve(serverRoot, "index.js"),
+    "import { mid } from '../../dist/src/composition/mid.js';\nexport const value = mid;\n",
+  );
+  writeFileSync(
+    resolve(root, "dist", "src", "composition", "mid.js"),
+    "import { leaf } from './does-not-exist-leaf.js';\nexport const mid = leaf;\n",
   );
   return root;
 }
