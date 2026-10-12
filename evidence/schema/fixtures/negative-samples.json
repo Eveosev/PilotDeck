@@ -1,0 +1,131 @@
+{
+  "description": "One or more negatives per module-protocol message type, plus conditional rules. Both schema and validateModuleMessage must reject every sample.",
+  "samples": [
+    {
+      "id": "execute-missing-requestId",
+      "messageType": "request/execute",
+      "rule": "execute requires requestId isId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"payload\":{}}"
+    },
+    {
+      "id": "execute-empty-runId",
+      "messageType": "request/execute",
+      "rule": "empty id is rejected by isId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{}}"
+    },
+    {
+      "id": "execute-attemptId",
+      "messageType": "request/execute",
+      "rule": "forbidden attemptId",
+      "conditional": "forbidden-attemptId-stepId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\"}"
+    },
+    {
+      "id": "execute-stepId",
+      "messageType": "request/execute",
+      "rule": "forbidden stepId",
+      "conditional": "forbidden-attemptId-stepId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"stepId\":\"step-1\"}"
+    },
+    {
+      "id": "module_call-invalid-module",
+      "messageType": "request/module_call",
+      "rule": "module_call target enum",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"not-a-module\",\"payload\":{}}"
+    },
+    {
+      "id": "module_call-missing-payload",
+      "messageType": "request/module_call",
+      "rule": "module_call requires payload object",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"model\"}"
+    },
+    {
+      "id": "cancel-missing-reason",
+      "messageType": "request/cancel",
+      "rule": "cancel requires reason",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"cancel-1\",\"method\":\"cancel\",\"runId\":\"run-1\",\"operationId\":\"operation-1\"}"
+    },
+    {
+      "id": "cancel-empty-reason",
+      "messageType": "request/cancel",
+      "rule": "cancel reason minLength 1",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"cancel-1\",\"method\":\"cancel\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"reason\":\"\"}"
+    },
+    {
+      "id": "status-missing-requestId",
+      "messageType": "request/status",
+      "rule": "status requires requestId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"status-1\",\"method\":\"status\"}"
+    },
+    {
+      "id": "resume-missing-binding",
+      "messageType": "request/resume",
+      "rule": "resume requires previousBinding",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "ack-sequence-negative-one",
+      "messageType": "request/ack",
+      "rule": "ack lastAppliedSequence isSequence (>=0)",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"ack-1\",\"method\":\"ack\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "hello-missing-payload",
+      "messageType": "request/hello",
+      "rule": "handshake requires payload object",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"hello-1\",\"method\":\"hello\"}"
+    },
+    {
+      "id": "capabilities-payload-array",
+      "messageType": "request/capabilities",
+      "rule": "handshake payload must be a record, not an array",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"caps-1\",\"method\":\"capabilities\",\"payload\":[]}"
+    },
+    {
+      "id": "event-final-missing-outcome",
+      "messageType": "event",
+      "rule": "final⇒outcome",
+      "conditional": "final-implies-outcome",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":true,\"payload\":{}}"
+    },
+    {
+      "id": "event-moduleInstanceId",
+      "messageType": "event",
+      "rule": "forbidden moduleInstanceId",
+      "conditional": "forbidden-binding-on-event",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"moduleInstanceId\":\"instance-1\"}"
+    },
+    {
+      "id": "event-connectionGeneration",
+      "messageType": "event",
+      "rule": "forbidden connectionGeneration",
+      "conditional": "forbidden-binding-on-event",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"connectionGeneration\":\"generation-1\"}"
+    },
+    {
+      "id": "response-missing-inReplyTo",
+      "messageType": "response",
+      "rule": "response requires inReplyTo",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"ok\":true}"
+    },
+    {
+      "id": "response-final-missing-outcome",
+      "messageType": "response",
+      "rule": "final⇒outcome",
+      "conditional": "final-implies-outcome",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":true}"
+    },
+    {
+      "id": "error-invalid-retryability",
+      "messageType": "error",
+      "rule": "error retryability enum",
+      "raw": "{\"kind\":\"error\",\"messageId\":\"error-1\",\"code\":\"BROKEN\",\"message\":\"broken\",\"retryability\":\"sometimes\"}"
+    },
+    {
+      "id": "error-empty-message",
+      "messageType": "error",
+      "rule": "error message minLength 1",
+      "raw": "{\"kind\":\"error\",\"messageId\":\"error-1\",\"code\":\"BROKEN\",\"message\":\"\",\"retryability\":\"safe\"}"
+    }
+  ]
+}

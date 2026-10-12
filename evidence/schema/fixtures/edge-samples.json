@@ -1,0 +1,88 @@
+{
+  "description": "Raw JSON text → JSON.parse → schema and validateModuleMessage. Covers isSequence/isResumeSequence bounds, extra fields, and empty/non-string ids.",
+  "samples": [
+    {
+      "id": "event-sequence-1.0",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "note": "JSON.parse('1.0') is JS number 1; Number.isInteger(1) is true. Rust serde may keep f64.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1.0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-negative-zero",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "note": "JSON.parse('-0') is JS -0; Number.isInteger(-0) && -0 >= 0. Rust serde may preserve sign.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":-0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-negative-one",
+      "bound": "isSequence",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":-1,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-1.0",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":1.0}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-negative-zero",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":-0}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-negative-one",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "ack-lastAppliedSequence-negative-one",
+      "bound": "isSequence",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"ack-1\",\"method\":\"ack\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "execute-extra-top-level",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"unexpectedTopLevel\":\"keep\"}"
+    },
+    {
+      "id": "execute-extra-payload",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{\"unexpectedPayload\":1}}"
+    },
+    {
+      "id": "event-extra-top-level-and-payload",
+      "expect": "accept",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{\"unexpectedPayload\":true},\"unexpectedTopLevel\":\"keep\"}"
+    },
+    {
+      "id": "execute-empty-messageId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{}}"
+    },
+    {
+      "id": "execute-non-string-requestId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":1,\"payload\":{}}"
+    },
+    {
+      "id": "event-empty-streamId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-non-string-runId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":0,\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    }
+  ]
+}
