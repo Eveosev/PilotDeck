@@ -1,0 +1,18 @@
+{
+  "task": "T-P1-01",
+  "slice": "PR-A S0-S2",
+  "gitSha": "be33c4d501ecf78f7cc5fdb9f01a5afd06beef67",
+  "gitDirty": false,
+  "base": "1da663a2",
+  "branch": "pilotdeck-rust/T-P1-01-agent-loop-a",
+  "target": "rust_standalone_alpha1",
+  "collectedAt": "2026-10-12T12:34:00Z",
+  "toolchain": "1.83.0",
+  "ajv": "8.20.0",
+  "jsonSchemaDraft": "2020-12",
+  "ajvStrict": true,
+  "typescriptFunction": "validateModuleMessage",
+  "schema": "evidence/schema/module-protocol.schema.json",
+  "protocol": "src/agent/modules/protocol.ts",
+  "note": "Collected on the clean code commit before this evidence-only child commit. node_modules/ was present locally for ajv but is gitignored and not part of the tree."
+}

@@ -1,0 +1,313 @@
+{
+  "messages": [
+    {
+      "id": "emitted-0",
+      "source": "rust-sidecar",
+      "message": {
+        "capabilitiesVersion": "1",
+        "connectionGeneration": "pilotdeck-agent-loop-instance-18ddc83aecb57faf-0-1587-18ddc83aecb5bbf8-1-1587",
+        "inReplyTo": "hello-1",
+        "kind": "response",
+        "messageId": "hello-18ddc83aecc83385-2-1587",
+        "moduleId": "pilotdeck-agent-loop",
+        "moduleInstanceId": "pilotdeck-agent-loop-instance-18ddc83aecb57faf-0-1587",
+        "ok": true,
+        "payload": {},
+        "protocolVersion": "2.0"
+      }
+    },
+    {
+      "id": "emitted-1",
+      "source": "rust-sidecar",
+      "message": {
+        "capabilitiesVersion": "1",
+        "connectionGeneration": "pilotdeck-agent-loop-instance-18ddc83aecb57faf-0-1587-18ddc83aecb5bbf8-1-1587",
+        "inReplyTo": "caps-1",
+        "kind": "response",
+        "messageId": "capabilities-18ddc83aecc95284-3-1587",
+        "moduleId": "pilotdeck-agent-loop",
+        "moduleInstanceId": "pilotdeck-agent-loop-instance-18ddc83aecb57faf-0-1587",
+        "ok": true,
+        "payload": {
+          "capabilitiesVersion": "1",
+          "methods": [
+            {
+              "cancel": true,
+              "enabled": true,
+              "name": "execute",
+              "profiles": [
+                "streaming"
+              ],
+              "resumeSupport": "none",
+              "retry": "retry_after_status"
+            },
+            {
+              "enabled": true,
+              "name": "cancel"
+            },
+            {
+              "enabled": true,
+              "name": "status"
+            },
+            {
+              "enabled": false,
+              "name": "resume"
+            },
+            {
+              "enabled": false,
+              "name": "ack"
+            }
+          ],
+          "transport": "stdio"
+        },
+        "protocolVersion": "2.0"
+      }
+    },
+    {
+      "id": "emitted-2",
+      "source": "rust-sidecar",
+      "message": {
+        "cursor": 0,
+        "inReplyTo": "ex-1",
+        "kind": "response",
+        "messageId": "accepted-18ddc83aecca7f6d-5-1587",
+        "ok": true,
+        "requestId": "req-1",
+        "streamId": "stream-18ddc83aecca7be7-4-1587"
+      }
+    },
+    {
+      "id": "emitted-3",
+      "source": "rust-sidecar",
+      "message": {
+        "inReplyTo": "st-1",
+        "kind": "response",
+        "messageId": "status-18ddc83aeccb43ca-6-1587",
+        "ok": true,
+        "payload": {
+          "cancelRequested": false,
+          "operationId": "op-1",
+          "requestIds": [
+            "req-1"
+          ],
+          "runId": "run-1",
+          "state": "running",
+          "updatedAt": "2026-10-12T12:33:02.169Z"
+        },
+        "requestId": "req-1"
+      }
+    },
+    {
+      "id": "emitted-4",
+      "source": "rust-sidecar",
+      "message": {
+        "inReplyTo": "cancel-1",
+        "kind": "response",
+        "messageId": "cancel-18ddc83aeccbb7ec-7-1587",
+        "ok": true,
+        "payload": {
+          "cancelled": true,
+          "operationId": "op-1"
+        },
+        "requestId": "req-1"
+      }
+    },
+    {
+      "id": "emitted-5",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "RESUME_UNSUPPORTED",
+        "inReplyTo": "resume-1",
+        "kind": "response",
+        "messageId": "resume-18ddc83aeccbf903-8-1587",
+        "ok": false
+      }
+    },
+    {
+      "id": "emitted-6",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "ACK_UNSUPPORTED",
+        "inReplyTo": "ack-1",
+        "kind": "response",
+        "messageId": "ack-18ddc83aeccc27b4-9-1587",
+        "ok": false
+      }
+    },
+    {
+      "id": "emitted-7",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "INVALID_JSON",
+        "kind": "error",
+        "message": "Module message is not valid JSON.",
+        "messageId": "parse-18ddc83aeccc6890-a-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-8",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "INVALID_KIND",
+        "kind": "error",
+        "message": "Module message kind is invalid.",
+        "messageId": "validation-18ddc83aeccc9b26-b-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-9",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "INVALID_HANDSHAKE_REQUEST",
+        "kind": "error",
+        "message": "Handshake requires payload.",
+        "messageId": "validation-18ddc83aecccd601-c-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-10",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "UNSUPPORTED_FIELD",
+        "kind": "error",
+        "message": "attemptId and stepId are not public fields.",
+        "messageId": "validation-18ddc83aeccd127e-e-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-11",
+      "source": "rust-sidecar",
+      "message": {
+        "eventType": "agent.execute.cancelled",
+        "final": true,
+        "kind": "event",
+        "messageId": "failed-18ddc83aecccf7cb-d-1587",
+        "operationId": "op-1",
+        "outcome": "cancelled",
+        "payload": {},
+        "requestId": "req-1",
+        "runId": "run-1",
+        "sequence": 0,
+        "streamId": "stream-18ddc83aecca7be7-4-1587"
+      }
+    },
+    {
+      "id": "emitted-12",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "UNSUPPORTED_FIELD",
+        "kind": "error",
+        "message": "attemptId and stepId are not public fields.",
+        "messageId": "validation-18ddc83aecce1c5c-f-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-13",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "INVALID_STATUS_REQUEST",
+        "kind": "error",
+        "message": "Status requires requestId.",
+        "messageId": "validation-18ddc83aecce4fe7-10-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-14",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "INVALID_CANCEL_REQUEST",
+        "kind": "error",
+        "message": "Cancel requires runId, operationId, and reason.",
+        "messageId": "validation-18ddc83aecce7d3a-11-1587",
+        "retryability": "unsafe"
+      }
+    },
+    {
+      "id": "emitted-15",
+      "source": "rust-sidecar",
+      "message": {
+        "code": "UNEXPECTED_MODULE_CALL",
+        "final": true,
+        "inReplyTo": "mod-1",
+        "kind": "response",
+        "messageId": "module-call-18ddc83aecceb9ac-12-1587",
+        "ok": false,
+        "outcome": "failed",
+        "requestId": "req-mod"
+      }
+    },
+    {
+      "id": "emitted-16",
+      "source": "rust-sidecar-completed",
+      "message": {
+        "cursor": 0,
+        "inReplyTo": "ex-done",
+        "kind": "response",
+        "messageId": "accepted-18ddc83d74e8b914-3-15d0",
+        "ok": true,
+        "requestId": "req-done",
+        "streamId": "stream-18ddc83d74e8a36e-2-15d0"
+      }
+    },
+    {
+      "id": "emitted-17",
+      "source": "rust-sidecar-completed",
+      "message": {
+        "eventType": "agent.message",
+        "final": false,
+        "kind": "event",
+        "messageId": "event-18ddc83d74ecc64e-4-15d0",
+        "operationId": "op-done",
+        "payload": {
+          "role": "assistant",
+          "stub": true,
+          "text": "STUB[pure_text]: What is the status?",
+          "type": "message"
+        },
+        "requestId": "req-done",
+        "runId": "run-done",
+        "sequence": 0,
+        "streamId": "stream-18ddc83d74e8a36e-2-15d0"
+      }
+    },
+    {
+      "id": "emitted-18",
+      "source": "rust-sidecar-completed",
+      "message": {
+        "eventType": "agent.execute.completed",
+        "final": true,
+        "kind": "event",
+        "messageId": "final-18ddc83d74ed5965-5-15d0",
+        "operationId": "op-done",
+        "outcome": "completed",
+        "payload": {
+          "messages": [
+            {
+              "content": "STUB[pure_text]: What is the status?",
+              "role": "assistant"
+            }
+          ],
+          "result": {
+            "stopReason": "completed",
+            "turns": 1,
+            "type": "success"
+          },
+          "stub": {
+            "model": "pilotdeck-stub",
+            "scenario": "pure_text"
+          }
+        },
+        "requestId": "req-done",
+        "runId": "run-done",
+        "sequence": 1,
+        "streamId": "stream-18ddc83d74e8a36e-2-15d0"
+      }
+    }
+  ]
+}
