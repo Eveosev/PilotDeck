@@ -2,7 +2,7 @@
 
 - 任务：T-P0a-07 Module Protocol 同步门禁（文档先行）
 - 分支：`pilotdeck-rust/T-P0a-07-protocol-change-gate`
-- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge 主线 `7d488a1b`）
+- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge `7d488a1b` 与 `2c4420b4`）
 - 禁止：rebase / force-push / ready / merge；不改 `src/`、`.github/`、`crates/`、lockfile
 
 ## Commits
@@ -13,8 +13,10 @@
 | 1 | 文档（R2-1…R2-7） | `14b1a71ee8a63371c79a830f656482657e2a25a6` |
 | 2 | 证据提交（parent = 采集 SHA） | `3f5baf7c7055e2f7c2a9baae640d7aa452327006` |
 | 3 | F-7 删除 `review/**/evidence` 原始件 | `7bcee318b5b19c35fe22f92eda731981483282e6` |
-| 4 | merge `origin/rust_standalone_alpha1` | `6d450b6ac2f91dc595892158aeb8ec1de3072b09` |
-| 5 | 本记录（仅本文件） | （落地后 = 本提交） |
+| 4 | merge `7d488a1b` | `6d450b6ac2f91dc595892158aeb8ec1de3072b09` |
+| 5 | 记录 `7d488a1b` sync | `bbb88cb7bedca6013787221cba1fef41ef55a11f` |
+| 6 | merge `2c4420b4`（PR #6） | `60d9d462a2d4527a20d8f013ea4c47015eae25d3` |
+| 7 | 本记录（仅本文件） | （落地后 = 本提交） |
 
 采集时 **`gitDirty=false`**，`gitSha=14b1a71ee8a63371c79a830f656482657e2a25a6`。
 
@@ -39,6 +41,32 @@ git diff $(git merge-base 7bcee318 7d488a1b) 7d488a1b -- . ':!review'
 | `git diff 1da663a2 7d488a1b -- . ':!review'` | `89f448a80985d9fd9330710a2e89d558f13f2a8e8b61e95ec3f58ed457fa141b` |
 
 **equality**：`true`（两份 patch 字节相同）。
+
+## 主线同步 #2（PR #6 合入后，merge，非 rebase）
+
+- **oldTip**：`bbb88cb7bedca6013787221cba1fef41ef55a11f`
+- **M**（`origin/rust_standalone_alpha1`，#6 merge）：`2c4420b417bc9eefe19b52f3d62245c8b74d406a`（#6 tip `12395bbe`）
+- **merge-base(oldTip, M)**：`7d488a1b5607df51b91b3b0a596298d633638cc2`
+- **mergeSha**：`60d9d462a2d4527a20d8f013ea4c47015eae25d3`（parents `bbb88cb7` + `2c4420b4`）
+- **conflicts**：none。merge 提交无额外非冲突编辑（`--cc` 为空）。带入主线：desktop runtime / build-runtime / e2e 与 `review/2026-10-12-desktop-sdk-runtime-fix/`。
+
+验证：
+
+```
+A = git diff oldTip mergeSha -- . ':!review' | sha256sum
+B = git diff $(git merge-base oldTip M) M -- . ':!review' | sha256sum
+```
+
+| 侧 | sha256 |
+| --- | --- |
+| A `git diff bbb88cb7 60d9d462 -- . ':!review'` | `7248873afc43927ddac0385006078c41615a16d8c234d88d6df115b142d33fc1` |
+| B `git diff 7d488a1b 2c4420b4 -- . ':!review'` | `7248873afc43927ddac0385006078c41615a16d8c234d88d6df115b142d33fc1` |
+
+**equality**：`true`。
+
+### CI-3 豁免（Payne 定）
+
+主线现带 PR #6 的 **CI-3**：`rust_standalone_alpha1` 上既有 Web Regression，`ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` 找不到 `updateAndRestart` button role。Payne 判定该失败在 desktop packaging 范围外，归单独 UI PR，**不阻塞** 本 T-P0a-07 文档门禁 PR。本 PR 不改产品代码 / `src/` / `crates/` 来“修”CI-3。
 
 ## R2 修复
 
