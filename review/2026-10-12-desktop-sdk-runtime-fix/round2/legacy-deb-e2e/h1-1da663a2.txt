@@ -1,0 +1,19 @@
+SHA 1da663a2
+    58	        <div className="workspace-title flex-1">
+    59	          <h1 className="min-w-0 truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50">
+    60	            {title}
+    61	          </h1>
+   266	          ) : (
+   267	            <h1
+   268	              className={cn(
+   269	                'min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50',
+   270	                selectedSession && 'cursor-text',
+   271	              )}
+   272	              title={headerTitle}
+   273	              onDoubleClick={selectedSession ? beginSessionTitleRename : undefined}
+   274	            >
+   275	              {headerTitle}
+   276	            </h1>
+
+data-desktop-no-drag occurrences:
+(none)

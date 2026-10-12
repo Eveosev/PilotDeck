@@ -1,0 +1,6 @@
+gitSha=524cb673362ca04ce02cab17b22f9d69b6a07b55
+gitDirty=false
+branch=pilotdeck-rust/desktop-sdk-runtime-fix
+recordedAt=2026-10-12T13:13:12Z
+compareBase=1da663a21d40ef5e309c86423a235550c79f91ff
+compareHead=524cb673362ca04ce02cab17b22f9d69b6a07b55

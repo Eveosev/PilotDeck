@@ -1,0 +1,39 @@
+{
+  "title": "legacy-deb-e2e-data-desktop-no-drag",
+  "recordedAt": "2026-10-12T13:13:12Z",
+  "gitSha": "524cb673362ca04ce02cab17b22f9d69b6a07b55",
+  "collectSha": "524cb673362ca04ce02cab17b22f9d69b6a07b55",
+  "gitDirty": false,
+  "baseSha": "1da663a21d40ef5e309c86423a235550c79f91ff",
+  "commands": [
+    {
+      "name": "git diff --name-only 1da663a2 524cb673 -- ui/",
+      "exitCode": 0,
+      "note": "empty; PR does not touch ui/"
+    },
+    {
+      "name": "pnpm --dir ui exec vitest run src/components/app-shell/MainAreaV2.test.tsx",
+      "tree": "1da663a2 worktree",
+      "exitCode": 1,
+      "assertion": "MainAreaV2.test.tsx:131 expected true, received false"
+    },
+    {
+      "name": "pnpm --dir ui exec vitest run src/components/app-shell/MainAreaV2.test.tsx",
+      "tree": "524cb673",
+      "exitCode": 1,
+      "assertion": "MainAreaV2.test.tsx:131 expected true, received false"
+    },
+    {
+      "name": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+      "tree": "524cb673",
+      "exitCode": 1,
+      "assertion": "desktop-chrome.smoke.mjs:237 data-desktop-no-drag unexpected value null"
+    },
+    {
+      "name": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+      "tree": "1da663a2 worktree",
+      "exitCode": 1,
+      "note": "electron firstWindow timeout; UI/smoke blobs identical to 524cb673"
+    }
+  ]
+}

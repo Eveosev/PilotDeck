@@ -1,0 +1,33 @@
+
+ RUN  v4.1.7 /tmp/pd-base-1da663a2/ui
+
+ ❯ src/components/app-shell/MainAreaV2.test.tsx (11 tests | 1 failed) 268ms
+     × renames the selected session inline after double-clicking the header title 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/app-shell/MainAreaV2.test.tsx > MainAreaV2 dashboard switcher > renames the selected session inline after double-clicking the header title
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/app-shell/MainAreaV2.test.tsx:131:56
+    129|
+    130|     const title = screen.getByTitle('Searchable chat');
+    131|     expect(title.hasAttribute('data-desktop-no-drag')).toBe(true);
+       |                                                        ^
+    132|     fireEvent.doubleClick(title);
+    133|     const input = screen.getByRole('textbox', { name: 'Rename Session'…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  13:13:24
+   Duration  1.43s (transform 212ms, setup 0ms, import 409ms, tests 268ms, environment 623ms)
+

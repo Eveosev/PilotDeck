@@ -1,0 +1,59 @@
+dbus-daemon[12854]: [session uid=1000 pid=12854] Activating service name='org.a11y.Bus' requested by ':1.1' (uid=1000 pid=12880 comm="/workspace/node_modules/.pnpm/electron@42.11.1/nod" label="kernel")
+dbus-daemon[12854]: [session uid=1000 pid=12854] Successfully activated service 'org.a11y.Bus'
+PASS: compact caption and rich About dialog, version copy and project link
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+
+ExpectError: expect(locator).toHaveAttribute(expected) failed
+
+Locator:  locator('.workspace-header h1')
+Expected: ""
+Received: serializes to the same string
+Timeout:  5000ms
+
+Call log:
+  - Expect "to.have.attribute.value" with timeout 5000ms
+  - waiting for locator('.workspace-header h1')
+    2 × locator resolved to <h1 title="General conversation" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50">General conversation</h1>
+      - unexpected value "null"
+    12 × locator resolved to <h1 title="Native title review" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50 cursor-text">Native title review</h1>
+       - unexpected value "null"
+
+    at captureRawStack (/workspace/node_modules/.pnpm/playwright-core@1.60.0/node_modules/playwright-core/lib/coreBundle.js:3130:17)
+    at callMatcherAsStep (/workspace/node_modules/.pnpm/playwright@1.60.0/node_modules/playwright/lib/matchers/expect.js:12873:57)
+    at Object.toHaveAttribute (/workspace/node_modules/.pnpm/playwright@1.60.0/node_modules/playwright/lib/matchers/expect.js:12863:23)
+    at /workspace/ui/e2e/desktop-chrome.smoke.mjs:237:23 {
+  matcherResult: {
+    name: 'toHaveAttribute',
+    expected: '',
+    message: 'expect(locator).toHaveAttribute(expected) failed\n' +
+      '\n' +
+      "Locator:  locator('.workspace-header h1')\n" +
+      'Expected: ""\n' +
+      'Received: serializes to the same string\n' +
+      'Timeout:  5000ms\n' +
+      '\n' +
+      'Call log:\n' +
+      '  - Expect "to.have.attribute.value" with timeout 5000ms\n' +
+      "  - waiting for locator('.workspace-header h1')\n" +
+      '    2 × locator resolved to <h1 title="General conversation" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50">General conversation</h1>\n' +
+      '      - unexpected value "null"\n' +
+      '    12 × locator resolved to <h1 title="Native title review" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50 cursor-text">Native title review</h1>\n' +
+      '       - unexpected value "null"\n',
+    pass: false,
+    actual: null,
+    log: [
+      '  - Expect "to.have.attribute.value" with timeout 5000ms',
+      "  - waiting for locator('.workspace-header h1')",
+      '    2 × locator resolved to <h1 title="General conversation" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50">General conversation</h1>',
+      '      - unexpected value "null"',
+      '    12 × locator resolved to <h1 title="Native title review" class="min-w-0 max-w-[34rem] truncate text-[15px] font-semibold leading-5 text-neutral-950 dark:text-neutral-50 cursor-text">Native title review</h1>',
+      '       - unexpected value "null"'
+    ],
+    timeout: 5000,
+    ariaSnapshot: '- heading "Native title review" [level=1]'
+  }
+}
+
+Node.js v22.14.0
