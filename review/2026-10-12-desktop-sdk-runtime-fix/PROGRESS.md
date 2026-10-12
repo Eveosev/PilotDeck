@@ -17,3 +17,12 @@ R2 follow-ups from the 2026-10-12 review. Required items land in this PR; F-* st
 | F-5 | CI / maintainer | Windows arm64 PortableGit 504 (job `114797233974`) could not be rerun (`gh run rerun` and Actions API returned 403 / "job cannot be rerun"). Re-run on a later push with a token that can retry failed jobs, or wait for the next Desktop Windows arm64 workflow. Not a packaging-code defect. |
 | F-6 | separate UI PR | Pre-existing Web Regression on `rust_standalone_alpha1`: `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` cannot find the `updateAndRestart` button role. Outside desktop packaging scope. |
 | F-7 | pending decision | Do not delete `review/2026-10-12-desktop-sdk-runtime-fix/` yet. New evidence must be small text files only (no new screenshots or binaries). |
+
+## R2 evidence
+
+Collected on clean `6ecd3221` (`gitDirty=false`). Mutation of the transitive walk was restored and not committed.
+
+- `round2/r2-followup/r2-imports-after.txt` — 4/4 pass
+- `round2/r2-followup/r2-1-mutation-fail.txt` — R2-1 FAIL (`Missing expected exception.`)
+- `round2/r2-followup/desktop-tests.summary.txt` — desktop suite 152 pass / 0 fail / 1 skip
+
