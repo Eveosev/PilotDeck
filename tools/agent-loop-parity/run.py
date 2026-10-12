@@ -619,7 +619,7 @@ def adapter_env(
         # Keep mock side effects and cancellation state isolated per adapter
         # invocation. The mock server is shared across a run, but a trace must
         # never inherit effects from another scenario or comparison pair.
-        "PARITY_RUN_KEY": f"{mode}-{scenario['scenarioId']}-{ref.replace('/', '_')}",
+        "PARITY_RUN_KEY": f"{mode}-{scenario['scenarioId']}-{ref.replace('/', '_')}-{invocation_id}",
         "PARITY_INVOCATION_ID": invocation_id,
     })
     if sidecar_transport == "tcp" and tcp_target is not None:

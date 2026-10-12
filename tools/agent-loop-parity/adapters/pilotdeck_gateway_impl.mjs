@@ -5,6 +5,27 @@ import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
 
+function createNoopPerfCollector() {
+  const noop = () => {};
+  return {
+    enabled: false,
+    markTurnStart: noop,
+    markTurnEnd: noop,
+    markModelStart: noop,
+    markModelEnd: noop,
+    markStreamChunk: noop,
+    markToolStart: noop,
+    markToolEnd: noop,
+    markFirstGatewayEvent: noop,
+    mark: noop,
+    snapshot: () => ({ turn_ms: null, model_iter_ms: [], stream_chunk_ms: [] }),
+  };
+}
+
+const { createPerfCollector, writePerfSnapshot } = process.env.PARITY_PERF === "1"
+  ? await import("../../agent-loop-perf/collector.mjs")
+  : { createPerfCollector: createNoopPerfCollector, writePerfSnapshot: async () => {} };
+
 const sourceRoot = process.env.PARITY_SOURCE_ROOT;
 const sidecarRoot = process.env.PARITY_PILOTDECK_ROOT ?? sourceRoot;
 const scenario = JSON.parse(process.env.PARITY_SCENARIO_JSON);
@@ -92,6 +113,8 @@ let markToolStarted;
 const toolStarted = new Promise((resolve) => {
   markToolStarted = resolve;
 });
+const perf = createPerfCollector();
+const perfOut = process.env.PARITY_PERF_OUT || (perf.enabled ? `${traceOut}.perf.json` : "");
 const push = (kind, extra = {}) => {
   const record = { kind, scenarioId: scenario.scenarioId, q: scenario.q, invocationId, sequence: sequence++, ...extra };
   trace.push(record);
@@ -161,6 +184,8 @@ async function waitForScopedModelResponses({ timeoutMs = 5000, agentScope, count
 
 class MockModelRuntime {
   async *stream(request, options = {}) {
+    perf.markModelStart();
+    try {
     modelAttempt += 1;
     scenarioTurnModelAttempt += 1;
     const invocationAttempt = modelAttempt;
@@ -310,6 +335,9 @@ class MockModelRuntime {
       yield { type: "text_delta", text: message.content ?? "" };
       yield { type: "message_end", finishReason: "stop" };
     }
+    } finally {
+      perf.markModelEnd();
+    }
   }
 
   async complete() {
@@ -382,6 +410,7 @@ function createTools() {
       push("tool.call", { name, arguments: input, toolCallId, concurrencySafe, sideEffectCount: 0 });
       push("tool.start", { name, toolCallId, concurrencySafe, sideEffectCount: 0 });
       markToolStarted();
+      perf.markToolStart();
       if (name === "progress_tool") {
         context.progress?.({
           toolCallId,
@@ -408,6 +437,7 @@ function createTools() {
       }, context.abortSignal).finally(() => {
         context.abortSignal?.removeEventListener("abort", forwardCancellation);
       });
+      perf.markToolEnd();
       push("tool.finish", { name, toolCallId, concurrencySafe, success: result.type === "success", error: result.error, sideEffectCount: result.data?.sideEffectCount ?? 0 });
       push("tool.result", { result: { ...result, toolCallId }, toolCallId, concurrencySafe, sideEffectCount: result.data?.sideEffectCount ?? 0 });
       if (result.type === "error") {
@@ -672,6 +702,11 @@ const local = createLocalGateway({
     agentLoopTransportObserver: {
       observe(observation) {
         push("harness.proof", { state: observation.type, ...observation });
+        if (observation.type === "handshake_completed") perf.mark("handshake_completed");
+        if (observation.type === "stream_accepted") perf.mark("stream_accepted");
+        if (observation.type === "module_call_received") {
+          perf.mark("module_call", { module: observation.module, operation: observation.operation });
+        }
       },
     },
   } : {}),
@@ -770,6 +805,7 @@ try {
       scenarioTurnModelAttempt = 0;
       push("policy.turn", { permissionMode: observedPermissionMode, runMode: observedPermissionMode === "plan" ? "plan" : "agent" });
 
+      perf.markTurnStart();
       const stream = client.stream("submit_turn", {
         sessionKey,
         channelKey: "test",
@@ -785,6 +821,7 @@ try {
       });
 
       for await (const event of stream) {
+        perf.markFirstGatewayEvent();
         if (event.type === "tool_call_started" && builtinToolLifecycleNames.has(event.name)) {
           push("tool.call", { name: event.name, toolCallId: event.toolCallId });
           push("tool.start", { name: event.name, toolCallId: event.toolCallId });
@@ -830,11 +867,15 @@ try {
           }
         }
         if (event.type === "assistant_text_delta") {
+          perf.markStreamChunk();
           visibleOutput += event.text;
           push("user.output", { text: event.text });
         }
         if (event.type === "plan_mode_changed") observedPermissionMode = event.mode;
-        if (event.type === "turn_completed") terminal = event;
+        if (event.type === "turn_completed") {
+          perf.markTurnEnd();
+          terminal = event;
+        }
         if (event.type === "error") {
           terminalErrorCode = event.code;
           push("gateway.error", { code: event.code, message: event.message });
@@ -858,7 +899,9 @@ try {
       resultType: terminal?.result?.type,
     });
     await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+    await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   } else {
+  perf.markTurnStart();
   const stream = client.stream("submit_turn", {
     sessionKey,
     channelKey: "test",
@@ -943,6 +986,7 @@ try {
   let terminalErrorCode;
   const builtinToolLifecycleNames = new Set(["agent", "ask_user_question", "read_file", "write_file", "subagent", "send_message"]);
   for await (const event of stream) {
+    perf.markFirstGatewayEvent();
     // These built-ins emit lifecycle only through the Gateway stream. Keep
     // their port-level effects in the same trace vocabulary as parity tools.
     if (event.type === "tool_call_started" && builtinToolLifecycleNames.has(event.name)) {
@@ -1001,10 +1045,12 @@ try {
       push("tool.progress", { toolCallId: event.toolCallId, toolName: event.toolName, message: event.message, metadata: event.metadata });
     }
     if (event.type === "assistant_text_delta") {
+      perf.markStreamChunk();
       visibleOutput += event.text;
       push("user.output", { text: event.text });
     }
     if (event.type === "turn_completed") {
+      perf.markTurnEnd();
       terminal = event;
       terminalCount += 1;
     }
@@ -1117,6 +1163,7 @@ try {
     durableErrorCode: durableTurnResult?.errors?.[0]?.code,
   });
   await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+  await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   }
 } finally {
   debug("closing deployment");
