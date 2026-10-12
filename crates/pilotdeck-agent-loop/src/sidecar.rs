@@ -212,6 +212,19 @@ impl Sidecar {
                 }));
                 return;
             }
+            if let Some(existing) = ops.by_id.get(&operation_id) {
+                if existing.run_id != run_id {
+                    self.emit(json!({
+                        "kind": "response",
+                        "messageId": self.next_id("execute-rejected"),
+                        "inReplyTo": message_id,
+                        "requestId": request_id,
+                        "ok": false,
+                        "code": "OPERATION_RUN_MISMATCH",
+                    }));
+                    return;
+                }
+            }
         }
 
         if deadline_already_exceeded(&request) {
@@ -305,28 +318,26 @@ impl Sidecar {
                     snapshot.updated_at = now_iso();
                 }
             }
-            self.emit(json!({
-                "kind": "response",
-                "messageId": self.next_id("cancel"),
-                "inReplyTo": message_id,
-                "requestId": request_id,
-                "ok": true,
-                "payload": { "operationId": operation_id, "cancelled": true },
-            }));
+            self.emit(cancel_response(
+                self.next_id("cancel"),
+                &message_id,
+                request_id.as_deref(),
+                true,
+                json!({ "payload": { "operationId": operation_id, "cancelled": true } }),
+            ));
         } else {
             let code = if ops.active.contains_key(&operation_id) {
                 "OPERATION_IDENTITY_MISMATCH"
             } else {
                 "UNKNOWN_OPERATION"
             };
-            self.emit(json!({
-                "kind": "response",
-                "messageId": self.next_id("cancel"),
-                "inReplyTo": message_id,
-                "requestId": request_id,
-                "ok": false,
-                "code": code,
-            }));
+            self.emit(cancel_response(
+                self.next_id("cancel"),
+                &message_id,
+                request_id.as_deref(),
+                false,
+                json!({ "code": code }),
+            ));
         }
     }
 
@@ -698,6 +709,30 @@ fn control_failure(message_id: &str, in_reply_to: &str, code: &str) -> Value {
     })
 }
 
+fn cancel_response(
+    message_id: String,
+    in_reply_to: &str,
+    request_id: Option<&str>,
+    ok: bool,
+    extra: Value,
+) -> Value {
+    let mut message = json!({
+        "kind": "response",
+        "messageId": message_id,
+        "inReplyTo": in_reply_to,
+        "ok": ok,
+    });
+    if let Some(request_id) = request_id {
+        message["requestId"] = json!(request_id);
+    }
+    if let Value::Object(extra) = extra {
+        for (key, value) in extra {
+            message[key] = value;
+        }
+    }
+    message
+}
+
 fn string_field(value: &Value, field: &str) -> String {
     value
         .get(field)
@@ -833,54 +868,101 @@ mod tests {
             .contains('B'));
     }
 
+    fn assert_cancel_won_before_message(
+        lines: &[Value],
+        outcome: &str,
+        delay_ms: u64,
+        elapsed: Duration,
+    ) {
+        assert!(
+            elapsed < Duration::from_millis(delay_ms),
+            "cancel must beat stub delay {delay_ms}ms, took {elapsed:?}"
+        );
+        assert!(
+            elapsed <= Duration::from_secs(2),
+            "cancel mid-execute must terminate within 2s, took {elapsed:?}"
+        );
+        let terminal_idx = lines
+            .iter()
+            .position(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        let terminal = &lines[terminal_idx];
+        assert_eq!(terminal["outcome"], outcome);
+        assert_eq!(terminal["sequence"], 0);
+        assert!(
+            lines[..terminal_idx]
+                .iter()
+                .all(|m| m.get("eventType").and_then(Value::as_str) != Some("agent.message")),
+            "cancel must win before agent.message, have {lines:?}"
+        );
+    }
+
     #[test]
     fn cancel_mid_execute_matches_ts_outcome() {
+        const DELAY_MS: u64 = 10_000;
         let (sidecar, sink) = collect();
         sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-slow","method":"execute","runId":"run-c","operationId":"op-c","requestId":"req-c","payload":{"delayMs":400,"scenario":"pure_text"}}"#,
+            r#"{"kind":"request","messageId":"ex-slow","method":"execute","runId":"run-c","operationId":"op-c","requestId":"req-c","payload":{"delayMs":10000,"scenario":"pure_text"}}"#,
         );
         let _ = wait_for(
             &sink,
             |lines| lines.iter().any(|m| m["inReplyTo"] == "ex-slow"),
             500,
         );
+        let started = Instant::now();
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"cancel-1","method":"cancel","runId":"run-c","operationId":"op-c","requestId":"req-c","reason":"user_cancelled"}"#,
         );
         sidecar.join();
+        let elapsed = started.elapsed();
         let lines = sink.lock().expect("sink").clone();
         let cancel = lines.iter().find(|m| m["inReplyTo"] == "cancel-1").unwrap();
         assert_eq!(cancel["ok"], true);
         assert_eq!(cancel["payload"]["cancelled"], true);
-        let terminal = lines
-            .iter()
-            .find(|m| m["kind"] == "event" && m["final"] == true)
-            .unwrap();
-        assert_eq!(terminal["outcome"], "cancelled");
+        assert_cancel_won_before_message(&lines, "cancelled", DELAY_MS, elapsed);
     }
 
     #[test]
     fn timeout_cancel_is_result_unknown() {
+        const DELAY_MS: u64 = 10_000;
         let (sidecar, sink) = collect();
         sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-t","method":"execute","runId":"run-t","operationId":"op-t","requestId":"req-t","payload":{"delayMs":400}}"#,
+            r#"{"kind":"request","messageId":"ex-t","method":"execute","runId":"run-t","operationId":"op-t","requestId":"req-t","payload":{"delayMs":10000}}"#,
         );
         let _ = wait_for(
             &sink,
             |lines| lines.iter().any(|m| m["inReplyTo"] == "ex-t"),
             500,
         );
+        let started = Instant::now();
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"cancel-t","method":"cancel","runId":"run-t","operationId":"op-t","requestId":"req-t","reason":"timeout:run-t"}"#,
         );
         sidecar.join();
+        let elapsed = started.elapsed();
         let lines = sink.lock().expect("sink").clone();
         let terminal = lines
             .iter()
             .find(|m| m["kind"] == "event" && m["final"] == true)
             .unwrap();
-        assert_eq!(terminal["outcome"], "result_unknown");
         assert_eq!(terminal["code"], "DEADLINE_EXCEEDED");
+        assert_cancel_won_before_message(&lines, "result_unknown", DELAY_MS, elapsed);
+    }
+
+    #[test]
+    fn execute_finished_run_mismatch_is_rejected() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
+        );
+        sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-b","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
+        );
+        let lines = sink.lock().expect("sink").clone();
+        let rejected = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
+        assert_eq!(rejected["ok"], false);
+        assert_eq!(rejected["code"], "OPERATION_RUN_MISMATCH");
     }
 
     #[test]
@@ -926,9 +1008,11 @@ mod tests {
             lines.iter().find(|m| m["inReplyTo"] == "ack-1").unwrap()["code"],
             "ACK_UNSUPPORTED"
         );
-        assert_eq!(
-            lines.iter().find(|m| m["inReplyTo"] == "cancel-s").unwrap()["ok"],
-            true
+        let cancel_s = lines.iter().find(|m| m["inReplyTo"] == "cancel-s").unwrap();
+        assert_eq!(cancel_s["ok"], true);
+        assert!(
+            cancel_s.get("requestId").is_none(),
+            "cancel without requestId must omit the key, have {cancel_s}"
         );
     }
 

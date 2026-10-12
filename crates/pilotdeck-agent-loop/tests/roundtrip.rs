@@ -20,16 +20,40 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
         &json!({"kind":"request","messageId":"caps-1","method":"capabilities","payload":{}}),
     );
     sidecar.send_json(&json!({
+        "kind":"request","messageId":"ex-done","method":"execute",
+        "runId":"run-done","operationId":"op-done","requestId":"req-done",
+        "payload":{"scenario":"pure_text","q":"What is the status?"}
+    }));
+    let _ = sidecar.wait_for(
+        |msgs| {
+            msgs.iter().any(|m| {
+                m.get("kind") == Some(&json!("event"))
+                    && m.get("final") == Some(&json!(true))
+                    && m.get("inReplyTo").is_none()
+                    && m.get("eventType") == Some(&json!("agent.execute.completed"))
+                    && m.get("requestId") == Some(&json!("req-done"))
+            })
+        },
+        FAST,
+    );
+    sidecar.send_json(&json!({
         "kind":"request","messageId":"ex-1","method":"execute",
         "runId":"run-1","operationId":"op-1","requestId":"req-1",
-        "payload":{"scenario":"pure_text","q":"What is the status?","delayMs":80}
+        "payload":{"scenario":"pure_text","q":"What is the status?","delayMs":2000}
     }));
+    let _ = sidecar.wait_for(
+        |msgs| {
+            msgs.iter()
+                .any(|m| m.get("inReplyTo") == Some(&json!("ex-1")))
+        },
+        FAST,
+    );
     sidecar.send_json(
         &json!({"kind":"request","messageId":"st-1","method":"status","requestId":"req-1"}),
     );
     sidecar.send_json(&json!({
         "kind":"request","messageId":"cancel-1","method":"cancel",
-        "runId":"run-1","operationId":"op-1","requestId":"req-1","reason":"user_cancelled"
+        "runId":"run-1","operationId":"op-1","reason":"user_cancelled"
     }));
     sidecar.send_json(&json!({
         "kind":"request","messageId":"resume-1","method":"resume",
@@ -74,12 +98,17 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
                     .any(|m| m.get("code") == Some(&json!("INVALID_JSON")))
                 && msgs
                     .iter()
-                    .filter(|m| {
-                        m.get("kind") == Some(&json!("event"))
-                            && m.get("final") == Some(&json!(true))
-                    })
-                    .count()
-                    >= 1
+                    .any(|m| m.get("inReplyTo") == Some(&json!("cancel-1")))
+                && msgs.iter().any(|m| {
+                    m.get("kind") == Some(&json!("event"))
+                        && m.get("final") == Some(&json!(true))
+                        && m.get("eventType") == Some(&json!("agent.execute.completed"))
+                })
+                && msgs.iter().any(|m| {
+                    m.get("kind") == Some(&json!("event"))
+                        && m.get("final") == Some(&json!(true))
+                        && m.get("eventType") == Some(&json!("agent.execute.cancelled"))
+                })
         },
         FAST,
     );
@@ -87,6 +116,29 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
     assert!(
         !lines.is_empty(),
         "sidecar must emit at least one protocol message"
+    );
+    assert!(
+        lines.iter().any(|m| {
+            m.get("eventType") == Some(&json!("agent.execute.completed"))
+                && m.get("outcome") == Some(&json!("completed"))
+                && m.get("requestId") == Some(&json!("req-done"))
+        }),
+        "live corpus must include the completed path: {lines:?}"
+    );
+    assert!(
+        lines.iter().any(|m| {
+            m.get("eventType") == Some(&json!("agent.execute.cancelled"))
+                && m.get("outcome") == Some(&json!("cancelled"))
+        }),
+        "live corpus must include the cancelled path: {lines:?}"
+    );
+    let cancel = lines
+        .iter()
+        .find(|m| m.get("inReplyTo") == Some(&json!("cancel-1")))
+        .expect("cancel-1 reply");
+    assert!(
+        cancel.get("requestId").is_none(),
+        "cancel without requestId must omit the key: {cancel}"
     );
 
     let by_kind = count_kinds(&lines);
@@ -105,6 +157,9 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
         }).collect::<Vec<_>>()
     });
     fs::write(&tmp, serde_json::to_string_pretty(&payload).unwrap()).unwrap();
+    if let Ok(dump) = std::env::var("T_P1_01_EMITTED_OUT") {
+        fs::write(&dump, serde_json::to_string_pretty(&payload).unwrap()).unwrap();
+    }
 
     let output = Command::new("node")
         .arg(&script)

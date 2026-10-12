@@ -63,9 +63,18 @@ pub struct SidecarProcess {
 }
 
 impl SidecarProcess {
+    pub fn send_bytes(&mut self, bytes: &[u8]) {
+        self.stdin.write_all(bytes).expect("write stdin");
+        self.stdin.flush().expect("flush stdin");
+    }
+
     pub fn send_line(&mut self, line: &str) {
         writeln!(self.stdin, "{line}").expect("write stdin");
         self.stdin.flush().expect("flush stdin");
+    }
+
+    pub fn is_running(&mut self) -> bool {
+        self.child.try_wait().ok().flatten().is_none()
     }
 
     pub fn send_json(&mut self, value: &Value) {

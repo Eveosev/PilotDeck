@@ -21,10 +21,24 @@ pub fn serve_stdio() -> io::Result<()> {
         }
     }));
 
-    let stdin = io::stdin();
-    for line in stdin.lock().lines() {
-        let line = line?;
-        sidecar.handle_line(&line);
+    let mut stdin = io::stdin().lock();
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        let n = stdin.read_until(b'\n', &mut buf)?;
+        if n == 0 {
+            break;
+        }
+        while matches!(buf.last(), Some(b'\n' | b'\r')) {
+            buf.pop();
+        }
+        if buf.is_empty() {
+            continue;
+        }
+        match std::str::from_utf8(&buf) {
+            Ok(line) => sidecar.handle_line(line),
+            Err(_) => sidecar.handle_line("\u{FFFD}"),
+        }
         if let Ok(mut out) = stdout.lock() {
             let _ = out.flush();
         }

@@ -136,6 +136,35 @@ fn s1_execute_rejects_step_id() {
 }
 
 #[test]
+fn s0_non_utf8_line_is_invalid_json_and_keeps_serving() {
+    let mut sidecar = spawn_sidecar();
+    sidecar.send_bytes(b"\xff\xfe\n");
+    sidecar.send_json(&json!({
+        "kind": "request",
+        "messageId": "hello-utf8",
+        "method": "hello",
+        "payload": {}
+    }));
+    let lines = sidecar.wait_for(
+        |msgs| {
+            msgs.iter()
+                .any(|m| m.get("code") == Some(&json!("INVALID_JSON")))
+                && msgs
+                    .iter()
+                    .any(|m| m.get("inReplyTo") == Some(&json!("hello-utf8")))
+        },
+        FAST,
+    );
+    assert!(
+        sidecar.is_running(),
+        "sidecar must stay up after a non-UTF-8 frame"
+    );
+    assert!(lines.iter().any(|m| m["code"] == "INVALID_JSON"));
+    assert_eq!(find_reply(&lines, "hello-utf8")["ok"], true);
+    let _ = sidecar.close();
+}
+
+#[test]
 fn s2_cancel_status_and_explicit_resume_ack_reject() {
     let mut sidecar = spawn_sidecar();
     sidecar.send_json(&json!({
@@ -145,7 +174,7 @@ fn s2_cancel_status_and_explicit_resume_ack_reject() {
         "runId": "run-c",
         "operationId": "op-c",
         "requestId": "req-c",
-        "payload": { "scenario": "pure_text", "delayMs": 800 }
+        "payload": { "scenario": "pure_text", "delayMs": 10_000 }
     }));
     let _ = sidecar.wait_for(
         |msgs| {
@@ -208,11 +237,20 @@ fn s2_cancel_status_and_explicit_resume_ack_reject() {
     assert_eq!(find_reply(&lines, "cancel-1")["payload"]["cancelled"], true);
     assert_eq!(find_reply(&lines, "resume-1")["code"], "RESUME_UNSUPPORTED");
     assert_eq!(find_reply(&lines, "ack-1")["code"], "ACK_UNSUPPORTED");
-    let terminal = lines
+    let terminal_idx = lines
         .iter()
-        .find(|m| m["kind"] == "event" && m["final"] == true)
+        .position(|m| m["kind"] == "event" && m["final"] == true)
         .unwrap();
+    let terminal = &lines[terminal_idx];
     assert_eq!(terminal["outcome"], "cancelled");
+    assert_eq!(terminal["sequence"], 0);
+    assert!(
+        lines[..terminal_idx]
+            .iter()
+            .all(|m| m.get("eventType") != Some(&json!("agent.message"))),
+        "cancel must win before agent.message, have {:?}",
+        lines
+    );
     sidecar.send_json(&json!({
         "kind": "request",
         "messageId": "st-done",
