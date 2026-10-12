@@ -467,7 +467,7 @@ PilotDeck 采用开放的插件架构，插件代码与开源核心严格隔离�
 
 感谢所有为 PilotDeck 提交代码与反馈的开发者！我们欢迎新的成员加入，共同构建下一代智能体操作系统。
 
-贡献流程：**Fork 本仓库 → 创建 Feature 分支 → 提交 PR**。
+贡献流程：**Fork 本仓库 → 创建 Feature 分支 → 提交 PR**。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。触及 `src/agent/modules/protocol.ts` 的 PR 必须遵守 [Module Protocol 同步门禁](evidence/protocol-sync-gate.md)。
 
 ---
 

@@ -4,6 +4,8 @@ Machine-readable contract for the agent-loop ↔ sidecar Module Protocol.
 **Hand-mapped** from `src/agent/modules/protocol.ts` `validateModuleMessage`
 plus source anchors and replay — `protocol.ts` is the only input.
 No protocol or runtime behavior change. No Rust type generation. No CI gate.
+PRs that change `src/agent/modules/protocol.ts` must follow
+[`evidence/protocol-sync-gate.md`](../protocol-sync-gate.md).
 
 ## Artifacts
 

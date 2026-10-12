@@ -489,7 +489,7 @@ PilotDeck has an open plugin architecture with a strict boundary between the ope
 
 Thanks to everyone who has contributed code, feedback, and ideas. New contributors are warmly welcome — let's build the next-gen agent OS together.
 
-Workflow: **Fork → feature branch → PR**.
+Workflow: **Fork → feature branch → PR**. See [CONTRIBUTING.md](CONTRIBUTING.md). PRs that touch `src/agent/modules/protocol.ts` must follow the [Module Protocol sync gate](evidence/protocol-sync-gate.md).
 
 ---
 
