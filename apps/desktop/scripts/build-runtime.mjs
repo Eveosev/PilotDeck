@@ -543,6 +543,10 @@ function resolveRelativeImportTarget(fromFile, specifier) {
   return candidates.find((candidate) => existsSync(candidate));
 }
 
+function isRuntimeTestModule(path) {
+  return /\.(?:test|spec)\.(?:js|mjs)$/u.test(path);
+}
+
 function listRuntimeModuleFiles(root, extensions) {
   const files = [];
   function visit(path) {
@@ -553,6 +557,7 @@ function listRuntimeModuleFiles(root, extensions) {
       }
       return;
     }
+    if (isRuntimeTestModule(path)) return;
     if (extensions.has(path.slice(path.lastIndexOf(".")))) {
       files.push(path);
     }
@@ -587,6 +592,7 @@ function verifyRuntimeUiServerRelativeImports(root, label = "runtime") {
         );
         continue;
       }
+      if (isRuntimeTestModule(resolved)) continue;
       if (!seen.has(resolved)) queue.push(resolved);
     }
   }
