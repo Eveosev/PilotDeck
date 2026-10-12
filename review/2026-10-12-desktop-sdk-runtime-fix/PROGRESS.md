@@ -11,12 +11,13 @@ R2/R3 follow-ups. Required items land in this PR; F-* / R2-3 / R2-4 / R3-2–R3-
 | F-7 | approved | Raw logs / screenshots / binaries archived to a Cursor artifact tarball, then deleted in the next commit. PRs #1–#5 `evidence/` untouched. |
 | R3-1 | done | Renamed the three CI issue rows (were mislabeled F-2/F-5/F-6) to CI-1/CI-2/CI-3. Registered real F-2/F-5/F-6, R2-3, R2-4, R3-2, R3-3, R3-4 as follow-ups. |
 | R3-5 | done | README(s) under `review/` no longer point at deleted files; packaging file count is 4. |
+| Sync | done | `git merge 7d488a1b` into this branch. `M=7d488a1b`. `git merge-base 46ca9718 7d488a1b` = `1da663a2`. Conflicts: none. Merge commit has no extra edits. |
 
 ## CI issues (not this PR)
 
 | ID | Owner / next | Plan |
 |---|---|---|
-| CI-1 | separate UI PR | Linux DEB chrome e2e (`ui/e2e/desktop-chrome.smoke.mjs:237`) expects `.workspace-header h1[data-desktop-no-drag=""]`. Same miss on base `1da663a2` and this PR: neither `h1` in `MainAreaV2.tsx` (L59, L267–274) has the attribute. Unit `MainAreaV2.test.tsx:131` fails identically on both SHAs. Do not mix a UI attribute fix into desktop packaging. |
+| CI-1 | PR #9 merged as `7d488a1b` | Linux DEB chrome e2e (`desktop-chrome.smoke.mjs:237`) expected `.workspace-header h1[data-desktop-no-drag=""]`. Root-cause merge `e07d451f` (`merge: integrate origin/main into standalone_alpha1`) dropped the attribute added in `f2b0ac60`. PR #9 (`8d36b967`) restored it on the session-title `h1` (`MainAreaV2.tsx` L273). Synced here via `M=7d488a1b`. New head still needs a local chrome e2e check at `:251` (Search button). |
 | CI-2 | CI / maintainer | Windows arm64 PortableGit 504 (job `114797233974`) could not be rerun (`gh run rerun` and Actions API returned 403 / "job cannot be rerun"). Re-run on a later push with a token that can retry failed jobs, or wait for the next Desktop Windows arm64 workflow. Not a packaging-code defect. |
 | CI-3 | separate UI PR | Pre-existing Web Regression on `rust_standalone_alpha1`: `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` cannot find the `updateAndRestart` button role. Outside desktop packaging scope. |
 
