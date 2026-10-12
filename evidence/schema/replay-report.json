@@ -2,11 +2,12 @@
   "task": "T-P0a-01",
   "input": "src/agent/modules/protocol.ts",
   "schema": "evidence/schema/module-protocol.schema.json",
-  "gitSha": "9dfec79ad9e417cd510b0cb4cfa5bebdb82b8ea5",
+  "gitSha": "b328626a8ce4daf27dae3fe613dc2d18f94b42c7",
   "gitDirty": false,
   "validator": {
     "ajv": "8.20.0",
     "jsonSchemaDraft": "2020-12",
+    "ajvStrict": true,
     "typescriptFunction": "validateModuleMessage"
   },
   "additionalProperties": {
@@ -31,6 +32,10 @@
     "dirtyGenerateError": "generate-module-protocol-schema refused: git tree is dirty"
   },
   "A2": {
+    "corpus": {
+      "kind": "synthetic-templates",
+      "description": "Synthetic template messages materialized from the 53 tools/agent-loop-parity scenario metadata (REQUIRED_GATEWAY_SCENARIOS). Not live wire traces."
+    },
     "scenarios": 53,
     "scenarioIds": [
       "pure_text",
@@ -87,7 +92,123 @@
       "sidecar_one_shot_parent_abort_after_admission",
       "sidecar_one_shot_parent_close_after_admission"
     ],
-    "totalCompared": 542,
+    "totalCompared": 648,
+    "decisions": {
+      "accept": 648,
+      "reject": 0
+    },
+    "perSource": {
+      "ack": {
+        "total": 2,
+        "accept": 2,
+        "reject": 0
+      },
+      "cancel": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      },
+      "error": {
+        "total": 9,
+        "accept": 9,
+        "reject": 0
+      },
+      "event": {
+        "total": 53,
+        "accept": 53,
+        "reject": 0
+      },
+      "event-final": {
+        "total": 53,
+        "accept": 53,
+        "reject": 0
+      },
+      "execute": {
+        "total": 53,
+        "accept": 53,
+        "reject": 0
+      },
+      "execute-accepted": {
+        "total": 53,
+        "accept": 53,
+        "reject": 0
+      },
+      "handshake": {
+        "total": 212,
+        "accept": 212,
+        "reject": 0
+      },
+      "module_call-response:budget": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      },
+      "module_call-response:capability": {
+        "total": 4,
+        "accept": 4,
+        "reject": 0
+      },
+      "module_call-response:context": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      },
+      "module_call-response:model": {
+        "total": 9,
+        "accept": 9,
+        "reject": 0
+      },
+      "module_call-response:turn": {
+        "total": 4,
+        "accept": 4,
+        "reject": 0
+      },
+      "module_call:budget": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      },
+      "module_call:capability": {
+        "total": 4,
+        "accept": 4,
+        "reject": 0
+      },
+      "module_call:context": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      },
+      "module_call:model": {
+        "total": 9,
+        "accept": 9,
+        "reject": 0
+      },
+      "module_call:turn": {
+        "total": 4,
+        "accept": 4,
+        "reject": 0
+      },
+      "response-final": {
+        "total": 53,
+        "accept": 53,
+        "reject": 0
+      },
+      "result_unknown": {
+        "total": 106,
+        "accept": 106,
+        "reject": 0
+      },
+      "resume": {
+        "total": 2,
+        "accept": 2,
+        "reject": 0
+      },
+      "status": {
+        "total": 3,
+        "accept": 3,
+        "reject": 0
+      }
+    },
     "expressibleMismatches": 0,
     "inexpressibleRules": 0,
     "mismatches": []
@@ -141,16 +262,44 @@
     "missingMessageTypes": [],
     "missingConditionals": [],
     "allRejectedByBoth": true,
-    "edgeSamples": 14,
+    "edgeSamples": 26,
     "edgesMatchExpect": true,
     "loosenedSchemaControl": {
       "result": "FAIL",
       "mustFail": true,
+      "perRuleEvery": true,
       "compared": 6,
+      "perRule": {
+        "final-implies-outcome": {
+          "compared": 2,
+          "fail": true,
+          "ids": [
+            "event-final-missing-outcome",
+            "response-final-missing-outcome"
+          ]
+        },
+        "forbidden-attemptId-stepId": {
+          "compared": 2,
+          "fail": true,
+          "ids": [
+            "execute-attemptId",
+            "execute-stepId"
+          ]
+        },
+        "forbidden-binding-on-event": {
+          "compared": 2,
+          "fail": true,
+          "ids": [
+            "event-moduleInstanceId",
+            "event-connectionGeneration"
+          ]
+        }
+      },
       "mismatches": [
         {
           "id": "execute-attemptId",
           "rule": "forbidden attemptId",
+          "conditional": "forbidden-attemptId-stepId",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -158,6 +307,7 @@
         {
           "id": "execute-stepId",
           "rule": "forbidden stepId",
+          "conditional": "forbidden-attemptId-stepId",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -165,6 +315,7 @@
         {
           "id": "event-final-missing-outcome",
           "rule": "final⇒outcome",
+          "conditional": "final-implies-outcome",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -172,6 +323,7 @@
         {
           "id": "event-moduleInstanceId",
           "rule": "forbidden moduleInstanceId",
+          "conditional": "forbidden-binding-on-event",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -179,6 +331,7 @@
         {
           "id": "event-connectionGeneration",
           "rule": "forbidden connectionGeneration",
+          "conditional": "forbidden-binding-on-event",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -186,6 +339,7 @@
         {
           "id": "response-final-missing-outcome",
           "rule": "final⇒outcome",
+          "conditional": "final-implies-outcome",
           "ts": "reject",
           "loosenedSchema": "accept",
           "mismatch": true
@@ -194,8 +348,16 @@
     }
   },
   "A4": {
-    "protocolVersion": "2.0",
-    "capabilitiesVersion": "capabilitiesVersion",
+    "protocolVersion": {
+      "field": "protocolVersion",
+      "value": "2.0"
+    },
+    "capabilitiesVersion": {
+      "field": "capabilitiesVersion",
+      "value": null,
+      "negotiated": true
+    },
+    "annotationsOnly": true,
     "storageConfigVersionWrittenAsContract": false,
     "notContractVersions": [
       "storageConfigVersion"
@@ -205,6 +367,8 @@
   "inexpressibleRules": [],
   "tP1RustSerdeParseRisk": {
     "name": "T-P1 Rust serde parse risk",
+    "ajvMustRunStrict": true,
+    "note": "JSON.parse may collapse 1.0 / exponent forms (1e2, 1E0, 100e-2) to JS integers, keep Object.is(-0,-0), lose precision above 2^53, and turn 1e400 into Infinity. Rust serde_json may keep f64, reject exponent-as-integer, preserve signed zero, or error on overflow instead of Infinity. ajv must run strict:true for parity with this schema.",
     "samples": [
       {
         "id": "event-sequence-1.0",
@@ -239,6 +403,46 @@
         "ts": "accept",
         "schema": "accept",
         "note": "JSON.parse collapses 1.0 to integer 1 and keeps Object.is(-0,-0). serde_json may yield f64 / signed zero and fail a Rust integer field."
+      },
+      {
+        "id": "event-sequence-1e2",
+        "rawNumberToken": "1e2",
+        "jsAfterJSONParse": 100,
+        "ts": "accept",
+        "schema": "accept",
+        "note": "JSON.parse('1e2') is 100; Number.isInteger(100). Rust serde may keep f64 / reject integer."
+      },
+      {
+        "id": "event-sequence-1E0",
+        "rawNumberToken": "1E0",
+        "jsAfterJSONParse": 1,
+        "ts": "accept",
+        "schema": "accept",
+        "note": "JSON.parse('1E0') is 1. Rust serde may keep f64."
+      },
+      {
+        "id": "event-sequence-100e-2",
+        "rawNumberToken": "100e-2",
+        "jsAfterJSONParse": 1,
+        "ts": "accept",
+        "schema": "accept",
+        "note": "JSON.parse('100e-2') is 1. Rust serde may keep f64."
+      },
+      {
+        "id": "event-sequence-above-2-pow-53",
+        "rawNumberToken": "9007199254740993",
+        "jsAfterJSONParse": 9007199254740992,
+        "ts": "accept",
+        "schema": "accept",
+        "note": "JSON.parse loses precision above 2^53 but still yields an integer. Rust u64/i64 parse is exact and may disagree."
+      },
+      {
+        "id": "event-sequence-1e400",
+        "rawNumberToken": "1e400",
+        "jsAfterJSONParse": "Infinity",
+        "ts": "reject",
+        "schema": "reject",
+        "note": "JSON.parse('1e400') is Infinity; Number.isInteger(Infinity) is false. Rust serde errors instead of becoming Infinity."
       }
     ]
   },
@@ -628,6 +832,151 @@
       "matchesExpect": true,
       "tP1RustSerdeParseRisk": false,
       "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":0,\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "response-final-string-true",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "note": "TS does not type-check response.final; only final===true requires outcome.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":\"true\"}"
+    },
+    {
+      "id": "response-final-null",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "note": "TS does not type-check response.final; null is not === true.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":null}"
+    },
+    {
+      "id": "response-final-number-1",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "note": "TS does not type-check response.final; 1 is not === true.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":1}"
+    },
+    {
+      "id": "event-sequence-1e2",
+      "bound": "isSequence",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": true,
+      "token": "1e2",
+      "note": "JSON.parse('1e2') is 100; Number.isInteger(100). Rust serde may keep f64 / reject integer.",
+      "jsParsedNumber": 100,
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1e2,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-1E0",
+      "bound": "isSequence",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": true,
+      "token": "1E0",
+      "note": "JSON.parse('1E0') is 1. Rust serde may keep f64.",
+      "jsParsedNumber": 1,
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1E0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-100e-2",
+      "bound": "isSequence",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": true,
+      "token": "100e-2",
+      "note": "JSON.parse('100e-2') is 1. Rust serde may keep f64.",
+      "jsParsedNumber": 1,
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":100e-2,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-above-2-pow-53",
+      "bound": "isSequence",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": true,
+      "token": "9007199254740993",
+      "note": "JSON.parse loses precision above 2^53 but still yields an integer. Rust u64/i64 parse is exact and may disagree.",
+      "jsParsedNumber": 9007199254740992,
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":9007199254740993,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-1e400",
+      "bound": "isSequence",
+      "expect": "reject",
+      "ts": "reject",
+      "schema": "reject",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": true,
+      "token": "1e400",
+      "note": "JSON.parse('1e400') is Infinity; Number.isInteger(Infinity) is false. Rust serde errors instead of becoming Infinity.",
+      "jsParsedNumber": "Infinity",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1e400,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "execute-attemptId-and-stepId",
+      "expect": "reject",
+      "ts": "reject",
+      "schema": "reject",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\",\"stepId\":\"step-1\"}"
+    },
+    {
+      "id": "execute-attemptId-null",
+      "expect": "reject",
+      "ts": "reject",
+      "schema": "reject",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":null}"
+    },
+    {
+      "id": "module_call-attemptId",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "note": "attemptId is forbidden only on execute, not module_call.",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"model\",\"payload\":{},\"attemptId\":\"attempt-1\"}"
+    },
+    {
+      "id": "response-moduleInstanceId",
+      "expect": "accept",
+      "ts": "accept",
+      "schema": "accept",
+      "match": true,
+      "matchesExpect": true,
+      "tP1RustSerdeParseRisk": false,
+      "note": "moduleInstanceId is forbidden only on event, not response.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"moduleInstanceId\":\"instance-1\"}"
     }
   ]
 }

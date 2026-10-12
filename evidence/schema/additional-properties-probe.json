@@ -3,7 +3,7 @@
   "probe": "validateModuleMessage additionalProperties",
   "input": "src/agent/modules/protocol.ts",
   "method": "raw JSON text → JSON.parse → validateModuleMessage",
-  "gitSha": "b394d2c07346d01ad570aa779139967d291c7c7d",
+  "gitSha": "b328626a8ce4daf27dae3fe613dc2d18f94b42c7",
   "gitDirty": false,
   "cases": [
     {
