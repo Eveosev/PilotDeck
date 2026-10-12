@@ -52,7 +52,7 @@ B4（TS host 端到端）已延至 PR-B，见 DECISION / Payne；PR-A 不验 B4�
 - F-9: 已结束 operationId + 不同 runId → `OPERATION_RUN_MISMATCH`。
 - F-4 / F-5: **未改**（pending Payne）。
 - F-10: **延至 S4**（检查+插入同一把锁；JoinHandle 回收；delayMs 上限）。stdio 单线程 dispatch 目前无害。
-- F-12: tip / toolchain 记录已按实测 `rustc 1.83.0` 与当前 code SHA 更正（不再写 5ea8d3ce / 1.85.1）。
+- F-12: **接受 1.83.0**（`rust-toolchain.toml` 固定 `channel = "1.83.0"`；本机 `rustc -V` 与 `cargo +1.83.0 test` 均为 1.83.0）。不再把 QA 机上的 1.85.1 当作 crate MSRV。
 
 ## F-7 raw evidence deletion table
 The next commit (F-7) removes these raw files under `review/2026-10-12-T-P1-01-rust-agent-loop/evidence/`. Copies are attached as PR artifacts under `/opt/cursor/artifacts/t-p1-01-round1-raw/`. Collection gitSha is the clean code tip used when the files were written.
@@ -78,7 +78,9 @@ The next commit (F-7) removes these raw files under `review/2026-10-12-T-P1-01-r
 | review/2026-10-12-T-P1-01-rust-agent-loop/evidence/rust-decisions.json | `5b5415ccf05bd8e9b7265f6c60f11975c84c0b14b9f6dd012132ee165d1afec6` | `2b492df3` |
 | review/2026-10-12-T-P1-01-rust-agent-loop/evidence/rustc-version.txt | `8f3838b3461758410db44782198e9b1b605206168ce553bdfb409820838c699e` | `2b492df3` |
 
-**18 files** scheduled for F-7 deletion. After that commit, `review/2026-10-12-T-P1-01-rust-agent-loop/` keeps only DECISION.md, PROGRESS.md, REVIEW_RESULT.md, QA-ACCEPTANCE.md.
+**18 files** scheduled for F-7 deletion. After that commit, `review/2026-10-12-T-P1-01-rust-agent-loop/` keeps DECISION.md, PROGRESS.md, REVIEW_RESULT.md, QA-ACCEPTANCE.md.
+
+**F-7 exception:** `review/2026-10-12-T-P1-01-rust-agent-loop/mask_f3.sh`（Payne 方案 2）。PR-B 须把它迁到 `crates/pilotdeck-agent-loop/tests/`，或在测试模式固定 ID 落地后删除。**测试模式固定 ID 留待 PR-B 决定。**
 
 ## 2026-10-12 mainline sync
 
@@ -102,3 +104,17 @@ git diff $(git merge-base 846402ac 7d488a1b) 7d488a1b -- . ':!review'
 
 Both sha256: `89f448a80985d9fd9330710a2e89d558f13f2a8e8b61e95ec3f58ed457fa141b` — **EQUAL=yes**.
 The shared diff is the desktop `data-desktop-no-drag` one-liner on session title `h1`.
+
+## 2026-10-12 F-3 mask script (scheme 2)
+
+`mask_f3.sh` regenerates the 19-message completed+cancelled corpus via `cargo test` + `T_P1_01_EMITTED_OUT`, masks **by JSON key path** (`messageId`, `moduleInstanceId`, `connectionGeneration`, `streamId` — same `next_id` generator as `messageId` — and `*At` timestamps), then compares to the committed sample at `0e60f9e4:review/.../evidence/emitted-messages.json`. Whole-line / whole-message masking is not used. Mutations were applied only to temp copies (not committed).
+
+Collection gitSha: `090c9f873959da26a61ef9aead3297b4aa2804ea`
+
+| run | command | exit | output sha256 (stdout+stderr) |
+|---|---|---:|---|
+| normal | `review/2026-10-12-T-P1-01-rust-agent-loop/mask_f3.sh` | **0** | `360b3446831156d357e56eea908c886475edabcadb174612dc9f780e1d74dc2a` |
+| V1 (sequence 0→99 on first event) | `mask_f3.sh --committed /tmp/f3-v1.json` | **1** | `94f6c083e030cd9bfbe750402351ea7073f4e797d3636b428cb301f57eb0598c` |
+| V2 (drop last message) | `mask_f3.sh --committed /tmp/f3-v2.json` | **1** | `225acedd3e73e8cd746bed7fd842241167eb2945ef27a807dcaed5d7549ee59e` |
+
+F-4 / F-5 not touched.
