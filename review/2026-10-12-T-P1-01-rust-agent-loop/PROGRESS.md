@@ -193,3 +193,28 @@ Analyst+QA 口径（不 amend）：
 - `git diff 16b274aa HEAD -- crates/` 为空
 
 `54bc007d` 曾改 `base-contrast.json` / `report.md`；本提交将这两份恢复为 `16b274aa` 字节。emitted / cargo 日志未重写。F-5 未改。
+
+## 2026-10-12 mainline sync (PR #6 → rust_standalone_alpha1)
+
+Merged `origin/rust_standalone_alpha1` **M=`2c4420b417bc9eefe19b52f3d62245c8b74d406a`** (PR #6 tip `12395bbe`) into `pilotdeck-rust/T-P1-01-agent-loop-a`. No rebase / no force-push. F-5 not touched. Evidence not regenerated (`crates/` unchanged).
+
+| | SHA |
+|---|---|
+| oldTip | `d43acb9ebd40d493d5785fe0f5e0a4a008ac532c` |
+| content tip | `16b274aa4fc63ec86bf4e84dcfb8a92c9952ab5b` |
+| M | `2c4420b417bc9eefe19b52f3d62245c8b74d406a` |
+| merge-base(oldTip, M) | `7d488a1b5607df51b91b3b0a596298d633638cc2` |
+| mergeSha | `95dadfa8b836dff7b2ab4bf1cf72ab56ef467d06` |
+
+Conflicts: **none**. Merge commit has no non-conflict edits (ort). Mainline brought desktop SDK runtime files + `review/2026-10-12-desktop-sdk-runtime-fix/`; no `crates/` paths.
+
+Equality (`':!review'`):
+
+```
+A = git diff d43acb9e 95dadfa8 -- . ':!review' | sha256sum
+B = git diff $(git merge-base d43acb9e 2c4420b4) 2c4420b4 -- . ':!review' | sha256sum
+```
+
+Both sha256: `7248873afc43927ddac0385006078c41615a16d8c234d88d6df115b142d33fc1` — **EQUALITY=true**.
+
+`git diff 16b274aa HEAD -- crates/` is **empty**. `provenance.gitSha` / `collectHead` stay on content tip `16b274aa`.
