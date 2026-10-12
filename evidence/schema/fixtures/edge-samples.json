@@ -1,0 +1,173 @@
+{
+  "description": "Raw JSON text → JSON.parse → schema and validateModuleMessage. Covers isSequence/isResumeSequence bounds, extra fields, empty/non-string ids, response.final non-booleans, exponent/overflow JSON numbers, and forbidden-field locality.",
+  "samples": [
+    {
+      "id": "event-sequence-1.0",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "note": "JSON.parse('1.0') is JS number 1; Number.isInteger(1) is true. Rust serde may keep f64.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1.0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-negative-zero",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "note": "JSON.parse('-0') is JS -0; Number.isInteger(-0) && -0 >= 0. Rust serde may preserve sign.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":-0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-negative-one",
+      "bound": "isSequence",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":-1,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-1.0",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":1.0}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-negative-zero",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":-0}"
+    },
+    {
+      "id": "resume-lastAppliedSequence-negative-one",
+      "bound": "isResumeSequence",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"previousBinding\":{\"moduleInstanceId\":\"instance-1\",\"connectionGeneration\":\"generation-1\"},\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "ack-lastAppliedSequence-negative-one",
+      "bound": "isSequence",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"ack-1\",\"method\":\"ack\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "execute-extra-top-level",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"unexpectedTopLevel\":\"keep\"}"
+    },
+    {
+      "id": "execute-extra-payload",
+      "expect": "accept",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{\"unexpectedPayload\":1}}"
+    },
+    {
+      "id": "event-extra-top-level-and-payload",
+      "expect": "accept",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{\"unexpectedPayload\":true},\"unexpectedTopLevel\":\"keep\"}"
+    },
+    {
+      "id": "execute-empty-messageId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{}}"
+    },
+    {
+      "id": "execute-non-string-requestId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":1,\"payload\":{}}"
+    },
+    {
+      "id": "event-empty-streamId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-non-string-runId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":0,\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "response-final-string-true",
+      "expect": "accept",
+      "note": "TS does not type-check response.final; only final===true requires outcome.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":\"true\"}"
+    },
+    {
+      "id": "response-final-null",
+      "expect": "accept",
+      "note": "TS does not type-check response.final; null is not === true.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":null}"
+    },
+    {
+      "id": "response-final-number-1",
+      "expect": "accept",
+      "note": "TS does not type-check response.final; 1 is not === true.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":1}"
+    },
+    {
+      "id": "event-sequence-1e2",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "token": "1e2",
+      "note": "JSON.parse('1e2') is 100; Number.isInteger(100). Rust serde may keep f64 / reject integer.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1e2,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-1E0",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "token": "1E0",
+      "note": "JSON.parse('1E0') is 1. Rust serde may keep f64.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1E0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-100e-2",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "token": "100e-2",
+      "note": "JSON.parse('100e-2') is 1. Rust serde may keep f64.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":100e-2,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-above-2-pow-53",
+      "bound": "isSequence",
+      "expect": "accept",
+      "tP1RustSerdeParseRisk": true,
+      "token": "9007199254740993",
+      "note": "JSON.parse loses precision above 2^53 but still yields an integer. Rust u64/i64 parse is exact and may disagree.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":9007199254740993,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "event-sequence-1e400",
+      "bound": "isSequence",
+      "expect": "reject",
+      "tP1RustSerdeParseRisk": true,
+      "token": "1e400",
+      "note": "JSON.parse('1e400') is Infinity; Number.isInteger(Infinity) is false. Rust serde errors instead of becoming Infinity.",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":1e400,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{}}"
+    },
+    {
+      "id": "execute-attemptId-and-stepId",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\",\"stepId\":\"step-1\"}"
+    },
+    {
+      "id": "execute-attemptId-null",
+      "expect": "reject",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":null}"
+    },
+    {
+      "id": "module_call-attemptId",
+      "expect": "accept",
+      "note": "attemptId is forbidden only on execute, not module_call.",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"model\",\"payload\":{},\"attemptId\":\"attempt-1\"}"
+    },
+    {
+      "id": "response-moduleInstanceId",
+      "expect": "accept",
+      "note": "moduleInstanceId is forbidden only on event, not response.",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"moduleInstanceId\":\"instance-1\"}"
+    }
+  ]
+}
