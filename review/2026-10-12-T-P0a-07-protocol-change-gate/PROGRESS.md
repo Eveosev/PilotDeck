@@ -2,7 +2,7 @@
 
 - 任务：T-P0a-07 Module Protocol 同步门禁（文档先行）
 - 分支：`pilotdeck-rust/T-P0a-07-protocol-change-gate`
-- PR：#7 draft → `rust_standalone_alpha1@1da663a2`
+- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge 主线 `7d488a1b`）
 - 禁止：rebase / force-push / ready / merge；不改 `src/`、`.github/`、`crates/`、lockfile
 
 ## Commits
@@ -12,9 +12,33 @@
 | — | R2 审阅点 | `9da4ee1df3df9169df8a7f1f8ad327a0ecb2ceaa` |
 | 1 | 文档（R2-1…R2-7） | `14b1a71ee8a63371c79a830f656482657e2a25a6` |
 | 2 | 证据提交（parent = 采集 SHA） | `3f5baf7c7055e2f7c2a9baae640d7aa452327006` |
-| 3 | F-7 删除 `review/**/evidence` 原始件 | 本提交 |
+| 3 | F-7 删除 `review/**/evidence` 原始件 | `7bcee318b5b19c35fe22f92eda731981483282e6` |
+| 4 | merge `origin/rust_standalone_alpha1` | `6d450b6ac2f91dc595892158aeb8ec1de3072b09` |
+| 5 | 本记录（仅本文件） | （落地后 = 本提交） |
 
 采集时 **`gitDirty=false`**，`gitSha=14b1a71ee8a63371c79a830f656482657e2a25a6`。
+
+## 主线同步（merge，非 rebase）
+
+- **M**（`origin/rust_standalone_alpha1`）：`7d488a1b5607df51b91b3b0a596298d633638cc2`
+- **merge-base(7bcee318, M)**：`1da663a21d40ef5e309c86423a235550c79f91ff`
+- **mergeSha**：`6d450b6ac2f91dc595892158aeb8ec1de3072b09`（parents `7bcee318` + `7d488a1b`）
+- **冲突**：无。merge 提交无额外非冲突编辑（`--cc` 为空）。引入主线 1 行：`ui/src/components/app-shell/MainAreaV2.tsx`。
+
+验证：
+
+```
+git diff 7bcee318 6d450b6a -- . ':!review'
+  ==
+git diff $(git merge-base 7bcee318 7d488a1b) 7d488a1b -- . ':!review'
+```
+
+| 侧 | sha256 |
+| --- | --- |
+| `git diff 7bcee318 6d450b6a -- . ':!review'` | `89f448a80985d9fd9330710a2e89d558f13f2a8e8b61e95ec3f58ed457fa141b` |
+| `git diff 1da663a2 7d488a1b -- . ':!review'` | `89f448a80985d9fd9330710a2e89d558f13f2a8e8b61e95ec3f58ed457fa141b` |
+
+**equality**：`true`（两份 patch 字节相同）。
 
 ## R2 修复
 
