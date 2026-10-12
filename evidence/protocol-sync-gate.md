@@ -140,6 +140,7 @@ git diff --exit-code -- evidence/schema/module-protocol.schema.json
 ### 一次 replay + restore（检查 2 / 3 / 7 的共同前缀）
 
 ```bash
+set -o pipefail
 export PROTOCOL_REPLAY_OUT="${PROTOCOL_REPLAY_OUT:-/tmp/protocol-sync-replay}"
 mkdir -p "$PROTOCOL_REPLAY_OUT"
 node scripts/replay-module-protocol-schema.mjs | tee "$PROTOCOL_REPLAY_OUT/stdout.txt"

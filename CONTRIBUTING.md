@@ -33,7 +33,8 @@ Run from the repo root on a clean tree. Replay runs **once**; reports go to
 stay on a clean tree.
 
 ```bash
-# Node >= 22 and a clean tree
+# Node >= 22 and a clean tree. pipefail keeps replay's exit through tee.
+set -o pipefail
 node -v
 git status --porcelain
 git rev-parse HEAD
