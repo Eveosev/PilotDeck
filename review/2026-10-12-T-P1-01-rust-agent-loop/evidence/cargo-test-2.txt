@@ -1,4 +1,4 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
      Running unittests src/lib.rs (target/debug/deps/pilotdeck_agent_loop-a301c6cb5e35cf23)
 
 running 18 tests
@@ -31,13 +31,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
      Running tests/lock.rs (target/debug/deps/lock-438b9ec1db28a560)
 
-running 4 tests
+running 5 tests
 test crate_exports_validate_module_message_and_stdio_bin ... ok
+test crate_rust_version_matches_hello_msrv ... ok
 test execute_is_in_scope_unlike_hello_crate ... ok
 test invalid_message_fixture_covers_each_protocol_type ... ok
 test workspace_lists_pilotdeck_agent_loop_crate ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/roundtrip.rs (target/debug/deps/roundtrip-4b0e0e9f620743b2)
 
@@ -45,17 +46,18 @@ running 2 tests
 test invalid_messages_rejected_by_ajv_ts_and_rust ... ok
 test rust_emitted_messages_roundtrip_schema_and_ts ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
 
      Running tests/sidecar_stdio.rs (target/debug/deps/sidecar_stdio-b6a8c406e94be63c)
 
-running 4 tests
+running 5 tests
 test s0_hello_capabilities_and_invalid_input ... ok
 test s1_execute_pure_text_events_and_final_outcome ... ok
 test s1_execute_rejects_forbidden_fields ... ok
+test s1_execute_rejects_step_id ... ok
 test s2_cancel_status_and_explicit_resume_ack_reject ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop_hello-b21fefba0470b258)
 
@@ -69,4 +71,3 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-EXIT:0
