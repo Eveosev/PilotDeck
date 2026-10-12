@@ -1,5 +1,0 @@
-Desktop runtime dependencies are out of sync with package.json files:
-@pilotdeck/sdk: expected workspace:*, found <absent>
-ajv: expected ^8.20.0, found <absent>
-ajv-formats: expected ^3.0.1, found <absent>
-verify-base-exit=1

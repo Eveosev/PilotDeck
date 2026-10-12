@@ -1,6 +1,0 @@
-MainAreaV2.tsx 1da663a2=c612d38dc2a7f57cd8214a85b760d3de471bc671
-MainAreaV2.tsx 524cb673=c612d38dc2a7f57cd8214a85b760d3de471bc671
-MainAreaV2.test.tsx 1da663a2=765134600a5ddcdc34f909420d92dc452cdc254c
-MainAreaV2.test.tsx 524cb673=765134600a5ddcdc34f909420d92dc452cdc254c
-desktop-chrome.smoke.mjs 1da663a2=b9c477aa8fa332c505d1dd03b3f8cf66d4ea986d
-desktop-chrome.smoke.mjs 524cb673=b9c477aa8fa332c505d1dd03b3f8cf66d4ea986d

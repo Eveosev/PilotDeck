@@ -1,9 +1,0 @@
-pnpm --filter pilotdeck-desktop test
-# tests 153
-# pass 152
-# fail 0
-# skipped 1
-# duration_ms 7890.406484
-exit: 0
-
-R2 cases: D6 rewrite, transitive-missing verifier, exported verifyRuntime, symlink isExecutedAsMain — all pass.

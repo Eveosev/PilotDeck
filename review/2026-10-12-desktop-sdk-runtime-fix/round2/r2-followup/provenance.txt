@@ -1,9 +1,0 @@
-gitSha=6ecd322113eabaf02b5841923bdb3511359b623f
-collectSha=6ecd322113eabaf02b5841923bdb3511359b623f
-gitDirty=false
-porcelain=
-recordedAt=2026-10-12T13:35:28Z
-baseSha=1da663a21d40ef5e309c86423a235550c79f91ff
-branch=pilotdeck-rust/desktop-sdk-runtime-fix
-codeCommits=7552d6d75d06ebe4ad7bcfe7b8c8ee793ee2aced 6ecd322113eabaf02b5841923bdb3511359b623f
-mutationCommitted=false
