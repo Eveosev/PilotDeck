@@ -185,6 +185,28 @@ function skipBuildArtifact(rel) {
   );
 }
 
+function keepSdkRuntimeFiles(rel) {
+  if (!skipBuildArtifact(rel)) return false;
+  if (!rel) return true;
+  const top = rel.split("/")[0];
+  return top === "package.json" || top === "README.md" || top === "dist";
+}
+
+function materializeRuntimeSdk() {
+  const sourceRoot = resolve(repoRoot, "packages", "sdk");
+  const dest = resolve(runtimeRoot, "node_modules", "@pilotdeck", "sdk");
+  rmSync(dest, { recursive: true, force: true });
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFiltered(sourceRoot, dest, keepSdkRuntimeFiles);
+  const builtEntry = resolve(dest, "dist", "index.js");
+  if (!existsSync(builtEntry)) {
+    throw new Error(`Desktop runtime missing built @pilotdeck/sdk: ${builtEntry}`);
+  }
+  if (lstatSync(dest).isSymbolicLink()) {
+    throw new Error(`Desktop runtime @pilotdeck/sdk must be real files, not a symlink: ${dest}`);
+  }
+}
+
 function addDependency(target, sources, name) {
   for (const source of sources) {
     const version = source.dependencies?.[name] ?? source.devDependencies?.[name];
@@ -196,13 +218,16 @@ function addDependency(target, sources, name) {
   throw new Error(`Missing runtime dependency version for ${name}`);
 }
 
+const FILE_RUNTIME_DEPENDENCIES = {
+  "@pilotdeck/sdk": "file:../../../packages/sdk",
+  "edgeclaw-memory-core": "file:../../../src/context/memory/edgeclaw-memory-core",
+};
+
 function createRuntimeDependencies(rootPackage, uiPackage) {
   const dependencies = {};
   for (const [name, version] of Object.entries(rootPackage.dependencies ?? {})) {
     if (!name.startsWith("@types/")) {
-      dependencies[name] = name === "edgeclaw-memory-core"
-        ? "file:../../../src/context/memory/edgeclaw-memory-core"
-        : version;
+      dependencies[name] = FILE_RUNTIME_DEPENDENCIES[name] ?? version;
     }
   }
   for (const name of uiServerDependencies) {
@@ -260,6 +285,7 @@ function prepareRuntimeTree(installEnv = process.env) {
   copyFiltered(resolve(repoRoot, "ui", "shared"), resolve(runtimeRoot, "ui", "shared"), skipBuildArtifact);
   copyFiltered(resolve(repoRoot, "ui", "public"), resolve(runtimeRoot, "ui", "public"), () => true);
   copyFiltered(resolve(repoRoot, "ui", "dist"), resolve(runtimeRoot, "ui", "dist"), () => true);
+  materializeRuntimeSdk();
   mkdirSync(resolve(runtimeRoot, "scripts"), { recursive: true });
   for (const script of ["check-node-runtime.mjs", "install-asr.mjs"]) {
     cpSync(resolve(repoRoot, "scripts", script), resolve(runtimeRoot, "scripts", script));
@@ -516,6 +542,7 @@ const sourceRequired = [
   resolve(repoRoot, "ui", "server", "index.js"),
   resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "lib", "index.js"),
   resolve(repoRoot, "src", "context", "memory", "edgeclaw-memory-core", "ui-source", "index.html"),
+  resolve(repoRoot, "packages", "sdk", "dist", "index.js"),
 ];
 
 for (const file of sourceRequired) {
@@ -553,6 +580,7 @@ function verifyRuntime(root, label = "runtime", runtimeArch = targetRuntimeArch)
     resolve(runtimeRoot, "node_modules", "@playwright", "mcp", "cli.js"),
     resolve(runtimeRoot, "node_modules", "edgeclaw-memory-core", "lib", "index.js"),
     resolve(runtimeRoot, "node_modules", "edgeclaw-memory-core", "ui-source", "index.html"),
+    resolve(runtimeRoot, "node_modules", "@pilotdeck", "sdk", "dist", "index.js"),
   ];
 
   for (const file of runtimeRequired) {
@@ -563,6 +591,11 @@ function verifyRuntime(root, label = "runtime", runtimeArch = targetRuntimeArch)
 
   if (resolvePlaywrightInstallMode(process.env) === "preinstall" && !hasRuntimePlaywrightBrowser()) {
     throw new Error(`Desktop ${label} preinstall mode did not stage a Playwright Chromium browser.`);
+  }
+
+  const stagedSdk = resolve(runtimeRoot, "node_modules", "@pilotdeck", "sdk");
+  if (lstatSync(stagedSdk).isSymbolicLink()) {
+    throw new Error(`Desktop ${label} @pilotdeck/sdk must be real files, not a symlink: ${stagedSdk}`);
   }
 
   if (existsSync(resolve(runtimeRoot, "src"))) {
