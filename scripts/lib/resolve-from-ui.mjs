@@ -19,6 +19,15 @@ export function formatMissingDepError(specifier, err) {
   return `check-web-node-test-scan: cannot import '${specifier}'. ${INSTALL_HINT} ${errorMessage(err)}`;
 }
 
+/** True for formatMissingDepError / resolveUiPackage missing-dep messages. */
+export function isMissingDepError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.startsWith("check-web-node-test-scan: cannot import '") ||
+    msg.startsWith("check-web-node-test-scan: cannot resolve '")
+  );
+}
+
 export function resolveUiPackage(specifier) {
   try {
     return requireUi.resolve(specifier);

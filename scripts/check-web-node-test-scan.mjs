@@ -21,7 +21,7 @@ import {
   listWebUiNodeTestFiles,
   normalizeScanPath,
 } from "./lib/web-node-test-files.mjs";
-import { formatMissingDepError, resolveUiPackage } from "./lib/resolve-from-ui.mjs";
+import { formatMissingDepError, isMissingDepError, resolveUiPackage } from "./lib/resolve-from-ui.mjs";
 
 const BASELINE_SKIP = new Set([
   "**/node_modules/**",
@@ -90,8 +90,9 @@ function resolveExcludeToUiTestFiles(exclude, configRoot, picomatch) {
     if (BASELINE_SKIP.has(pattern)) continue;
     // Vitest `!pattern` re-includes files. `picomatch.scan('!x').isGlob` is
     // false, so this must run before the literal-path branch or a missing
-    // `!x` path would be treated as an extra exclude.
-    if (pattern.startsWith("!")) continue;
+    // `!x` path would be treated as an extra exclude. Extglob `!(src)/…` is
+    // a real glob, not a re-include — skip only when `!` is not followed by `(`.
+    if (pattern[0] === "!" && pattern[1] !== "(") continue;
     const relToConfig = (file) => normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
     if (picomatch.scan(pattern).isGlob) {
       const isMatch = picomatch(pattern, { dot: true });
@@ -133,8 +134,8 @@ async function loadEffectiveConfig(configFile) {
   return raw;
 }
 
-async function loadUiViteConfig() {
-  const vite = await import(pathToFileURL(resolveUiPackage("vite")).href);
+async function loadUiViteConfig(viteResolved) {
+  const vite = await import(pathToFileURL(viteResolved).href);
   const loaded = await vite.loadConfigFromFile(
     { command: "serve", mode: "test" },
     resolve(UI_DIR, "vite.config.js"),
@@ -167,6 +168,7 @@ function reportMismatch(label, left, right) {
 }
 
 function failResolve(err) {
+  if (!isMissingDepError(err)) throw err;
   const line = err instanceof Error ? err.message : String(err);
   console.error(line.split("\n")[0]);
   process.exit(1);
@@ -187,9 +189,9 @@ let uiConfig;
 let rootConfig;
 try {
   picomatch = await loadPicomatch();
+  const viteResolved = resolveUiPackage("vite");
   resolveUiPackage("vitest");
-  resolveUiPackage("vite");
-  uiConfig = await loadUiViteConfig();
+  uiConfig = await loadUiViteConfig(viteResolved);
   rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"));
 } catch (err) {
   failResolve(err);

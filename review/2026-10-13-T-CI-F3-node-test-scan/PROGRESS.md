@@ -6,6 +6,7 @@
 - F1–F7 门禁 head：`b87550f4`（Web `38363366655` + Desktop `38363366756` 绿）
 - R2 N1–N4 门禁 head：`73761b17`（Web `38367190138` + Desktop `38367190242` 绿）
 - R3 m1–m4 叠在 `73761b17` 上；本文件随代码提交，不再追加 tip 自引用
+- R4 F1–F3 叠在 R3 上；本文件随代码提交，不再追加 tip 自引用
 
 ## 扫描列表（8，未变）
 
@@ -20,6 +21,33 @@ node scripts/check-web-node-test-scan.mjs
 exit **0**，`ok: 8 files`。
 
 `pnpm install --frozen-lockfile --filter pilotdeck --filter pilotdeck-ui` exit **0**。lockfile 无 diff。
+
+## R4 F1 / F2 / F3
+
+非 review 只动 `scripts/check-web-node-test-scan.mjs` 与 `scripts/lib/resolve-from-ui.mjs`。
+
+- F1：`!` 跳过改为 `pattern[0] === "!" && pattern[1] !== "("`。
+- F2：`failResolve` 只压缺依赖为一行；其它错误原样抛出。
+- F3：`resolveUiPackage("vite")` 解析一次后复用。
+
+### F1（temp worktree，真改 `ui/vite.config.js` `test.exclude`）
+
+`!(src)/routes/config.test.js` 命中 `server/routes/config.test.js`。与 `73761b17` 对照：旧脚本与本轮都是 exit **1**；`6a20f6ed` 的 `startsWith("!")` 会 fail-open 成 exit 0。
+
+| 改写 | exclude 片段 | exit |
+|---|---|---|
+| extglob 否定真漂移 | `!(src)/routes/config.test.js` | **1**（extra `server/routes/config.test.js`） |
+| 取反 `!x` | `!x` | **0** |
+| 取反不存在路径 | `!server/does-not-exist.test.js` | **0** |
+
+### F2
+
+- 在 `ui/vite.config.js` 注入语法错误：完整检查 exit **1**，stderr 含文件名和行号，不只一行。
+- 分别挪走 `ui/node_modules/vite` / `ui/node_modules/vitest`：仍恰好 1 行、无堆栈、exit **1**；`--print` exit **0**。
+
+### F3
+
+`rg 'resolveUiPackage\\("vite"\\)' scripts/check-web-node-test-scan.mjs` 仅 1 处。
 
 ## m1 / m2
 
