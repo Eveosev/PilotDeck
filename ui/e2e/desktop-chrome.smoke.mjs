@@ -111,26 +111,41 @@ const attachChromeFixtureRoutes = async (page, ctx) => {
     });
   });
 };
-const attachProcessLog = (app, filePath) => {
-  const chunks = [];
-  const proc = app.process();
-  const take = chunk => { chunks.push(Buffer.from(chunk)); };
-  proc.stdout?.on('data', take);
-  proc.stderr?.on('data', take);
-  return async () => {
-    await fs.writeFile(filePath, Buffer.concat(chunks));
-    return filePath;
-  };
+const electronExecutable = createRequire(import.meta.url)(path.join(root, 'apps/desktop/node_modules/electron'));
+const waylandStderrWrapper = path.join(root, 'apps/desktop/scripts/electron-wayland-stderr.sh');
+const lastMatchingLine = (text, re) => {
+  let last = null;
+  for (const line of text.split('\n')) {
+    if (re.test(line)) last = line.slice(0, 300);
+  }
+  return last;
+};
+const lastNonEmptyLine = text => {
+  const lines = text.split('\n').map(line => line.trimEnd()).filter(Boolean);
+  return lines.at(-1) ?? null;
 };
 const sliceWestonLog = async (startSize, dest) => {
   const live = process.env.PILOTDECK_WESTON_LOG;
-  if (!live) return null;
+  if (!live) return { dest: null, liveBytes: 0, sliceBytes: 0, startSize, tailFallback: false };
   try {
+    try {
+      const handle = await fs.open(live, 'r+');
+      await handle.sync();
+      await handle.close();
+    } catch {}
     const buf = await fs.readFile(live);
-    await fs.writeFile(dest, buf.subarray(Math.min(startSize, buf.length)));
-    return dest;
-  } catch {
-    return null;
+    const start = Math.min(startSize, buf.length);
+    const slice = buf.subarray(start);
+    await fs.writeFile(dest, slice);
+    let tailFallback = false;
+    if (slice.length === 0 && buf.length > 0) {
+      const tail = buf.subarray(Math.max(0, buf.length - 65536));
+      await fs.writeFile(`${dest.replace(/\.log$/, '')}-tail.log`, tail);
+      tailFallback = true;
+    }
+    return { dest, liveBytes: buf.length, sliceBytes: slice.length, startSize: start, tailFallback };
+  } catch (error) {
+    return { dest: null, liveBytes: 0, sliceBytes: 0, startSize, tailFallback: false, error: String(error) };
   }
 };
 const summarizeFrameLogs = async (...files) => {
@@ -139,16 +154,76 @@ const summarizeFrameLogs = async (...files) => {
   for (const file of files.filter(Boolean)) {
     let text = '';
     try { text = await fs.readFile(file, 'utf8'); } catch { continue; }
+    const nonEmpty = text.split('\n').map(line => line.trimEnd()).filter(Boolean);
     parts.push({
       file,
-      bytes: text.length,
+      bytes: Buffer.byteLength(text),
       wlCallback: count(text, /wl_callback/g),
       surfaceFrame: count(text, /wl_surface@[0-9]+\.frame/g),
+      callbackDone: count(text, /wl_callback@[0-9]+\.done/g),
+      callbackNew: count(text, /new id wl_callback@/g),
+      lastSurfaceFrame: lastMatchingLine(text, /wl_surface@[0-9]+\.frame/),
+      lastCallbackDone: lastMatchingLine(text, /wl_callback@[0-9]+\.done/),
+      lastProtocolLine: lastNonEmptyLine(text),
+      tailLines: nonEmpty.slice(-20),
       frame: count(text, /\bframe\b/gi),
       repaint: count(text, /repaint/gi),
     });
   }
   return parts;
+};
+const interpretFrameLogs = parts => {
+  const surfaceFrame = parts.reduce((n, part) => n + (part.surfaceFrame || 0), 0);
+  const callbackDone = parts.reduce((n, part) => n + (part.callbackDone || 0), 0);
+  const callbackNew = parts.reduce((n, part) => n + (part.callbackNew || 0), 0);
+  const bytes = parts.reduce((n, part) => n + (part.bytes || 0), 0);
+  const lastSurfaceFrame = [...parts].reverse().find(part => part.lastSurfaceFrame)?.lastSurfaceFrame ?? null;
+  const lastCallbackDone = [...parts].reverse().find(part => part.lastCallbackDone)?.lastCallbackDone ?? null;
+  const lastProtocolLine = [...parts].reverse().find(part => part.lastProtocolLine)?.lastProtocolLine ?? null;
+  const tail = parts.flatMap(part => part.tailLines || []);
+  const tailHasDone = tail.some(line => /wl_callback@[0-9]+\.done/.test(line));
+  const tailHasFrame = tail.some(line => /wl_surface@[0-9]+\.frame/.test(line));
+  let status = 'inconclusive';
+  let reason = 'no wl_surface.frame / wl_callback.done in captured logs; compositor not ruled out';
+  if (bytes === 0) reason = 'empty logs; compositor not ruled out';
+  else if (surfaceFrame === 0 && callbackDone === 0) reason = 'logs have no frame/callback lines; compositor not ruled out';
+  else if (surfaceFrame > 0 && callbackDone === 0) {
+    status = 'frame callbacks did not complete';
+    reason = 'wl_surface.frame seen, no wl_callback.done';
+  } else if (surfaceFrame > 0 && callbackDone > 0 && tailHasDone) {
+    status = 'frame callbacks still firing';
+    reason = 'wl_callback.done still appears in the hang-snapshot tail';
+  } else if (surfaceFrame > 0 && callbackDone > 0 && !tailHasDone) {
+    status = 'frame callbacks stopped';
+    reason = tailHasFrame
+      ? 'tail still has wl_surface.frame but no wl_callback.done'
+      : 'earlier frame/callback traffic exists; hang-snapshot tail has no wl_callback.done';
+  }
+  return {
+    status, reason, canTell: status !== 'inconclusive',
+    surfaceFrame, callbackDone, callbackNew, bytes, tailHasDone, tailHasFrame,
+    lastSurfaceFrame, lastCallbackDone, lastProtocolLine,
+  };
+};
+const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog, dumpLabel, extra = {} }) => {
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await extra.flushClientLog?.();
+  const westonMeta = await sliceWestonLog(westonStart, westonRoundLog);
+  const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog);
+  const frameCallback = interpretFrameLogs(frameLogs);
+  const dumpPath = path.join(artifactDir, `linux-wayland-diag-${dumpLabel}.json`);
+  try {
+    const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
+    dumped.frameLogs = frameLogs;
+    dumped.frameCallback = frameCallback;
+    dumped.clientLog = clientLog;
+    dumped.westonLog = westonRoundLog;
+    dumped.westonMeta = westonMeta;
+    dumped.installSource = dumped.installSource ?? extra.installSource ?? null;
+    await fs.writeFile(dumpPath, `${JSON.stringify(dumped, null, 2)}\n`);
+  } catch {}
+  console.log('WAYLAND_FILE_DIAG_FRAME', JSON.stringify({ label, frameCallback, westonMeta }));
+  return { frameLogs, frameCallback, westonMeta };
 };
 const probeHungRenderer = async (app, page) => {
   const readMain = () => app.evaluate(({ BrowserWindow }) => {
@@ -192,22 +267,33 @@ const probeHungRenderer = async (app, page) => {
 };
 const launchChromeFixture = async ({ clientLogPath } = {}) => {
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'pilotdeck-chrome-'));
+  const clientLivePath = clientLogPath ? `${clientLogPath}.live` : null;
+  if (clientLivePath) await fs.writeFile(clientLivePath, '');
   const app = await electron.launch({
-    executablePath: createRequire(import.meta.url)(path.join(root, 'apps/desktop/node_modules/electron')),
+    executablePath: clientLogPath ? waylandStderrWrapper : electronExecutable,
     args: electronLaunchArgs,
     env: {
       ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')),
       PILOTDECK_CHROME_PROFILE: profile,
       PILOTDECK_WAYLAND_DIAG: '1',
       WAYLAND_DEBUG: '1',
+      ...(clientLivePath ? {
+        PILOTDECK_ELECTRON_REAL: electronExecutable,
+        PILOTDECK_WAYLAND_CLIENT_LOG: clientLivePath,
+      } : {}),
     },
   });
   app.process().on('exit', (code, signal) => { if (code) console.error('Electron exited', { code, signal }); });
-  const flushClientLog = clientLogPath ? attachProcessLog(app, clientLogPath) : async () => null;
+  const flushClientLog = async () => {
+    if (!clientLogPath || !clientLivePath) return null;
+    try { await fs.copyFile(clientLivePath, clientLogPath); }
+    catch { await fs.writeFile(clientLogPath, ''); }
+    return clientLogPath;
+  };
   const page = await app.firstWindow();
   await page.addInitScript(installWaylandDiag, 'page.evaluate');
   await page.evaluate(installWaylandDiag, 'page.evaluate');
-  return { app, page, profile, flushClientLog };
+  return { app, page, profile, flushClientLog, clientLivePath };
 };
 const waitFixtureReady = async (page, app) => {
   await page.goto('http://127.0.0.1:5187');
@@ -259,7 +345,7 @@ const clickFileClassified = async (app, page, locator, label) => {
     return classifyRelaunchFailure(app, page, locator, label, { ...before, error });
   }
 };
-const runRelaunchFileLoop = async (n = 300) => {
+const runRelaunchFileLoop = async (n = 100) => {
   const projects = [
     { name: 'general', displayName: 'General conversation', kind: 'general', fullPath: '/fixture/general', sessions: [], capabilities: { files: false } },
     { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
@@ -284,18 +370,14 @@ const runRelaunchFileLoop = async (n = 300) => {
       const fileBtn = caption.getByRole('button', { name: 'File', exact: true });
       const result = await clickFileClassified(launched.app, launched.page, fileBtn, label);
       if (!result.ok) {
-        await launched.flushClientLog();
-        await sliceWestonLog(westonStart, westonRoundLog);
-        const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog);
-        const dumpPath = path.join(artifactDir, `linux-wayland-diag-${label}.json`);
-        try {
-          const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
-          dumped.frameLogs = frameLogs;
-          dumped.clientLog = clientLog;
-          dumped.westonLog = westonRoundLog;
-          dumped.installSource = dumped.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null;
-          await fs.writeFile(dumpPath, `${JSON.stringify(dumped, null, 2)}\n`);
-        } catch {}
+        const recorded = await recordFailureLogs({
+          label, clientLog, westonStart, westonRoundLog, dumpLabel: label,
+          extra: {
+            flushClientLog: launched.flushClientLog,
+            installSource: result.after10?.installSource ?? result.before?.installSource ?? null,
+          },
+        });
+        result.frameCallback = recorded.frameCallback;
       }
       rounds.push({
         i, ok: result.ok, kind: result.kind,
@@ -303,18 +385,22 @@ const runRelaunchFileLoop = async (n = 300) => {
         rafDelta1s: result.before?.rafDelta1s, rafRate: result.before?.rafRate,
         visibility: result.before?.visibility, hasFocus: result.before?.hasFocus, box: result.before?.box,
         probe: result.probe ?? null,
+        frameCallback: result.frameCallback ?? null,
         error: result.error?.message ?? result.before?.error?.message ?? null,
       });
     } catch (error) {
-      await launched.flushClientLog().catch(() => {});
-      await sliceWestonLog(westonStart, westonRoundLog).catch(() => {});
       await dumpWaylandDiag(launched.page, `${label}-setup`, error, { kind: 'setup-failed', group: diagGroup }).catch(() => {});
+      await recordFailureLogs({
+        label, clientLog, westonStart, westonRoundLog, dumpLabel: `${label}-setup`,
+        extra: { flushClientLog: launched.flushClientLog },
+      }).catch(() => {});
       rounds.push({ i, ok: false, kind: 'setup-failed', error: error.message });
     } finally {
       await launched.app.close().catch(() => {});
       await fs.rm(launched.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       if (rounds.at(-1)?.ok) {
         await fs.rm(clientLog, { force: true });
+        await fs.rm(`${clientLog}.live`, { force: true });
         await fs.rm(westonRoundLog, { force: true });
       }
     }
@@ -339,12 +425,13 @@ const runRelaunchFileLoop = async (n = 300) => {
     rafRates: rates,
     visibility: rounds.map(round => round.visibility),
     fails: rounds.filter(round => !round.ok),
+    frameCallbacks: rounds.filter(round => !round.ok).map(round => ({ i: round.i, kind: round.kind, frameCallback: round.frameCallback })),
   }));
   return rounds;
 };
 if (process.env.PILOTDECK_WAYLAND_DIAG_RELAUNCH_ONLY === '1') {
   try {
-    await runRelaunchFileLoop(Number(process.env.PILOTDECK_WAYLAND_DIAG_N || 300));
+    await runRelaunchFileLoop(Number(process.env.PILOTDECK_WAYLAND_DIAG_N || 100));
   } catch (relaunchError) {
     console.log('WAYLAND_FILE_DIAG_RELAUNCH_ERROR', JSON.stringify({ message: relaunchError.message }));
   }

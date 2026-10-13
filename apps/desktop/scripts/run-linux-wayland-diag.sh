@@ -14,7 +14,7 @@ export PILOTDECK_CHROME_OZONE=wayland
 export PILOTDECK_CHROME_DISABLE_SANDBOX=1
 export PILOTDECK_WAYLAND_DIAG=1
 export PILOTDECK_WAYLAND_DIAG_RELAUNCH_ONLY=1
-export PILOTDECK_WAYLAND_DIAG_N="${PILOTDECK_WAYLAND_DIAG_N:-300}"
+export PILOTDECK_WAYLAND_DIAG_N="${PILOTDECK_WAYLAND_DIAG_N:-100}"
 export PILOTDECK_WAYLAND_DIAG_EARLY_STOP="${PILOTDECK_WAYLAND_DIAG_EARLY_STOP:-3}"
 export PILOTDECK_CHROME_ARTIFACTS="$repo_root/outputs/desktop-chrome-review/linux-wayland-diag-$group"
 mkdir -p "$PILOTDECK_CHROME_ARTIFACTS"
@@ -58,11 +58,22 @@ export WAYLAND_DISPLAY=wayland-pilotdeck-chrome
 unset DISPLAY
 export PILOTDECK_WESTON_LOG="$PILOTDECK_CHROME_ARTIFACTS/weston-live.log"
 weston_cmd=(weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" --no-config --idle-time=0 --width=1440 --height=900)
+weston_debug=0
 if weston --help 2>&1 | grep -q -- '--debug'; then
   weston_cmd+=(--debug)
+  weston_debug=1
 fi
-echo "WESTON_LAUNCH ${weston_cmd[*]} XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group"
-"${weston_cmd[@]}" >"$PILOTDECK_WESTON_LOG" 2>&1 &
+if command -v stdbuf >/dev/null 2>&1; then
+  weston_cmd=(env WAYLAND_DEBUG=1 stdbuf -oL -eL "${weston_cmd[@]}")
+else
+  weston_cmd=(env WAYLAND_DEBUG=1 "${weston_cmd[@]}")
+fi
+{
+  echo "WESTON_LAUNCH ${weston_cmd[*]}"
+  echo "XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group wayland_debug=1 weston_debug=$weston_debug"
+} | tee "$PILOTDECK_CHROME_ARTIFACTS/weston-launch.txt"
+: >"$PILOTDECK_WESTON_LOG"
+"${weston_cmd[@]}" >>"$PILOTDECK_WESTON_LOG" 2>&1 &
 weston_pid=$!
 for ((attempt = 0; attempt < 100; attempt++)); do
   if [[ -S "$runtime_dir/$WAYLAND_DISPLAY" ]]; then break; fi

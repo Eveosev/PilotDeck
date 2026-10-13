@@ -229,34 +229,20 @@ jobs:
           retention-days: 14
 
   wayland-diag:
-    name: Wayland diag ${{ matrix.group }} ${{ matrix.arch }}
+    name: Wayland diag C ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
-            group: A
-            runner: ubuntu-22.04
-          - arch: x64
-            group: B
-            runner: ubuntu-22.04
-          - arch: x64
-            group: C
             runner: ubuntu-22.04
           - arch: arm64
-            group: A
-            runner: ubuntu-22.04-arm
-          - arch: arm64
-            group: B
-            runner: ubuntu-22.04-arm
-          - arch: arm64
-            group: C
             runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     env:
-      PILOTDECK_WAYLAND_DIAG_GROUP: ${{ matrix.group }}
-      PILOTDECK_WAYLAND_DIAG_N: "300"
+      PILOTDECK_WAYLAND_DIAG_GROUP: C
+      PILOTDECK_WAYLAND_DIAG_N: "100"
       PILOTDECK_WAYLAND_DIAG_EARLY_STOP: "3"
       NODE_OPTIONS: --max-old-space-size=2560
     steps:
@@ -279,16 +265,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-x11 weston
-      - name: Wayland File-click relaunch group ${{ matrix.group }}
+      - name: Wayland File-click relaunch group C
         run: bash apps/desktop/scripts/run-linux-wayland-diag.sh
       - name: Upload Wayland diag dumps
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pilotdeck-linux-wayland-diag-${{ matrix.arch }}-${{ matrix.group }}
+          name: pilotdeck-linux-wayland-diag-${{ matrix.arch }}-C
           path: |
-            outputs/desktop-chrome-review/linux-wayland-diag-${{ matrix.group }}/linux-wayland-diag-*.json
-            outputs/desktop-chrome-review/linux-wayland-diag-${{ matrix.group }}/linux-wayland-diag-*.png
-            outputs/desktop-chrome-review/linux-wayland-diag-${{ matrix.group }}/linux-wayland-diag-*.log
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.json
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.png
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.log
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.log.live
+            outputs/desktop-chrome-review/linux-wayland-diag-C/weston-live.log
+            outputs/desktop-chrome-review/linux-wayland-diag-C/weston-launch.txt
           if-no-files-found: ignore
           retention-days: 14
