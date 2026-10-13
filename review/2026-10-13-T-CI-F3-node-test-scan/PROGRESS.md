@@ -2,8 +2,9 @@
 
 - 分支：`pilotdeck-rust/T-CI-F3-node-test-scan`
 - 基线：`d6ec73d824e74009c47c0254c86db194ad7ce66d`
-- draft PR：_pending_
-- 当前 tip：_pending_
+- draft PR：https://github.com/Eveosev/PilotDeck/pull/13
+- 当前 tip：`e148d594c19c4802d643de9dc831bccc04d60331`（实现；本文件回填后会再戳 tip）
+- CI（实现 tip）：https://github.com/Eveosev/PilotDeck/actions/runs/38356348095 （Web Regression，进行中）
 
 ## Before / after 扫描列表
 
@@ -18,12 +19,10 @@
 7. `server/staffdeck-publish-runtime.test.mjs`
 8. `server/staffdeck-runtime-readiness.test.mjs`
 
-- Before：CI 内联 walk `ui/server`（见 PR #12 / run `38348207846`）。
+- Before：CI 内联 walk `ui/server`（PR #12 / run `38348207846`）。
 - After：`node scripts/check-web-node-test-scan.mjs --print`（walk `ui/`，同一正则）。
 
 ## 匹配检查（正 / 负）
-
-命令与退出码：
 
 ```
 node scripts/check-web-node-test-scan.mjs
@@ -39,10 +38,10 @@ exit **1**。vitest exclude 多出 `server/does-not-exist.test.js`，node --test
 
 ## 本地计数
 
-- vitest：_pending_（基线 268 files / 2204 cases）
-- `node --test`：_pending_（必须保持 8 files / 40 cases / 0 fail）
+与 Web Regression 相同命令：
 
-装依赖前直跑 `node --test` 会因缺 `yaml` 让 `staffdeck-publish-route.test.js` 加载失败（38 tests / 1 fail）。这是环境，不是扫描集。
+- vitest：`Test Files 268 passed (268)` / `Tests 2204 passed (2204)`，0 fail
+- `node --test`：8 files，`# tests 40` `# pass 40` `# fail 0`
 
 ## 原始日志（不入库）
 
@@ -51,4 +50,5 @@ exit **1**。vitest exclude 多出 `server/does-not-exist.test.js`，node --test
 | `check-ok.txt` | `d3cdb32daf68d97a84be96c6a230546f0efd596b2acf400700a0fbd7ab95c7a3` | `/tmp/T-CI-F3-node-test-scan/` |
 | `check-mismatch.txt` | `a64e604daf279a1327f7c13609f5748ab6159be304f3c0f53aed469be186e5a0` | `/tmp/T-CI-F3-node-test-scan/` |
 | `after-print.txt` | `7347bb49b69fae8609302c5f619351370912a0fd3fef568d877fe39ee24932d4` | `/tmp/T-CI-F3-node-test-scan/` |
-| `node-test.txt` | `79e84067c22badbf6f51e5ad1d2b2692b909715cca534323382279a2803bbab1` | `/tmp/T-CI-F3-node-test-scan/`（缺依赖，非正式计数） |
+| `node-test-after.txt` | `33423e377864b17eb4d9fadb3ceee1590db9e8d7b69be974a3c11dcc00bc042f` | `/tmp/T-CI-F3-node-test-scan/` |
+| `vitest.txt` | `86906782973e3c42fecba7827294a89376c16be89cfeb632cf219bb8d100e04e` | `/tmp/T-CI-F3-node-test-scan/` |
