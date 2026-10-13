@@ -1,0 +1,19 @@
+[package]
+name = "pilotdeck-agent-loop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.83"
+license = "AGPL-3.0-only"
+publish = false
+description = "Minimal AgentLoop sidecar: hello/capabilities/execute/cancel/status over stdio JSONL."
+
+[lib]
+name = "pilotdeck_agent_loop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pilotdeck-agent-loop"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"

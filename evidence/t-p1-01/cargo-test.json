@@ -1,0 +1,17 @@
+{
+  "command": "cargo test --workspace -- --test-threads=1",
+  "runs": 2,
+  "deterministicPassCounts": true,
+  "exit": [0, 0],
+  "counts": {
+    "pilotdeck-agent-loop-lib": { "passed": 25, "failed": 0 },
+    "pilotdeck-agent-loop-bin": { "passed": 0, "failed": 0 },
+    "lock": { "passed": 5, "failed": 0 },
+    "roundtrip": { "passed": 2, "failed": 0 },
+    "sidecar_stdio": { "passed": 6, "failed": 0 },
+    "pilotdeck-agent-loop-hello": { "passed": 0, "failed": 0 },
+    "doc-tests": { "passed": 0, "failed": 0 },
+    "totalPassed": 38,
+    "totalFailed": 0
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "description": "B1 invalid corpus: ≥1 reject sample per Module Protocol message type, plus Rust-rejected inputs (bad kind, missing fields, attemptId/stepId). Each sample is raw JSON text → serde_json::Value / JSON.parse, then ajv strict + validateModuleMessage + Rust validate_module_message. All three must reject.",
+  "samples": [
+    {
+      "id": "invalid-not-object",
+      "messageType": "invalid/message",
+      "rule": "message must be an object",
+      "raw": "\"not-an-object\""
+    },
+    {
+      "id": "invalid-kind",
+      "messageType": "invalid/kind",
+      "rule": "kind enum",
+      "raw": "{\"kind\":\"nope\",\"messageId\":\"x\"}"
+    },
+    {
+      "id": "invalid-method",
+      "messageType": "request/unknown",
+      "rule": "unknown request method",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"m\",\"method\":\"not-a-method\",\"payload\":{}}"
+    },
+    {
+      "id": "hello-missing-payload",
+      "messageType": "request/hello",
+      "rule": "handshake requires payload object",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"hello-1\",\"method\":\"hello\"}"
+    },
+    {
+      "id": "capabilities-payload-array",
+      "messageType": "request/capabilities",
+      "rule": "handshake payload must be a record, not an array",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"caps-1\",\"method\":\"capabilities\",\"payload\":[]}"
+    },
+    {
+      "id": "execute-missing-requestId",
+      "messageType": "request/execute",
+      "rule": "execute requires requestId isId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"payload\":{}}"
+    },
+    {
+      "id": "execute-missing-payload",
+      "messageType": "request/execute",
+      "rule": "execute requires payload object",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\"}"
+    },
+    {
+      "id": "execute-attemptId",
+      "messageType": "request/execute",
+      "rule": "forbidden attemptId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"attemptId\":\"attempt-1\"}"
+    },
+    {
+      "id": "execute-stepId",
+      "messageType": "request/execute",
+      "rule": "forbidden stepId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"message-1\",\"method\":\"execute\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"payload\":{},\"stepId\":\"step-1\"}"
+    },
+    {
+      "id": "module_call-invalid-module",
+      "messageType": "request/module_call",
+      "rule": "module_call target enum",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"call-1\",\"method\":\"module_call\",\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"module\":\"not-a-module\",\"payload\":{}}"
+    },
+    {
+      "id": "cancel-missing-reason",
+      "messageType": "request/cancel",
+      "rule": "cancel requires reason",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"cancel-1\",\"method\":\"cancel\",\"runId\":\"run-1\",\"operationId\":\"operation-1\"}"
+    },
+    {
+      "id": "status-missing-requestId",
+      "messageType": "request/status",
+      "rule": "status requires requestId",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"status-1\",\"method\":\"status\"}"
+    },
+    {
+      "id": "resume-missing-binding",
+      "messageType": "request/resume",
+      "rule": "resume requires previousBinding",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"resume-1\",\"method\":\"resume\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "ack-sequence-negative-one",
+      "messageType": "request/ack",
+      "rule": "ack lastAppliedSequence isSequence (>=0)",
+      "raw": "{\"kind\":\"request\",\"messageId\":\"ack-1\",\"method\":\"ack\",\"streamId\":\"stream-1\",\"lastAppliedSequence\":-1}"
+    },
+    {
+      "id": "event-final-missing-outcome",
+      "messageType": "event",
+      "rule": "final⇒outcome",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":true,\"payload\":{}}"
+    },
+    {
+      "id": "event-moduleInstanceId",
+      "messageType": "event",
+      "rule": "forbidden moduleInstanceId",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"moduleInstanceId\":\"instance-1\"}"
+    },
+    {
+      "id": "event-connectionGeneration",
+      "messageType": "event",
+      "rule": "forbidden connectionGeneration",
+      "raw": "{\"kind\":\"event\",\"eventType\":\"model.delta\",\"streamId\":\"stream-1\",\"sequence\":0,\"runId\":\"run-1\",\"operationId\":\"operation-1\",\"requestId\":\"request-1\",\"final\":false,\"payload\":{},\"connectionGeneration\":\"generation-1\"}"
+    },
+    {
+      "id": "response-missing-inReplyTo",
+      "messageType": "response",
+      "rule": "response requires inReplyTo",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"ok\":true}"
+    },
+    {
+      "id": "response-final-missing-outcome",
+      "messageType": "response",
+      "rule": "final⇒outcome",
+      "raw": "{\"kind\":\"response\",\"messageId\":\"response-1\",\"inReplyTo\":\"message-1\",\"ok\":true,\"final\":true}"
+    },
+    {
+      "id": "error-invalid-retryability",
+      "messageType": "error",
+      "rule": "error retryability enum",
+      "raw": "{\"kind\":\"error\",\"messageId\":\"error-1\",\"code\":\"BROKEN\",\"message\":\"broken\",\"retryability\":\"sometimes\"}"
+    }
+  ]
+}
