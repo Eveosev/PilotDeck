@@ -257,3 +257,10 @@ Live corpus: 19 messages; completed has `sessionId`/`turnId`; cancelled `type:"a
 `tests/mask_f3.sh --committed evidence/t-p1-01/emitted-messages.json`: exit 0.
 
 Collection `gitSha` / `collectHead` = `fd5decec` (`gitDirty=false` at collect start). Evidence commit follows (no amend).
+
+## 2026-10-14 PR-B provenance pointer
+
+- evidence **content tip** = `8e3b90bf0afc6737d9ff363bc68db2fac19bf7e6`
+- `provenance.collectHead` = `fd5decec` (clean code tip used when files were written)
+- `provenance.gitSha` = evidence content tip `8e3b90bf` (this pointer commit updates only provenance + review)
+- `git diff fd5decec HEAD -- crates/` is empty after the evidence commit except this pointer does not touch `crates/`

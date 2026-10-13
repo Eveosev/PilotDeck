@@ -1,8 +1,9 @@
 {
   "task": "T-P1-01",
   "slice": "PR-B F-5/S3/S4",
-  "gitSha": "fd5dececd778ae2a7e8df0cbd2456936625b6090",
+  "gitSha": "8e3b90bf0afc6737d9ff363bc68db2fac19bf7e6",
   "collectHead": "fd5dececd778ae2a7e8df0cbd2456936625b6090",
+  "evidenceContentTip": "8e3b90bf0afc6737d9ff363bc68db2fac19bf7e6",
   "gitDirty": false,
   "base": "61ef132170b642fecf7e0acaf65b8f121319a651",
   "branch": "cursor/t-p1-01-pr-b-c23a",
