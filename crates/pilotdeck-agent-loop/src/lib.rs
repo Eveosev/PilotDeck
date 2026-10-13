@@ -64,6 +64,11 @@ fn parse_listen_addr(value: &str) -> Result<SocketAddr, String> {
     Ok(addr)
 }
 
+/// Same value as `MODULE_PROTOCOL_VERSION` in `src/agent/modules/protocol.ts`.
+pub const PROTOCOL_VERSION: &str = "2.0";
+pub const MODULE_ID: &str = "pilotdeck-agent-loop";
+pub const CAPABILITIES_VERSION: &str = "1";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,8 +96,3 @@ mod tests {
         assert!(parse_serve_mode(["--unknown"]).is_err());
     }
 }
-
-/// Same value as `MODULE_PROTOCOL_VERSION` in `src/agent/modules/protocol.ts`.
-pub const PROTOCOL_VERSION: &str = "2.0";
-pub const MODULE_ID: &str = "pilotdeck-agent-loop";
-pub const CAPABILITIES_VERSION: &str = "1";

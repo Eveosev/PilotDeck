@@ -3,8 +3,8 @@
 pub mod suite;
 
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Read, Shutdown, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{Shutdown, TcpStream};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
