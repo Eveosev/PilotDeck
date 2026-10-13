@@ -2,7 +2,7 @@
 
 - 任务：T-P0a-07 Module Protocol 同步门禁（文档先行）
 - 分支：`pilotdeck-rust/T-P0a-07-protocol-change-gate`
-- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge `7d488a1b` 与 `2c4420b4`）
+- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge `7d488a1b`、`2c4420b4` 与 `761572d7`）
 - 禁止：rebase / force-push / ready / merge；不改 `src/`、`.github/`、`crates/`、lockfile
 
 ## Commits
@@ -16,7 +16,9 @@
 | 4 | merge `7d488a1b` | `6d450b6ac2f91dc595892158aeb8ec1de3072b09` |
 | 5 | 记录 `7d488a1b` sync | `bbb88cb7bedca6013787221cba1fef41ef55a11f` |
 | 6 | merge `2c4420b4`（PR #6） | `60d9d462a2d4527a20d8f013ea4c47015eae25d3` |
-| 7 | 本记录（仅本文件） | （落地后 = 本提交） |
+| 7 | 记录 `2c4420b4` sync | `f6d46add243b5131d0a8141fb671c8009a629e87` |
+| 8 | merge `761572d7`（PR #8） | `82497abe8998d4a0aea6bc5ed51cfd817ee60c8c` |
+| 9 | 本记录（仅本文件） | （落地后 = 本提交） |
 
 采集时 **`gitDirty=false`**，`gitSha=14b1a71ee8a63371c79a830f656482657e2a25a6`。
 
@@ -67,6 +69,28 @@ B = git diff $(git merge-base oldTip M) M -- . ':!review' | sha256sum
 ### CI-3 豁免（Payne 定）
 
 主线现带 PR #6 的 **CI-3**：`rust_standalone_alpha1` 上既有 Web Regression，`ui/src/components/settings/view/about/DesktopAboutSections.test.tsx` 找不到 `updateAndRestart` button role。Payne 判定该失败在 desktop packaging 范围外，归单独 UI PR，**不阻塞** 本 T-P0a-07 文档门禁 PR。本 PR 不改产品代码 / `src/` / `crates/` 来“修”CI-3。
+
+## 主线同步 #3（PR #8 合入后，merge，非 rebase）
+
+- **oldTip**：`f6d46add243b5131d0a8141fb671c8009a629e87`
+- **M**（`origin/rust_standalone_alpha1`，#8 merge）：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
+- **merge-base(oldTip, M)**：`2c4420b417bc9eefe19b52f3d62245c8b74d406a`
+- **mergeSha**：`82497abe8998d4a0aea6bc5ed51cfd817ee60c8c`（parents `f6d46add` + `761572d7`）
+- **conflicts**：none。merge 提交无额外非冲突编辑（`--cc` 为空）。带入主线：`crates/pilotdeck-agent-loop/`、`evidence/t-p1-01/` 与 `review/2026-10-12-T-P1-01-rust-agent-loop/`。
+
+验证：
+
+```
+A = git diff oldTip mergeSha -- . ':!review' | sha256sum
+B = git diff $(git merge-base oldTip M) M -- . ':!review' | sha256sum
+```
+
+| 侧 | sha256 |
+| --- | --- |
+| A `git diff f6d46add 82497abe -- . ':!review'` | `ea6e77bc6a27d928d8725914a3aefda1e133a39b11ec6bd0d920244f2877d96c` |
+| B `git diff 2c4420b4 761572d7 -- . ':!review'` | `ea6e77bc6a27d928d8725914a3aefda1e133a39b11ec6bd0d920244f2877d96c` |
+
+**equality**：`true`。
 
 ## R2 修复
 
