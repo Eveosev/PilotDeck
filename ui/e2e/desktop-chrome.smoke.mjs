@@ -17,114 +17,64 @@ const mac = process.platform === 'darwin';
 const platformName = mac ? 'mac' : process.platform === 'linux' ? 'linux' : 'windows';
 const artifactDir = process.env.PILOTDECK_CHROME_ARTIFACTS || path.join(root, 'outputs/desktop-chrome-review');
 await fs.mkdir(artifactDir, { recursive: true });
-const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'pilotdeck-chrome-'));
-const app = await electron.launch({
-  executablePath: createRequire(import.meta.url)(path.join(root, 'apps/desktop/node_modules/electron')),
-  args: [path.join(root, 'apps/desktop/scripts/fixtures/desktop-chrome.cjs'),
-    ...(process.env.PILOTDECK_CHROME_SCALE ? [`--force-device-scale-factor=${process.env.PILOTDECK_CHROME_SCALE}`] : []),
-    ...(process.env.PILOTDECK_CHROME_OZONE ? [`--ozone-platform=${process.env.PILOTDECK_CHROME_OZONE}`] : []),
-    ...(process.env.PILOTDECK_CHROME_DISABLE_SANDBOX ? ['--no-sandbox'] : [])],
-  env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')), PILOTDECK_CHROME_PROFILE: profile },
-});
-app.process().on('exit', (code, signal) => { if (code) console.error('Electron exited', { code, signal }); });
+const { installWaylandDiag } = createRequire(import.meta.url)(
+  path.join(root, 'apps/desktop/scripts/fixtures/wayland-file-diag.cjs'),
+);
 const electronLaunchArgs = [
   path.join(root, 'apps/desktop/scripts/fixtures/desktop-chrome.cjs'),
   ...(process.env.PILOTDECK_CHROME_SCALE ? [`--force-device-scale-factor=${process.env.PILOTDECK_CHROME_SCALE}`] : []),
   ...(process.env.PILOTDECK_CHROME_OZONE ? [`--ozone-platform=${process.env.PILOTDECK_CHROME_OZONE}`] : []),
   ...(process.env.PILOTDECK_CHROME_DISABLE_SANDBOX ? ['--no-sandbox'] : []),
 ];
-try {
-  const page = await app.firstWindow();
-  await page.addInitScript(() => {
-    const started = Date.now();
-    const events = [];
-    const bboxes = [];
-    let rafCount = 0;
-    let lastBboxTs = 0;
-    const record = (type, extra = {}) => {
-      events.push({
-        t: Date.now() - started, type, rafCount,
-        visibility: document.visibilityState, hasFocus: document.hasFocus(), ...extra,
-      });
-    };
-    const fileBbox = () => {
-      const host = document.getElementById('pilotdeck-window-caption');
-      const btn = host?.shadowRoot?.querySelector('button[data-menu="menu-file"]');
-      if (!btn) return null;
-      const r = btn.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height };
-    };
-    const tick = ts => {
-      rafCount += 1;
-      if (ts - lastBboxTs >= 50) {
-        lastBboxTs = ts;
-        const box = fileBbox();
-        bboxes.push({
-          t: Date.now() - started, rafCount,
-          visibility: document.visibilityState, hasFocus: document.hasFocus(), box,
-        });
-      }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    record('install');
-    document.addEventListener('visibilitychange', () => record('visibilitychange'));
-    window.addEventListener('focus', () => record('focus'));
-    window.addEventListener('blur', () => record('blur'));
-    window.__waylandDiag = {
-      snapshot: () => ({
-        rafCount, visibility: document.visibilityState, hasFocus: document.hasFocus(),
-        events: events.slice(), bboxes: bboxes.slice(),
-      }),
-    };
-  });
-  const dumpWaylandDiag = async (label, error) => {
-    let snapshot = null;
-    try { snapshot = await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null); }
-    catch (evalError) { snapshot = { evalError: String(evalError) }; }
-    const png = path.join(artifactDir, `linux-wayland-diag-${label}.png`);
-    const json = path.join(artifactDir, `linux-wayland-diag-${label}.json`);
-    try { await page.screenshot({ path: png, fullPage: true }); } catch {}
-    const payload = {
-      label, error: error ? { name: error.name, message: error.message } : null,
-      ozone: process.env.PILOTDECK_CHROME_OZONE || null,
-      waylandDisplay: process.env.WAYLAND_DISPLAY || null,
-      snapshot,
-      png, json,
-    };
-    await fs.writeFile(json, `${JSON.stringify(payload, null, 2)}\n`);
-    console.log('WAYLAND_FILE_DIAG_DUMP', JSON.stringify({
-      label, png, json,
-      rafCount: snapshot?.rafCount, visibility: snapshot?.visibility, hasFocus: snapshot?.hasFocus,
-      eventCount: snapshot?.events?.length, bboxCount: snapshot?.bboxes?.length,
-      error: payload.error,
-    }));
-    return payload;
+const snapshotWaylandDiag = async page => {
+  try { return await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null); }
+  catch (evalError) { return { evalError: String(evalError) }; }
+};
+const dumpWaylandDiag = async (page, label, error, extra = {}) => {
+  const snapshot = await snapshotWaylandDiag(page);
+  const png = path.join(artifactDir, `linux-wayland-diag-${label}.png`);
+  const json = path.join(artifactDir, `linux-wayland-diag-${label}.json`);
+  const payload = {
+    label, error: error ? { name: error.name, message: error.message } : null,
+    ozone: process.env.PILOTDECK_CHROME_OZONE || null,
+    waylandDisplay: process.env.WAYLAND_DISPLAY || null,
+    snapshot,
+    png, json,
+    ...extra,
   };
-  const clickFileOrDump = async (locator, label, options) => {
-    try {
-      await locator.click(options);
-      return { ok: true };
-    } catch (error) {
-      await dumpWaylandDiag(label, error);
-      if (options?.timeout !== undefined) return { ok: false, error };
-      throw error;
-    }
-  };
-  const projects = [
-    { name: 'general', displayName: 'General conversation', kind: 'general', fullPath: '/fixture/general', sessions: [], capabilities: { files: false } },
-    { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
-  ];
-  let completedOnboarding = true;
-  const missing = new Set();
+  await fs.writeFile(json, `${JSON.stringify(payload, null, 2)}\n`);
+  try { await page.screenshot({ path: png, fullPage: true, timeout: 5000 }); }
+  catch (screenshotError) { payload.screenshotError = String(screenshotError); }
+  console.log('WAYLAND_FILE_DIAG_DUMP', JSON.stringify({
+    label, png, json,
+    kind: extra.kind ?? null,
+    rafCount: snapshot?.rafCount, rafDelta1s: snapshot?.rafDelta1s, rafRate: snapshot?.rafRate,
+    visibility: snapshot?.visibility, hasFocus: snapshot?.hasFocus, box: snapshot?.box,
+    eventCount: snapshot?.events?.length, bboxCount: snapshot?.bboxes?.length,
+    error: payload.error, screenshotError: payload.screenshotError ?? null,
+  }));
+  return payload;
+};
+const clickFileOrDump = async (page, locator, label, options) => {
+  const before = await snapshotWaylandDiag(page);
+  try {
+    await locator.click(options);
+    return { ok: true, before, after: await snapshotWaylandDiag(page) };
+  } catch (error) {
+    await dumpWaylandDiag(page, label, error, { before });
+    if (options?.timeout !== undefined) return { ok: false, error, before };
+    throw error;
+  }
+};
+const attachChromeFixtureRoutes = async (page, ctx) => {
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url());
     let body = {};
-    if (url.pathname === '/api/projects') body = projects;
-    else if (url.pathname.includes('onboarding-status')) body = { hasCompletedOnboarding: completedOnboarding };
+    if (url.pathname === '/api/projects') body = ctx.projects;
+    else if (url.pathname.includes('onboarding-status')) body = { hasCompletedOnboarding: ctx.completedOnboarding() };
     else if (url.pathname === '/api/settings/permissions') body = { success: true, permissions: { skipPermissions: false, allowedTools: [], deniedTools: [] } };
     else if (url.pathname.includes('/messages')) body = { messages: [], hasMore: false, total: 0 };
-    else if (url.pathname.includes('/sessions')) body = { sessions: projects[1].sessions, hasMore: false, total: 1 };
+    else if (url.pathname.includes('/sessions')) body = { sessions: ctx.projects[1].sessions, hasMore: false, total: 1 };
     else if (url.pathname.includes('/files')) body = [];
     else if (url.pathname.includes('models')) body = { models: [] };
     else if (url.pathname.includes('/skills')) body = { skills: [] };
@@ -132,7 +82,7 @@ try {
     else if (url.pathname.includes('/config')) body = { config: { models: {}, agents: {}, tools: {} } };
     else if (url.pathname.includes('/tasks')) body = { tasks: [] };
     else if (url.pathname.includes('/cron')) body = { jobs: [] };
-    else missing.add(url.pathname);
+    else ctx.missing.add(url.pathname);
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
   });
   await page.route(url => url.pathname === '/api/modules/runtime', async route => {
@@ -154,9 +104,130 @@ try {
       } catch {}
     });
   });
+};
+const launchChromeFixture = async () => {
+  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'pilotdeck-chrome-'));
+  const app = await electron.launch({
+    executablePath: createRequire(import.meta.url)(path.join(root, 'apps/desktop/node_modules/electron')),
+    args: electronLaunchArgs,
+    env: {
+      ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')),
+      PILOTDECK_CHROME_PROFILE: profile,
+      PILOTDECK_WAYLAND_DIAG: '1',
+    },
+  });
+  app.process().on('exit', (code, signal) => { if (code) console.error('Electron exited', { code, signal }); });
+  const page = await app.firstWindow();
+  await page.addInitScript(installWaylandDiag);
+  await page.evaluate(installWaylandDiag);
+  return { app, page, profile };
+};
+const waitFixtureReady = async (page, app) => {
+  await page.goto('http://127.0.0.1:5187');
+  await page.evaluate(installWaylandDiag);
+  await expect(page.locator('.app-shell')).toBeVisible({ timeout: 60000 });
+  await expect.poll(() => app.evaluate(() => global.chromeTest.state().ready)).toBe(true);
+};
+const classifyRelaunchFailure = async (page, locator, label, before) => {
+  const after10 = await snapshotWaylandDiag(page);
+  const rafAdvanced = typeof after10?.rafCount === 'number' && typeof before?.rafCount === 'number'
+    && after10.rafCount > before.rafCount;
+  if (!rafAdvanced) {
+    await dumpWaylandDiag(page, label, before.error, { kind: 'truly hung', before, after10 });
+    return { ok: false, kind: 'truly hung', before, after10 };
+  }
+  try {
+    await locator.click({ timeout: 20000 });
+    await dumpWaylandDiag(page, label, before.error, { kind: 'not clicked within 10s', recoveredAfter30s: true, before, after10 });
+    return { ok: false, kind: 'not clicked within 10s', recoveredAfter30s: true, before, after10 };
+  } catch (error30) {
+    const after30 = await snapshotWaylandDiag(page);
+    await dumpWaylandDiag(page, label, error30, { kind: 'truly hung', stillFailingAfter30s: true, before, after10, after30 });
+    return { ok: false, kind: 'truly hung', stillFailingAfter30s: true, before, after10, after30, error: error30 };
+  }
+};
+const clickFileClassified = async (page, locator, label) => {
+  const before = await snapshotWaylandDiag(page);
+  try {
+    await locator.click({ timeout: 10000 });
+    return { ok: true, kind: null, before, after: await snapshotWaylandDiag(page) };
+  } catch (error) {
+    return classifyRelaunchFailure(page, locator, label, { ...before, error });
+  }
+};
+const runRelaunchFileLoop = async (n = 50) => {
+  const projects = [
+    { name: 'general', displayName: 'General conversation', kind: 'general', fullPath: '/fixture/general', sessions: [], capabilities: { files: false } },
+    { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
+  ];
+  const rounds = [];
+  for (let i = 1; i <= n; i += 1) {
+    const label = `relaunch-${String(i).padStart(2, '0')}`;
+    const launched = await launchChromeFixture();
+    try {
+      const missing = new Set();
+      await attachChromeFixtureRoutes(launched.page, { projects, completedOnboarding: () => true, missing });
+      await waitFixtureReady(launched.page, launched.app);
+      const caption = launched.page.locator('#pilotdeck-window-caption');
+      await expect(caption.locator('button')).toHaveCount(5);
+      const fileBtn = caption.getByRole('button', { name: 'File', exact: true });
+      const result = await clickFileClassified(launched.page, fileBtn, label);
+      rounds.push({
+        i, ok: result.ok, kind: result.kind,
+        rafDelta1s: result.before?.rafDelta1s, rafRate: result.before?.rafRate,
+        visibility: result.before?.visibility, hasFocus: result.before?.hasFocus, box: result.before?.box,
+        error: result.error?.message ?? result.before?.error?.message ?? null,
+      });
+    } catch (error) {
+      await dumpWaylandDiag(launched.page, `${label}-setup`, error, { kind: 'setup-failed' }).catch(() => {});
+      rounds.push({ i, ok: false, kind: 'setup-failed', error: error.message });
+    } finally {
+      await launched.app.close().catch(() => {});
+      await fs.rm(launched.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    }
+  }
+  const rates = rounds.map(round => round.rafRate).filter(n => typeof n === 'number');
+  console.log('WAYLAND_FILE_DIAG_RELAUNCH_STATS', JSON.stringify({
+    n: rounds.length,
+    failures: rounds.filter(round => !round.ok).length,
+    notClickedWithin10s: rounds.filter(round => round.kind === 'not clicked within 10s').length,
+    trulyHung: rounds.filter(round => round.kind === 'truly hung').length,
+    setupFailed: rounds.filter(round => round.kind === 'setup-failed').length,
+    rafRateMin: rates.length ? Math.min(...rates) : null,
+    rafRateMax: rates.length ? Math.max(...rates) : null,
+    rafRates: rates,
+    visibility: rounds.map(round => round.visibility),
+    fails: rounds.filter(round => !round.ok),
+  }));
+  return rounds;
+};
+const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'pilotdeck-chrome-'));
+const app = await electron.launch({
+  executablePath: createRequire(import.meta.url)(path.join(root, 'apps/desktop/node_modules/electron')),
+  args: electronLaunchArgs,
+  env: {
+    ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')),
+    PILOTDECK_CHROME_PROFILE: profile,
+    PILOTDECK_WAYLAND_DIAG: '1',
+  },
+});
+app.process().on('exit', (code, signal) => { if (code) console.error('Electron exited', { code, signal }); });
+let mainError;
+try {
+  const page = await app.firstWindow();
+  await page.addInitScript(installWaylandDiag);
+  await page.evaluate(installWaylandDiag);
+  const projects = [
+    { name: 'general', displayName: 'General conversation', kind: 'general', fullPath: '/fixture/general', sessions: [], capabilities: { files: false } },
+    { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
+  ];
+  let completedOnboarding = true;
+  const missing = new Set();
+  await attachChromeFixtureRoutes(page, { projects, completedOnboarding: () => completedOnboarding, missing });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:5187');
+  await page.evaluate(installWaylandDiag);
   await expect(page.locator('.app-shell')).toBeVisible({ timeout: 60000 });
   await expect.poll(() => app.evaluate(() => global.chromeTest.state().ready)).toBe(true);
   await expect(page.locator('html')).toHaveAttribute('data-desktop-platform', process.platform);
@@ -238,6 +309,14 @@ try {
     await expect(caption.locator('button')).toHaveCount(5);
     await expect(caption).toHaveCSS('background-color', 'rgb(23, 23, 23)');
     await expect(page.locator('.project-sidebar')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
+    const beforeMainClick = await snapshotWaylandDiag(page);
+    console.log('WAYLAND_FILE_DIAG_MAIN_CLICK', JSON.stringify({
+      rafDelta1s: beforeMainClick?.rafDelta1s, rafRate: beforeMainClick?.rafRate,
+      rafWindowMs: beforeMainClick?.rafWindowMs, rafCount: beforeMainClick?.rafCount,
+      visibility: beforeMainClick?.visibility, hasFocus: beforeMainClick?.hasFocus, box: beforeMainClick?.box,
+    }));
+    // original first File click (desktop-chrome.smoke.mjs:161)
+    await clickFileOrDump(page, caption.getByRole('button', { name: 'File', exact: true }), 'main-161');
     const livePrefs = await app.evaluate(({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows()[0];
       const contents = win.webContents;
@@ -254,8 +333,10 @@ try {
       fixtureWindow: {
         file: 'apps/desktop/scripts/fixtures/desktop-chrome.cjs:101',
         webPreferencesFile: 'apps/desktop/scripts/fixtures/desktop-chrome.cjs:103',
+        preload: process.env.PILOTDECK_WAYLAND_DIAG === '1'
+          ? 'apps/desktop/scripts/fixtures/desktop-chrome-preload.cjs'
+          : 'apps/desktop/dist/preload.js',
         webPreferences: {
-          preload: 'apps/desktop/dist/preload.js',
           contextIsolation: true,
           sandbox: false,
           nodeIntegration: false,
@@ -275,44 +356,6 @@ try {
         },
       },
     }));
-    if (process.platform === 'linux') {
-      const fileBtn = () => caption.getByRole('button', { name: 'File', exact: true });
-      const rounds = [];
-      for (let i = 1; i <= 20; i += 1) {
-        await page.reload();
-        await expect(page.locator('.app-shell')).toBeVisible({ timeout: 60000 });
-        await expect.poll(() => app.evaluate(() => global.chromeTest.state().ready)).toBe(true);
-        await expect(caption.locator('button')).toHaveCount(5);
-        const before = await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null);
-        const result = await clickFileOrDump(fileBtn(), `round-${String(i).padStart(2, '0')}`, { timeout: 10000 });
-        try {
-          await page.keyboard.press('Escape');
-          await expect(fileBtn()).toHaveAttribute('aria-expanded', 'false');
-        } catch (resetError) {
-          console.log('WAYLAND_FILE_DIAG_RESET', JSON.stringify({ i, message: resetError.message }));
-        }
-        rounds.push({
-          i, ok: result.ok,
-          rafCount: before?.rafCount, visibility: before?.visibility, hasFocus: before?.hasFocus,
-          error: result.error ? result.error.message : null,
-        });
-      }
-      const rafs = rounds.map(round => round.rafCount).filter(n => typeof n === 'number');
-      console.log('WAYLAND_FILE_DIAG_STATS', JSON.stringify({
-        n: rounds.length,
-        failures: rounds.filter(round => !round.ok).length,
-        rafMin: rafs.length ? Math.min(...rafs) : null,
-        rafMax: rafs.length ? Math.max(...rafs) : null,
-        rafs,
-        visibility: rounds.map(round => round.visibility),
-        fails: rounds.filter(round => !round.ok).map(round => ({
-          i: round.i, rafCount: round.rafCount, visibility: round.visibility, hasFocus: round.hasFocus, error: round.error,
-        })),
-      }));
-    }
-    // Win32 owns its popup; Linux draws the same menu template in the preload
-    // so it follows the app theme on GTK desktops with different system themes.
-    await clickFileOrDump(caption.getByRole('button', { name: 'File', exact: true }), 'main-161');
     await expect.poll(() => app.evaluate(() => global.chromeTest.menuRequests().at(-1)?.id)).toBe('menu-file');
     const linuxPopup = page.locator('#pilotdeck-linux-popup');
     if (process.platform === 'linux') {
@@ -394,7 +437,7 @@ try {
     await page.reload();
   }
   if (process.platform === 'linux') {
-    await clickFileOrDump(page.locator('#pilotdeck-window-caption').getByRole('button', { name: 'File', exact: true }), 'new-project-243');
+    await clickFileOrDump(page, page.locator('#pilotdeck-window-caption').getByRole('button', { name: 'File', exact: true }), 'new-project-243');
     await page.locator('#pilotdeck-linux-popup').locator('[data-action="new-project"]').click();
   } else await command('new-project');
   await expect(page.locator('.create-workspace-dialog')).toBeVisible();
@@ -490,7 +533,7 @@ try {
     if (process.platform === 'linux') {
       const popup = page.locator('#pilotdeck-linux-popup');
       const caption = page.locator('#pilotdeck-window-caption');
-      await clickFileOrDump(caption.getByRole('button', { name: 'File', exact: true }), 'light-339');
+      await clickFileOrDump(page, caption.getByRole('button', { name: 'File', exact: true }), 'light-339');
       await expect(popup.locator('.panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
       await page.screenshot({ path: path.join(artifactDir, `${platformName}-light-popup.png`) });
       await page.evaluate(() => window.pilotdeckDesktop.setAppearance({ language: 'en', themeMode: 'dark' }));
@@ -517,7 +560,7 @@ try {
         ['menu-help', '[data-action="help-docs"]', '使用文档'],
       ]) {
         await page.keyboard.press('Escape');
-        if (id === 'menu-file') await clickFileOrDump(page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`), `zh-${id}`);
+        if (id === 'menu-file') await clickFileOrDump(page, page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`), `zh-${id}`);
         else await page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`).click();
         await expect(popup.locator('.panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
         await expect(popup.locator(selector)).toContainText(label);
@@ -654,7 +697,17 @@ try {
   await expect(page.locator('html')).toHaveAttribute('data-desktop-platform', process.platform);
   expect(errors).toEqual([]);
   console.log(JSON.stringify({ passed: true, geometry, unmappedFixtureEndpoints: [...missing], artifactDir }));
+} catch (error) {
+  mainError = error;
 } finally {
   await app.close();
   await fs.rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
+if (process.platform === 'linux') {
+  try { await runRelaunchFileLoop(50); }
+  catch (relaunchError) {
+    console.log('WAYLAND_FILE_DIAG_RELAUNCH_ERROR', JSON.stringify({ message: relaunchError.message }));
+    mainError ??= relaunchError;
+  }
+}
+if (mainError) throw mainError;

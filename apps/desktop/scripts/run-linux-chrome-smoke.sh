@@ -12,6 +12,7 @@ repo_root="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$repo_root"
 export PILOTDECK_CHROME_OZONE="$mode"
 export PILOTDECK_CHROME_DISABLE_SANDBOX=1
+export PILOTDECK_WAYLAND_DIAG=1
 export PILOTDECK_CHROME_ARTIFACTS="$repo_root/outputs/desktop-chrome-review/linux-$mode"
 mkdir -p "$PILOTDECK_CHROME_ARTIFACTS"
 if ! "$node_binary" -e "require('./apps/desktop/node_modules/electron')" >/dev/null 2>&1; then

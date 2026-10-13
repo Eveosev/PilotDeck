@@ -124,7 +124,7 @@ jobs:
         run: bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland
 
       - name: Upload Linux chrome screenshots
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: pilotdeck-linux-chrome-${{ matrix.arch }}

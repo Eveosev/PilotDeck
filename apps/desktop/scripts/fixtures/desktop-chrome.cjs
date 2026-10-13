@@ -100,7 +100,7 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark';
   window = new BrowserWindow({ ...windowChromeOptions(process.platform, true), show: false, width: 1320, height: 900,
     autoHideMenuBar: process.platform === 'win32' || process.platform === 'linux',
-    webPreferences: { preload: path.resolve(__dirname, '../../dist/preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
+    webPreferences: { preload: path.resolve(__dirname, process.env.PILOTDECK_WAYLAND_DIAG === '1' ? './desktop-chrome-preload.cjs' : '../../dist/preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
   });
   window.once('ready-to-show', () => window.show());
   window.on('enter-full-screen', () => setImmediate(publish));
