@@ -4,7 +4,7 @@
 - 基线：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 源失败：run `38340992186`
-- **当前 tip / head：`CURRENT_TIP_SHA_PLACEHOLDER`**（本 tip-label 回填；相对 `c17f1874` 仍 **只有 `review/**`**）
+- **当前 tip / head：`5a0a2bf0834d454beee4f1085d152cf923f8946b`**（本 tip-label 回填；相对 `c17f1874` 仍 **只有 `review/**`**）
 - QA PASS / code tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`
 - slim qa-gate tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`
 - F7/F5 clear-conditional tip：`8d2245248ebe676004db48f94dc8cae1573f9092`
@@ -39,7 +39,7 @@
 - QA PASS / code tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`
 - slim qa-gate tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`
 - F7/F5 clear-conditional tip：`8d2245248ebe676004db48f94dc8cae1573f9092`
-- 当前 tip / head：`CURRENT_TIP_SHA_PLACEHOLDER`（仍为相对 `c17f1874` 的 review-only）
+- 当前 tip / head：`5a0a2bf0834d454beee4f1085d152cf923f8946b`（仍为相对 `c17f1874` 的 review-only）
 - 基线：`761572d7`
 
 ## Before / after（摘要）
