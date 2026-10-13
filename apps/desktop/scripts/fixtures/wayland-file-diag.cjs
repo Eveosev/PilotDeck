@@ -1,7 +1,8 @@
 // Page-world installer for Wayland File-click diagnostics. Idempotent.
-// Used by the fixture preload (first document) and by Playwright addInitScript/evaluate.
-function installWaylandDiag() {
+// source is 'preload' or 'page.evaluate'. The first caller wins.
+function installWaylandDiag(source) {
   if (globalThis.__waylandDiag) return;
+  const installSource = source === 'preload' || source === 'page.evaluate' ? source : 'unknown';
   const started = Date.now();
   const events = [];
   const bboxes = [];
@@ -36,7 +37,7 @@ function installWaylandDiag() {
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
-  record('install');
+  record('install', { installSource });
   document.addEventListener('visibilitychange', () => record('visibilitychange'));
   window.addEventListener('focus', () => record('focus'));
   window.addEventListener('blur', () => record('blur'));
@@ -61,7 +62,9 @@ function installWaylandDiag() {
     };
   };
   globalThis.__waylandDiag = {
+    installSource,
     snapshot: () => ({
+      installSource,
       ...rafWindow(1000),
       events: events.slice(),
       bboxes: bboxes.slice(),
