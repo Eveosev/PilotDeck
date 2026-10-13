@@ -1,0 +1,4 @@
+2026-10-13T04:58:30.8235680Z      ✓ can reload memory inheritance after removal (memory enabled=true)  1649ms
+2026-10-13T04:58:30.8236697Z      ✓ can reload memory inheritance after removal (memory enabled=false)  1135ms
+2026-10-13T05:00:14.9230563Z  Test Files  268 passed (268)
+2026-10-13T05:00:14.9239845Z       Tests  2204 passed (2204)

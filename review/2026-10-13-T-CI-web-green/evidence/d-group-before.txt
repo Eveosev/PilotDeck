@@ -1,0 +1,6 @@
+F-7 stub. Full logs not committed (PR artifacts). Do not invent contents.
+d-group-timing-1.log sha256=007742e293fa09dddcf1969e0d469bc4a4eb9359331d68da3bce54aaad5353d9
+d-group-timeout-1800.log sha256=a82481db150d87c3be7d51730cfcc9f5152e81b3e4fb29fcf0ee3381d762162a
+d-group-timeout-tdz.log sha256=6009339c52f3e11083f892584c2c7d5429c991939a975d874a92b1e5cc17916f
+tsx-import-timing.log sha256=b606b2f6af6c0d0e6e8e038610665ef89eca3e5a0688d7c287ae4cb279c15e5d
+summary already in PROGRESS.md: Vite dynamic import 2110.9ms; timeout leaves factory running; tsx load 901.8ms no TDZ.

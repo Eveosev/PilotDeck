@@ -1,0 +1,4 @@
+F-7 stub. Full log not committed.
+name: node-test-8-before.log
+sha256: 5b4a07b9f3fbfa355b0f659f57f46fd02f43f8c23a4254b26427a6af718bb86c
+note: PR artifact / not in git. Do not invent contents. Source CI 38340992186: eight ui/server files failed vitest collect with Cannot bundle built-in module node:test.

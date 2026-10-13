@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import SettingsContent from './view/SettingsContent';
 import SettingsSidebar from './view/SettingsSidebar';
 
@@ -30,7 +31,7 @@ it('uses contribution translation keys for module navigation and headings', () =
   expect(screen.getByRole('button', { name: '通用' })).toBeTruthy();
   sidebar.unmount();
 
-  render(<SettingsContent selectedKey="module:host-preferences" projects={[]} moduleSettings={[translatedSetting]} />);
+  render(<MemoryRouter><SettingsContent selectedKey="module:host-preferences" projects={[]} moduleSettings={[translatedSetting]} /></MemoryRouter>);
   expect(screen.getByText('设置')).toBeTruthy();
   expect(screen.getAllByText('通用')).toHaveLength(2);
 });

@@ -1,0 +1,57 @@
+# Raw CI logs on shared box (F-7); not committed
+collection_box_path: /workspace/pilotdeck-rust/review/2026-10-13-T-CI-web-green/qa-gate-c17f1874/ci-runs/
+
+b71579becfc8de64a01e8cc61b717742cb5967766dfc1d808a0ec685e16b4ecd  ci-runs/run1-clean.log
+30f499639a03e8749663b5bd4af84e393bb56eea56e26a914e5dc340d9eca999  ci-runs/run1-full.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ci-runs/run2-clean.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ci-runs/run2-full.log
+4669c0b3e0a2c8def4f53f41f9a05b979bf1b7400acd7ac48fac3deb589658d2  ci-runs/run2-logs.zip
+2a22f12a33600e817e73327c6c8b5fd58206fe61d8af3ecff8fc0e1d99f40686  ci-runs/run2-unzip/0_docker.txt
+522649e89bb8472317861e31e829c95e61de92b70e669441aad3e91391556193  ci-runs/run2-unzip/1_web.txt
+4f33af195c19b9bbb7c3934dffd0bcf1ae2d63ff5896c8a57af37dda0f54b515  ci-runs/run2-unzip/docker/1_Set up job.txt
+95a92cd935c45ab0db37e346c2686dfd992f85fd37a2d69e2d19ba5c81abde47  ci-runs/run2-unzip/docker/2_Run actions_checkout@v7.txt
+3d6967367b60b42d36ffd42622f0a61052e5b4bfc923c447161d66c4a57ddbee  ci-runs/run2-unzip/docker/3_Run docker_setup-buildx-action@v4.txt
+311068f73869aa3e9f34e72a1821b7d4864454c22040262d8f6e32a8801509bb  ci-runs/run2-unzip/docker/4_Run docker_build-push-action@v7.txt
+2c06d8853fcbfe95d5d67812b7e49dafe5944a2a4f3d88d383c2e6e41b5e7e55  ci-runs/run2-unzip/docker/6_Post Run docker_build-push-action@v7.txt
+ede1eb0fb4dcaf3984d7b2db9bdd8721e40385a5f35cd135c4ef2304dd2fc072  ci-runs/run2-unzip/docker/7_Post Run docker_setup-buildx-action@v4.txt
+7cbf02a66bcf1bc11b6980e78c8dbecc068fc45c79b911981274fcf404e764f0  ci-runs/run2-unzip/docker/8_Post Run actions_checkout@v7.txt
+1de5928518e58e27ca1e5a42759b3687cb78ffe1b6f5425c361ebc301809d7b6  ci-runs/run2-unzip/docker/9_Complete job.txt
+a5ba81024f77b70e92d6f84fc17d5212d96205423a07b3892860b93b5369f360  ci-runs/run2-unzip/docker/system.txt
+f0d116dc0211edaf9746c716dcf60220071e762e5fbeae1da8ba24fb451fd797  ci-runs/run2-unzip/web/14_Post Run actions_setup-node@v7.txt
+0c2486c6d11c7c68a1fbb9001d99e785fc84ce33607b01dad94c80382d8c0c8c  ci-runs/run2-unzip/web/15_Post Run pnpm_action-setup@v6.txt
+56dea892b7a70037dadd331a7aed759ca2dbd5867f8aa88c2ce8ad0b3ef8f2c1  ci-runs/run2-unzip/web/16_Post Run actions_checkout@v7.txt
+3239b4b1a41abc762de3bf848a11c8f455bd03e3d5fa9e704aa3084ad6788fca  ci-runs/run2-unzip/web/17_Complete job.txt
+32fbbf24bebabafeb3f6385811b46718c93718942c17141b42659d7789b760c0  ci-runs/run2-unzip/web/1_Set up job.txt
+130ecf6b6c4fbf3f8603b207196f8637d586e44a7a91e7609c37a58f80d003a8  ci-runs/run2-unzip/web/2_Run actions_checkout@v7.txt
+1862235dd6e27a93be6e672594939fec6dec3283bdf4c4fc4ce91588d828ab63  ci-runs/run2-unzip/web/3_Run pnpm_action-setup@v6.txt
+528ef5a030ef7530487e7b08bc51b9334027e9ebcd09cccbaa2da82b1fabbc23  ci-runs/run2-unzip/web/4_Run actions_setup-node@v7.txt
+a59f1efb3006d985723acddce7d0420c66c77ba03a791e7ba623539e6217751c  ci-runs/run2-unzip/web/5_Install Web_Gateway dependencies only.txt
+329238d1eebdbab2ff7f5fa803d4f4d849efac2846086a47684b62d0117fa8cc  ci-runs/run2-unzip/web/6_Build Gateway and Web UI.txt
+5fc14febe1fb762e1ff66b92fb89c635028736e08da8afdd21242b9a4f198cdb  ci-runs/run2-unzip/web/7_Test Web UI nodetest files.txt
+218fa7ee6c461a3dd22492b234e311197706298fc6c901c6c32b1d935e70d4ad  ci-runs/run2-unzip/web/8_Test Web UI and server.txt
+9a142de121fbbf30904af2e5f9da66a48e6f1739cf2b260e71f64a5b53273701  ci-runs/run2-unzip/web/system.txt
+36a9981a4398dba3333be65c7aa49381e93e37bea1c4e849b7b522c204d3fd99  ci-runs/run3-logs.zip
+0817feb7a0792c07cbbccfbc190e5b20168b14a3eafdc07cd3aa125e0fb82834  ci-runs/run3-unzip/0_web.txt
+921b6569a59a17d8467663136d7b6f780cc4d31d1a8c1c38a2831231c0814574  ci-runs/run3-unzip/1_docker.txt
+003b16d63d11cdccc39b3e6a772d5e06814b526341861f77265d7c488096a5e0  ci-runs/run3-unzip/docker/1_Set up job.txt
+85f90ce2ffae672d6665d1c143eb846250b28988eb03c8481df0eb62f7d4f3b1  ci-runs/run3-unzip/docker/2_Run actions_checkout@v7.txt
+51c68c72a5d9b7c260b51c99f8bfe36b3c121074c6617550682814149a2bdaa6  ci-runs/run3-unzip/docker/3_Run docker_setup-buildx-action@v4.txt
+5a1f8de83dd323e026a6429bb31e9f1b390a6646ddc514526db56b3a53d050d9  ci-runs/run3-unzip/docker/4_Run docker_build-push-action@v7.txt
+97108199bf278bbb1903b9b6757d7151e314cc6dbf164e77ace0abe6083e22a9  ci-runs/run3-unzip/docker/6_Post Run docker_build-push-action@v7.txt
+ec1da2c85aa34a983dd72c721b75d88d77c76b7359cda74c981cf1dfd280a0e0  ci-runs/run3-unzip/docker/7_Post Run docker_setup-buildx-action@v4.txt
+efd0c1813e7a50bbcffca2c27f9ad8efaf9a826e931009a0711a7781b782f2d3  ci-runs/run3-unzip/docker/8_Post Run actions_checkout@v7.txt
+ca416e218f3821b1ce09177dbfcdf67ba0405d0a13037a94e154b1938fa26193  ci-runs/run3-unzip/docker/9_Complete job.txt
+7164598cf4fa081b3b5dcfd5c223afb7db429f4466e5f2edd745f07641c55b5c  ci-runs/run3-unzip/docker/system.txt
+8fc43295227f928feaf9e416efbf38711e238dca24d1108c7fda988481a85f91  ci-runs/run3-unzip/web/14_Post Run actions_setup-node@v7.txt
+438f33b7c6627fbe30af28297925869085f48537b066f9cb0bea01fcc49f3845  ci-runs/run3-unzip/web/15_Post Run pnpm_action-setup@v6.txt
+c503eecd385419f6e67958d0e2cfda90b2e3ca394fbc821b671dddf16d2f385c  ci-runs/run3-unzip/web/16_Post Run actions_checkout@v7.txt
+7fcb5a975124dd195f4afac8dd9509887fe47bc6090263235bf7764b797e8a5b  ci-runs/run3-unzip/web/17_Complete job.txt
+366beb43e3450460f8363b138e621e6d1953b3622a82e91a7216deba4494cf51  ci-runs/run3-unzip/web/1_Set up job.txt
+17d58bf9fe82c96bf38f6d82b1d7bb43999f21f9c8124becad586c18eb70e4a9  ci-runs/run3-unzip/web/2_Run actions_checkout@v7.txt
+700154a9e5fc1660e6c9302d10e9f37b28a8ff428be444ee81a19efebd28eb37  ci-runs/run3-unzip/web/3_Run pnpm_action-setup@v6.txt
+f6791ecae128223d2c30b02ce655ba85775a48279127a48d48463c9a3d8264a3  ci-runs/run3-unzip/web/4_Run actions_setup-node@v7.txt
+740337b334c830dadb29532837f824e1d110794049c2b1ec1b4814e20faaed92  ci-runs/run3-unzip/web/5_Install Web_Gateway dependencies only.txt
+3127b8a768cbeae3334621bc0d5d0f89418ea295ad9290cc90c99dc1b1576933  ci-runs/run3-unzip/web/6_Build Gateway and Web UI.txt
+52ca36a47266320dbcec68b36efc0cdc29cb47a3d1bdbfde9571520eff51177c  ci-runs/run3-unzip/web/7_Test Web UI nodetest files.txt
+d5bba68d416d60d2cada03f7730ec841fa86ad4812520036a04946e731db7b81  ci-runs/run3-unzip/web/8_Test Web UI and server.txt
+537cb2c3e1e3d8df389b5213867660541a328a7082b9757c41cd61c136ee11bd  ci-runs/run3-unzip/web/system.txt

@@ -1,0 +1,297 @@
+﻿2026-10-13T04:58:22.6338373Z ##[group]Run files="$(node --input-type=module <<'EOF'
+2026-10-13T04:58:22.6338672Z files="$(node --input-type=module <<'EOF'
+2026-10-13T04:58:22.6338880Z import { readdirSync, readFileSync } from 'node:fs';
+2026-10-13T04:58:22.6339083Z import { join } from 'node:path';
+2026-10-13T04:58:22.6339240Z const out = [];
+2026-10-13T04:58:22.6339382Z function walk(dir) {
+2026-10-13T04:58:22.6339593Z   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+2026-10-13T04:58:22.6339818Z     const path = join(dir, entry.name);
+2026-10-13T04:58:22.6339994Z     if (entry.isDirectory()) {
+2026-10-13T04:58:22.6340203Z       if (!['node_modules', 'dist', 'e2e'].includes(entry.name)) walk(path);
+2026-10-13T04:58:22.6340795Z       continue;
+2026-10-13T04:58:22.6340935Z     }
+2026-10-13T04:58:22.6341105Z     if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue;
+2026-10-13T04:58:22.6341358Z     const src = readFileSync(path, 'utf8');
+2026-10-13T04:58:22.6341579Z     if (/(?:from|import)\s+['"]node:test['"]/.test(src)) out.push(path);
+2026-10-13T04:58:22.6341819Z   }
+2026-10-13T04:58:22.6341929Z }
+2026-10-13T04:58:22.6342040Z walk('server');
+2026-10-13T04:58:22.6342170Z if (out.length === 0) {
+2026-10-13T04:58:22.6342366Z   console.error('expected node:test files under ui/server');
+2026-10-13T04:58:22.6342565Z   process.exit(1);
+2026-10-13T04:58:22.6342695Z }
+2026-10-13T04:58:22.6342832Z process.stdout.write(out.sort().join('\n'));
+2026-10-13T04:58:22.6343001Z EOF
+2026-10-13T04:58:22.6343109Z )"
+2026-10-13T04:58:22.6343247Z echo "Running node --test on ${files//$'\n'/ }"
+2026-10-13T04:58:22.6343426Z printf '%s\n' "$files"
+2026-10-13T04:58:22.6343578Z mapfile -t file_list <<< "$files"
+2026-10-13T04:58:22.6343744Z if [ "${#file_list[@]}" -lt 8 ]; then
+2026-10-13T04:58:22.6343977Z   echo "expected at least 8 ui/server node:test files, found ${#file_list[@]}"
+2026-10-13T04:58:22.6344191Z   exit 1
+2026-10-13T04:58:22.6344303Z fi
+2026-10-13T04:58:22.6344417Z node --test "${file_list[@]}"
+2026-10-13T04:58:22.6397884Z shell: /usr/bin/bash -e {0}
+2026-10-13T04:58:22.6398061Z env:
+2026-10-13T04:58:22.6398196Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+2026-10-13T04:58:22.6398387Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-10-13T04:58:22.6398565Z ##[endgroup]
+2026-10-13T04:58:22.6741175Z Running node --test on server/adapters/staffdeck-request-context.test.js server/module-request-abort.test.js server/public-knowledge-model-selection.test.mjs server/staffdeck-approval-authority.test.mjs server/staffdeck-public-capabilities.test.mjs server/staffdeck-publish-route.test.js server/staffdeck-publish-runtime.test.mjs server/staffdeck-runtime-readiness.test.mjs
+2026-10-13T04:58:22.6742418Z server/adapters/staffdeck-request-context.test.js
+2026-10-13T04:58:22.6742670Z server/module-request-abort.test.js
+2026-10-13T04:58:22.6742884Z server/public-knowledge-model-selection.test.mjs
+2026-10-13T04:58:22.6743113Z server/staffdeck-approval-authority.test.mjs
+2026-10-13T04:58:22.6743333Z server/staffdeck-public-capabilities.test.mjs
+2026-10-13T04:58:22.6743539Z server/staffdeck-publish-route.test.js
+2026-10-13T04:58:22.6743734Z server/staffdeck-publish-runtime.test.mjs
+2026-10-13T04:58:22.6743938Z server/staffdeck-runtime-readiness.test.mjs
+2026-10-13T04:58:22.7069112Z TAP version 13
+2026-10-13T04:58:22.7642033Z # Subtest: browser connection closure aborts the actual upstream fetch
+2026-10-13T04:58:22.7652011Z ok 1 - browser connection closure aborts the actual upstream fetch
+2026-10-13T04:58:22.7652713Z   ---
+2026-10-13T04:58:22.7653243Z   duration_ms: 26.729583
+2026-10-13T04:58:22.7653533Z   type: 'test'
+2026-10-13T04:58:22.7653722Z   ...
+2026-10-13T04:58:22.7654153Z # Subtest: normal response completion and old disposal do not cancel another request
+2026-10-13T04:58:22.7655257Z ok 2 - normal response completion and old disposal do not cancel another request
+2026-10-13T04:58:22.7655629Z   ---
+2026-10-13T04:58:22.7655818Z   duration_ms: 0.266161
+2026-10-13T04:58:22.7656033Z   type: 'test'
+2026-10-13T04:58:22.7656216Z   ...
+2026-10-13T04:58:22.7656596Z # Subtest: create binds the selected SOP without mutating content or extensions
+2026-10-13T04:58:22.7657138Z ok 3 - create binds the selected SOP without mutating content or extensions
+2026-10-13T04:58:22.7657483Z   ---
+2026-10-13T04:58:22.7657666Z   duration_ms: 0.498391
+2026-10-13T04:58:22.7657871Z   type: 'test'
+2026-10-13T04:58:22.7658058Z   ...
+2026-10-13T04:58:22.7665438Z # Subtest: draft projection uses only the ETag from that response, including create and rollback
+2026-10-13T04:58:22.7666356Z ok 4 - draft projection uses only the ETag from that response, including create and rollback
+2026-10-13T04:58:22.7666961Z   ---
+2026-10-13T04:58:22.7667286Z   duration_ms: 1.552718
+2026-10-13T04:58:22.7669810Z   type: 'test'
+2026-10-13T04:58:22.7670131Z   ...
+2026-10-13T04:58:22.7815188Z # Subtest: a browser disconnect aborts upstream and releases listeners
+2026-10-13T04:58:22.7831895Z ok 5 - a browser disconnect aborts upstream and releases listeners
+2026-10-13T04:58:22.7832605Z   ---
+2026-10-13T04:58:22.7832962Z   duration_ms: 0.80987
+2026-10-13T04:58:22.7833323Z   type: 'test'
+2026-10-13T04:58:22.7833673Z   ...
+2026-10-13T04:58:22.7834239Z # Subtest: normal response completion does not cancel upstream or leave request listeners
+2026-10-13T04:58:22.7835016Z ok 6 - normal response completion does not cancel upstream or leave request listeners
+2026-10-13T04:58:22.7835574Z   ---
+2026-10-13T04:58:22.7835901Z   duration_ms: 0.160311
+2026-10-13T04:58:22.7836246Z   type: 'test'
+2026-10-13T04:58:22.7836558Z   ...
+2026-10-13T04:58:22.7837157Z # Subtest: browser search verifies the selected PD model and keeps SD lexical retrieval distinct
+2026-10-13T04:58:22.7837979Z ok 7 - browser search verifies the selected PD model and keeps SD lexical retrieval distinct
+2026-10-13T04:58:22.7838502Z   ---
+2026-10-13T04:58:22.7838823Z   duration_ms: 2.101516
+2026-10-13T04:58:22.7839161Z   type: 'test'
+2026-10-13T04:58:22.7839479Z   ...
+2026-10-13T04:58:22.7840054Z # Subtest: missing, mismatched, unavailable and SD model IDs fail before a Knowledge request
+2026-10-13T04:58:22.7840963Z ok 8 - missing, mismatched, unavailable and SD model IDs fail before a Knowledge request
+2026-10-13T04:58:22.7841484Z   ---
+2026-10-13T04:58:22.7841815Z   duration_ms: 1.920603
+2026-10-13T04:58:22.7842151Z   type: 'test'
+2026-10-13T04:58:22.7842464Z   ...
+2026-10-13T04:58:22.8007776Z # Subtest: normal current-user identity binds original wait and revision without resuming
+2026-10-13T04:58:22.8045743Z ok 9 - normal current-user identity binds original wait and revision without resuming
+2026-10-13T04:58:22.8067036Z   ---
+2026-10-13T04:58:22.8073463Z   duration_ms: 22.434554
+2026-10-13T04:58:22.8075195Z   type: 'test'
+2026-10-13T04:58:22.8075585Z   ...
+2026-10-13T04:58:22.8101711Z # Subtest: different actor, tenant, disabled or nonnative subject cannot approve
+2026-10-13T04:58:22.8105614Z ok 10 - different actor, tenant, disabled or nonnative subject cannot approve
+2026-10-13T04:58:22.8106268Z   ---
+2026-10-13T04:58:22.8106640Z   duration_ms: 1.521572
+2026-10-13T04:58:22.8106993Z   type: 'test'
+2026-10-13T04:58:22.8107311Z   ...
+2026-10-13T04:58:22.8107828Z # Subtest: invalid command and external task are rejected before authentication
+2026-10-13T04:58:22.8108519Z ok 11 - invalid command and external task are rejected before authentication
+2026-10-13T04:58:22.8108985Z   ---
+2026-10-13T04:58:22.8109296Z   duration_ms: 0.222915
+2026-10-13T04:58:22.8109661Z   type: 'test'
+2026-10-13T04:58:22.8109978Z   ...
+2026-10-13T04:58:22.8110415Z # Subtest: original authentication failure status is preserved
+2026-10-13T04:58:22.8112126Z ok 12 - original authentication failure status is preserved
+2026-10-13T04:58:22.8113002Z   ---
+2026-10-13T04:58:22.8113327Z   duration_ms: 0.28539
+2026-10-13T04:58:22.8113668Z   type: 'test'
+2026-10-13T04:58:22.8113968Z   ...
+2026-10-13T04:58:22.8114524Z # Subtest: identity authentication does not require pending wait for receipt replay
+2026-10-13T04:58:22.8115191Z ok 13 - identity authentication does not require pending wait for receipt replay
+2026-10-13T04:58:22.8115650Z   ---
+2026-10-13T04:58:22.8115951Z   duration_ms: 0.453433
+2026-10-13T04:58:22.8116279Z   type: 'test'
+2026-10-13T04:58:22.8116586Z   ...
+2026-10-13T04:58:22.8154974Z # Subtest: unapproved operations never reach transport; unknown/inequivalent operations have no route
+2026-10-13T04:58:22.8167559Z ok 14 - unapproved operations never reach transport; unknown/inequivalent operations have no route
+2026-10-13T04:58:22.8170101Z   ---
+2026-10-13T04:58:22.8170521Z   duration_ms: 2.07109
+2026-10-13T04:58:22.8171036Z   type: 'test'
+2026-10-13T04:58:22.8171358Z   ...
+2026-10-13T04:58:22.8171989Z # Subtest: directories preserve data envelopes and encoded scope; malformed response is not empty success
+2026-10-13T04:58:22.8172935Z ok 15 - directories preserve data envelopes and encoded scope; malformed response is not empty success
+2026-10-13T04:58:22.8176085Z   ---
+2026-10-13T04:58:22.8176457Z   duration_ms: 0.330528
+2026-10-13T04:58:22.8176817Z   type: 'test'
+2026-10-13T04:58:22.8177144Z   ...
+2026-10-13T04:58:22.8177720Z # Subtest: tool write rejects masked credentials and scope override without modifying input
+2026-10-13T04:58:22.8178509Z ok 16 - tool write rejects masked credentials and scope override without modifying input
+2026-10-13T04:58:22.8179035Z   ---
+2026-10-13T04:58:22.8179364Z   duration_ms: 0.281334
+2026-10-13T04:58:22.8179711Z   type: 'test'
+2026-10-13T04:58:22.8180039Z   ...
+2026-10-13T04:58:22.8180596Z # Subtest: rewrite refuses dirty/current skill/conversation rather than discard them or save
+2026-10-13T04:58:22.8211587Z ok 17 - rewrite refuses dirty/current skill/conversation rather than discard them or save
+2026-10-13T04:58:22.8240158Z   ---
+2026-10-13T04:58:22.8251179Z   duration_ms: 0.409617
+2026-10-13T04:58:22.8251510Z   type: 'test'
+2026-10-13T04:58:22.8251782Z   ...
+2026-10-13T04:58:22.8252357Z # Subtest: generation and results preserve server-assigned draft/etag; never create a second draft
+2026-10-13T04:58:22.8253142Z ok 18 - generation and results preserve server-assigned draft/etag; never create a second draft
+2026-10-13T04:58:22.8253646Z   ---
+2026-10-13T04:58:22.8253910Z   duration_ms: 0.832634
+2026-10-13T04:58:22.8254188Z   type: 'test'
+2026-10-13T04:58:22.8254450Z   ...
+2026-10-13T04:58:22.8254979Z # Subtest: original HTTP failures, abort signal and resume cursor are preserved
+2026-10-13T04:58:22.8255588Z ok 19 - original HTTP failures, abort signal and resume cursor are preserved
+2026-10-13T04:58:22.8270087Z   ---
+2026-10-13T04:58:22.8270411Z   duration_ms: 0.397358
+2026-10-13T04:58:22.8270914Z   type: 'test'
+2026-10-13T04:58:22.8271239Z   ...
+2026-10-13T04:58:22.8271787Z # Subtest: SSE preserves real IDs, event names, multiline data and split UTF-8; drops incomplete frame
+2026-10-13T04:58:22.8272577Z ok 20 - SSE preserves real IDs, event names, multiline data and split UTF-8; drops incomplete frame
+2026-10-13T04:58:22.8273049Z   ---
+2026-10-13T04:58:22.8273304Z   duration_ms: 2.240445
+2026-10-13T04:58:22.8273584Z   type: 'test'
+2026-10-13T04:58:22.8273830Z   ...
+2026-10-13T04:58:22.8274269Z # Subtest: approved facade plans remain fixed by name, method, path and input
+2026-10-13T04:58:22.8274873Z ok 21 - approved facade plans remain fixed by name, method, path and input
+2026-10-13T04:58:22.8279189Z   ---
+2026-10-13T04:58:22.8279492Z   duration_ms: 0.725152
+2026-10-13T04:58:22.8279770Z   type: 'test'
+2026-10-13T04:58:22.8280032Z   ...
+2026-10-13T04:58:22.8280572Z # Subtest: preview keeps dirty current skill and conversation, while saved rewrite still rejects them
+2026-10-13T04:58:22.8281701Z ok 22 - preview keeps dirty current skill and conversation, while saved rewrite still rejects them
+2026-10-13T04:58:22.8282493Z   ---
+2026-10-13T04:58:22.8282741Z   duration_ms: 0.668848
+2026-10-13T04:58:22.8283017Z   type: 'test'
+2026-10-13T04:58:22.8283266Z   ...
+2026-10-13T04:58:22.8283752Z # Subtest: preview SSE exposes only the native data.seq cursor and preserves token event text
+2026-10-13T04:58:22.8284456Z ok 23 - preview SSE exposes only the native data.seq cursor and preserves token event text
+2026-10-13T04:58:22.8284899Z   ---
+2026-10-13T04:58:22.8285143Z   duration_ms: 0.754466
+2026-10-13T04:58:22.8285411Z   type: 'test'
+2026-10-13T04:58:22.8285661Z   ...
+2026-10-13T04:58:22.8286134Z # Subtest: selected agent never falls back to configured target; team uses bounded routes
+2026-10-13T04:58:22.8286806Z ok 24 - selected agent never falls back to configured target; team uses bounded routes
+2026-10-13T04:58:22.8287416Z   ---
+2026-10-13T04:58:22.8287662Z   duration_ms: 0.436357
+2026-10-13T04:58:22.8287933Z   type: 'test'
+2026-10-13T04:58:22.8288182Z   ...
+2026-10-13T04:58:22.8288675Z # Subtest: selected SOP lifecycle preserves exact IDs, ETag precondition and original response
+2026-10-13T04:58:22.8289407Z ok 25 - selected SOP lifecycle preserves exact IDs, ETag precondition and original response
+2026-10-13T04:58:22.8289863Z   ---
+2026-10-13T04:58:22.8290104Z   duration_ms: 0.492391
+2026-10-13T04:58:22.8290377Z   type: 'test'
+2026-10-13T04:58:22.8290728Z   ...
+2026-10-13T04:58:22.8291283Z # Subtest: fixed candidate target accepts original draft ETag and rejects explicit other scope before transport
+2026-10-13T04:58:22.8292079Z ok 26 - fixed candidate target accepts original draft ETag and rejects explicit other scope before transport
+2026-10-13T04:58:22.8292571Z   ---
+2026-10-13T04:58:22.8292809Z   duration_ms: 0.284869
+2026-10-13T04:58:22.8293084Z   type: 'test'
+2026-10-13T04:58:22.8293479Z   ...
+2026-10-13T04:58:22.8294018Z # Subtest: fixed Knowledge routes retain base and document IDs, conflict timestamp and ingest idempotency
+2026-10-13T04:58:22.8294768Z ok 27 - fixed Knowledge routes retain base and document IDs, conflict timestamp and ingest idempotency
+2026-10-13T04:58:22.8295220Z   ---
+2026-10-13T04:58:22.8295452Z   duration_ms: 0.58465
+2026-10-13T04:58:22.8295724Z   type: 'test'
+2026-10-13T04:58:22.8295965Z   ...
+2026-10-13T04:58:22.8567686Z # Subtest: normal publish uses the existing Gateway port and receipts survive a new web instance
+2026-10-13T04:58:22.8569822Z ok 28 - normal publish uses the existing Gateway port and receipts survive a new web instance
+2026-10-13T04:58:22.8572751Z   ---
+2026-10-13T04:58:22.8573953Z   duration_ms: 13.349567
+2026-10-13T04:58:22.8574315Z   type: 'test'
+2026-10-13T04:58:22.8574620Z   ...
+2026-10-13T04:58:22.8611646Z # Subtest: Gateway failure stays a persisted runtime failure without changing owner publication
+2026-10-13T04:58:22.8615308Z ok 29 - Gateway failure stays a persisted runtime failure without changing owner publication
+2026-10-13T04:58:22.8615887Z   ---
+2026-10-13T04:58:22.8616198Z   duration_ms: 5.624031
+2026-10-13T04:58:22.8616534Z   type: 'test'
+2026-10-13T04:58:22.8616862Z   ...
+2026-10-13T04:58:22.8654342Z # Subtest: receipt write failure preserves publication and refuses to claim persistence
+2026-10-13T04:58:22.8655163Z ok 30 - receipt write failure preserves publication and refuses to claim persistence
+2026-10-13T04:58:22.8655679Z   ---
+2026-10-13T04:58:22.8656002Z   duration_ms: 3.823249
+2026-10-13T04:58:22.8656331Z   type: 'test'
+2026-10-13T04:58:22.8656634Z   ...
+2026-10-13T04:58:22.8753698Z # Subtest: formal publish writes exact owner snapshot atomically; refresh ack remains unverified
+2026-10-13T04:58:22.8754383Z ok 31 - formal publish writes exact owner snapshot atomically; refresh ack remains unverified
+2026-10-13T04:58:22.8754763Z   ---
+2026-10-13T04:58:22.8754943Z   duration_ms: 8.746051
+2026-10-13T04:58:22.8755163Z   type: 'test'
+2026-10-13T04:58:22.8755339Z   ...
+2026-10-13T04:58:22.8755634Z # Subtest: publish errors keep original response and never touch runtime
+2026-10-13T04:58:22.8756106Z ok 32 - publish errors keep original response and never touch runtime
+2026-10-13T04:58:22.8756670Z   ---
+2026-10-13T04:58:22.8756838Z   duration_ms: 0.29218
+2026-10-13T04:58:22.8757030Z   type: 'test'
+2026-10-13T04:58:22.8757199Z   ...
+2026-10-13T04:58:22.8757602Z # Subtest: runtime refresh failure preserves successful publish and new snapshot without retry
+2026-10-13T04:58:22.8758212Z ok 33 - runtime refresh failure preserves successful publish and new snapshot without retry
+2026-10-13T04:58:22.8758519Z   ---
+2026-10-13T04:58:22.8758627Z   duration_ms: 3.791857
+2026-10-13T04:58:22.8758754Z   type: 'test'
+2026-10-13T04:58:22.8758861Z   ...
+2026-10-13T04:58:22.8759118Z # Subtest: owner mismatch, malformed publication and snapshot failure do not request refresh
+2026-10-13T04:58:22.8759483Z ok 34 - owner mismatch, malformed publication and snapshot failure do not request refresh
+2026-10-13T04:58:22.8759826Z   ---
+2026-10-13T04:58:22.8759935Z   duration_ms: 2.985367
+2026-10-13T04:58:22.8760058Z   type: 'test'
+2026-10-13T04:58:22.8760164Z   ...
+2026-10-13T04:58:22.8760398Z # Subtest: concurrent publishes serialize the owner call and snapshot in the same path
+2026-10-13T04:58:22.8761852Z ok 35 - concurrent publishes serialize the owner call and snapshot in the same path
+2026-10-13T04:58:22.8762195Z   ---
+2026-10-13T04:58:22.8762308Z   duration_ms: 3.860946
+2026-10-13T04:58:22.8762432Z   type: 'test'
+2026-10-13T04:58:22.8762538Z   ...
+2026-10-13T04:58:22.8762768Z # Subtest: single published file normalizes; JSON writer does not mutate caller bundle
+2026-10-13T04:58:22.8763109Z ok 36 - single published file normalizes; JSON writer does not mutate caller bundle
+2026-10-13T04:58:22.8763318Z   ---
+2026-10-13T04:58:22.8763426Z   duration_ms: 2.603431
+2026-10-13T04:58:22.8763552Z   type: 'test'
+2026-10-13T04:58:22.8763662Z   ...
+2026-10-13T04:58:22.8763911Z # Subtest: seven-slot profile and owner binding stay config-only; secrets and paths are absent
+2026-10-13T04:58:22.8771543Z ok 37 - seven-slot profile and owner binding stay config-only; secrets and paths are absent
+2026-10-13T04:58:22.8771987Z   ---
+2026-10-13T04:58:22.8772161Z   duration_ms: 1.143652
+2026-10-13T04:58:22.8772353Z   type: 'test'
+2026-10-13T04:58:22.8772521Z   ...
+2026-10-13T04:58:22.8772882Z # Subtest: publish receipt and persisted old pin remain claims pending runtime observation
+2026-10-13T04:58:22.8773246Z ok 38 - publish receipt and persisted old pin remain claims pending runtime observation
+2026-10-13T04:58:22.8773468Z   ---
+2026-10-13T04:58:22.8773577Z   duration_ms: 0.345921
+2026-10-13T04:58:22.8773702Z   type: 'test'
+2026-10-13T04:58:22.8773810Z   ...
+2026-10-13T04:58:22.8774081Z # Subtest: off, absent, mismatch and incomplete bundle are reported without inventing readiness
+2026-10-13T04:58:22.8774475Z ok 39 - off, absent, mismatch and incomplete bundle are reported without inventing readiness
+2026-10-13T04:58:22.8774720Z   ---
+2026-10-13T04:58:22.8774843Z   duration_ms: 0.330889
+2026-10-13T04:58:22.8774989Z   type: 'test'
+2026-10-13T04:58:22.8775100Z   ...
+2026-10-13T04:58:22.8775333Z # Subtest: malformed bundle IDs and versions are visible as configuration issues
+2026-10-13T04:58:22.8775694Z ok 40 - malformed bundle IDs and versions are visible as configuration issues
+2026-10-13T04:58:22.8775914Z   ---
+2026-10-13T04:58:22.8776021Z   duration_ms: 0.70393
+2026-10-13T04:58:22.8776160Z   type: 'test'
+2026-10-13T04:58:22.8776271Z   ...
+2026-10-13T04:58:22.8776387Z 1..40
+2026-10-13T04:58:22.8776492Z # tests 40
+2026-10-13T04:58:22.8776609Z # suites 0
+2026-10-13T04:58:22.8776717Z # pass 40
+2026-10-13T04:58:22.8776821Z # fail 0
+2026-10-13T04:58:22.8776945Z # cancelled 0
+2026-10-13T04:58:22.8777056Z # skipped 0
+2026-10-13T04:58:22.8777177Z # todo 0
+2026-10-13T04:58:22.8777298Z # duration_ms 182.432103

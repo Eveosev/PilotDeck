@@ -1,0 +1,4 @@
+web	Test Web UI and server	2026-10-13T04:49:59.5264806Z      ✓ can reload memory inheritance after removal (memory enabled=true)  2048ms
+web	Test Web UI and server	2026-10-13T04:49:59.5266024Z      ✓ can reload memory inheritance after removal (memory enabled=false)  1453ms
+web	Test Web UI and server	2026-10-13T04:52:06.5410834Z  Test Files  268 passed (268)
+web	Test Web UI and server	2026-10-13T04:52:06.5420489Z       Tests  2204 passed (2204)

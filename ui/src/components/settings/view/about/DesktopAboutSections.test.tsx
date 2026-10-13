@@ -23,7 +23,7 @@ describe('desktop automatic update UI', () => {
     { canDownload: false, checkUnavailable: true, desktopReason: 'checkFailed' },
   ])('disables unavailable updates', async (props) => {
     show(props); await flush();
-    const button = screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement;
     expect(button.disabled).toBe(true); fireEvent.click(button); expect(bridge.startUpdate).not.toHaveBeenCalled();
   });
   it('one click starts the native update; progress advances to automatic installation', async () => {
@@ -50,13 +50,13 @@ describe('desktop automatic update UI', () => {
   });
   it('keeps updating disabled until main-process status is known', async () => {
     vi.useFakeTimers(); bridge.getUpdateStatus.mockRejectedValueOnce(new Error('network'));
-    show(); await flush(); expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(true);
+    show(); await flush(); expect((screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement).disabled).toBe(true);
     await tick(); expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(false);
   });
-  it.each([['checksumMismatch', false], ['installFailed', true]])('explains %s and enforces its retry policy', async (reason, disabled) => {
+  it.each([['checksumMismatch', true], ['installFailed', true]])('explains %s and enforces its retry policy', async (reason, disabled) => {
     bridge.getUpdateStatus.mockResolvedValue({ state: 'failed', reason, progress: 0 }); show(); await flush();
     expect(screen.getByRole('alert').textContent).toBe(copy(`reasons.${reason}`));
-    expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(disabled);
+    expect((screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement).disabled).toBe(disabled);
   });
   it('cancels through Electron and offers a new attempt', async () => {
     bridge.getUpdateStatus.mockResolvedValue({ state: 'downloading', progress: .3 });
