@@ -1,7 +1,7 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
      Running unittests src/lib.rs (target/debug/deps/pilotdeck_agent_loop-a301c6cb5e35cf23)
 
-running 25 tests
+running 27 tests
 test protocol::tests::cancel_and_status_validate_required_fields ... ok
 test protocol::tests::event_and_response_enforce_final_implies_outcome_and_forbidden_binding ... ok
 test protocol::tests::execute_duplicate_keys_last_wins_like_json_parse ... ok
@@ -14,6 +14,7 @@ test sidecar::tests::attempt_deadline_during_stub_sleep_is_result_unknown ... ok
 test sidecar::tests::cancel_mid_execute_matches_ts_outcome ... ok
 test sidecar::tests::cancel_unknown_and_status_unknown ... ok
 test sidecar::tests::channel_emit_is_send_sync ... ok
+test sidecar::tests::completed_final_echoes_request_session_and_turn_ids ... ok
 test sidecar::tests::earliest_deadline_uses_sooner_of_operation_and_attempt ... ok
 test sidecar::tests::execute_duplicate_keys_use_last_request_id ... ok
 test sidecar::tests::execute_finished_run_mismatch_is_rejected ... ok
@@ -25,10 +26,11 @@ test sidecar::tests::rejects_invalid_json_and_unknown_kind ... ok
 test sidecar::tests::runtime_deadline_during_stub_sleep_is_result_unknown ... ok
 test sidecar::tests::status_and_stale_cancel_and_unsupported_resume_ack ... ok
 test sidecar::tests::timeout_cancel_is_result_unknown ... ok
+test tests::parse_serve_mode_stdio_default_and_listen_ephemeral ... ok
 test time::tests::parse_iso_ms_accepts_z_offsets_and_unsuffixed ... ok
 test time::tests::roundtrips_unix_epoch ... ok
 
-test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
 
      Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop-a39f3662e46a13c8)
 
@@ -38,14 +40,15 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
      Running tests/lock.rs (target/debug/deps/lock-438b9ec1db28a560)
 
-running 5 tests
+running 6 tests
 test crate_exports_validate_module_message_and_stdio_bin ... ok
 test crate_rust_version_matches_hello_msrv ... ok
 test execute_is_in_scope_unlike_hello_crate ... ok
 test invalid_message_fixture_covers_each_protocol_type ... ok
+test pr_b_tcp_cli_and_mask_f3_live_under_tests ... ok
 test workspace_lists_pilotdeck_agent_loop_crate ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/roundtrip.rs (target/debug/deps/roundtrip-4b0e0e9f620743b2)
 
@@ -53,7 +56,20 @@ running 2 tests
 test invalid_messages_rejected_by_ajv_ts_and_rust ... ok
 test rust_emitted_messages_roundtrip_schema_and_ts ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/serde_r2.rs (target/debug/deps/serde_r2-53d9d9e340b6c0e1)
+
+running 7 tests
+test s3_ajv_strict_agrees_with_ts_and_rust ... ok
+test s3_duplicate_keys_last_wins_like_json_parse ... ok
+test s3_sequence_1_0_accepts_like_ts ... ok
+test s3_sequence_1e400_both_reject_via_different_paths ... ok
+test s3_sequence_above_2_pow_53_accepts_with_documented_precision_split ... ok
+test s3_sequence_exponents_accept_like_ts ... ok
+test s3_sequence_negative_zero_accepts_like_ts ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
 
      Running tests/sidecar_stdio.rs (target/debug/deps/sidecar_stdio-b6a8c406e94be63c)
 
@@ -65,7 +81,20 @@ test s1_execute_rejects_forbidden_fields ... ok
 test s1_execute_rejects_step_id ... ok
 test s2_cancel_status_and_explicit_resume_ack_reject ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/sidecar_tcp.rs (target/debug/deps/sidecar_tcp-3ea1710ef3208e8e)
+
+running 7 tests
+test s0_hello_capabilities_and_invalid_input ... ok
+test s0_non_utf8_line_is_invalid_json_and_keeps_serving ... ok
+test s1_execute_pure_text_events_and_final_outcome ... ok
+test s1_execute_rejects_forbidden_fields ... ok
+test s1_execute_rejects_step_id ... ok
+test s2_cancel_status_and_explicit_resume_ack_reject ... ok
+test ts_host_b4_dialogue_over_tcp ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
 
      Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop_hello-b21fefba0470b258)
 

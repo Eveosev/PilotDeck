@@ -67,3 +67,4 @@ resume/ack；真实模型调用（P3）；T-P1-02 harness；性能测量（T-P1-
 - **S4**：`--listen 127.0.0.1:0`（仅 loopback）。stderr 打印 `listening HOST:PORT`。同一套 B1/B4（含 cancel/status/resume/ack/malformed）在 TCP 上重跑；另有 Node TS host `b4-tcp-host.mjs`。不是 hello→execute→status-only smoke。
 - **mask_f3**：迁到 `crates/pilotdeck-agent-loop/tests/mask_f3.sh`。测试模式稳定 ID（`PILOTDECK_AGENT_LOOP_STABLE_IDS=1`）已落地，但 `*At` 时间戳仍变，故**不删除**脚本。
 - 不做：resume/ack 实现；真模型；T-P1-02 harness；改 `protocol.ts`；大 CI 改写。
+- PR-B 实现 tip（clippy/Shutdown 修复后、evidence 收集前）：`fd5dececd778ae2a7e8df0cbd2456936625b6090`。draft PR #18。`cargo test --workspace` **55/0**；clippy `-D warnings` 过。

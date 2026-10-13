@@ -1,17 +1,75 @@
 {
-  "command": "cargo test --workspace -- --test-threads=1",
-  "runs": 2,
-  "deterministicPassCounts": true,
-  "exit": [0, 0],
-  "counts": {
-    "pilotdeck-agent-loop-lib": { "passed": 25, "failed": 0 },
-    "pilotdeck-agent-loop-bin": { "passed": 0, "failed": 0 },
-    "lock": { "passed": 5, "failed": 0 },
-    "roundtrip": { "passed": 2, "failed": 0 },
-    "sidecar_stdio": { "passed": 6, "failed": 0 },
-    "pilotdeck-agent-loop-hello": { "passed": 0, "failed": 0 },
-    "doc-tests": { "passed": 0, "failed": 0 },
-    "totalPassed": 38,
-    "totalFailed": 0
-  }
+  "task": "T-P1-01",
+  "slice": "PR-B F-5/S3/S4",
+  "run1": {
+    "passed": 55,
+    "failed": 0,
+    "suites": [
+      {
+        "running": 27,
+        "passed": 27,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 0,
+        "passed": 0,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 6,
+        "passed": 6,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 2,
+        "passed": 2,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 7,
+        "passed": 7,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 6,
+        "passed": 6,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 7,
+        "passed": 7,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 0,
+        "passed": 0,
+        "failed": 0,
+        "result": "ok"
+      },
+      {
+        "running": 0,
+        "passed": 0,
+        "failed": 0,
+        "result": "ok"
+      }
+    ],
+    "names": [
+      "src/lib.rs",
+      "src/main.rs",
+      "lock.rs",
+      "roundtrip.rs",
+      "serde_r2.rs",
+      "sidecar_stdio.rs",
+      "sidecar_tcp.rs",
+      "src/main.rs"
+    ]
+  },
+  "run1EqRun2": true
 }

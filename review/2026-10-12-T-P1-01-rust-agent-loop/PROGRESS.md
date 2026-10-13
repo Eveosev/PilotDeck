@@ -240,3 +240,20 @@ S3 divergences (documented in `tests/serde_r2.rs`):
 - ajv strict: `compileSchema(..., { strict: true })` agrees with TS and Rust on accept (`1.0`) and reject (`1e400`).
 
 Tip SHA / test counts: filled after clean-tree evidence collection.
+
+## 2026-10-14 PR-B evidence (code tip `fd5decec`)
+
+Draft PR: Eveosev/PilotDeck#18 → `rust_standalone_alpha1`.
+
+| | SHA |
+|---|---|
+| base | `61ef132170b642fecf7e0acaf65b8f121319a651` |
+| implement | `f3db02c1` |
+| clippy/Shutdown fix | `fd5dececd778ae2a7e8df0cbd2456936625b6090` |
+
+`cargo test --workspace -- --test-threads=1` ×2: exit 0/0, **55 passed / 0 failed** (lib 27, lock 6, roundtrip 2, serde_r2 7, sidecar_stdio 6, sidecar_tcp 7). `run1EqRun2=true`.
+`cargo clean` then `cargo clippy --workspace --all-targets -- -D warnings`: EXIT 0, `Checking pilotdeck-agent-loop`.
+Live corpus: 19 messages; completed has `sessionId`/`turnId`; cancelled `type:"aborted"`. ajv/TS mismatch 0.
+`tests/mask_f3.sh --committed evidence/t-p1-01/emitted-messages.json`: exit 0.
+
+Collection `gitSha` / `collectHead` = `fd5decec` (`gitDirty=false` at collect start). Evidence commit follows (no amend).
