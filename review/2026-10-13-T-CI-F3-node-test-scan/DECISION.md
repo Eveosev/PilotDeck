@@ -3,21 +3,17 @@
 - 基线：`rust_standalone_alpha1@d6ec73d824e74009c47c0254c86db194ad7ce66d`
 - 分支：`pilotdeck-rust/T-CI-F3-node-test-scan`
 - 范围：只改 CI / 测试配置 / 工具。不改产品代码，不改任何测试断言。
-- 来源：PR #12 review follow-up（F3）。当时 CI 内联 walk `ui/server`，vitest 用 `ui/vite.config.js` 的 `vitestExcludeNodeTestFiles(__dirname)`，正则相同但两份拷贝，会漂。
+- `ui/vite.config.js` 只动 `test` 块（一句注释）。不改 build / server / plugins。
 
 ## 决策
 
-共用一份扫描器，再用检查脚本锁死两边解析结果：
+1. `scripts/lib/web-node-test-files.mjs`：唯一 `from/import 'node:test'` 扫描；CI `--print` 用它跑 `node --test`。
+2. `ui/vite.config.js` 与根 `vitest.config.js` 都 import 它展开 `test.exclude`。
+3. `scripts/check-web-node-test-scan.mjs` **加载生效配置**，不是自己和自己比：
+   - `vite.loadConfigFromFile` 读 `ui/vite.config.js`（Vite/Vitest 真正用的 exclude；裸 `import` 会被 `lightAppearance` TS 挡住）
+   - `import()` 读 `vitest.config.js`（`scripts/lib/resolve-from-ui.mjs` 把 `vitest` 指到 `ui/node_modules`，Web-only install 也能加载）
+   - 读两边 `config.test.exclude`，去掉 `e2e` / `node_modules` / `dist` 基线 glob，解析成 `ui/` 下测试文件集
+   - 各与 `node --test` 集比较；任一侧多或少都非 0
+4. 负向证明必须在 temp worktree **真改** `ui/vite.config.js` 的 `test.exclude`（加一条 / 删一条），不能用 `--extra-exclude` 自注入。
 
-1. `scripts/lib/web-node-test-files.mjs`：唯一 `from/import 'node:test'` 扫描。
-2. `ui/vite.config.js` 与根 `vitest.config.js` 都 import 它（Web suite 仍从 `ui/` 扫）。
-3. Web Regression step `Test Web UI node:test files` 先跑 `scripts/check-web-node-test-scan.mjs`，再用 `--print` 的同一列表 `node --test`。
-4. 检查脚本：vitest exclude（node:test）必须等于 node --test 集；node --test 不得收入无 `node:test` import 的 vitest 文件。`--extra-exclude` 只加到 exclude 侧，用来证明失配时非 0。
-
-不写死 8 个路径：新的 `ui/**` `node:test` 文件会同时被排除并被跑。当前解析结果仍是那 8 个文件。
-
-## 不改
-
-- 产品代码
-- 任何测试断言 / timeout / skip / only
-- Docker / 其他 workflow
+当前解析结果仍是那 8 个 `ui/server/**` 文件。

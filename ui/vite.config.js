@@ -175,6 +175,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
+      // Web Regression reads this exclude via scripts/check-web-node-test-scan.mjs.
       exclude: ['e2e/**', 'node_modules/**', 'dist/**', ...vitestExcludeNodeTestFiles(__dirname)],
       server: {
         deps: {

@@ -1,53 +1,120 @@
 #!/usr/bin/env node
 /**
- * Fail if the vitest node:test exclude set and the Web Regression
- * node --test set are not identical. Also refuse vitest files in the
- * node --test set (no node:test import).
+ * Fail if the effective vitest/vite test.exclude sets (Web UI node:test
+ * files) and the Web Regression node --test set are not identical.
+ *
+ * Loads ui/vite.config.js and vitest.config.js and reads config.test.exclude.
+ * A direct edit to either exclude list (add or remove) must fail this check.
  *
  *   node scripts/check-web-node-test-scan.mjs
  *   node scripts/check-web-node-test-scan.mjs --print
- *   node scripts/check-web-node-test-scan.mjs --extra-exclude server/extra.test.js
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { createRequire, register } from "node:module";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   NODE_TEST_IMPORT_RE,
+  REPO_ROOT,
+  SKIP_DIRS,
+  TEST_FILE_RE,
   UI_DIR,
   listWebUiNodeTestFiles,
   normalizeScanPath,
 } from "./lib/web-node-test-files.mjs";
 
+register(new URL("./lib/resolve-from-ui.mjs", import.meta.url));
+
+const BASELINE_SKIP = new Set([
+  "**/node_modules/**",
+  "node_modules/**",
+  "**/dist/**",
+  "dist/**",
+  "**/e2e/**",
+  "e2e/**",
+]);
+
 function parseArgs(argv) {
-  const extraExclude = [];
   let printOnly = false;
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
+  for (const arg of argv) {
     if (arg === "--print") {
       printOnly = true;
-      continue;
-    }
-    if (arg === "--extra-exclude") {
-      const value = argv[i + 1];
-      if (!value || value.startsWith("--")) {
-        console.error("check-web-node-test-scan: --extra-exclude needs a path");
-        process.exit(2);
-      }
-      extraExclude.push(value);
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--extra-exclude=")) {
-      extraExclude.push(arg.slice("--extra-exclude=".length));
       continue;
     }
     console.error(`check-web-node-test-scan: unknown argument ${arg}`);
     process.exit(2);
   }
-  return { extraExclude, printOnly };
+  return { printOnly };
 }
 
 function sortedUnique(files) {
   return [...new Set(files.map(normalizeScanPath))].sort();
+}
+
+function isGlob(pattern) {
+  return /[*?[]/.test(pattern);
+}
+
+function globToRegExp(pattern) {
+  const escaped = pattern
+    .replace(/[.+^${}()|\\]/g, "\\$&")
+    .replace(/\*\*/g, "\u0000")
+    .replace(/\*/g, "[^/]*")
+    .replace(/\u0000/g, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
+function toUiRelative(file, configRoot) {
+  const abs = resolve(configRoot, file);
+  const rel = relative(UI_DIR, abs).replaceAll("\\", "/");
+  if (rel.startsWith("..")) return null;
+  return rel;
+}
+
+function listUiTestFiles() {
+  const found = [];
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!SKIP_DIRS.has(entry.name)) walk(full);
+        continue;
+      }
+      if (!TEST_FILE_RE.test(entry.name)) continue;
+      found.push(relative(UI_DIR, full).replaceAll("\\", "/"));
+    }
+  };
+  walk(UI_DIR);
+  return found;
+}
+
+function resolveExcludeToUiTestFiles(exclude, configRoot) {
+  if (!Array.isArray(exclude)) {
+    throw new Error("config.test.exclude is missing or not an array");
+  }
+  const out = new Set();
+  const uiTests = listUiTestFiles();
+  for (const raw of exclude) {
+    const pattern = normalizeScanPath(raw);
+    if (BASELINE_SKIP.has(pattern)) continue;
+    if (!isGlob(pattern)) {
+      const uiRel = toUiRelative(pattern, configRoot);
+      if (uiRel && TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) out.add(uiRel);
+      continue;
+    }
+    const matcher = globToRegExp(pattern);
+    for (const file of uiTests) {
+      const fromConfigRoot = normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
+      if (matcher.test(fromConfigRoot) || matcher.test(file)) out.add(file);
+    }
+  }
+  return sortedUnique([...out]);
 }
 
 function fileHasNodeTestImport(relPath) {
@@ -59,42 +126,81 @@ function fileHasNodeTestImport(relPath) {
   }
 }
 
-const { extraExclude, printOnly } = parseArgs(process.argv.slice(2));
+async function loadEffectiveConfig(configFile) {
+  const mod = await import(pathToFileURL(configFile).href);
+  const raw = mod.default;
+  if (typeof raw === "function") {
+    return raw({ command: "serve", mode: "test" });
+  }
+  return raw;
+}
+
+async function loadUiViteConfig() {
+  const requireUi = createRequire(resolve(UI_DIR, "package.json"));
+  const vite = await import(pathToFileURL(requireUi.resolve("vite")).href);
+  const loaded = await vite.loadConfigFromFile(
+    { command: "serve", mode: "test" },
+    resolve(UI_DIR, "vite.config.js"),
+    UI_DIR,
+  );
+  if (!loaded?.config) {
+    throw new Error("failed to load ui/vite.config.js");
+  }
+  return loaded.config;
+}
+
+function printSet(title, files) {
+  console.log(`${title} (${files.length}):`);
+  for (const file of files) console.log(`  ${file}`);
+}
+
+function reportMismatch(label, left, right) {
+  const onlyLeft = left.filter((file) => !right.includes(file));
+  const onlyRight = right.filter((file) => !left.includes(file));
+  if (!onlyLeft.length && !onlyRight.length) return false;
+  if (onlyLeft.length) {
+    console.error(`${label}: extra vs node --test:`);
+    for (const file of onlyLeft) console.error(`  ${file}`);
+  }
+  if (onlyRight.length) {
+    console.error(`${label}: missing vs node --test:`);
+    for (const file of onlyRight) console.error(`  ${file}`);
+  }
+  return true;
+}
+
+const { printOnly } = parseArgs(process.argv.slice(2));
 const nodeTestSet = sortedUnique(listWebUiNodeTestFiles());
-const vitestExclude = sortedUnique([...nodeTestSet, ...extraExclude]);
 
 if (printOnly) {
-  if (extraExclude.length > 0) {
-    console.error("check-web-node-test-scan: --print cannot be combined with --extra-exclude");
-    process.exit(2);
-  }
   process.stdout.write(`${nodeTestSet.join("\n")}\n`);
   process.exit(0);
 }
 
-const vitestOnly = vitestExclude.filter((file) => !nodeTestSet.includes(file));
-const nodeTestOnly = nodeTestSet.filter((file) => !vitestExclude.includes(file));
-const vitestFilesInNodeTest = nodeTestSet.filter((file) => !fileHasNodeTestImport(file));
-
-console.log("vitest exclude (node:test):");
-for (const file of vitestExclude) console.log(`  ${file}`);
-console.log("node --test set:");
-for (const file of nodeTestSet) console.log(`  ${file}`);
-
-if (vitestOnly.length || nodeTestOnly.length || vitestFilesInNodeTest.length) {
-  if (vitestOnly.length) {
-    console.error("in vitest exclude but not in node --test:");
-    for (const file of vitestOnly) console.error(`  ${file}`);
-  }
-  if (nodeTestOnly.length) {
-    console.error("in node --test but not in vitest exclude:");
-    for (const file of nodeTestOnly) console.error(`  ${file}`);
-  }
-  if (vitestFilesInNodeTest.length) {
-    console.error("node --test picked up vitest files (no node:test import):");
-    for (const file of vitestFilesInNodeTest) console.error(`  ${file}`);
-  }
+const uiConfig = await loadUiViteConfig();
+const rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"), REPO_ROOT);
+if (!uiConfig.test?.exclude || !rootConfig.test?.exclude) {
+  console.error("check-web-node-test-scan: config.test.exclude missing after load");
   process.exit(1);
 }
 
-console.log(`ok: ${nodeTestSet.length} files; vitest exclude == node --test set`);
+const uiExclude = resolveExcludeToUiTestFiles(uiConfig.test.exclude, UI_DIR);
+const rootExclude = resolveExcludeToUiTestFiles(rootConfig.test.exclude, REPO_ROOT);
+const vitestFilesInNodeTest = nodeTestSet.filter((file) => !fileHasNodeTestImport(file));
+
+printSet("ui/vite.config.js test.exclude (ui test files)", uiExclude);
+printSet("vitest.config.js test.exclude (ui test files)", rootExclude);
+printSet("node --test set", nodeTestSet);
+
+let failed = false;
+failed = reportMismatch("ui/vite.config.js", uiExclude, nodeTestSet) || failed;
+failed = reportMismatch("vitest.config.js", rootExclude, nodeTestSet) || failed;
+if (vitestFilesInNodeTest.length) {
+  console.error("node --test picked up vitest files (no node:test import):");
+  for (const file of vitestFilesInNodeTest) console.error(`  ${file}`);
+  failed = true;
+}
+
+if (failed) process.exit(1);
+
+console.log(`ok: ${nodeTestSet.length} files; both effective excludes == node --test set`);

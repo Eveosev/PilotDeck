@@ -3,12 +3,12 @@
 - 分支：`pilotdeck-rust/T-CI-F3-node-test-scan`
 - 基线：`d6ec73d824e74009c47c0254c86db194ad7ce66d`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/13
-- 当前 tip：`e148d594c19c4802d643de9dc831bccc04d60331`（实现；本文件回填后会再戳 tip）
-- CI（实现 tip）：https://github.com/Eveosev/PilotDeck/actions/runs/38356348095 （Web Regression，进行中）
+- 当前 tip：_pending this commit_
+- Web Regression / Desktop：_pending new head_
 
 ## Before / after 扫描列表
 
-两边都是相对 `ui/` 的 8 个路径，集合相同：
+相对 `ui/` 的 8 个路径，before（PR #12 内联 walk `ui/server`）与 after（`--print` + 两边生效 `test.exclude`）相同：
 
 1. `server/adapters/staffdeck-request-context.test.js`
 2. `server/module-request-abort.test.js`
@@ -19,36 +19,58 @@
 7. `server/staffdeck-publish-runtime.test.mjs`
 8. `server/staffdeck-runtime-readiness.test.mjs`
 
-- Before：CI 内联 walk `ui/server`（PR #12 / run `38348207846`）。
-- After：`node scripts/check-web-node-test-scan.mjs --print`（walk `ui/`，同一正则）。
-
-## 匹配检查（正 / 负）
+## 匹配检查（正）
 
 ```
 node scripts/check-web-node-test-scan.mjs
 ```
 
-exit **0**。两边打印同一 8 文件，`ok: 8 files; vitest exclude == node --test set`。
+exit **0**。`ui/vite.config.js` exclude、`vitest.config.js` exclude（ui 子集）、`node --test` 三集相同，各 8 文件。
+
+## 负向（temp worktree，真改 exclude）
+
+Worktree 挂在实现 tip 上，拷入本轮检查脚本（提交后可直接 `git worktree add`），并 symlink `node_modules`：
 
 ```
-node scripts/check-web-node-test-scan.mjs --extra-exclude server/does-not-exist.test.js
+WT=/tmp/T-CI-F3-neg
+git worktree add "$WT" HEAD
+cp scripts/check-web-node-test-scan.mjs scripts/lib/resolve-from-ui.mjs scripts/lib/web-node-test-files.mjs "$WT/scripts/..." 
+cp ui/vite.config.js "$WT/ui/vite.config.js"
+ln -sfn "$(pwd)/node_modules" "$WT/node_modules"
+ln -sfn "$(pwd)/ui/node_modules" "$WT/ui/node_modules"
 ```
 
-exit **1**。vitest exclude 多出 `server/does-not-exist.test.js`，node --test 仍是 8 个；stderr：`in vitest exclude but not in node --test:`。
+**加一条**（`ui/vite.config.js` 仅 `test.exclude`）：
+
+```
+exclude: ['e2e/**', 'node_modules/**', 'dist/**', 'server/routes/config.test.js', ...vitestExcludeNodeTestFiles(__dirname)],
+cd /tmp/T-CI-F3-neg && node scripts/check-web-node-test-scan.mjs
+```
+
+exit **1**。`ui/vite.config.js: extra vs node --test: server/routes/config.test.js`
+
+**删一条**（先恢复再改同一行）：
+
+```
+exclude: ['e2e/**', 'node_modules/**', 'dist/**', ...vitestExcludeNodeTestFiles(__dirname).filter((f) => f !== 'server/module-request-abort.test.js')],
+cd /tmp/T-CI-F3-neg && node scripts/check-web-node-test-scan.mjs
+```
+
+exit **1**。`ui/vite.config.js: missing vs node --test: server/module-request-abort.test.js`
+
+然后 `git worktree remove --force /tmp/T-CI-F3-neg`。仓内 `ui/vite.config.js` 的 exclude 未改。
 
 ## 本地计数
 
-与 Web Regression 相同命令：
-
-- vitest：`Test Files 268 passed (268)` / `Tests 2204 passed (2204)`，0 fail
+- 检查 exit 0
 - `node --test`：8 files，`# tests 40` `# pass 40` `# fail 0`
+- vitest（上一轮，exclude 未改行为）：268 files / 2204 cases
 
 ## 原始日志（不入库）
 
 | 文件 | sha256 | 位置 |
 |---|---|---|
-| `check-ok.txt` | `d3cdb32daf68d97a84be96c6a230546f0efd596b2acf400700a0fbd7ab95c7a3` | `/tmp/T-CI-F3-node-test-scan/` |
-| `check-mismatch.txt` | `a64e604daf279a1327f7c13609f5748ab6159be304f3c0f53aed469be186e5a0` | `/tmp/T-CI-F3-node-test-scan/` |
-| `after-print.txt` | `7347bb49b69fae8609302c5f619351370912a0fd3fef568d877fe39ee24932d4` | `/tmp/T-CI-F3-node-test-scan/` |
-| `node-test-after.txt` | `33423e377864b17eb4d9fadb3ceee1590db9e8d7b69be974a3c11dcc00bc042f` | `/tmp/T-CI-F3-node-test-scan/` |
-| `vitest.txt` | `86906782973e3c42fecba7827294a89376c16be89cfeb632cf219bb8d100e04e` | `/tmp/T-CI-F3-node-test-scan/` |
+| `check-ok-effective.txt` | `5b199a376afb78e90664c625d313e09d6c691ac1dc7eb2f57eb0d97499be1a92` | `/tmp/T-CI-F3-node-test-scan/` |
+| `neg-add.txt` | `c54121007c3a8c86cb7f77674c26d87b2a4cd149a6a1db1807fc93df80c16b9e` | `/tmp/T-CI-F3-node-test-scan/` |
+| `neg-remove.txt` | `023f0a0509b251b4730841e06a6544fc5246e28d238bca6a0cceb46c3227b05c` | `/tmp/T-CI-F3-node-test-scan/` |
+| `node-test-effective.txt` | `77a0215c6d124b00a953500a0f0e5281add0f3c7c658d1e360a7746cbe812f9e` | `/tmp/T-CI-F3-node-test-scan/` |
