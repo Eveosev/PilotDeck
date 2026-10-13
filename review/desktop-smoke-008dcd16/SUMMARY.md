@@ -11,7 +11,9 @@ Evidence-only. No product code changes. Hypothesis-free: commands, exit codes, a
 
 `passed:true` JSON from both official scripts. Wrapper `timeout 300` on Wayland was not hit.
 
-Do not waive a known flake from other branches. This folder records **this** official one-shot pair only. N-trial File-click diag (PR #14) was **not** re-run here.
+Do not waive. This folder records **this** official one-shot pair only.
+
+**PR targeting:** head `cursor/desktop-smoke-008dcd16-8518` is rooted at `008dcd16`. Base **must** be `rust_standalone_alpha1` (same SHA). A `main` base is wrong and inflates the diff. After retarget, the PR adds only `review/desktop-smoke-008dcd16/**`.
 
 ## Git identity
 
@@ -130,7 +132,9 @@ Observed on **this** official one-shot pair:
 
 File `.click()` sites that a passing `desktop-chrome.smoke.mjs` must finish: L161 (dark File), L243 (File → New Project), L339 (light File). No Playwright File-click timeout text in `run-logs/wayland-smoke.txt` or `run-logs/wayland-smoke.err.txt`. Screenshots include File popup on both backends (`linux-dark-popup.png`, `linux-light-popup.png`, `linux-light-zh-popup.png`).
 
-This is N=1 per backend, same as CI. It is **not** an N=100/300 File-click rate. See `file-click-counts.txt`. PR #14 (`https://github.com/Eveosev/PilotDeck/pull/14`) is a separate diagnostic branch and is not this SHA.
+This is N=1 per backend, same as CI. It is **not** an N=100/300 File-click rate. See `file-click-counts.txt`.
+
+Association with [#14](https://github.com/Eveosev/PilotDeck/pull/14) (`[diag] Linux Wayland File-click smoke`): that PR is a separate diagnostic branch (N-trial File-click hang / rAF-freeze). **This 008dcd16 official one-shot did not reproduce a Wayland File-click timeout** (count=0). No rerun to chase the #14 symptom. No waiver of #14. If a later official run on this SHA hangs with the same stable File-click / rAF-freeze symptom, record the actual count here and keep the #14 link.
 
 ## Artifact index
 

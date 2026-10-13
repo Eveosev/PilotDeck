@@ -45,4 +45,5 @@ total_suite_runs=2
 total_file_click_timeout=0
 total_file_click_stable=2
 n_trial_diag=not_run
-note=PR #14 N-trial File-click diag is a different branch/script and was not re-run here.
+associated_issue_or_pr=https://github.com/Eveosev/PilotDeck/pull/14
+note=PR #14 is the Wayland File-click hang / rAF-freeze diag (different branch). This 008dcd16 official one-shot: timeout=0. No rerun. No waiver of #14.
