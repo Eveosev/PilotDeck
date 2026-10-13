@@ -4,6 +4,7 @@
 - 基线：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 源失败：run `38340992186`
+- 最新 CI：https://github.com/Eveosev/PilotDeck/actions/runs/38345669771 （`ef51dec3`）docker **success**；web **failure** 仅 B+C（`2 failed | 266 passed` files，`7 failed | 2197 passed` tests）。`node --test` step：8 文件可见，`# tests 40` `# pass 40` `# fail 0`。
 
 ## 本轮
 
