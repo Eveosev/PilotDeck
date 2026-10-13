@@ -22,7 +22,8 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
     sidecar.send_json(&json!({
         "kind":"request","messageId":"ex-done","method":"execute",
         "runId":"run-done","operationId":"op-done","requestId":"req-done",
-        "payload":{"scenario":"pure_text","q":"What is the status?"}
+        "payload":{"scenario":"pure_text","q":"What is the status?"},
+        "sessionId":"sess-done","turnId":"turn-done"
     }));
     let _ = sidecar.wait_for(
         |msgs| {
@@ -39,7 +40,8 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
     sidecar.send_json(&json!({
         "kind":"request","messageId":"ex-1","method":"execute",
         "runId":"run-1","operationId":"op-1","requestId":"req-1",
-        "payload":{"scenario":"pure_text","q":"What is the status?","delayMs":2000}
+        "payload":{"scenario":"pure_text","q":"What is the status?","delayMs":2000},
+        "sessionId":"sess-1","turnId":"turn-1"
     }));
     let _ = sidecar.wait_for(
         |msgs| {
@@ -122,15 +124,18 @@ fn rust_emitted_messages_roundtrip_schema_and_ts() {
             m.get("eventType") == Some(&json!("agent.execute.completed"))
                 && m.get("outcome") == Some(&json!("completed"))
                 && m.get("requestId") == Some(&json!("req-done"))
+                && m.pointer("/payload/result/sessionId") == Some(&json!("sess-done"))
+                && m.pointer("/payload/result/turnId") == Some(&json!("turn-done"))
         }),
-        "live corpus must include the completed path: {lines:?}"
+        "live corpus must include the completed path with F-5 sessionId/turnId: {lines:?}"
     );
     assert!(
         lines.iter().any(|m| {
             m.get("eventType") == Some(&json!("agent.execute.cancelled"))
                 && m.get("outcome") == Some(&json!("cancelled"))
+                && m.pointer("/payload/result/type") == Some(&json!("aborted"))
         }),
-        "live corpus must include the cancelled path: {lines:?}"
+        "live corpus must include the cancelled path with F-5 aborted shape: {lines:?}"
     );
     let cancel = lines
         .iter()

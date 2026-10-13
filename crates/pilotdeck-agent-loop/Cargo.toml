@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.83"
 license = "AGPL-3.0-only"
 publish = false
-description = "Minimal AgentLoop sidecar: hello/capabilities/execute/cancel/status over stdio JSONL."
+description = "Minimal AgentLoop sidecar: hello/capabilities/execute/cancel/status over stdio or TCP JSONL."
 
 [lib]
 name = "pilotdeck_agent_loop"

@@ -1,4 +1,4 @@
-//! In-process sidecar state machine. Transport (stdio) is layered on top.
+//! In-process sidecar state machine. Transport (stdio / TCP) is layered on top.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -13,7 +13,9 @@ use crate::time::{now_iso, now_unix_ms, parse_iso_ms};
 use crate::{CAPABILITIES_VERSION, MODULE_ID, PROTOCOL_VERSION};
 
 const STUB_POLL_MS: u64 = 10;
+const MAX_STUB_DELAY_MS: u64 = 60_000;
 const DEFAULT_STUB_TEXT: &str = "What is the status?";
+const STABLE_IDS_ENV: &str = "PILOTDECK_AGENT_LOOP_STABLE_IDS";
 
 #[derive(Clone)]
 struct OperationSnapshot {
@@ -62,6 +64,7 @@ struct Inner {
     module_instance_id: String,
     connection_generation: String,
     capabilities_version: String,
+    transport: String,
     token: AtomicU64,
     operations: Mutex<Operations>,
     joins: Mutex<Vec<JoinHandle<()>>>,
@@ -74,6 +77,10 @@ pub struct Sidecar {
 
 impl Sidecar {
     pub fn new(emit: Arc<dyn Fn(Value) + Send + Sync>) -> Self {
+        Self::with_transport(emit, "stdio")
+    }
+
+    pub fn with_transport(emit: Arc<dyn Fn(Value) + Send + Sync>, transport: &str) -> Self {
         let token = AtomicU64::new(0);
         let module_instance_id = format!("{MODULE_ID}-instance-{}", next_token_from(&token));
         let connection_generation = format!("{}-{}", module_instance_id, next_token_from(&token));
@@ -84,6 +91,7 @@ impl Sidecar {
                 module_instance_id,
                 connection_generation,
                 capabilities_version: CAPABILITIES_VERSION.to_string(),
+                transport: transport.to_string(),
                 token,
                 operations: Mutex::new(Operations {
                     by_id: HashMap::new(),
@@ -273,12 +281,18 @@ impl Sidecar {
 
         let inner = Arc::clone(&self.inner);
         let payload = request.get("payload").cloned().unwrap_or_else(|| json!({}));
+        let session_id = stub_session_id(&request, &payload, &run_id);
+        let turn_id = stub_turn_id(&request, &payload, &operation_id);
+        let started_at = now_iso();
         let handle = thread::spawn(move || {
             run_stub_execute(StubJob {
                 inner,
                 run_id,
                 operation_id,
                 request_id,
+                session_id,
+                turn_id,
+                started_at,
                 stream_id,
                 payload,
                 cancel,
@@ -427,7 +441,7 @@ impl Sidecar {
     fn capabilities_payload(&self) -> Value {
         json!({
             "capabilitiesVersion": self.inner.capabilities_version,
-            "transport": "stdio",
+            "transport": self.inner.transport,
             "methods": [
                 {
                     "name": "execute",
@@ -469,6 +483,9 @@ struct StubJob {
     run_id: String,
     operation_id: String,
     request_id: String,
+    session_id: String,
+    turn_id: String,
+    started_at: String,
     stream_id: String,
     payload: Value,
     cancel: Arc<AtomicBool>,
@@ -507,6 +524,8 @@ fn run_stub_execute(job: StubJob) {
             "type": "message",
             "role": "assistant",
             "text": text,
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
             "stub": true,
         },
     }));
@@ -537,11 +556,14 @@ fn run_stub_execute(job: StubJob) {
         "final": true,
         "outcome": "completed",
         "payload": {
-            "result": {
-                "type": "success",
-                "stopReason": "completed",
-                "turns": 1
-            },
+            "result": stub_turn_result(
+                "success",
+                &job.session_id,
+                &job.turn_id,
+                "completed",
+                1,
+                &job.started_at,
+            ),
             "messages": [{ "role": "assistant", "content": text }],
             "stub": { "model": "pilotdeck-stub", "scenario": scenario }
         },
@@ -580,7 +602,21 @@ fn emit_cancelled_terminal(job: &StubJob, sequence: u64) {
         "requestId": job.request_id,
         "final": true,
         "outcome": outcome,
-        "payload": {},
+        "payload": if outcome == "cancelled" {
+            json!({
+                "result": stub_turn_result(
+                    "aborted",
+                    &job.session_id,
+                    &job.turn_id,
+                    "aborted_streaming",
+                    0,
+                    &job.started_at,
+                ),
+                "messages": [],
+            })
+        } else {
+            json!({})
+        },
     });
     if let Some(code) = code {
         event["code"] = json!(code);
@@ -634,8 +670,7 @@ fn sleep_cancellable(
         thread::sleep(Duration::from_millis(slice));
         remaining = remaining.saturating_sub(slice);
     }
-    cancel.load(Ordering::SeqCst)
-        || runtime_deadline_exceeded(deadline_at_ms, deadline_exceeded)
+    cancel.load(Ordering::SeqCst) || runtime_deadline_exceeded(deadline_at_ms, deadline_exceeded)
 }
 
 fn runtime_deadline_exceeded(deadline_at_ms: Option<i64>, deadline_exceeded: &AtomicBool) -> bool {
@@ -654,6 +689,7 @@ fn stub_delay_ms(payload: &Value) -> u64 {
         .or_else(|| payload.get("delayMs"))
         .and_then(value_as_u64)
         .unwrap_or(0)
+        .min(MAX_STUB_DELAY_MS)
 }
 
 fn value_as_u64(value: &Value) -> Option<u64> {
@@ -702,6 +738,46 @@ fn stub_prompt(payload: &Value) -> String {
         }
     }
     DEFAULT_STUB_TEXT.to_string()
+}
+
+fn stub_session_id(request: &Value, payload: &Value, run_id: &str) -> String {
+    first_nonempty_id(&[request.get("sessionId"), payload.get("sessionId")])
+        .unwrap_or_else(|| run_id.to_string())
+}
+
+fn stub_turn_id(request: &Value, payload: &Value, operation_id: &str) -> String {
+    first_nonempty_id(&[request.get("turnId"), payload.get("turnId")])
+        .unwrap_or_else(|| operation_id.to_string())
+}
+
+fn first_nonempty_id(candidates: &[Option<&Value>]) -> Option<String> {
+    candidates.iter().find_map(|value| {
+        value
+            .and_then(Value::as_str)
+            .filter(|id| !id.is_empty())
+            .map(str::to_string)
+    })
+}
+
+fn stub_turn_result(
+    result_type: &str,
+    session_id: &str,
+    turn_id: &str,
+    stop_reason: &str,
+    turns: u64,
+    started_at: &str,
+) -> Value {
+    json!({
+        "type": result_type,
+        "sessionId": session_id,
+        "turnId": turn_id,
+        "stopReason": stop_reason,
+        "usage": {},
+        "permissionDenials": [],
+        "turns": turns,
+        "startedAt": started_at,
+        "completedAt": now_iso(),
+    })
 }
 
 fn stub_scenario(payload: &Value) -> String {
@@ -772,12 +848,21 @@ fn next_id(inner: &Inner, prefix: &str) -> String {
 }
 
 fn next_token_from(token: &AtomicU64) -> String {
+    let n = token.fetch_add(1, Ordering::Relaxed);
+    if stable_ids_enabled() {
+        return format!("{n:x}");
+    }
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    let n = token.fetch_add(1, Ordering::Relaxed);
     format!("{nanos:x}-{n:x}-{:x}", std::process::id())
+}
+
+fn stable_ids_enabled() -> bool {
+    std::env::var(STABLE_IDS_ENV)
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -871,8 +956,29 @@ mod tests {
             .expect("final event");
         assert_eq!(terminal["outcome"], "completed");
         assert_eq!(terminal["eventType"], "agent.execute.completed");
+        assert_eq!(terminal["payload"]["result"]["type"], "success");
+        assert_eq!(terminal["payload"]["result"]["sessionId"], "run-1");
+        assert_eq!(terminal["payload"]["result"]["turnId"], "op-1");
         assert!(validate_module_message(terminal).is_ok());
         assert!(validate_module_message(&lines[0]).is_ok());
+    }
+
+    #[test]
+    fn completed_final_echoes_request_session_and_turn_ids() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-ids","method":"execute","runId":"run-ids","operationId":"op-ids","requestId":"req-ids","sessionId":"sess-host","turnId":"turn-host","payload":{"scenario":"pure_text","q":"hi"}}"#,
+        );
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("final event");
+        assert_eq!(terminal["payload"]["result"]["type"], "success");
+        assert_eq!(terminal["payload"]["result"]["sessionId"], "sess-host");
+        assert_eq!(terminal["payload"]["result"]["turnId"], "turn-host");
+        assert_eq!(terminal["payload"]["result"]["stopReason"], "completed");
     }
 
     #[test]
@@ -948,6 +1054,18 @@ mod tests {
         assert_eq!(cancel["ok"], true);
         assert_eq!(cancel["payload"]["cancelled"], true);
         assert_cancel_won_before_message(&lines, "cancelled", DELAY_MS, elapsed);
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .unwrap();
+        assert_eq!(terminal["payload"]["result"]["type"], "aborted");
+        assert_eq!(terminal["payload"]["result"]["sessionId"], "run-c");
+        assert_eq!(terminal["payload"]["result"]["turnId"], "op-c");
+        assert_eq!(
+            terminal["payload"]["result"]["stopReason"],
+            "aborted_streaming"
+        );
+        assert!(terminal["payload"]["messages"].is_array());
     }
 
     #[test]

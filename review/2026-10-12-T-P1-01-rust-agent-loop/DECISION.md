@@ -58,3 +58,12 @@ resume/ack；真实模型调用（P3）；T-P1-02 harness；性能测量（T-P1-
 - F-4 closed。F-5 仍延 PR-B，本轮不改。
 - R2-1（挡 ready）：补 future-deadline→completed、attemptDeadline 运行期到期、两者取 earliest（更早的那个到期即超时）。
 - R2-2：在代码 tip 重生 `evidence/t-p1-01/`，`provenance.gitSha` = 收集时的代码 tip。
+
+## 2026-10-14 Payne：PR-B 开工（F-5 + S3 + S4）
+
+- 基线：`rust_standalone_alpha1@61ef132170b642fecf7e0acaf65b8f121319a651`（PR-A #8 已合）。draft PR-B → 同目标分支。禁止 force-push / rebase / amend。
+- **F-5（B4 前置，本 PR 必修）**：stub completed final 的 `payload.result` 带 `sessionId` / `turnId`（优先回显 execute 顶栏，否则 payload，再否则 `runId` / `operationId`）；cancelled final 用 `type:"aborted"` shape（`stopReason: aborted_streaming`，带 `messages: []`），禁止空 `payload:{}`。`result_unknown` 仍空 payload，对齐 TS `sendResultUnknown`。
+- **S3**：七项 R2-2 serde 风险用例（1.0、-0、指数、>2^53、1e400、重复键 last-wins、ajv strict）。期望 = TS `JSON.parse` + `validateModuleMessage`。分歧写明。
+- **S4**：`--listen 127.0.0.1:0`（仅 loopback）。stderr 打印 `listening HOST:PORT`。同一套 B1/B4（含 cancel/status/resume/ack/malformed）在 TCP 上重跑；另有 Node TS host `b4-tcp-host.mjs`。不是 hello→execute→status-only smoke。
+- **mask_f3**：迁到 `crates/pilotdeck-agent-loop/tests/mask_f3.sh`。测试模式稳定 ID（`PILOTDECK_AGENT_LOOP_STABLE_IDS=1`）已落地，但 `*At` 时间戳仍变，故**不删除**脚本。
+- 不做：resume/ack 实现；真模型；T-P1-02 harness；改 `protocol.ts`；大 CI 改写。

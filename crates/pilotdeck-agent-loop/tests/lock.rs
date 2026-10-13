@@ -1,4 +1,4 @@
-//! Lock tests for T-P1-01 PR-A. These fail on base `1da663a2` because the
+//! Lock tests for T-P1-01. These fail on base `1da663a2` because the
 //! `pilotdeck-agent-loop` package is not a workspace member there.
 
 use std::fs;
@@ -106,4 +106,38 @@ fn invalid_message_fixture_covers_each_protocol_type() {
     ] {
         assert!(types.contains(required), "missing {required} in {types:?}");
     }
+}
+
+#[test]
+fn pr_b_tcp_cli_and_mask_f3_live_under_tests() {
+    assert!(
+        repo_root()
+            .join("crates/pilotdeck-agent-loop/src/tcp.rs")
+            .is_file(),
+        "S4 TCP listen must exist"
+    );
+    assert!(
+        repo_root()
+            .join("crates/pilotdeck-agent-loop/tests/mask_f3.sh")
+            .is_file(),
+        "mask_f3.sh must live under crates/pilotdeck-agent-loop/tests/"
+    );
+    assert!(
+        !repo_root()
+            .join("review/2026-10-12-T-P1-01-rust-agent-loop/mask_f3.sh")
+            .exists(),
+        "review/ mask_f3.sh must be moved, not copied"
+    );
+    assert!(
+        repo_root()
+            .join("crates/pilotdeck-agent-loop/tests/serde_r2.rs")
+            .is_file(),
+        "S3 seven serde cases must exist"
+    );
+    assert!(
+        repo_root()
+            .join("crates/pilotdeck-agent-loop/tests/sidecar_tcp.rs")
+            .is_file(),
+        "S4 TCP B1/B4 suite must exist"
+    );
 }

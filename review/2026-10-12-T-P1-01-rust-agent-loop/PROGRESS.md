@@ -218,3 +218,25 @@ B = git diff $(git merge-base d43acb9e 2c4420b4) 2c4420b4 -- . ':!review' | sha2
 Both sha256: `7248873afc43927ddac0385006078c41615a16d8c234d88d6df115b142d33fc1` — **EQUALITY=true**.
 
 `git diff 16b274aa HEAD -- crates/` is **empty**. `provenance.gitSha` / `collectHead` stay on content tip `16b274aa`.
+
+## 2026-10-14 PR-B (F-5 + S3 + S4)
+
+- Branch: `cursor/t-p1-01-pr-b-c23a` off `rust_standalone_alpha1@61ef132170b642fecf7e0acaf65b8f121319a651`
+- Target: `rust_standalone_alpha1` · draft only · no rebase / force / amend
+- PR-A (#8) already merged; this PR is S3–S4 + F-5 only
+
+| Slice | Status |
+|---|---|
+| F-5 completed `sessionId`/`turnId`; cancelled `type:"aborted"` | done |
+| S3 seven serde R2-2 cases | done (`tests/serde_r2.rs`) |
+| S4 TCP `--listen 127.0.0.1:0` + full B1/B4 over TCP | done (`src/tcp.rs`, `tests/sidecar_tcp.rs`, `scripts/b4-tcp-host.mjs`) |
+| mask_f3 | **moved** to `crates/pilotdeck-agent-loop/tests/mask_f3.sh` (not deleted: `*At` still varies). Stable IDs via `PILOTDECK_AGENT_LOOP_STABLE_IDS=1`. |
+
+S3 divergences (documented in `tests/serde_r2.rs`):
+- `1.0` / `-0` / `1e2`/`1E0`/`100e-2`: TS and Rust both accept; numeric value agrees.
+- `>2^53` (`9007199254740993`): both accept; JS `JSON.parse` rounds to `9007199254740992`, Rust keeps exact integer. Accept/reject aligned; value split kept visible.
+- `1e400`: both reject. TS `JSON.parse` → `Infinity` then `validateModuleMessage` reject; Rust `serde_json` parse error (no Infinity). Accept/reject aligned; path differs.
+- duplicate keys: last-wins via `serde_json::Value` / `JSON.parse`.
+- ajv strict: `compileSchema(..., { strict: true })` agrees with TS and Rust on accept (`1.0`) and reject (`1e400`).
+
+Tip SHA / test counts: filled after clean-tree evidence collection.
