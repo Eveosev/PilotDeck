@@ -8,8 +8,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const requireUi = createRequire(resolvePath(dirname(fileURLToPath(import.meta.url)), "../../ui/package.json"));
 
-export function formatResolveError(err) {
+const INSTALL_HINT = "Install with: pnpm install --frozen-lockfile.";
+
+function errorMessage(err) {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Format a missing-package import/resolve failure (name + install command). */
+export function formatMissingDepError(specifier, err) {
+  return `check-web-node-test-scan: cannot import '${specifier}'. ${INSTALL_HINT} ${errorMessage(err)}`;
 }
 
 export function resolveUiPackage(specifier) {
@@ -17,7 +24,7 @@ export function resolveUiPackage(specifier) {
     return requireUi.resolve(specifier);
   } catch (err) {
     throw new Error(
-      `check-web-node-test-scan: cannot resolve '${specifier}' from ui/. Install Web UI dependencies (pnpm install --filter pilotdeck --filter pilotdeck-ui). ${formatResolveError(err)}`,
+      `check-web-node-test-scan: cannot resolve '${specifier}' from ui/. ${INSTALL_HINT} ${errorMessage(err)}`,
     );
   }
 }

@@ -10,7 +10,7 @@
  *   node scripts/check-web-node-test-scan.mjs --print
  */
 import { register } from "node:module";
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -21,6 +21,7 @@ import {
   listWebUiNodeTestFiles,
   normalizeScanPath,
 } from "./lib/web-node-test-files.mjs";
+import { formatMissingDepError, resolveUiPackage } from "./lib/resolve-from-ui.mjs";
 
 const BASELINE_SKIP = new Set([
   "**/node_modules/**",
@@ -87,6 +88,10 @@ function resolveExcludeToUiTestFiles(exclude, configRoot, picomatch) {
   for (const raw of exclude) {
     const pattern = normalizeScanPath(raw);
     if (BASELINE_SKIP.has(pattern)) continue;
+    // Vitest `!pattern` re-includes files. `picomatch.scan('!x').isGlob` is
+    // false, so this must run before the literal-path branch or a missing
+    // `!x` path would be treated as an extra exclude.
+    if (pattern.startsWith("!")) continue;
     const relToConfig = (file) => normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
     if (picomatch.scan(pattern).isGlob) {
       const isMatch = picomatch(pattern, { dot: true });
@@ -95,14 +100,17 @@ function resolveExcludeToUiTestFiles(exclude, configRoot, picomatch) {
       }
       continue;
     }
+    // Literal path, or a single-item brace like `server/{x}.test.js`
+    // (`scan().isGlob` is false). Missing files must not count as drift.
     const uiRel = toUiRelative(pattern, configRoot);
-    if (uiRel && TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) out.add(uiRel);
+    if (!uiRel || !TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) continue;
+    if (!existsSync(resolve(UI_DIR, uiRel))) continue;
+    out.add(uiRel);
   }
   return sortedUnique([...out]);
 }
 
 async function loadPicomatch() {
-  const { formatResolveError } = await import("./lib/resolve-from-ui.mjs");
   try {
     const mod = await import("picomatch");
     const picomatch = mod.default ?? mod;
@@ -111,9 +119,7 @@ async function loadPicomatch() {
     }
     return picomatch;
   } catch (err) {
-    console.error(
-      `check-web-node-test-scan: cannot import 'picomatch'. Install with: pnpm install --frozen-lockfile (root devDependency picomatch). ${formatResolveError(err)}`,
-    );
+    console.error(formatMissingDepError("picomatch", err));
     process.exit(1);
   }
 }
@@ -127,7 +133,7 @@ async function loadEffectiveConfig(configFile) {
   return raw;
 }
 
-async function loadUiViteConfig(resolveUiPackage) {
+async function loadUiViteConfig() {
   const vite = await import(pathToFileURL(resolveUiPackage("vite")).href);
   const loaded = await vite.loadConfigFromFile(
     { command: "serve", mode: "test" },
@@ -160,6 +166,12 @@ function reportMismatch(label, left, right) {
   return true;
 }
 
+function failResolve(err) {
+  const line = err instanceof Error ? err.message : String(err);
+  console.error(line.split("\n")[0]);
+  process.exit(1);
+}
+
 const { printOnly } = parseArgs(process.argv.slice(2));
 const nodeTestSet = sortedUnique(listWebUiNodeTestFiles());
 
@@ -169,11 +181,20 @@ if (printOnly) {
 }
 
 register(new URL("./lib/resolve-from-ui.mjs", import.meta.url));
-const { resolveUiPackage } = await import("./lib/resolve-from-ui.mjs");
-const picomatch = await loadPicomatch();
-resolveUiPackage("vitest");
-const uiConfig = await loadUiViteConfig(resolveUiPackage);
-const rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"));
+
+let picomatch;
+let uiConfig;
+let rootConfig;
+try {
+  picomatch = await loadPicomatch();
+  resolveUiPackage("vitest");
+  resolveUiPackage("vite");
+  uiConfig = await loadUiViteConfig();
+  rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"));
+} catch (err) {
+  failResolve(err);
+}
+
 if (!uiConfig.test?.exclude || !rootConfig.test?.exclude) {
   console.error("check-web-node-test-scan: config.test.exclude missing after load");
   process.exit(1);
