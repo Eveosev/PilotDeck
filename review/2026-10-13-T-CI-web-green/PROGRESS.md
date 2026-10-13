@@ -13,12 +13,12 @@
 | A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test` |
 | D 组计时取证 + 根因修复 | done | 见下；产品代码未改 |
 | D 组连续 3 次绿 | done | 1) true 839ms / false 671ms 2) 962 / 772 3) 895 / 785。三次均 `2 passed` |
-| 全量 web suite | open | |
+| 全量 web suite | done | 与 CI 相同 exclude：`Test Files  2 failed | 266 passed (268)`；`Tests  7 failed | 2197 passed (2204)`。仅剩 B（DesktopAboutSections 6）+ C（moduleLabels 1）。A 未再被收集；D 未出现在失败列表。 |
 | 原始日志 | 不入库 | sha256 见下 |
 
 ## 收集 gitSha
 
-实现提交的 tip（本文件与代码同提交后回填）。基线对照：`761572d7`。
+实现 tip：`8578c925671b41d0b7ec97b040a6e8c5c6e54843`。基线对照：`761572d7`。
 
 ## Before / after（摘要）
 
@@ -69,3 +69,4 @@ tsx 直载同一 TS：`import_ms 901.8` / `load_ms 0.7`，无 TDZ。
 | `d-group-after-3.log` | `75fdc5fc28d2e980937b5c8053d5741ba1703ff9690ef9593dd45b09d735c396` |
 | `node-test-8-before.log` | `5b4a07b9f3fbfa355b0f659f57f46fd02f43f8c23a4254b26427a6af718bb86c` |
 | `node-test-8-after.log` | `0057205009e700f22b4065dc9764b87942ef42e6ca9102284bad804bf1502677` |
+| `web-suite-full.log` | `856e87a812b7906ca9ac7c626c021481a97213a7b9746519837be644c22353ac` |
