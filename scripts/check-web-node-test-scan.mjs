@@ -88,10 +88,10 @@ function resolveExcludeToUiTestFiles(exclude, configRoot, picomatch) {
   for (const raw of exclude) {
     const pattern = normalizeScanPath(raw);
     if (BASELINE_SKIP.has(pattern)) continue;
-    // Vitest `!pattern` re-includes files. `picomatch.scan('!x').isGlob` is
-    // false, so this must run before the literal-path branch or a missing
-    // `!x` path would be treated as an extra exclude. Extglob `!(src)/…` is
-    // a real glob, not a re-include — skip only when `!` is not followed by `(`.
+    // tinyglobby discards `!x` patterns (not re-include).
+    // `picomatch.scan('!x').isGlob` is false, so this must run before the
+    // literal-path branch or a missing `!x` path would be treated as extra.
+    // Extglob `!(src)/…` is a real glob — skip only when `!` is not `(`.
     if (pattern[0] === "!" && pattern[1] !== "(") continue;
     const relToConfig = (file) => normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
     if (picomatch.scan(pattern).isGlob) {

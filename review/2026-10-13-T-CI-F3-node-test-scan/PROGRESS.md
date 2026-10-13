@@ -32,10 +32,11 @@ exit **0**，`ok: 8 files`。
 
 ### F1（temp worktree，真改 `ui/vite.config.js` `test.exclude`）
 
-`!(src)/routes/config.test.js` 命中 `server/routes/config.test.js`。与 `73761b17` 对照：旧脚本与本轮都是 exit **1**；`6a20f6ed` 的 `startsWith("!")` 会 fail-open 成 exit 0。
+`!(src)/routes/config.test.js` 命中 `server/routes/config.test.js`。Reviewer 原例 `!(src)/**/projects.test.js` 命中 `server/projects.test.js`。与 `73761b17` 对照：旧脚本与本轮都是 exit **1**；`6a20f6ed` 的 `startsWith("!")` 会 fail-open 成 exit 0。注释写明 tinyglobby 丢弃 `!x`（不是 re-include）。
 
 | 改写 | exclude 片段 | exit |
 |---|---|---|
+| Reviewer 原例 extglob 否定 | `!(src)/**/projects.test.js` | **1**（extra `server/projects.test.js`）；`6a20f6ed` 为 **0** |
 | extglob 否定真漂移 | `!(src)/routes/config.test.js` | **1**（extra `server/routes/config.test.js`） |
 | 取反 `!x` | `!x` | **0** |
 | 取反不存在路径 | `!server/does-not-exist.test.js` | **0** |

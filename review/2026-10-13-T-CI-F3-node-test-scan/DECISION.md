@@ -25,8 +25,8 @@
 7. **N4**：vite/vitest 解析失败合成 `scripts/lib/resolve-from-ui.mjs` 的 `resolveUiPackage`。
 8. **m1**：`loadPicomatch` 静态引入 `resolve-from-ui.mjs`，不再动态 import 该 helper。picomatch import 失败走 `formatMissingDepError`，不再使用 `formatResolveError`。
 9. **m2**：所有安装提示统一为 `pnpm install --frozen-lockfile`。
-10. **m3**：`!pattern` 必须在 `scan().isGlob` 之前单独跳过（`!x` 与单元素 brace `server/{x}.test.js` 的 `isGlob` 都是 false，否则会掉进字面路径分支误报）。字面路径（含 `isGlob === false` 的 `{x}`）先 `existsSync`；文件不存在不得当漂移。vitest `!` 取反按 re-include 语义跳过。
+10. **m3**：`!pattern` 必须在 `scan().isGlob` 之前单独跳过（`!x` 与单元素 brace `server/{x}.test.js` 的 `isGlob` 都是 false，否则会掉进字面路径分支误报）。字面路径（含 `isGlob === false` 的 `{x}`）先 `existsSync`；文件不存在不得当漂移。tinyglobby 丢弃 `!x`（不是 re-include）。
 11. **m4**：解析不到 vite 或 vitest 时只输出一行明确提示、exit 非 0、不打堆栈。`--print` 仍不依赖它们。
-12. **R4 F1**：`startsWith("!")` 会把 extglob `!(src)/…` 当 vitest 取反而 fail-open。跳过条件改为 `pattern[0] === "!" && pattern[1] !== "("`。`!(src)/routes/config.test.js` 必须匹配 `server/routes/config.test.js` 并 exit 1（与 `73761b17` 一致）；`!x` / `!server/does-not-exist.test.js` 仍跳过、exit 0。
+12. **R4 F1**：`startsWith("!")` 会把 extglob `!(src)/…` 当 tinyglobby 丢弃的 `!x` 而 fail-open。跳过条件改为 `pattern[0] === "!" && pattern[1] !== "("`。Reviewer 原例 `!(src)/**/projects.test.js` 必须匹配 `server/projects.test.js` 并 exit 1（`6a20f6ed` 为 exit 0）；`!(src)/routes/config.test.js` 仍 exit 1（与 `73761b17` 一致）；`!x` / `!server/does-not-exist.test.js` 仍跳过、exit 0。
 13. **R4 F2**：`failResolve` 只压缩缺依赖（`isMissingDepError`：`formatMissingDepError` / `resolveUiPackage`）为一行；vite.config 语法错误等必须带原 stack / file:line。
 14. **R4 F3**：`resolveUiPackage("vite")` 只解析一次，结果传给 `loadUiViteConfig`。
