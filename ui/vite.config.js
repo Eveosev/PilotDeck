@@ -1,10 +1,37 @@
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'path'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'url'
 import { getConnectableHost, normalizeLoopbackHost } from './shared/networkHosts.js'
 import { LIGHT_PRESETS } from '../apps/desktop/src/lightAppearance'
-import { vitestExcludeNodeTestFiles } from '../vitest.config.js'
+
+function vitestExcludeNodeTestFiles(fromDir) {
+  const found = []
+  const skipDir = new Set(['node_modules', 'dist', 'e2e', '.git', 'coverage'])
+  const walk = (dir) => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (!skipDir.has(entry.name)) walk(full)
+        continue
+      }
+      if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue
+      const src = readFileSync(full, 'utf8')
+      if (/(?:from|import)\s+['"]node:test['"]/.test(src)) {
+        found.push(path.relative(fromDir, full).replaceAll('\\', '/'))
+      }
+    }
+  }
+  walk(fromDir)
+  return found
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

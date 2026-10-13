@@ -10,7 +10,7 @@
 
 | ID | 失败 | 根因 | 修复 | 文件:行 | 状态 |
 |---|---|---|---|---|---|
-| A-1 | `ui/server/module-request-abort.test.js` 整文件 `Cannot bundle built-in module node:test` | vitest 默认 include 收了 `import { test } from 'node:test'` 文件；Vite 无法打包 Node 内置模块。与业务无关。 | `vitestExcludeNodeTestFiles()` 扫描 `from/import 'node:test'`，写入 `ui/vite.config.js` + 根 `vitest.config.js` 的 `test.exclude`。CI 新增 step `Test Web UI node:test files` 用同一规则发现并 `node --test`（日志打印文件列表）。 | `ui/server/module-request-abort.test.js:3`；排除：`ui/vite.config.js` `test.exclude`；运行：`.github/workflows/web-regression.yml` 新 step | done |
+| A-1 | `ui/server/module-request-abort.test.js` 整文件 `Cannot bundle built-in module node:test` | vitest 默认 include 收了 `import { test } from 'node:test'` 文件；Vite 无法打包 Node 内置模块。与业务无关。 | `vitestExcludeNodeTestFiles()` 扫描 `from/import 'node:test'`，写入 `ui/vite.config.js`（内联，Docker 的 `vite build` 不能依赖根 `vitest.config.js`）+ 根 `vitest.config.js` 的 `test.exclude`。CI 新增 step `Test Web UI node:test files` 用同一规则发现并 `node --test`（日志打印文件列表）。 | `ui/server/module-request-abort.test.js:3`；排除：`ui/vite.config.js` `test.exclude`；运行：`.github/workflows/web-regression.yml` 新 step | done |
 | A-2 | `ui/server/public-knowledge-model-selection.test.mjs` 同上 | 同上 | 同上 | `:2` | done |
 | A-3 | `ui/server/staffdeck-approval-authority.test.mjs` 同上 | 同上 | 同上 | `:1` | done |
 | A-4 | `ui/server/staffdeck-public-capabilities.test.mjs` 同上 | 同上 | 同上 | `:1` | done |

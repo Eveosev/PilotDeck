@@ -10,7 +10,7 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 骨架 / draft PR-W | done | `e4719694` 先推，B/C 可并行 |
-| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test` |
+| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test`。`ui/vite.config.js` 内联扫描器（不 import 根 `vitest.config.js`），避免 Docker `vite build` 解析失败。 |
 | D 组计时取证 + 根因修复 | done | 见下；产品代码未改 |
 | D 组连续 3 次绿 | done | 1) true 839ms / false 671ms 2) 962 / 772 3) 895 / 785。三次均 `2 passed` |
 | 全量 web suite | done | 与 CI 相同 exclude：`Test Files  2 failed | 266 passed (268)`；`Tests  7 failed | 2197 passed (2204)`。仅剩 B（DesktopAboutSections 6）+ C（moduleLabels 1）。A 未再被收集；D 未出现在失败列表。 |
