@@ -61,8 +61,10 @@ function installWaylandDiag(source) {
       box: fileBbox(),
     };
   };
+  const mark = type => record(type);
   globalThis.__waylandDiag = {
     installSource,
+    mark,
     snapshot: () => ({
       installSource,
       ...rafWindow(1000),

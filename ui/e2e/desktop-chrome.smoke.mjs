@@ -243,10 +243,55 @@ const discoverSurfaceIds = text => [...new Set([
 const readText = async file => {
   try { return await fs.readFile(file, 'utf8'); } catch { return ''; }
 };
+const parseWaylandTs = line => {
+  const match = line.match(/^\[(\d+(?:\.\d+)?)\]/);
+  return match ? Number(match[1]) : null;
+};
+const resolveMainSurface = text => {
+  const regionSize = new Map();
+  const candidates = [];
+  for (const line of (text || '').split('\n')) {
+    const add = line.match(/wl_region[#@](\d+)\.add\(0,\s*0,\s*(\d+),\s*(\d+)\)/);
+    if (add) regionSize.set(add[1], { w: Number(add[2]), h: Number(add[3]) });
+    const opaque = line.match(/wl_surface[#@](\d+)\.set_opaque_region\(wl_region[#@](\d+)\)/);
+    if (opaque) {
+      const size = regionSize.get(opaque[2]);
+      if (size && size.w === 1320 && size.h === 900) {
+        candidates.push({ id: opaque[1], how: 'set_opaque_region 1320x900', size: '1320x900' });
+      }
+    }
+  }
+  if (candidates[0]) return candidates[0];
+  return { id: null, how: 'unresolved-no-1320x900-opaque', size: null };
+};
+const mainSurfaceTimeline = (text, id) => {
+  if (!id) {
+    return { frameCount: 0, firstFrameT: null, lastFrameT: null, createT: null, firstFrameAfterCreateMs: null, lastFrameAfterCreateMs: null, frames: [] };
+  }
+  const frames = [];
+  let createT = null;
+  for (const line of (text || '').split('\n')) {
+    const t = parseWaylandTs(line);
+    if (t != null && new RegExp(`create_surface\\(new id wl_surface[#@]${id}\\)`).test(line)) createT = t;
+    const frame = line.match(new RegExp(`wl_surface[#@]${id}\\.frame\\(new id wl_callback[#@](\\d+)\\)`));
+    if (frame && t != null) frames.push({ t, callback: frame[1], line: line.slice(0, 240) });
+  }
+  return {
+    frameCount: frames.length,
+    firstFrameT: frames[0]?.t ?? null,
+    lastFrameT: frames.at(-1)?.t ?? null,
+    createT,
+    firstFrameAfterCreateMs: frames[0] && createT != null ? frames[0].t - createT : null,
+    lastFrameAfterCreateMs: frames.at(-1) && createT != null ? frames.at(-1).t - createT : null,
+    frames: frames.length <= 12 ? frames : [...frames.slice(0, 6), ...frames.slice(-4)],
+  };
+};
 const analyzeHungSurfaces = ({ client = '', pre = '', core = '', post = '', widened = '' } = {}) => {
-  const windowId = '3';
-  const window = surfaceStats([client, core, post].join('\n'), windowId);
-  const saw1320 = /add\(0, 0, 1320, 900\)/.test(client + core) || /create_buffer\([^)]*1352,\s*942/.test(client + core);
+  const resolved = resolveMainSurface([client, core, post].join('\n'));
+  const windowId = resolved.id;
+  const window = windowId ? surfaceStats([client, core, post].join('\n'), windowId) : {
+    emittedFrame: false, frameCount: 0, matchingDone: null, callbackIds: [], lastFrame: null,
+  };
   const helperIds = [...new Set(
     discoverSurfaceIds([pre, core, post, client, widened].join('\n')).filter(id => id !== windowId),
   )].sort((a, b) => Number(a) - Number(b));
@@ -274,9 +319,10 @@ const analyzeHungSurfaces = ({ client = '', pre = '', core = '', post = '', wide
   const helpersDuringHung = helpers.filter(helper => helper.duringHung).map(helper => helper.id);
   const helpersOnlyPre = helpers.filter(helper => helper.emittedFrame && !helper.duringHung).map(helper => helper.id);
   return {
-    windowSurface: `wl_surface#${windowId}`,
-    windowSize: '1320x900',
-    windowLooksLikeHungWindow: saw1320,
+    mainSurface: resolved,
+    windowSurface: windowId ? `wl_surface#${windowId}` : null,
+    windowSize: resolved.size,
+    windowLooksLikeHungWindow: Boolean(windowId),
     windowEmittedFrame: window.emittedFrame,
     windowFrameCount: window.frameCount,
     windowMatchingDone: window.matchingDone,
@@ -292,11 +338,13 @@ const analyzeHungSurfaces = ({ client = '', pre = '', core = '', post = '', wide
       : helpersOnlyPre.length
         ? `helper frame/done only in pre-slice (${helpersOnlyPre.join(', ')}); core+post silent — not explained by narrow slice`
         : 'no helper frame/done in widened pre/core/post — cannot distinguish true stop vs idle helper',
-    interpretation: !window.emittedFrame
-      ? 'no #3.frame in widened client/core/post: client did not request frames for the hung window; cannot prove callback sent but missed'
-      : window.matchingDone
-        ? '#3.frame got matching wl_callback.done'
-        : '#3.frame seen but no matching wl_callback.done',
+    interpretation: !windowId
+      ? 'main 1320x900 surface id unresolved this launch'
+      : !window.emittedFrame
+        ? `no wl_surface#${windowId}.frame in widened client/core/post: client did not request frames for the main window; cannot prove callback sent but missed`
+        : window.matchingDone
+          ? `wl_surface#${windowId}.frame got matching wl_callback.done`
+          : `wl_surface#${windowId}.frame seen but no matching wl_callback.done`,
   };
 };
 const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog, dumpLabel, extra = {} }) => {
@@ -310,36 +358,50 @@ const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog
   const preStart = Math.max(0, Math.min(westonStart, hangEnd) - westonPreBytes);
   await writeRange(atHang.buf, preStart, Math.min(westonStart, hangEnd), prePath);
   await writeRange(atHang.buf, Math.min(westonStart, hangEnd), hangEnd, corePath);
-  await new Promise(resolve => setTimeout(resolve, westonPostMs));
+  const postDeadline = Date.now() + westonPostMs;
+  let afterWait = atHang;
+  while (Date.now() < postDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    afterWait = await readWestonLive();
+  }
   await extra.flushClientLog?.();
-  const afterWait = await readWestonLive();
-  await writeRange(afterWait.buf, hangEnd, afterWait.buf.length, postPath);
+  afterWait = await readWestonLive();
   const pre = atHang.buf.subarray(preStart, Math.min(westonStart, hangEnd));
   const core = atHang.buf.subarray(Math.min(westonStart, hangEnd), hangEnd);
   const post = afterWait.buf.subarray(Math.min(hangEnd, afterWait.buf.length));
+  const postHeader = Buffer.from(`POST_CAPTURE ts=${Date.now()} hangEnd=${hangEnd} liveAfter=${afterWait.buf.length} protocolBytes=${post.length} postMs=${westonPostMs}\n`);
+  await fs.writeFile(postPath, Buffer.concat([postHeader, post]));
   await fs.writeFile(westonRoundLog, Buffer.concat([pre, core, post]));
   const westonMeta = {
     dest: westonRoundLog, prePath, corePath, postPath,
     liveBytesAtHang: hangEnd, liveBytesAfterPost: afterWait.buf.length,
-    preBytes: pre.length, coreBytes: core.length, postBytes: post.length,
+    preBytes: pre.length, coreBytes: core.length, postProtocolBytes: post.length, postFileBytes: postHeader.length + post.length,
     widenedBytes: pre.length + core.length + post.length,
     startSize: Math.min(westonStart, hangEnd), preStart, postMs: westonPostMs,
   };
+  const clientText = await readText(clientLog);
+  const preText = pre.toString('utf8');
+  const coreText = core.toString('utf8');
+  const postText = post.toString('utf8');
   const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog, prePath, corePath, postPath);
   const frameCallback = interpretFrameLogs(frameLogs);
   const hungSurfaceTable = analyzeHungSurfaces({
-    client: await readText(clientLog),
-    pre: pre.toString('utf8'),
-    core: core.toString('utf8'),
-    post: post.toString('utf8'),
-    widened: Buffer.concat([pre, core, post]).toString('utf8'),
+    client: clientText, pre: preText, core: coreText, post: postText,
+    widened: [preText, coreText, postText].join('\n'),
   });
+  const processText = [clientText, coreText, postText].join('\n');
+  const mainSurface = hungSurfaceTable.mainSurface;
+  const timeline = mainSurfaceTimeline(processText, mainSurface.id);
   const dumpPath = path.join(artifactDir, `linux-wayland-diag-${dumpLabel}.json`);
+  const markers = extra.markers ?? null;
   try {
     const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
     dumped.frameLogs = frameLogs;
     dumped.frameCallback = frameCallback;
     dumped.hungSurfaceTable = hungSurfaceTable;
+    dumped.mainSurface = mainSurface;
+    dumped.mainSurfaceTimeline = timeline;
+    dumped.markers = markers;
     dumped.gpu = diagGpu;
     dumped.clientLog = clientLog;
     dumped.westonLog = westonRoundLog;
@@ -347,8 +409,14 @@ const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog
     dumped.installSource = dumped.installSource ?? extra.installSource ?? null;
     await fs.writeFile(dumpPath, `${JSON.stringify(dumped, null, 2)}\n`);
   } catch {}
-  console.log('WAYLAND_FILE_DIAG_FRAME', JSON.stringify({ label, gpu: diagGpu, frameCallback, hungSurfaceTable, westonMeta }));
-  return { frameLogs, frameCallback, hungSurfaceTable, westonMeta };
+  console.log('WAYLAND_FILE_DIAG_FRAME', JSON.stringify({
+    label, gpu: diagGpu, mainSurface, timeline: {
+      frameCount: timeline.frameCount, firstFrameT: timeline.firstFrameT, lastFrameT: timeline.lastFrameT,
+      firstFrameAfterCreateMs: timeline.firstFrameAfterCreateMs,
+    },
+    hungSurfaceTable, westonMeta, markers,
+  }));
+  return { frameLogs, frameCallback, hungSurfaceTable, westonMeta, mainSurface, timeline };
 };
 const probeHungRenderer = async (app, page) => {
   const readMain = () => app.evaluate(({ BrowserWindow }) => {
@@ -462,12 +530,15 @@ const classifyRelaunchFailure = async (app, page, locator, label, before) => {
   }
 };
 const clickFileClassified = async (app, page, locator, label) => {
+  try { await page.evaluate(() => window.__waylandDiag?.mark?.('file-click')); } catch {}
+  const fileClickAt = Date.now();
   const before = await snapshotWaylandDiag(page);
   try {
     await locator.click({ timeout: 10000 });
-    return { ok: true, kind: null, before, after: await snapshotWaylandDiag(page) };
+    return { ok: true, kind: null, before, after: await snapshotWaylandDiag(page), fileClickAt };
   } catch (error) {
-    return classifyRelaunchFailure(app, page, locator, label, { ...before, error });
+    const classified = await classifyRelaunchFailure(app, page, locator, label, { ...before, error });
+    return { ...classified, fileClickAt };
   }
 };
 const runRelaunchFileLoop = async (n = 100) => {
@@ -476,7 +547,9 @@ const runRelaunchFileLoop = async (n = 100) => {
     { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
   ];
   const earlyStopAt = Number(process.env.PILOTDECK_WAYLAND_DIAG_EARLY_STOP || 3);
+  const okKeep = Number(process.env.PILOTDECK_WAYLAND_DIAG_OK_KEEP || 3);
   const rounds = [];
+  let okKept = 0;
   for (let i = 1; i <= n; i += 1) {
     const label = `relaunch-${String(i).padStart(3, '0')}`;
     const clientLog = path.join(artifactDir, `linux-wayland-diag-${label}-wayland-client.log`);
@@ -494,25 +567,40 @@ const runRelaunchFileLoop = async (n = 100) => {
       await expect(caption.locator('button')).toHaveCount(5);
       const fileBtn = caption.getByRole('button', { name: 'File', exact: true });
       const result = await clickFileClassified(launched.app, launched.page, fileBtn, label);
-      if (!result.ok) {
+      const keepLogs = !result.ok || okKept < okKeep;
+      if (keepLogs) {
+        if (result.ok) {
+          await dumpWaylandDiag(launched.page, label, null, {
+            kind: 'ok', group: diagGroup, installSource: result.after?.installSource ?? result.before?.installSource ?? null,
+            before: result.before, after: result.after,
+          }).catch(() => {});
+          okKept += 1;
+        }
         const recorded = await recordFailureLogs({
           label, clientLog, westonStart, westonRoundLog, dumpLabel: label,
           extra: {
             flushClientLog: launched.flushClientLog,
-            installSource: result.after10?.installSource ?? result.before?.installSource ?? null,
+            installSource: result.after?.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null,
+            markers: { fileClickAt: result.fileClickAt ?? null, kind: result.kind, ok: result.ok },
           },
         });
         result.frameCallback = recorded.frameCallback;
         result.hungSurfaceTable = recorded.hungSurfaceTable;
+        result.mainSurface = recorded.mainSurface;
+        result.timeline = recorded.timeline;
+        result.westonMeta = recorded.westonMeta;
       }
       rounds.push({
-        i, ok: result.ok, kind: result.kind,
+        i, ok: result.ok, kind: result.kind, keepLogs,
         installSource: result.after?.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null,
         rafDelta1s: result.before?.rafDelta1s, rafRate: result.before?.rafRate,
         visibility: result.before?.visibility, hasFocus: result.before?.hasFocus, box: result.before?.box,
         probe: result.probe ?? null,
         frameCallback: result.frameCallback ?? null,
         hungSurfaceTable: result.hungSurfaceTable ?? null,
+        mainSurface: result.mainSurface ?? null,
+        timeline: result.timeline ?? null,
+        westonMeta: result.westonMeta ?? null,
         error: result.error?.message ?? result.before?.error?.message ?? null,
       });
     } catch (error) {
@@ -525,10 +613,13 @@ const runRelaunchFileLoop = async (n = 100) => {
     } finally {
       await launched.app.close().catch(() => {});
       await fs.rm(launched.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-      if (rounds.at(-1)?.ok) {
+      if (rounds.at(-1)?.ok && !rounds.at(-1)?.keepLogs) {
         await fs.rm(clientLog, { force: true });
         await fs.rm(`${clientLog}.live`, { force: true });
         await fs.rm(westonRoundLog, { force: true });
+        await fs.rm(westonRoundLog.replace(/\.log$/, '-pre.log'), { force: true });
+        await fs.rm(westonRoundLog.replace(/\.log$/, '-core.log'), { force: true });
+        await fs.rm(westonRoundLog.replace(/\.log$/, '-post.log'), { force: true });
       }
     }
     const trulyHung = rounds.filter(round => round.kind === 'truly hung').length;
@@ -538,22 +629,58 @@ const runRelaunchFileLoop = async (n = 100) => {
     }
   }
   const rates = rounds.map(round => round.rafRate).filter(value => typeof value === 'number');
+  const hung = rounds.filter(round => round.kind === 'truly hung');
+  const okSamples = rounds.filter(round => round.ok && round.keepLogs);
+  const hungNoMainFrame = hung.filter(round => round.timeline && round.timeline.frameCount === 0);
+  const okHaveMainFrame = okSamples.filter(round => round.timeline && round.timeline.frameCount > 0);
+  let judgment = { code: '本轮没抓到', reason: 'no truly hung this N; do not claim client-stop-frame' };
+  if (hung.length) {
+    if (hungNoMainFrame.length === hung.length && okSamples.length && okHaveMainFrame.length === okSamples.length) {
+      judgment = {
+        code: 'client-stop-frame 坐实',
+        reason: 'every hung main surface had 0 frames; every kept OK sample had main-surface frames',
+      };
+    } else if (hungNoMainFrame.length === hung.length && okSamples.length && okHaveMainFrame.length < okSamples.length) {
+      judgment = {
+        code: '观测缺口',
+        reason: 'hung main surfaces had 0 frames but OK samples also often lack main-surface frames',
+      };
+    } else {
+      judgment = {
+        code: '观测缺口',
+        reason: 'hung vs OK main-surface frame pattern is mixed; not compositor this round',
+      };
+    }
+  }
   console.log('WAYLAND_FILE_DIAG_RELAUNCH_STATS', JSON.stringify({
     group: diagGroup || null,
     gpu: diagGpu,
     gpuLaunchArgs,
     nRequested: n,
     n: rounds.length,
-    earlyStop: diagGroup === 'C' && rounds.filter(round => round.kind === 'truly hung').length >= earlyStopAt,
+    earlyStop: diagGroup === 'C' && hung.length >= earlyStopAt,
     failures: rounds.filter(round => !round.ok).length,
     notClickedWithin10s: rounds.filter(round => round.kind === 'not clicked within 10s').length,
-    trulyHung: rounds.filter(round => round.kind === 'truly hung').length,
+    trulyHung: hung.length,
     setupFailed: rounds.filter(round => round.kind === 'setup-failed').length,
     rafRateMin: rates.length ? Math.min(...rates) : null,
     rafRateMax: rates.length ? Math.max(...rates) : null,
     rafRates: rates,
     visibility: rounds.map(round => round.visibility),
     fails: rounds.filter(round => !round.ok),
+    okSamples: okSamples.map(round => ({
+      i: round.i, mainSurface: round.mainSurface, frameCount: round.timeline?.frameCount ?? null,
+      firstFrameAfterCreateMs: round.timeline?.firstFrameAfterCreateMs ?? null,
+      rafRate: round.rafRate, visibility: round.visibility, hasFocus: round.hasFocus,
+    })),
+    hungTimelines: hung.map(round => ({
+      i: round.i, mainSurface: round.mainSurface, frameCount: round.timeline?.frameCount ?? null,
+      firstFrameT: round.timeline?.firstFrameT ?? null, lastFrameT: round.timeline?.lastFrameT ?? null,
+      firstFrameAfterCreateMs: round.timeline?.firstFrameAfterCreateMs ?? null,
+      rafRate: round.rafRate, visibility: round.visibility, hasFocus: round.hasFocus, box: round.box,
+      postProtocolBytes: round.westonMeta?.postProtocolBytes ?? null,
+    })),
+    judgment,
     frameCallbacks: rounds.filter(round => !round.ok).map(round => ({
       i: round.i, kind: round.kind, frameCallback: round.frameCallback, hungSurfaceTable: round.hungSurfaceTable,
     })),
