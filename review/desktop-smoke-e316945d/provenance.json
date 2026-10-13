@@ -1,0 +1,36 @@
+{
+  "task": "post-merge Desktop smoke (x11 + wayland) on e316945d",
+  "verificationOnly": true,
+  "evidenceBranch": "review/desktop-smoke-e316945d",
+  "noPullRequest": true,
+  "gitSha": "e316945d0c667b64bcbd2e27a1bd05ca895ab1d5",
+  "gitDirtyAtCollectStart": false,
+  "parents": [
+    "761572d7ff548eb41f27ebdb9a70faaccc73fdb8",
+    "b257df70181004db13b35924c3bbd4b425e498c0"
+  ],
+  "subject": "Merge pull request #12 from Eveosev/pilotdeck-rust/T-CI-web-green",
+  "baseBranch": "rust_standalone_alpha1",
+  "recordedAt": "2026-10-13T06:00:56Z",
+  "localChrome": {
+    "x11": { "exit": 0, "startedAt": "2026-10-13T05:59:41Z", "endedAt": "2026-10-13T06:00:04Z" },
+    "wayland": { "exit": 0, "startedAt": "2026-10-13T06:00:12Z", "endedAt": "2026-10-13T06:00:33Z" }
+  },
+  "lineageDesktopRun": {
+    "id": 38352306293,
+    "headSha": "b257df70181004db13b35924c3bbd4b425e498c0",
+    "conclusion": "success",
+    "url": "https://github.com/Eveosev/PilotDeck/actions/runs/38352306293"
+  },
+  "mergeShaActions": "none",
+  "overall": "PASS",
+  "recordedHost": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "arch": "x86_64",
+    "kernel": "6.12.94+",
+    "node": "v22.23.3",
+    "pnpm": "10.32.1",
+    "weston": "13.0.0",
+    "electron": "42.11.1"
+  }
+}

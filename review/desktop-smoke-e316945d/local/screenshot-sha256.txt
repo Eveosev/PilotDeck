@@ -1,0 +1,20 @@
+# chrome screenshot sha256
+recordedAt=2026-10-13T06:00:56Z
+c60bd3f519be68a3f888aab4c045ad13e2d3d2b65062f7b809e4900628349055  outputs/desktop-chrome-review/linux-wayland/linux-dark.png
+df769841763988034eefc1369a7e6453c6330c3af72da2ed47a141f12d5946ec  outputs/desktop-chrome-review/linux-wayland/linux-dark-popup.png
+2520974557bfba454aab2a1d46a01d0c141b051460c7f2d589ed2e626e8aa5d2  outputs/desktop-chrome-review/linux-wayland/linux-light.png
+b5ba3ab1f3e4f2a1e8afff059ab65150bf421137ba25fbbd85c453af3997b75b  outputs/desktop-chrome-review/linux-wayland/linux-light-popup.png
+6210f1816dffe2eab2d878e614ebf57d53e0a5e8d3472f6fb9d6fde39a6e707c  outputs/desktop-chrome-review/linux-wayland/linux-light-zh.png
+caf33d9acc28c25698f169c590b6dc121a246753be2c9a34a82dcee727f8a755  outputs/desktop-chrome-review/linux-wayland/linux-light-zh-popup.png
+7dbbf934ccad3d8df0a51e22c87971f92c31ef5fbd051ddcade8dfb683da3ec4  outputs/desktop-chrome-review/linux-wayland/linux-onboarding-compact.png
+b15c7e526c2fcd246302a58bfaf542601841472cab10cf1dc9eb5de2ec6afa56  outputs/desktop-chrome-review/linux-wayland/linux-onboarding.png
+6083f51c1c98f698d2934dafa64234827190c3736f95e28228aa2c3b134e22c9  outputs/desktop-chrome-review/linux-wayland/linux-settings.png
+5325ac09e73af4fd4fdccd36f186ef4e8caad237672ad3be6fb4e7d061835681  outputs/desktop-chrome-review/linux-x11/linux-dark.png
+c625734d8a8f101668853711e425f984878da3d8c0070112dbece4776828cd7c  outputs/desktop-chrome-review/linux-x11/linux-dark-popup.png
+157a6cd223fd95b6a6607020fd4cf305859a996cef7f34572e1846d5a0fbbf38  outputs/desktop-chrome-review/linux-x11/linux-light.png
+6991aba5a8b2536e4e443b6e5fec35bd5b0aeeebf9d7000191b9d1f5b5e37075  outputs/desktop-chrome-review/linux-x11/linux-light-popup.png
+e65886413ffbf122c120f6fd83d2249fcbea9336e6a415fc20889f7ff01fe7be  outputs/desktop-chrome-review/linux-x11/linux-light-zh.png
+8710f3dea966a50f031e83140e3e0850a95300dfa8c11c048ec121f7b69a9e32  outputs/desktop-chrome-review/linux-x11/linux-light-zh-popup.png
+3c7d85f5e4fe63e5a949c2342bf95e5a6afc1cb021b3deb57f5b30425610b3c2  outputs/desktop-chrome-review/linux-x11/linux-onboarding-compact.png
+c77090885d57cd29338a290618e044ccb58314cd880944cf7760fe39957854e6  outputs/desktop-chrome-review/linux-x11/linux-onboarding.png
+8a41b08c1089c745e1b50b94efdf0b3aa6be6511dd88e83815aff4b90302ec1a  outputs/desktop-chrome-review/linux-x11/linux-settings.png

@@ -1,0 +1,6 @@
+node=v22.23.3 start=2026-10-13T06:00:12Z
+dbus-daemon[4583]: [session uid=1000 pid=4583] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=4596 comm="/workspace/node_modules/.pnpm/electron@42.11.1/nod" label="kernel")
+dbus-daemon[4583]: [session uid=1000 pid=4583] Successfully activated service 'org.a11y.Bus'
+PASS: compact caption and rich About dialog, version copy and project link
+{"passed":true,"geometry":{"x":6,"border":"1px","radius":"14px"},"unmappedFixtureEndpoints":["/api/taskmaster/installation-status","/api/agents/runtime-config","/api/commands/list","/api/v1/providers"],"artifactDir":"/workspace/outputs/desktop-chrome-review/linux-wayland"}
+exit=0 end=2026-10-13T06:00:33Z
