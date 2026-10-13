@@ -3,8 +3,9 @@
 - 分支：`pilotdeck-rust/T-CI-F3-node-test-scan`
 - 基线：`d6ec73d824e74009c47c0254c86db194ad7ce66d`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/13
-- 当前 tip：_pending this commit_
-- Web Regression / Desktop：_pending new head_
+- 当前 tip / 门禁 head：`a84ff5b6b8c8dbb1f34c59ee2d994808049e2dc4`
+- Web Regression：**success** https://github.com/Eveosev/PilotDeck/actions/runs/38357331902 （web + docker；check `ok: 8 files`；`# tests 40` `# pass 40` `# fail 0`；vitest 268 / 2204）
+- Desktop（`ui/**`）：**success** https://github.com/Eveosev/PilotDeck/actions/runs/38357331918 （Checks + Linux/macOS/Windows 全绿）
 
 ## Before / after 扫描列表
 
@@ -29,16 +30,7 @@ exit **0**。`ui/vite.config.js` exclude、`vitest.config.js` exclude（ui 子�
 
 ## 负向（temp worktree，真改 exclude）
 
-Worktree 挂在实现 tip 上，拷入本轮检查脚本（提交后可直接 `git worktree add`），并 symlink `node_modules`：
-
-```
-WT=/tmp/T-CI-F3-neg
-git worktree add "$WT" HEAD
-cp scripts/check-web-node-test-scan.mjs scripts/lib/resolve-from-ui.mjs scripts/lib/web-node-test-files.mjs "$WT/scripts/..." 
-cp ui/vite.config.js "$WT/ui/vite.config.js"
-ln -sfn "$(pwd)/node_modules" "$WT/node_modules"
-ln -sfn "$(pwd)/ui/node_modules" "$WT/ui/node_modules"
-```
+在 `a84ff5b6` 上 `git worktree add /tmp/T-CI-F3-neg HEAD`，symlink `node_modules` / `ui/node_modules`：
 
 **加一条**（`ui/vite.config.js` 仅 `test.exclude`）：
 
