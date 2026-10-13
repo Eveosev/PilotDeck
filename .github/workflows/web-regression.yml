@@ -36,40 +36,19 @@ jobs:
       - name: Test Web UI node:test files
         # These suites import node:test. Vitest/Vite cannot bundle that builtin,
         # so they are excluded from the Vitest step and run here with Node.
-        working-directory: ui
+        # The file set is the same list as ui/vite.config.js test.exclude
+        # (scripts/lib/web-node-test-files.mjs). The check fails if they drift.
         run: |
-          files="$(node --input-type=module <<'EOF'
-          import { readdirSync, readFileSync } from 'node:fs';
-          import { join } from 'node:path';
-          const out = [];
-          function walk(dir) {
-            for (const entry of readdirSync(dir, { withFileTypes: true })) {
-              const path = join(dir, entry.name);
-              if (entry.isDirectory()) {
-                if (!['node_modules', 'dist', 'e2e'].includes(entry.name)) walk(path);
-                continue;
-              }
-              if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue;
-              const src = readFileSync(path, 'utf8');
-              if (/(?:from|import)\s+['"]node:test['"]/.test(src)) out.push(path);
-            }
-          }
-          walk('server');
-          if (out.length === 0) {
-            console.error('expected node:test files under ui/server');
-            process.exit(1);
-          }
-          process.stdout.write(out.sort().join('\n'));
-          EOF
-          )"
+          node scripts/check-web-node-test-scan.mjs
+          files="$(node scripts/check-web-node-test-scan.mjs --print)"
           echo "Running node --test on ${files//$'\n'/ }"
           printf '%s\n' "$files"
           mapfile -t file_list <<< "$files"
           if [ "${#file_list[@]}" -lt 8 ]; then
-            echo "expected at least 8 ui/server node:test files, found ${#file_list[@]}"
+            echo "expected at least 8 ui node:test files, found ${#file_list[@]}"
             exit 1
           fi
-          node --test "${file_list[@]}"
+          (cd ui && node --test "${file_list[@]}")
 
       - name: Test Web UI and server
         # The upstream suite currently lets Vitest collect a Playwright E2E file,
