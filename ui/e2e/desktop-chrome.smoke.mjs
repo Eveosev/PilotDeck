@@ -21,12 +21,17 @@ const { installWaylandDiag } = createRequire(import.meta.url)(
   path.join(root, 'apps/desktop/scripts/fixtures/wayland-file-diag.cjs'),
 );
 const diagGroup = process.env.PILOTDECK_WAYLAND_DIAG_GROUP || '';
+const diagGpu = process.env.PILOTDECK_WAYLAND_DIAG_GPU || 'default';
+const gpuLaunchArgs = diagGpu === 'off' ? ['--disable-gpu']
+  : diagGpu === 'swiftshader' ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+  : [];
 const electronLaunchArgs = [
   path.join(root, 'apps/desktop/scripts/fixtures/desktop-chrome.cjs'),
   ...(process.env.PILOTDECK_CHROME_SCALE ? [`--force-device-scale-factor=${process.env.PILOTDECK_CHROME_SCALE}`] : []),
   ...(process.env.PILOTDECK_CHROME_OZONE ? [`--ozone-platform=${process.env.PILOTDECK_CHROME_OZONE}`] : []),
   ...(process.env.PILOTDECK_CHROME_DISABLE_SANDBOX ? ['--no-sandbox'] : []),
   ...(diagGroup === 'B' ? ['--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] : []),
+  ...gpuLaunchArgs,
 ];
 const snapshotWaylandDiag = async page => {
   try { return await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null); }
@@ -43,6 +48,7 @@ const dumpWaylandDiag = async (page, label, error, extra = {}) => {
     snapshot,
     installSource: snapshot?.installSource ?? extra.installSource ?? null,
     group: diagGroup || extra.group || null,
+    gpu: diagGpu,
     png, json,
     ...extra,
   };
@@ -53,6 +59,7 @@ const dumpWaylandDiag = async (page, label, error, extra = {}) => {
     label, png, json,
     kind: extra.kind ?? null,
     group: diagGroup || null,
+    gpu: diagGpu,
     installSource: snapshot?.installSource ?? extra.installSource ?? null,
     rafCount: snapshot?.rafCount, rafDelta1s: snapshot?.rafDelta1s, rafRate: snapshot?.rafRate,
     visibility: snapshot?.visibility, hasFocus: snapshot?.hasFocus, box: snapshot?.box,
@@ -159,11 +166,11 @@ const summarizeFrameLogs = async (...files) => {
       file,
       bytes: Buffer.byteLength(text),
       wlCallback: count(text, /wl_callback/g),
-      surfaceFrame: count(text, /wl_surface@[0-9]+\.frame/g),
-      callbackDone: count(text, /wl_callback@[0-9]+\.done/g),
-      callbackNew: count(text, /new id wl_callback@/g),
-      lastSurfaceFrame: lastMatchingLine(text, /wl_surface@[0-9]+\.frame/),
-      lastCallbackDone: lastMatchingLine(text, /wl_callback@[0-9]+\.done/),
+      surfaceFrame: count(text, /wl_surface[#@][0-9]+\.frame/g),
+      callbackDone: count(text, /wl_callback[#@][0-9]+\.done/g),
+      callbackNew: count(text, /new id wl_callback[#@]/g),
+      lastSurfaceFrame: lastMatchingLine(text, /wl_surface[#@][0-9]+\.frame/),
+      lastCallbackDone: lastMatchingLine(text, /wl_callback[#@][0-9]+\.done/),
       lastProtocolLine: lastNonEmptyLine(text),
       tailLines: nonEmpty.slice(-20),
       frame: count(text, /\bframe\b/gi),
@@ -181,8 +188,8 @@ const interpretFrameLogs = parts => {
   const lastCallbackDone = [...parts].reverse().find(part => part.lastCallbackDone)?.lastCallbackDone ?? null;
   const lastProtocolLine = [...parts].reverse().find(part => part.lastProtocolLine)?.lastProtocolLine ?? null;
   const tail = parts.flatMap(part => part.tailLines || []);
-  const tailHasDone = tail.some(line => /wl_callback@[0-9]+\.done/.test(line));
-  const tailHasFrame = tail.some(line => /wl_surface@[0-9]+\.frame/.test(line));
+  const tailHasDone = tail.some(line => /wl_callback[#@][0-9]+\.done/.test(line));
+  const tailHasFrame = tail.some(line => /wl_surface[#@][0-9]+\.frame/.test(line));
   let status = 'inconclusive';
   let reason = 'no wl_surface.frame / wl_callback.done in captured logs; compositor not ruled out';
   if (bytes === 0) reason = 'empty logs; compositor not ruled out';
@@ -205,25 +212,66 @@ const interpretFrameLogs = parts => {
     lastSurfaceFrame, lastCallbackDone, lastProtocolLine,
   };
 };
+const analyzeHungSurfaces = (...texts) => {
+  const text = texts.filter(Boolean).join('\n');
+  const windowId = '3';
+  const windowFrames = [...text.matchAll(new RegExp(`wl_surface[#@]${windowId}\\.frame\\(new id wl_callback[#@](\\d+)\\)`, 'g'))];
+  const windowCallbackIds = [...new Set(windowFrames.map(match => match[1]))];
+  const windowMatchingDone = windowCallbackIds.filter(id =>
+    new RegExp(`wl_callback[#@]${id}\\.done`).test(text));
+  const helperFrames = [...text.matchAll(/wl_surface[#@](\d+)\.frame\(new id wl_callback[#@](\d+)\)/g)]
+    .filter(match => match[1] !== windowId);
+  const helperIds = [...new Set(helperFrames.map(match => match[1]))];
+  const helperDones = helperFrames.filter(match =>
+    new RegExp(`wl_callback[#@]${match[2]}\\.done`).test(text));
+  const saw1320 = /add\(0, 0, 1320, 900\)/.test(text) || /create_buffer\([^)]*1352,\s*942/.test(text);
+  const windowEmittedFrame = windowFrames.length > 0;
+  const helperFrameOrDone = helperFrames.length > 0 || helperDones.length > 0;
+  return {
+    windowSurface: `wl_surface#${windowId}`,
+    windowSize: '1320x900',
+    windowLooksLikeHungWindow: saw1320,
+    windowEmittedFrame,
+    windowFrameCount: windowFrames.length,
+    windowMatchingDone: windowEmittedFrame ? windowMatchingDone.length > 0 : null,
+    windowCallbackIds,
+    helperFrameOrDone,
+    helperSurfaces: helperIds,
+    helperFrameCount: helperFrames.length,
+    helperDoneCount: helperDones.length,
+    interpretation: !windowEmittedFrame
+      ? 'no #3.frame: client stopped requesting frames for the hung window; cannot prove callback sent but missed. helper traffic (if any) means weston is not globally dead'
+      : windowMatchingDone.length > 0
+        ? '#3.frame got matching wl_callback.done'
+        : '#3.frame seen but no matching wl_callback.done',
+  };
+};
 const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog, dumpLabel, extra = {} }) => {
   await new Promise(resolve => setTimeout(resolve, 150));
   await extra.flushClientLog?.();
   const westonMeta = await sliceWestonLog(westonStart, westonRoundLog);
   const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog);
   const frameCallback = interpretFrameLogs(frameLogs);
+  const texts = [];
+  for (const file of [clientLog, westonRoundLog].filter(Boolean)) {
+    try { texts.push(await fs.readFile(file, 'utf8')); } catch {}
+  }
+  const hungSurfaceTable = analyzeHungSurfaces(...texts);
   const dumpPath = path.join(artifactDir, `linux-wayland-diag-${dumpLabel}.json`);
   try {
     const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
     dumped.frameLogs = frameLogs;
     dumped.frameCallback = frameCallback;
+    dumped.hungSurfaceTable = hungSurfaceTable;
+    dumped.gpu = diagGpu;
     dumped.clientLog = clientLog;
     dumped.westonLog = westonRoundLog;
     dumped.westonMeta = westonMeta;
     dumped.installSource = dumped.installSource ?? extra.installSource ?? null;
     await fs.writeFile(dumpPath, `${JSON.stringify(dumped, null, 2)}\n`);
   } catch {}
-  console.log('WAYLAND_FILE_DIAG_FRAME', JSON.stringify({ label, frameCallback, westonMeta }));
-  return { frameLogs, frameCallback, westonMeta };
+  console.log('WAYLAND_FILE_DIAG_FRAME', JSON.stringify({ label, gpu: diagGpu, frameCallback, hungSurfaceTable, westonMeta }));
+  return { frameLogs, frameCallback, hungSurfaceTable, westonMeta };
 };
 const probeHungRenderer = async (app, page) => {
   const readMain = () => app.evaluate(({ BrowserWindow }) => {
@@ -378,6 +426,7 @@ const runRelaunchFileLoop = async (n = 100) => {
           },
         });
         result.frameCallback = recorded.frameCallback;
+        result.hungSurfaceTable = recorded.hungSurfaceTable;
       }
       rounds.push({
         i, ok: result.ok, kind: result.kind,
@@ -386,6 +435,7 @@ const runRelaunchFileLoop = async (n = 100) => {
         visibility: result.before?.visibility, hasFocus: result.before?.hasFocus, box: result.before?.box,
         probe: result.probe ?? null,
         frameCallback: result.frameCallback ?? null,
+        hungSurfaceTable: result.hungSurfaceTable ?? null,
         error: result.error?.message ?? result.before?.error?.message ?? null,
       });
     } catch (error) {
@@ -406,13 +456,15 @@ const runRelaunchFileLoop = async (n = 100) => {
     }
     const trulyHung = rounds.filter(round => round.kind === 'truly hung').length;
     if (diagGroup === 'C' && trulyHung >= earlyStopAt) {
-      console.log('WAYLAND_FILE_DIAG_EARLY_STOP', JSON.stringify({ group: diagGroup, i, trulyHung, earlyStopAt }));
+      console.log('WAYLAND_FILE_DIAG_EARLY_STOP', JSON.stringify({ group: diagGroup, gpu: diagGpu, i, trulyHung, earlyStopAt }));
       break;
     }
   }
   const rates = rounds.map(round => round.rafRate).filter(value => typeof value === 'number');
   console.log('WAYLAND_FILE_DIAG_RELAUNCH_STATS', JSON.stringify({
     group: diagGroup || null,
+    gpu: diagGpu,
+    gpuLaunchArgs,
     nRequested: n,
     n: rounds.length,
     earlyStop: diagGroup === 'C' && rounds.filter(round => round.kind === 'truly hung').length >= earlyStopAt,
@@ -425,7 +477,9 @@ const runRelaunchFileLoop = async (n = 100) => {
     rafRates: rates,
     visibility: rounds.map(round => round.visibility),
     fails: rounds.filter(round => !round.ok),
-    frameCallbacks: rounds.filter(round => !round.ok).map(round => ({ i: round.i, kind: round.kind, frameCallback: round.frameCallback })),
+    frameCallbacks: rounds.filter(round => !round.ok).map(round => ({
+      i: round.i, kind: round.kind, frameCallback: round.frameCallback, hungSurfaceTable: round.hungSurfaceTable,
+    })),
   }));
   return rounds;
 };

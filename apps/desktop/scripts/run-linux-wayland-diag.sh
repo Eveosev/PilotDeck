@@ -16,7 +16,15 @@ export PILOTDECK_WAYLAND_DIAG=1
 export PILOTDECK_WAYLAND_DIAG_RELAUNCH_ONLY=1
 export PILOTDECK_WAYLAND_DIAG_N="${PILOTDECK_WAYLAND_DIAG_N:-100}"
 export PILOTDECK_WAYLAND_DIAG_EARLY_STOP="${PILOTDECK_WAYLAND_DIAG_EARLY_STOP:-3}"
-export PILOTDECK_CHROME_ARTIFACTS="$repo_root/outputs/desktop-chrome-review/linux-wayland-diag-$group"
+export PILOTDECK_WAYLAND_DIAG_GPU="${PILOTDECK_WAYLAND_DIAG_GPU:-default}"
+gpu="$PILOTDECK_WAYLAND_DIAG_GPU"
+if [[ "$gpu" != default && "$gpu" != off && "$gpu" != swiftshader ]]; then
+  echo "Unsupported PILOTDECK_WAYLAND_DIAG_GPU: $gpu" >&2
+  exit 1
+fi
+artifact_suffix=""
+if [[ "$gpu" != default ]]; then artifact_suffix="-$gpu"; fi
+export PILOTDECK_CHROME_ARTIFACTS="$repo_root/outputs/desktop-chrome-review/linux-wayland-diag-$group$artifact_suffix"
 mkdir -p "$PILOTDECK_CHROME_ARTIFACTS"
 if ! "$node_binary" -e "require('./apps/desktop/node_modules/electron')" >/dev/null 2>&1; then
   "$node_binary" apps/desktop/node_modules/electron/install.js
@@ -70,7 +78,7 @@ else
 fi
 {
   echo "WESTON_LAUNCH ${weston_cmd[*]}"
-  echo "XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group wayland_debug=1 weston_debug=$weston_debug"
+  echo "XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group gpu=$gpu wayland_debug=1 weston_debug=$weston_debug"
 } | tee "$PILOTDECK_CHROME_ARTIFACTS/weston-launch.txt"
 : >"$PILOTDECK_WESTON_LOG"
 "${weston_cmd[@]}" >>"$PILOTDECK_WESTON_LOG" 2>&1 &
