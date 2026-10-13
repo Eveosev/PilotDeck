@@ -2,7 +2,7 @@
 
 - 任务：T-P0a-07 Module Protocol 同步门禁（文档先行）
 - 分支：`pilotdeck-rust/T-P0a-07-protocol-change-gate`
-- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge `7d488a1b`、`2c4420b4` 与 `761572d7`）
+- PR：#7 draft → `rust_standalone_alpha1`（原基线 `1da663a2`；已 merge `7d488a1b`、`2c4420b4`、`761572d7` 与 `e316945d`）
 - 禁止：rebase / force-push / ready / merge；不改 `src/`、`.github/`、`crates/`、lockfile
 
 ## Commits
@@ -18,7 +18,9 @@
 | 6 | merge `2c4420b4`（PR #6） | `60d9d462a2d4527a20d8f013ea4c47015eae25d3` |
 | 7 | 记录 `2c4420b4` sync | `f6d46add243b5131d0a8141fb671c8009a629e87` |
 | 8 | merge `761572d7`（PR #8） | `82497abe8998d4a0aea6bc5ed51cfd817ee60c8c` |
-| 9 | 本记录（仅本文件） | （落地后 = 本提交） |
+| 9 | 记录 `761572d7` sync | `ca737b63d55bb383410e6033959714eaa3785ce1` |
+| 10 | merge `e316945d`（PR #12） | `04494c394085935951e1e9fdde6bb9b16b5c3a24` |
+| 11 | 本记录（仅本文件） | （落地后 = 本提交） |
 
 采集时 **`gitDirty=false`**，`gitSha=14b1a71ee8a63371c79a830f656482657e2a25a6`。
 
@@ -89,6 +91,29 @@ B = git diff $(git merge-base oldTip M) M -- . ':!review' | sha256sum
 | --- | --- |
 | A `git diff f6d46add 82497abe -- . ':!review'` | `ea6e77bc6a27d928d8725914a3aefda1e133a39b11ec6bd0d920244f2877d96c` |
 | B `git diff 2c4420b4 761572d7 -- . ':!review'` | `ea6e77bc6a27d928d8725914a3aefda1e133a39b11ec6bd0d920244f2877d96c` |
+
+**equality**：`true`。
+
+## 主线同步 #4（2026-10-13，PR #12 合入后，merge，非 rebase）
+
+- **date**：2026-10-13
+- **oldTip**：`ca737b63d55bb383410e6033959714eaa3785ce1`
+- **M**（`origin/rust_standalone_alpha1`，#12 merge）：`e316945d0c667b64bcbd2e27a1bd05ca895ab1d5`
+- **merge-base(oldTip, M)**：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
+- **mergeSha**：`04494c394085935951e1e9fdde6bb9b16b5c3a24`（parents `ca737b63` + `e316945d`）
+- **conflicts**：none。merge 提交无额外非冲突编辑（`--cc` 为空）。带入主线：`.github/workflows/web-regression.yml`、vitest/vite 与 UI 测试修复，以及 `review/2026-10-13-T-CI-web-green/`。
+
+验证：
+
+```
+A = git diff ca737b63 04494c39 -- . ':!review' | sha256sum
+B = git diff 761572d7 e316945d -- . ':!review' | sha256sum
+```
+
+| 侧 | sha256 |
+| --- | --- |
+| A `git diff ca737b63 04494c39 -- . ':!review'` | `d25b9599d7dc48f79e100698336bdfc4493a7a39e8faa0bf4447a7c902a87d59` |
+| B `git diff 761572d7 e316945d -- . ':!review'` | `d25b9599d7dc48f79e100698336bdfc4493a7a39e8faa0bf4447a7c902a87d59` |
 
 **equality**：`true`。
 
