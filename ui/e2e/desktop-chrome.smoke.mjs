@@ -22,6 +22,10 @@ const { installWaylandDiag } = createRequire(import.meta.url)(
 );
 const diagGroup = process.env.PILOTDECK_WAYLAND_DIAG_GROUP || '';
 const diagGpu = process.env.PILOTDECK_WAYLAND_DIAG_GPU || 'default';
+const ozone = process.env.PILOTDECK_CHROME_OZONE || null;
+const relaunchOnly = process.env.PILOTDECK_WAYLAND_DIAG_RELAUNCH_ONLY === '1';
+const waylandFrameDiag = relaunchOnly && ozone === 'wayland';
+const dumpStem = relaunchOnly && ozone === 'x11' ? 'linux-x11-diag' : 'linux-wayland-diag';
 const gpuLaunchArgs = diagGpu === 'off' ? ['--disable-gpu']
   : diagGpu === 'swiftshader' ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   : [];
@@ -39,8 +43,8 @@ const snapshotWaylandDiag = async page => {
 };
 const dumpWaylandDiag = async (page, label, error, extra = {}) => {
   const snapshot = await snapshotWaylandDiag(page);
-  const png = path.join(artifactDir, `linux-wayland-diag-${label}.png`);
-  const json = path.join(artifactDir, `linux-wayland-diag-${label}.json`);
+  const png = path.join(artifactDir, `${dumpStem}-${label}.png`);
+  const json = path.join(artifactDir, `${dumpStem}-${label}.json`);
   const payload = {
     label, error: error ? { name: error.name, message: error.message } : null,
     ozone: process.env.PILOTDECK_CHROME_OZONE || null,
@@ -392,7 +396,7 @@ const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog
   const processText = [clientText, coreText, postText].join('\n');
   const mainSurface = hungSurfaceTable.mainSurface;
   const timeline = mainSurfaceTimeline(processText, mainSurface.id);
-  const dumpPath = path.join(artifactDir, `linux-wayland-diag-${dumpLabel}.json`);
+  const dumpPath = path.join(artifactDir, `${dumpStem}-${dumpLabel}.json`);
   const markers = extra.markers ?? null;
   try {
     const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
@@ -469,8 +473,8 @@ const launchChromeFixture = async ({ clientLogPath } = {}) => {
       ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')),
       PILOTDECK_CHROME_PROFILE: profile,
       PILOTDECK_WAYLAND_DIAG: '1',
-      WAYLAND_DEBUG: '1',
       ...(clientLivePath ? {
+        WAYLAND_DEBUG: '1',
         PILOTDECK_ELECTRON_REAL: electronExecutable,
         PILOTDECK_WAYLAND_CLIENT_LOG: clientLivePath,
       } : {}),
@@ -552,10 +556,12 @@ const runRelaunchFileLoop = async (n = 100) => {
   let okKept = 0;
   for (let i = 1; i <= n; i += 1) {
     const label = `relaunch-${String(i).padStart(3, '0')}`;
-    const clientLog = path.join(artifactDir, `linux-wayland-diag-${label}-wayland-client.log`);
-    const westonRoundLog = path.join(artifactDir, `linux-wayland-diag-${label}-weston.log`);
+    const clientLog = waylandFrameDiag
+      ? path.join(artifactDir, `${dumpStem}-${label}-wayland-client.log`) : null;
+    const westonRoundLog = waylandFrameDiag
+      ? path.join(artifactDir, `${dumpStem}-${label}-weston.log`) : null;
     let westonStart = 0;
-    if (process.env.PILOTDECK_WESTON_LOG) {
+    if (waylandFrameDiag && process.env.PILOTDECK_WESTON_LOG) {
       try { westonStart = (await fs.stat(process.env.PILOTDECK_WESTON_LOG)).size; } catch { westonStart = 0; }
     }
     const launched = await launchChromeFixture({ clientLogPath: clientLog });
@@ -576,24 +582,28 @@ const runRelaunchFileLoop = async (n = 100) => {
           }).catch(() => {});
           okKept += 1;
         }
-        const recorded = await recordFailureLogs({
-          label, clientLog, westonStart, westonRoundLog, dumpLabel: label,
-          extra: {
-            flushClientLog: launched.flushClientLog,
-            installSource: result.after?.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null,
-            markers: { fileClickAt: result.fileClickAt ?? null, kind: result.kind, ok: result.ok },
-          },
-        });
-        result.frameCallback = recorded.frameCallback;
-        result.hungSurfaceTable = recorded.hungSurfaceTable;
-        result.mainSurface = recorded.mainSurface;
-        result.timeline = recorded.timeline;
-        result.westonMeta = recorded.westonMeta;
+        if (waylandFrameDiag) {
+          const recorded = await recordFailureLogs({
+            label, clientLog, westonStart, westonRoundLog, dumpLabel: label,
+            extra: {
+              flushClientLog: launched.flushClientLog,
+              installSource: result.after?.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null,
+              markers: { fileClickAt: result.fileClickAt ?? null, kind: result.kind, ok: result.ok },
+            },
+          });
+          result.frameCallback = recorded.frameCallback;
+          result.hungSurfaceTable = recorded.hungSurfaceTable;
+          result.mainSurface = recorded.mainSurface;
+          result.timeline = recorded.timeline;
+          result.westonMeta = recorded.westonMeta;
+        }
       }
       rounds.push({
         i, ok: result.ok, kind: result.kind, keepLogs,
         installSource: result.after?.installSource ?? result.after10?.installSource ?? result.before?.installSource ?? null,
         rafDelta1s: result.before?.rafDelta1s, rafRate: result.before?.rafRate,
+        afterRafDelta1s: result.after10?.rafDelta1s ?? result.after?.rafDelta1s ?? null,
+        afterRafRate: result.after10?.rafRate ?? result.after?.rafRate ?? null,
         visibility: result.before?.visibility, hasFocus: result.before?.hasFocus, box: result.before?.box,
         probe: result.probe ?? null,
         frameCallback: result.frameCallback ?? null,
@@ -605,15 +615,17 @@ const runRelaunchFileLoop = async (n = 100) => {
       });
     } catch (error) {
       await dumpWaylandDiag(launched.page, `${label}-setup`, error, { kind: 'setup-failed', group: diagGroup }).catch(() => {});
-      await recordFailureLogs({
-        label, clientLog, westonStart, westonRoundLog, dumpLabel: `${label}-setup`,
-        extra: { flushClientLog: launched.flushClientLog },
-      }).catch(() => {});
+      if (waylandFrameDiag) {
+        await recordFailureLogs({
+          label, clientLog, westonStart, westonRoundLog, dumpLabel: `${label}-setup`,
+          extra: { flushClientLog: launched.flushClientLog },
+        }).catch(() => {});
+      }
       rounds.push({ i, ok: false, kind: 'setup-failed', error: error.message });
     } finally {
       await launched.app.close().catch(() => {});
       await fs.rm(launched.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-      if (rounds.at(-1)?.ok && !rounds.at(-1)?.keepLogs) {
+      if (rounds.at(-1)?.ok && !rounds.at(-1)?.keepLogs && clientLog && westonRoundLog) {
         await fs.rm(clientLog, { force: true });
         await fs.rm(`${clientLog}.live`, { force: true });
         await fs.rm(westonRoundLog, { force: true });
@@ -624,7 +636,9 @@ const runRelaunchFileLoop = async (n = 100) => {
     }
     const trulyHung = rounds.filter(round => round.kind === 'truly hung').length;
     if (diagGroup === 'C' && trulyHung >= earlyStopAt) {
-      console.log('WAYLAND_FILE_DIAG_EARLY_STOP', JSON.stringify({ group: diagGroup, gpu: diagGpu, i, trulyHung, earlyStopAt }));
+      console.log('WAYLAND_FILE_DIAG_EARLY_STOP', JSON.stringify({
+        ozone, group: diagGroup, gpu: diagGpu, i, trulyHung, earlyStopAt,
+      }));
       break;
     }
   }
@@ -634,7 +648,12 @@ const runRelaunchFileLoop = async (n = 100) => {
   const hungNoMainFrame = hung.filter(round => round.timeline && round.timeline.frameCount === 0);
   const okHaveMainFrame = okSamples.filter(round => round.timeline && round.timeline.frameCount > 0);
   let judgment = { code: '本轮没抓到', reason: 'no truly hung this N; do not claim client-stop-frame' };
-  if (hung.length) {
+  if (ozone === 'x11') {
+    judgment = {
+      code: hung.length ? 'x11-has-truly-hung' : 'x11-0-truly-hung',
+      reason: 'X11 contrast uses File-click timeout + rAF stop only; no wl_surface.frame',
+    };
+  } else if (hung.length) {
     if (hungNoMainFrame.length === hung.length && okSamples.length && okHaveMainFrame.length === okSamples.length) {
       judgment = {
         code: 'client-stop-frame 坐实',
@@ -653,12 +672,16 @@ const runRelaunchFileLoop = async (n = 100) => {
     }
   }
   console.log('WAYLAND_FILE_DIAG_RELAUNCH_STATS', JSON.stringify({
+    ozone,
+    waylandFrameDiag,
     group: diagGroup || null,
     gpu: diagGpu,
     gpuLaunchArgs,
     nRequested: n,
     n: rounds.length,
     earlyStop: diagGroup === 'C' && hung.length >= earlyStopAt,
+    clickOk: rounds.filter(round => round.ok).length,
+    rafStopHung: hung.filter(round => (round.afterRafRate ?? round.rafRate) === 0).length,
     failures: rounds.filter(round => !round.ok).length,
     notClickedWithin10s: rounds.filter(round => round.kind === 'not clicked within 10s').length,
     trulyHung: hung.length,
@@ -669,16 +692,23 @@ const runRelaunchFileLoop = async (n = 100) => {
     visibility: rounds.map(round => round.visibility),
     fails: rounds.filter(round => !round.ok),
     okSamples: okSamples.map(round => ({
-      i: round.i, mainSurface: round.mainSurface, frameCount: round.timeline?.frameCount ?? null,
-      firstFrameAfterCreateMs: round.timeline?.firstFrameAfterCreateMs ?? null,
-      rafRate: round.rafRate, visibility: round.visibility, hasFocus: round.hasFocus,
+      i: round.i, mainSurface: waylandFrameDiag ? round.mainSurface : null,
+      frameCount: waylandFrameDiag ? (round.timeline?.frameCount ?? null) : null,
+      firstFrameAfterCreateMs: waylandFrameDiag ? (round.timeline?.firstFrameAfterCreateMs ?? null) : null,
+      rafRate: round.rafRate, afterRafRate: round.afterRafRate,
+      rafDelta1s: round.rafDelta1s, afterRafDelta1s: round.afterRafDelta1s,
+      visibility: round.visibility, hasFocus: round.hasFocus,
     })),
     hungTimelines: hung.map(round => ({
-      i: round.i, mainSurface: round.mainSurface, frameCount: round.timeline?.frameCount ?? null,
-      firstFrameT: round.timeline?.firstFrameT ?? null, lastFrameT: round.timeline?.lastFrameT ?? null,
-      firstFrameAfterCreateMs: round.timeline?.firstFrameAfterCreateMs ?? null,
-      rafRate: round.rafRate, visibility: round.visibility, hasFocus: round.hasFocus, box: round.box,
-      postProtocolBytes: round.westonMeta?.postProtocolBytes ?? null,
+      i: round.i, mainSurface: waylandFrameDiag ? round.mainSurface : null,
+      frameCount: waylandFrameDiag ? (round.timeline?.frameCount ?? null) : null,
+      firstFrameT: waylandFrameDiag ? (round.timeline?.firstFrameT ?? null) : null,
+      lastFrameT: waylandFrameDiag ? (round.timeline?.lastFrameT ?? null) : null,
+      firstFrameAfterCreateMs: waylandFrameDiag ? (round.timeline?.firstFrameAfterCreateMs ?? null) : null,
+      rafRate: round.rafRate, afterRafRate: round.afterRafRate,
+      rafDelta1s: round.rafDelta1s, afterRafDelta1s: round.afterRafDelta1s,
+      visibility: round.visibility, hasFocus: round.hasFocus, box: round.box,
+      postProtocolBytes: waylandFrameDiag ? (round.westonMeta?.postProtocolBytes ?? null) : null,
     })),
     judgment,
     frameCallbacks: rounds.filter(round => !round.ok).map(round => ({
