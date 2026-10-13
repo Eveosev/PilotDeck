@@ -1,0 +1,44 @@
+{
+  "task": "post-merge Desktop smoke (x11 + wayland) on d6ec73d8",
+  "verificationOnly": true,
+  "evidenceBranch": "review/desktop-smoke-d6ec73d8",
+  "noPullRequest": true,
+  "gitSha": "d6ec73d824e74009c47c0254c86db194ad7ce66d",
+  "gitDirtyAtCollectStart": false,
+  "parents": [
+    "e316945d0c667b64bcbd2e27a1bd05ca895ab1d5",
+    "54e9d8b7c224fc2b807d1420208b1cc2dcb5c95a"
+  ],
+  "subject": "Merge pull request #7 from Eveosev/pilotdeck-rust/T-P0a-07-protocol-change-gate",
+  "baseBranch": "rust_standalone_alpha1",
+  "recordedAt": "2026-10-13T06:20:28Z",
+  "localChrome": {
+    "x11": { "exit": 0, "startedAt": "2026-10-13T06:19:22Z", "endedAt": "2026-10-13T06:19:49Z" },
+    "wayland": { "exit": 0, "startedAt": "2026-10-13T06:19:53Z", "endedAt": "2026-10-13T06:20:14Z" }
+  },
+  "lineageDesktopRun": null,
+  "mergeShaActions": "none",
+  "prParentActions": {
+    "headSha": "54e9d8b7c224fc2b807d1420208b1cc2dcb5c95a",
+    "desktop": "none",
+    "webRegression": {
+      "id": 38354088069,
+      "conclusion": "success",
+      "url": "https://github.com/Eveosev/PilotDeck/actions/runs/38354088069",
+      "jobs": {
+        "web": "success",
+        "docker": "success"
+      }
+    }
+  },
+  "overall": "PASS",
+  "recordedHost": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "arch": "x86_64",
+    "kernel": "6.12.94+",
+    "node": "v22.23.3",
+    "pnpm": "10.32.1",
+    "weston": "13.0.0",
+    "electron": "42.11.1"
+  }
+}
