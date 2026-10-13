@@ -1,11 +1,55 @@
 import express from 'express';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { validatePilotDeckConfig } from '../services/pilotdeckConfig.js';
 import { rewriteModelReferences } from '../services/modelReferences.js';
+
+function findRepoRoot() {
+  for (const start of [process.cwd(), resolve(process.cwd(), '..')]) {
+    let dir = start;
+    for (let i = 0; i < 6; i++) {
+      if (existsSync(join(dir, 'src/pilot/config/loadPilotConfig.ts')) && existsSync(join(dir, 'package.json'))) {
+        return dir;
+      }
+      dir = resolve(dir, '..');
+    }
+  }
+  throw new Error('cannot locate src/pilot/config/loadPilotConfig.ts from cwd');
+}
+
+// Vite SSR cannot safely evaluate this Gateway loader inside a 5s vitest case:
+// the first dynamic import of the TS graph is multi-second, and a timeout leaves
+// that factory in-flight. afterEach vi.resetModules() then re-enters the same
+// module before `const existsSync = ...` is initialized (TDZ at loadPilotConfig.ts:221).
+// A fresh Node+tsx process is the real "restart the application" check.
+function loadPilotConfig(options) {
+  const repoRoot = findRepoRoot();
+  const tsx = createRequire(join(repoRoot, 'package.json')).resolve('tsx');
+  const specifier = pathToFileURL(join(repoRoot, 'src/pilot/config/loadPilotConfig.ts')).href;
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      tsx,
+      '--input-type=module',
+      '--eval',
+      `const { loadPilotConfig } = await import(${JSON.stringify(specifier)});
+       process.stdout.write(JSON.stringify(loadPilotConfig(${JSON.stringify(options)})));`,
+    ],
+    { encoding: 'utf8', cwd: repoRoot, maxBuffer: 8 * 1024 * 1024 },
+  );
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || `loadPilotConfig worker exited ${result.status}`).trim());
+  }
+  const stdout = result.stdout.trim();
+  return JSON.parse(stdout.slice(stdout.indexOf('{')));
+}
 
 const nativeFetch = globalThis.fetch;
 const tempDirs = [];
@@ -1625,7 +1669,6 @@ describe('config model removal route', () => {
 
     // Use the Gateway's real loader, not the UI validator or mocked reloader:
     // a successful API write must also survive restarting the application.
-    const { loadPilotConfig } = await import('../../../src/pilot/config/loadPilotConfig.ts');
     const snapshot = loadPilotConfig({ configPath, env: { PILOT_HOME: dirname(configPath) } });
     expect(snapshot.config.agent.model.id).toBe('deepseek/deepseek-chat');
     expect(snapshot.config.memory.model).toBeUndefined();

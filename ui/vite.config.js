@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'url'
 import { getConnectableHost, normalizeLoopbackHost } from './shared/networkHosts.js'
 import { LIGHT_PRESETS } from '../apps/desktop/src/lightAppearance'
+import { vitestExcludeNodeTestFiles } from '../vitest.config.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -170,7 +171,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
-      exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+      exclude: ['e2e/**', 'node_modules/**', 'dist/**', ...vitestExcludeNodeTestFiles(__dirname)],
       server: {
         deps: {
           inline: ['react', 'react-dom']

@@ -4,29 +4,31 @@
 - 目标：Web Regression（`.github/workflows/web-regression.yml`，step `Test Web UI and server`）全绿
 - 范围：仅 A 组（8 个 `node:test` 被 vitest 误收）+ D 组（`config.test.js` memory reload 超时 / TDZ）
 - 不做：B 组 `DesktopAboutSections.test.tsx`、C 组 `moduleLabels.test.tsx`（另一工程师同分支）
-- 门禁：不加超时、不 skip/only、不重试、不删断言；改动限于失败测试、vitest 配置、`web-regression.yml`；产品代码仅在能证明 TDZ 根因在产品文件时才动
+- 门禁：不加超时、不 skip/only、不重试、不删断言；改动限于失败测试、vitest 配置、`web-regression.yml`
 
 ## 归属（run 38340992186 / 主线 761572d7）
 
 | ID | 失败 | 根因 | 修复 | 文件:行 | 状态 |
 |---|---|---|---|---|---|
-| A-1 | `ui/server/module-request-abort.test.js` 整文件 `Cannot bundle built-in module node:test` | vitest 按默认 include 收了 `node:test` 文件；vite 无法打包内置模块 | 待写：vitest 排除规则 + CI `node --test` | `ui/server/module-request-abort.test.js:3` | open |
-| A-2 | `ui/server/public-knowledge-model-selection.test.mjs` 同上 | 同上 | 同上 | `:2` | open |
-| A-3 | `ui/server/staffdeck-approval-authority.test.mjs` 同上 | 同上 | 同上 | `:1` | open |
-| A-4 | `ui/server/staffdeck-public-capabilities.test.mjs` 同上 | 同上 | 同上 | `:1` | open |
-| A-5 | `ui/server/staffdeck-publish-route.test.js` 同上 | 同上 | 同上 | `:2` | open |
-| A-6 | `ui/server/staffdeck-publish-runtime.test.mjs` 同上 | 同上 | 同上 | `:1` | open |
-| A-7 | `ui/server/staffdeck-runtime-readiness.test.mjs` 同上 | 同上 | 同上 | `:1` | open |
-| A-8 | `ui/server/adapters/staffdeck-request-context.test.js` 同上 | 同上 | 同上 | `:2` | open |
-| D-1 | `can reload memory inheritance after removal (memory enabled=true)` 5000ms timeout | 待测：动态 `import` Gateway TS loader 经 Vite SSR 的耗时 / 模块图 | 待写；不加超时 | `ui/server/routes/config.test.js:1614` / `loadPilotConfig.ts` | open |
-| D-2 | `... (memory enabled=false)` `ReferenceError` TDZ `existsSync` | 待测：超时用例泄漏的 pending import + `vi.resetModules()` / Vite SSR 绑定初始化顺序 | 待写；产品改动需独立 Reviewer 节 | `src/pilot/config/loadPilotConfig.ts:221` ← `:80` ← `config.test.js:1629` | open |
+| A-1 | `ui/server/module-request-abort.test.js` 整文件 `Cannot bundle built-in module node:test` | vitest 默认 include 收了 `import { test } from 'node:test'` 文件；Vite 无法打包 Node 内置模块。与业务无关。 | `vitestExcludeNodeTestFiles()` 扫描 `from/import 'node:test'`，写入 `ui/vite.config.js` + 根 `vitest.config.js` 的 `test.exclude`。CI 新增 step `Test Web UI node:test files` 用同一规则发现并 `node --test`（日志打印文件列表）。 | `ui/server/module-request-abort.test.js:3`；排除：`ui/vite.config.js` `test.exclude`；运行：`.github/workflows/web-regression.yml` 新 step | done |
+| A-2 | `ui/server/public-knowledge-model-selection.test.mjs` 同上 | 同上 | 同上 | `:2` | done |
+| A-3 | `ui/server/staffdeck-approval-authority.test.mjs` 同上 | 同上 | 同上 | `:1` | done |
+| A-4 | `ui/server/staffdeck-public-capabilities.test.mjs` 同上 | 同上 | 同上 | `:1` | done |
+| A-5 | `ui/server/staffdeck-publish-route.test.js` 同上 | 同上 | 同上 | `:2` | done |
+| A-6 | `ui/server/staffdeck-publish-runtime.test.mjs` 同上 | 同上 | 同上 | `:1` | done |
+| A-7 | `ui/server/staffdeck-runtime-readiness.test.mjs` 同上 | 同上 | 同上 | `:1` | done |
+| A-8 | `ui/server/adapters/staffdeck-request-context.test.js` 同上 | 同上 | 同上 | `:2` | done |
+| D-1 | `can reload memory inheritance after removal (memory enabled=true)` `Test timed out in 5000ms` | 用例内 `await import('../../../src/pilot/config/loadPilotConfig.ts')` 走 Vite SSR。隔离跑该 import **2110.9ms**（`createDiskConfigApp` 仅 121ms，HTTP 各 19–31ms，`loadPilotConfig()` 调用 10.5ms）。全量 suite 下同一条 Vite 图 >5s。`--testTimeout=1800` 稳定在 import 阶段超时，且超时后 import 仍继续完成（+2234ms 打在 FAIL 之后）。 | 不再在 5s 用例里让 Vite 动态 import 该 TS 图。测试改为 `spawnSync(node --import tsx)` 在**新进程**里加载同一 `loadPilotConfig.ts`（更接近“重启应用”）。断言未改、未加超时。 | 原 `ui/server/routes/config.test.js:1628` 动态 import；现 `loadPilotConfig()` helper ~L31 | done |
+| D-2 | `... (memory enabled=false)` `ReferenceError: Cannot access 'existsSync' before initialization` at `loadPilotConfig.ts:221` | `existsSync` 来自该文件 L1 `import { existsSync } from "node:fs"`，**仓库内无 `vi.mock('node:fs')`**。tsx 直载 901ms 无 TDZ。Vite 隔离 import 成功后调用 loader 也无 TDZ。CI 偶发与 D-1 超时连带：超时用例的 Vite factory 仍在跑，`afterEach` / `createDiskConfigApp` 的 `vi.resetModules()` 清缓存后，下一条再 import/调用，Vite SSR 把 `import { existsSync }` 降成 `const existsSync = ...`，半初始化重入即 TDZ。 | 同上：离开 Vite 模块图。产品文件初始化顺序本身正确，**不改** `loadPilotConfig.ts`。 | 报错点 `src/pilot/config/loadPilotConfig.ts:221` ← `:80` ← 原 `config.test.js:1629` | done |
 
 ## 产品代码改动（Reviewer 专节）
 
-本轮默认不改 `src/pilot/config/loadPilotConfig.ts`。若证据证明 TDZ 根因在该文件（而非测试 mock / Vite 模块图），再在此节写：
+**本轮不改 `src/pilot/config/loadPilotConfig.ts`。**
 
-1. before-fix 日志 / 最小复现（稳定复现 TDZ，且证明不在测试 mock）
-2. diff 仅触及 TDZ 相关初始化顺序
-3. 全量 web suite 0 fail
+QA 要求的三条产品改动门槛均不满足：
 
-当前：无产品代码改动。
+1. **没有“去掉测试 mock 仍稳定复现 TDZ”的 before-fix 日志。** 本地最小复现证明的是 Vite 动态 import 超时 + 超时后 factory 仍在跑（`d-group-timeout-1800.log`），不是该文件自身的绑定顺序错误。tsx 进程（无 Vite、无 `vi.resetModules`）加载同一文件并调用 `loadPilotConfig()` 成功。`ui/` 下无 `vi.mock('node:fs')`。
+2. 因此没有“只动 TDZ init order”的产品 diff 可写。L1 的 `import { existsSync, readFileSync } from "node:fs"` 已是合法 ESM；`:221` 的 `existsSync(path)` 发生在模块求值完成之后。TDZ 是 Vite SSR 把该 import 降成 `const` 后，半初始化重入造成的。
+3. 修复在测试侧：`config.test.js` 用独立 Node+tsx 进程加载真实 Gateway loader。
+
+若未来有人在**非 Vite / 非 resetModules** 路径上稳定打出同一 TDZ，再回头看产品 init order。
