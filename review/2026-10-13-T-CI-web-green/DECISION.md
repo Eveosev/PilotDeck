@@ -4,8 +4,10 @@
 - 目标：Web Regression（`.github/workflows/web-regression.yml`，step `Test Web UI and server`）全绿
 - 范围：A（`node:test` 误收）+ B（DesktopAbout 按钮文案）+ C（moduleLabels Router）+ D（config reload 超时 / TDZ）
 - 门禁：不加超时、不 skip/only、不重试、不删断言
-- QA PASS（代码门禁 tip）：`c17f18747ebb2f3ee9b9eef0652972d196317639` — run `38348207846` attempts 1/2/3 全绿
-- 当前 head / tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`（slim qa-gate 入库后）。相对 `c17f1874` **只有 `review/**` 有 diff**（non-product / non-test 代码 delta = 0）。
+- QA PASS / code tip：`c17f18747ebb2f3ee9b9eef0652972d196317639` — run `38348207846` attempts 1/2/3 全绿
+- slim qa-gate tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`
+- F7/F5 clear-conditional tip：`8d2245248ebe676004db48f94dc8cae1573f9092`
+- 当前 tip / head：`CURRENT_TIP_SHA_PLACEHOLDER`（本 tip-label 回填；相对 `c17f1874` 仍 **只有 `review/**`**，non-review delta = 0）
 - 门禁 `non-review.diff` sha256：`d25b9599d7dc48f79e100698336bdfc4493a7a39e8faa0bf4447a7c902a87d59`（树内 `qa-gate-c17f1874/non-review.diff`）
 
 B/C 根因与改动自 `review/2026-10-13-T-CI-web-green-fe/README.md` **原文照录**，不改写。

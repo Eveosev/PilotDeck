@@ -4,11 +4,14 @@
 - 基线：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 源失败：run `38340992186`
-- **当前 head / tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`**
-- QA 代码门禁 tip（PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`。相对它 **只有 `review/**` 有 diff**（`git diff c17f1874..HEAD -- . ':(exclude)review'` 为空）。
+- **当前 tip / head：`CURRENT_TIP_SHA_PLACEHOLDER`**（本 tip-label 回填；相对 `c17f1874` 仍 **只有 `review/**`**）
+- QA PASS / code tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`
+- slim qa-gate tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`
+- F7/F5 clear-conditional tip：`8d2245248ebe676004db48f94dc8cae1573f9092`
+- 相对 code tip `c17f1874` **只有 `review/**` 有 diff**（`git diff c17f1874..HEAD -- . ':(exclude)review'` 为空）。
 - 门禁 `non-review.diff` sha256：`d25b9599d7dc48f79e100698336bdfc4493a7a39e8faa0bf4447a7c902a87d59`
 - FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`（测试对齐）+ `c17f1874`（记录 gitSha）；证据在 `review/2026-10-13-T-CI-web-green-fe/`
-- QA gate **PASS** @ `c17f1874`：run `38348207846` attempts **1/2/3** 全绿；slim qa-gate 入库后 tip 为 `e63e2661`（及本轮 F7/F5 文档提交）。
+- QA gate **PASS** @ `c17f1874`：run `38348207846` attempts **1/2/3** 全绿。其后 lineage：slim qa-gate `e63e2661` → F7/F5 `8d224524` → 本 tip-label 回填（当前 head）。
   - web：268 files / 2204 tests，**0 fail**
   - `node --test`：8 文件，40/0
   - D memory true/false ×3 见下（A/D 本地）
@@ -33,8 +36,10 @@
 
 - A/D 实现：`8578c925671b41d0b7ec97b040a6e8c5c6e54843`
 - FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`
-- 全 PR-W 代码 tip（QA PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`
-- 当前 head（review 文档，含 slim qa-gate）：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`（本轮 F7/F5 再叠一层 review-only）
+- QA PASS / code tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`
+- slim qa-gate tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`
+- F7/F5 clear-conditional tip：`8d2245248ebe676004db48f94dc8cae1573f9092`
+- 当前 tip / head：`CURRENT_TIP_SHA_PLACEHOLDER`（仍为相对 `c17f1874` 的 review-only）
 - 基线：`761572d7`
 
 ## Before / after（摘要）
