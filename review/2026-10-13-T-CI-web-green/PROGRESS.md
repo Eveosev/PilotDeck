@@ -4,22 +4,35 @@
 - 基线：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 源失败：run `38340992186`
-- 最新 CI：https://github.com/Eveosev/PilotDeck/actions/runs/38345669771 （`ef51dec3`）docker **success**；web **failure** 仅 B+C（`2 failed | 266 passed` files，`7 failed | 2197 passed` tests）。`node --test` step：8 文件可见，`# tests 40` `# pass 40` `# fail 0`。
+- **tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`**
+- FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`（测试对齐）+ `c17f1874`（记录 gitSha）；证据在 `review/2026-10-13-T-CI-web-green-fe/`
+- QA gate **PASS** @ `c17f1874`：run `38348207846` attempts **1/2/3** 全绿
+  - web：268 files / 2204 tests，**0 fail**
+  - `node --test`：8 文件，40/0
+  - D memory true/false ×3 见下（A/D 本地）
+  - 链接：https://github.com/Eveosev/PilotDeck/actions/runs/38348207846 （attempts/1 /attempts/2 /attempts/3）
+- QA SUMMARY 期望路径：`review/2026-10-13-T-CI-web-green/qa-gate-c17f1874/SUMMARY.md`（以及 3× CI logs、node:test list、`non-review.diff`）。收集 Reviewer 包时该目录**不在** tip `c17f1874` / `origin/pilotdeck-rust/T-CI-web-green`；QA 推上来后从此路径读取，`evidence/` 已预留链接。
 
 ## 本轮
 
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 骨架 / draft PR-W | done | `e4719694` 先推，B/C 可并行 |
-| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test`。`ui/vite.config.js` 内联扫描器（不 import 根 `vitest.config.js`），避免 Docker `vite build` 解析失败。 |
-| D 组计时取证 + 根因修复 | done | 见下；产品代码未改 |
+| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test`。`ui/vite.config.js` 内联扫描器 |
+| D 组计时取证 + 根因修复 | done | 产品代码未改 `loadPilotConfig.ts` |
 | D 组连续 3 次绿 | done | 1) true 839ms / false 671ms 2) 962 / 772 3) 895 / 785。三次均 `2 passed` |
-| 全量 web suite | done | 与 CI 相同 exclude：`Test Files  2 failed | 266 passed (268)`；`Tests  7 failed | 2197 passed (2204)`。仅剩 B（DesktopAboutSections 6）+ C（moduleLabels 1）。A 未再被收集；D 未出现在失败列表。 |
-| 原始日志 | 不入库 | sha256 见下 |
+| FE B/C 推送 | done | `582d563a` + `c17f1874`；B 9/9、C 2/2 |
+| 全量 web suite | done | A/D 当时本地：`2 failed \| 266 passed (268)` / `7 failed \| 2197 passed (2204)`（仅 B+C）。QA @ `c17f1874`：268 / 2204，**0 fail** |
+| QA 3× CI | done | `38348207846` attempts 1/2/3 success（docker + web） |
+| Reviewer 包 | done | 本目录 DECISION / PROGRESS / evidence / REVIEW_PROMPT |
+| 原始日志 | A/D 不入库（sha256）；B/C 在 `-fe/`；QA 见 `qa-gate-c17f1874/` |
 
 ## 收集 gitSha
 
-实现 tip：`8578c925671b41d0b7ec97b040a6e8c5c6e54843`。基线对照：`761572d7`。
+- A/D 实现：`8578c925671b41d0b7ec97b040a6e8c5c6e54843`
+- FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`
+- 全 PR-W tip（QA PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`
+- 基线：`761572d7`
 
 ## Before / after（摘要）
 
@@ -28,7 +41,8 @@
 - Before（CI 38340992186）：8 个文件 vitest 收集失败，`Cannot bundle built-in module "node:test"`，0 用例运行。
 - After（本地 `node --test` 同一 8 文件）：`# tests 40` `# pass 40` `# fail 0` `# duration_ms 142.7`。
 - After（`vitest list` 点名 8 文件）：无输出（已排除）。
-- 发现器（与 CI step 相同，cwd=`ui`）恰好 8 条：
+- CI @ `c17f1874`：step 打印 8 路径，`# tests 40` `# pass 40` `# fail 0`。
+- 发现器（cwd=`ui`）恰好 8 条：
   - `server/adapters/staffdeck-request-context.test.js`
   - `server/module-request-abort.test.js`
   - `server/public-knowledge-model-selection.test.mjs`
@@ -37,6 +51,13 @@
   - `server/staffdeck-publish-route.test.js`
   - `server/staffdeck-publish-runtime.test.mjs`
   - `server/staffdeck-runtime-readiness.test.mjs`
+
+### B/C 组（FE）
+
+| 组 | 文件 | Before | After | 日志 |
+|---|---|---|---|---|
+| B | `DesktopAboutSections.test.tsx` | 1 failed file / **6 failed \| 3 passed (9)** | 1 passed / **9 passed (9)** | `../2026-10-13-T-CI-web-green-fe/b-group-before.txt` / `b-group-after.txt` |
+| C | `moduleLabels.test.tsx` | 1 failed file / **1 failed \| 1 passed (2)** | 1 passed / **2 passed (2)** | `../2026-10-13-T-CI-web-green-fe/c-group-before.txt` / `c-group-after.txt` |
 
 ### D 组计时（修复前，隔离跑 `config.test.js` `-t "can reload memory inheritance"`）
 
@@ -55,19 +76,23 @@ tsx 直载同一 TS：`import_ms 901.8` / `load_ms 0.7`，无 TDZ。
 | 2 | 962ms | 772ms | 2 passed / 121 skipped |
 | 3 | 895ms | 785ms | 2 passed / 121 skipped |
 
-## 原始日志 sha256（不入库）
+## 原始日志 sha256（A/D 不入库；B/C 在 `-fe/`）
 
-| 文件 | sha256 |
-|---|---|
-| `d-group-timing-1.log` | `007742e293fa09dddcf1969e0d469bc4a4eb9359331d68da3bce54aaad5353d9` |
-| `d-group-timeout-tdz.log` | `6009339c52f3e11083f892584c2c7d5429c991939a975d874a92b1e5cc17916f` |
-| `d-group-timeout-1800.log` | `a82481db150d87c3be7d51730cfcc9f5152e81b3e4fb29fcf0ee3381d762162a` |
-| `tdz-repro.log` | `c6ef081567021e9c4b0de7aefa678818535c98e22a980b4580a2c3ebcb8ccf00` |
-| `tdz-repro-concurrent.log` | `ddd5f4ca2e451571b4d8f7551bd77651350ac0ac6c2c5df7daeb4212cc7b11cb` |
-| `tsx-import-timing.log` | `b606b2f6af6c0d0e6e8e038610665ef89eca3e5a0688d7c287ae4cb279c15e5d` |
-| `d-group-after-1.log` | `67d91eb9ae3e6a387a9089edaa5c0b3955384dc2b59a2bc58cd2a1b13b9ac85f` |
-| `d-group-after-2.log` | `9c6652ab5286b9518012c7f7f730548c93dfb7d977eb939bef99ba7f8cd37f51` |
-| `d-group-after-3.log` | `75fdc5fc28d2e980937b5c8053d5741ba1703ff9690ef9593dd45b09d735c396` |
-| `node-test-8-before.log` | `5b4a07b9f3fbfa355b0f659f57f46fd02f43f8c23a4254b26427a6af718bb86c` |
-| `node-test-8-after.log` | `0057205009e700f22b4065dc9764b87942ef42e6ca9102284bad804bf1502677` |
-| `web-suite-full.log` | `856e87a812b7906ca9ac7c626c021481a97213a7b9746519837be644c22353ac` |
+| 文件 | sha256 | 位置 |
+|---|---|---|
+| `d-group-timing-1.log` | `007742e293fa09dddcf1969e0d469bc4a4eb9359331d68da3bce54aaad5353d9` | PR artifact / 未入库 |
+| `d-group-timeout-tdz.log` | `6009339c52f3e11083f892584c2c7d5429c991939a975d874a92b1e5cc17916f` | PR artifact / 未入库 |
+| `d-group-timeout-1800.log` | `a82481db150d87c3be7d51730cfcc9f5152e81b3e4fb29fcf0ee3381d762162a` | PR artifact / 未入库 |
+| `tdz-repro.log` | `c6ef081567021e9c4b0de7aefa678818535c98e22a980b4580a2c3ebcb8ccf00` | PR artifact / 未入库 |
+| `tdz-repro-concurrent.log` | `ddd5f4ca2e451571b4d8f7551bd77651350ac0ac6c2c5df7daeb4212cc7b11cb` | PR artifact / 未入库 |
+| `tsx-import-timing.log` | `b606b2f6af6c0d0e6e8e038610665ef89eca3e5a0688d7c287ae4cb279c15e5d` | PR artifact / 未入库 |
+| `d-group-after-1.log` | `67d91eb9ae3e6a387a9089edaa5c0b3955384dc2b59a2bc58cd2a1b13b9ac85f` | PR artifact / 未入库 |
+| `d-group-after-2.log` | `9c6652ab5286b9518012c7f7f730548c93dfb7d977eb939bef99ba7f8cd37f51` | PR artifact / 未入库 |
+| `d-group-after-3.log` | `75fdc5fc28d2e980937b5c8053d5741ba1703ff9690ef9593dd45b09d735c396` | PR artifact / 未入库 |
+| `node-test-8-before.log` | `5b4a07b9f3fbfa355b0f659f57f46fd02f43f8c23a4254b26427a6af718bb86c` | PR artifact / 未入库 |
+| `node-test-8-after.log` | `0057205009e700f22b4065dc9764b87942ef42e6ca9102284bad804bf1502677` | PR artifact / 未入库 |
+| `web-suite-full.log` | `856e87a812b7906ca9ac7c626c021481a97213a7b9746519837be644c22353ac` | PR artifact / 未入库（A/D 后、B/C 前） |
+| `b-group-before.txt` | `54054696b10ff9a477f1da44685e6d4628d3af6e9150fd2aca5fb6993b08d62b` | `../2026-10-13-T-CI-web-green-fe/` |
+| `b-group-after.txt` | `0bcbeb40e5a939d85da28d1816987634cff4c86dd00a186014ae546491552044` | `../2026-10-13-T-CI-web-green-fe/` |
+| `c-group-before.txt` | `78a20feb2d25f5f975b3f5b718f5a951ed63e44d50b5844cd4691d459cafd9c7` | `../2026-10-13-T-CI-web-green-fe/` |
+| `c-group-after.txt` | `882fbf45723a737a7ad72511afa286207a13fc622f50dc6f1a95c9d6725ed9b3` | `../2026-10-13-T-CI-web-green-fe/` |

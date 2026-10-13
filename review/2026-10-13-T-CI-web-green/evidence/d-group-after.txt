@@ -1,0 +1,5 @@
+F-7 stub. Full logs not committed (PR artifacts). Do not invent contents.
+d-group-after-1.log sha256=67d91eb9ae3e6a387a9089edaa5c0b3955384dc2b59a2bc58cd2a1b13b9ac85f
+d-group-after-2.log sha256=9c6652ab5286b9518012c7f7f730548c93dfb7d977eb939bef99ba7f8cd37f51
+d-group-after-3.log sha256=75fdc5fc28d2e980937b5c8053d5741ba1703ff9690ef9593dd45b09d735c396
+summary already in PROGRESS.md: memory enabled true/false ×3 all 2 passed (839/671, 962/772, 895/785 ms).

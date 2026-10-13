@@ -1,0 +1,13 @@
+F-7 stub. Do not invent log contents.
+QA declared path: ../qa-gate-c17f1874/
+  SUMMARY.md
+  3× CI logs
+  node:test file list
+  non-review.diff
+GitHub (verified, not invented):
+  https://github.com/Eveosev/PilotDeck/actions/runs/38348207846
+  attempt 1 success  https://github.com/Eveosev/PilotDeck/actions/runs/38348207846/attempts/1
+  attempt 2 success  https://github.com/Eveosev/PilotDeck/actions/runs/38348207846/attempts/2
+  attempt 3 success  https://github.com/Eveosev/PilotDeck/actions/runs/38348207846/attempts/3
+  headSha c17f18747ebb2f3ee9b9eef0652972d196317639
+If the directory is absent on this tip, read PROGRESS.md and wait for QA's push; do not fabricate SUMMARY.
