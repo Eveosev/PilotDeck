@@ -8,6 +8,9 @@
  *
  *   node scripts/check-web-node-test-scan.mjs
  *   node scripts/check-web-node-test-scan.mjs --print
+ *
+ * CHECK_WEB_NODE_TEST_SCAN_UI_CONFIG overrides the ui vite config path
+ * (fixture tests only; production CI leaves it unset).
  */
 import { register } from "node:module";
 import { existsSync, readdirSync } from "node:fs";
@@ -134,15 +137,22 @@ async function loadEffectiveConfig(configFile) {
   return raw;
 }
 
+function uiViteConfigPath() {
+  const override = process.env.CHECK_WEB_NODE_TEST_SCAN_UI_CONFIG;
+  if (override) return resolve(override);
+  return resolve(UI_DIR, "vite.config.js");
+}
+
 async function loadUiViteConfig(viteResolved) {
   const vite = await import(pathToFileURL(viteResolved).href);
+  const configFile = uiViteConfigPath();
   const loaded = await vite.loadConfigFromFile(
     { command: "serve", mode: "test" },
-    resolve(UI_DIR, "vite.config.js"),
+    configFile,
     UI_DIR,
   );
   if (!loaded?.config) {
-    throw new Error("failed to load ui/vite.config.js");
+    throw new Error(`failed to load ${configFile}`);
   }
   return loaded.config;
 }

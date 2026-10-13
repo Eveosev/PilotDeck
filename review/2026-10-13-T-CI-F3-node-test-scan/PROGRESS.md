@@ -24,7 +24,7 @@ exit **0**，`ok: 8 files`。
 
 ## R4 F1 / F2 / F3
 
-非 review 只动 `scripts/check-web-node-test-scan.mjs` 与 `scripts/lib/resolve-from-ui.mjs`。
+非 review：`scripts/check-web-node-test-scan.mjs`、`scripts/lib/resolve-from-ui.mjs`、`scripts/lib/__tests__/check-web-node-test-scan.test.mjs`、`.github/workflows/web-regression.yml`。
 
 - F1：`!` 跳过改为 `pattern[0] === "!" && pattern[1] !== "("`。
 - F2：`failResolve` 只压缺依赖为一行；其它错误原样抛出。
@@ -49,6 +49,12 @@ exit **0**，`ok: 8 files`。
 ### F3
 
 `rg 'resolveUiPackage\\("vite"\\)' scripts/check-web-node-test-scan.mjs` 仅 1 处。
+
+### 提交级回归（不改真实 `ui/vite.config.js`）
+
+`scripts/lib/__tests__/check-web-node-test-scan.test.mjs` 用 env `CHECK_WEB_NODE_TEST_SCAN_UI_CONFIG` 指向临时 fixture。Web 独立 step：`node --test 'scripts/lib/__tests__/**/*.mjs'`（测试名出现在 TAP `# Subtest:`）。扫描仍 `ok: 8 files`；UI `node --test` 仍 40；vitest 仍 268/2204。
+
+把 skip 改回 `startsWith("!")` 时，F1 两条 extglob 断言失败（exit 0 !== 1）；恢复后 13 pass / 0 fail。
 
 ## m1 / m2
 
