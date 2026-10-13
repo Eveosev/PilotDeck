@@ -10,6 +10,7 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - scripts/lib/**
       - .github/workflows/desktop-*.yml
       - .github/workflows/release.yml
       - .github/workflows/release-retry.yml

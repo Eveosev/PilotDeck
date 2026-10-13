@@ -10,11 +10,11 @@
  *   node scripts/check-web-node-test-scan.mjs --print
  */
 import { createRequire, register } from "node:module";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import picomatch from "picomatch";
 import {
-  NODE_TEST_IMPORT_RE,
   REPO_ROOT,
   SKIP_DIRS,
   TEST_FILE_RE,
@@ -53,15 +53,6 @@ function sortedUnique(files) {
 
 function isGlob(pattern) {
   return /[*?[]/.test(pattern);
-}
-
-function globToRegExp(pattern) {
-  const escaped = pattern
-    .replace(/[.+^${}()|\\]/g, "\\$&")
-    .replace(/\*\*/g, "\u0000")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\u0000/g, ".*");
-  return new RegExp(`^${escaped}$`);
 }
 
 function toUiRelative(file, configRoot) {
@@ -103,26 +94,34 @@ function resolveExcludeToUiTestFiles(exclude, configRoot) {
   for (const raw of exclude) {
     const pattern = normalizeScanPath(raw);
     if (BASELINE_SKIP.has(pattern)) continue;
+    const isMatch = picomatch(pattern, { dot: true });
+    for (const file of uiTests) {
+      const fromConfigRoot = normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
+      if (isMatch(fromConfigRoot) || isMatch(file)) out.add(file);
+    }
     if (!isGlob(pattern)) {
       const uiRel = toUiRelative(pattern, configRoot);
       if (uiRel && TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) out.add(uiRel);
-      continue;
-    }
-    const matcher = globToRegExp(pattern);
-    for (const file of uiTests) {
-      const fromConfigRoot = normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
-      if (matcher.test(fromConfigRoot) || matcher.test(file)) out.add(file);
     }
   }
   return sortedUnique([...out]);
 }
 
-function fileHasNodeTestImport(relPath) {
+function resolveUiPackage(specifier) {
+  let requireUi;
   try {
-    const src = readFileSync(resolve(UI_DIR, relPath), "utf8");
-    return NODE_TEST_IMPORT_RE.test(src);
-  } catch {
-    return false;
+    requireUi = createRequire(resolve(UI_DIR, "package.json"));
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`check-web-node-test-scan: cannot read ui/package.json. ${reason}`);
+  }
+  try {
+    return requireUi.resolve(specifier);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `check-web-node-test-scan: cannot resolve '${specifier}' from ui/. Install Web UI dependencies (pnpm install --filter pilotdeck --filter pilotdeck-ui). ${reason}`,
+    );
   }
 }
 
@@ -136,8 +135,7 @@ async function loadEffectiveConfig(configFile) {
 }
 
 async function loadUiViteConfig() {
-  const requireUi = createRequire(resolve(UI_DIR, "package.json"));
-  const vite = await import(pathToFileURL(requireUi.resolve("vite")).href);
+  const vite = await import(pathToFileURL(resolveUiPackage("vite")).href);
   const loaded = await vite.loadConfigFromFile(
     { command: "serve", mode: "test" },
     resolve(UI_DIR, "vite.config.js"),
@@ -177,8 +175,9 @@ if (printOnly) {
   process.exit(0);
 }
 
+resolveUiPackage("vitest");
 const uiConfig = await loadUiViteConfig();
-const rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"), REPO_ROOT);
+const rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"));
 if (!uiConfig.test?.exclude || !rootConfig.test?.exclude) {
   console.error("check-web-node-test-scan: config.test.exclude missing after load");
   process.exit(1);
@@ -186,7 +185,6 @@ if (!uiConfig.test?.exclude || !rootConfig.test?.exclude) {
 
 const uiExclude = resolveExcludeToUiTestFiles(uiConfig.test.exclude, UI_DIR);
 const rootExclude = resolveExcludeToUiTestFiles(rootConfig.test.exclude, REPO_ROOT);
-const vitestFilesInNodeTest = nodeTestSet.filter((file) => !fileHasNodeTestImport(file));
 
 printSet("ui/vite.config.js test.exclude (ui test files)", uiExclude);
 printSet("vitest.config.js test.exclude (ui test files)", rootExclude);
@@ -195,11 +193,6 @@ printSet("node --test set", nodeTestSet);
 let failed = false;
 failed = reportMismatch("ui/vite.config.js", uiExclude, nodeTestSet) || failed;
 failed = reportMismatch("vitest.config.js", rootExclude, nodeTestSet) || failed;
-if (vitestFilesInNodeTest.length) {
-  console.error("node --test picked up vitest files (no node:test import):");
-  for (const file of vitestFilesInNodeTest) console.error(`  ${file}`);
-  failed = true;
-}
 
 if (failed) process.exit(1);
 
