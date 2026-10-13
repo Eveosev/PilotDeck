@@ -4,9 +4,11 @@
 - 基线：`761572d7ff548eb41f27ebdb9a70faaccc73fdb8`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 源失败：run `38340992186`
-- **tip：`c17f18747ebb2f3ee9b9eef0652972d196317639`**
+- **当前 head / tip：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`**
+- QA 代码门禁 tip（PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`。相对它 **只有 `review/**` 有 diff**（`git diff c17f1874..HEAD -- . ':(exclude)review'` 为空）。
+- 门禁 `non-review.diff` sha256：`d25b9599d7dc48f79e100698336bdfc4493a7a39e8faa0bf4447a7c902a87d59`
 - FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`（测试对齐）+ `c17f1874`（记录 gitSha）；证据在 `review/2026-10-13-T-CI-web-green-fe/`
-- QA gate **PASS** @ `c17f1874`：run `38348207846` attempts **1/2/3** 全绿
+- QA gate **PASS** @ `c17f1874`：run `38348207846` attempts **1/2/3** 全绿；slim qa-gate 入库后 tip 为 `e63e2661`（及本轮 F7/F5 文档提交）。
   - web：268 files / 2204 tests，**0 fail**
   - `node --test`：8 文件，40/0
   - D memory true/false ×3 见下（A/D 本地）
@@ -18,7 +20,7 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 骨架 / draft PR-W | done | `e4719694` 先推，B/C 可并行 |
-| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test`。`ui/vite.config.js` 内联扫描器 |
+| A 组 vitest 排除 + `node --test` CI | done | 扫描 `from/import 'node:test'`；CI step 打印 8 个路径后 `node --test`。`ui/vite.config.js` 内联扫描器。F3：与 CI 发现集已对齐（同正则、同 8 文件）；本轮不改 CI（避免 re-gate）。 |
 | D 组计时取证 + 根因修复 | done | 产品代码未改 `loadPilotConfig.ts` |
 | D 组连续 3 次绿 | done | 1) true 839ms / false 671ms 2) 962 / 772 3) 895 / 785。三次均 `2 passed` |
 | FE B/C 推送 | done | `582d563a` + `c17f1874`；B 9/9、C 2/2 |
@@ -31,7 +33,8 @@
 
 - A/D 实现：`8578c925671b41d0b7ec97b040a6e8c5c6e54843`
 - FE B/C：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`
-- 全 PR-W tip（QA PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`
+- 全 PR-W 代码 tip（QA PASS）：`c17f18747ebb2f3ee9b9eef0652972d196317639`
+- 当前 head（review 文档，含 slim qa-gate）：`e63e2661036c01d0ec9bb39e6fc626a67a32ddee`（本轮 F7/F5 再叠一层 review-only）
 - 基线：`761572d7`
 
 ## Before / after（摘要）
@@ -66,7 +69,7 @@
 
 `--testTimeout=1800`：true 在 import 阶段超时；import 在 FAIL 之后仍打出 `+2234.1ms`。false 随后 530.5ms import + 10.4ms call 通过。证明超时点是 Vite 动态 import，且超时不能取消该 import。
 
-tsx 直载同一 TS：`import_ms 901.8` / `load_ms 0.7`，无 TDZ。
+tsx 直载同一 TS：`import_ms 901.8` / `load_ms 0.7`，无 TDZ。D-2：TDZ **只在 Vite SSR + `vi.resetModules` 下观察到**；Vite 外（tsx / 新进程）不复现。不把超时 factory 重入写成已证实因果。
 
 修复后连续 3 次（各含一次新进程 tsx）：
 
