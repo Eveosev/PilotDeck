@@ -1,0 +1,11 @@
+Checks	pass	44s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163147918	
+Linux / DEB arm64	pass	6m7s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148277	
+Linux / DEB x64	pass	5m34s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148150	
+Linux / RPM arm64	pass	4m51s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148328	
+Linux / RPM x64	pass	5m50s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148489	
+Windows / arm64	pass	16m13s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148224	
+Windows / x64	pass	9m19s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148218	
+docker	pass	2m45s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331902/job/115163147886	
+macOS / arm64	pass	5m29s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148146	
+macOS / x64	pass	6m46s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331918/job/115163148115	
+web	pass	3m38s	https://github.com/Eveosev/PilotDeck/actions/runs/38357331902/job/115163148457	
