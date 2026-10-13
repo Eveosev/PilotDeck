@@ -78,7 +78,7 @@ else
 fi
 {
   echo "WESTON_LAUNCH ${weston_cmd[*]}"
-  echo "XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group gpu=$gpu wayland_debug=1 weston_debug=$weston_debug"
+  echo "XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset group=$group gpu=$gpu wayland_debug=1 weston_debug=$weston_debug pre_bytes=${PILOTDECK_WAYLAND_DIAG_PRE_BYTES:-131072} post_ms=${PILOTDECK_WAYLAND_DIAG_POST_MS:-15000}"
 } | tee "$PILOTDECK_CHROME_ARTIFACTS/weston-launch.txt"
 : >"$PILOTDECK_WESTON_LOG"
 "${weston_cmd[@]}" >>"$PILOTDECK_WESTON_LOG" 2>&1 &

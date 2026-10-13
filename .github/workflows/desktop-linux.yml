@@ -229,27 +229,16 @@ jobs:
           retention-days: 14
 
   wayland-diag:
-    name: Wayland diag C ${{ matrix.gpu }} arm64
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - gpu: default
-            gpu_env: default
-            artifact_dir: linux-wayland-diag-C
-          - gpu: disable-gpu
-            gpu_env: off
-            artifact_dir: linux-wayland-diag-C-off
-          - gpu: swiftshader
-            gpu_env: swiftshader
-            artifact_dir: linux-wayland-diag-C-swiftshader
+    name: Wayland diag C default arm64
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     env:
       PILOTDECK_WAYLAND_DIAG_GROUP: C
-      PILOTDECK_WAYLAND_DIAG_GPU: ${{ matrix.gpu_env }}
+      PILOTDECK_WAYLAND_DIAG_GPU: default
       PILOTDECK_WAYLAND_DIAG_N: "100"
       PILOTDECK_WAYLAND_DIAG_EARLY_STOP: "3"
+      PILOTDECK_WAYLAND_DIAG_PRE_BYTES: "131072"
+      PILOTDECK_WAYLAND_DIAG_POST_MS: "15000"
       NODE_OPTIONS: --max-old-space-size=2560
     steps:
       - uses: actions/checkout@v7
@@ -271,19 +260,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-x11 weston
-      - name: Wayland File-click C ${{ matrix.gpu }}
+      - name: Wayland File-click C default
         run: bash apps/desktop/scripts/run-linux-wayland-diag.sh
       - name: Upload Wayland diag dumps
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pilotdeck-linux-wayland-diag-arm64-C-${{ matrix.gpu }}
+          name: pilotdeck-linux-wayland-diag-arm64-C-default
           path: |
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/linux-wayland-diag-*.json
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/linux-wayland-diag-*.png
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/linux-wayland-diag-*.log
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/linux-wayland-diag-*.log.live
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/weston-live.log
-            outputs/desktop-chrome-review/${{ matrix.artifact_dir }}/weston-launch.txt
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.json
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.png
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.log
+            outputs/desktop-chrome-review/linux-wayland-diag-C/linux-wayland-diag-*.log.live
+            outputs/desktop-chrome-review/linux-wayland-diag-C/weston-live.log
+            outputs/desktop-chrome-review/linux-wayland-diag-C/weston-launch.txt
           if-no-files-found: ignore
           retention-days: 14

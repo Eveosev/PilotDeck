@@ -131,29 +131,40 @@ const lastNonEmptyLine = text => {
   const lines = text.split('\n').map(line => line.trimEnd()).filter(Boolean);
   return lines.at(-1) ?? null;
 };
-const sliceWestonLog = async (startSize, dest) => {
+const westonPreBytes = Number(process.env.PILOTDECK_WAYLAND_DIAG_PRE_BYTES || 131072);
+const westonPostMs = Number(process.env.PILOTDECK_WAYLAND_DIAG_POST_MS || 15000);
+const readWestonLive = async () => {
   const live = process.env.PILOTDECK_WESTON_LOG;
-  if (!live) return { dest: null, liveBytes: 0, sliceBytes: 0, startSize, tailFallback: false };
+  if (!live) return { live: null, buf: Buffer.alloc(0) };
   try {
     try {
       const handle = await fs.open(live, 'r+');
       await handle.sync();
       await handle.close();
     } catch {}
-    const buf = await fs.readFile(live);
-    const start = Math.min(startSize, buf.length);
-    const slice = buf.subarray(start);
-    await fs.writeFile(dest, slice);
-    let tailFallback = false;
-    if (slice.length === 0 && buf.length > 0) {
-      const tail = buf.subarray(Math.max(0, buf.length - 65536));
-      await fs.writeFile(`${dest.replace(/\.log$/, '')}-tail.log`, tail);
-      tailFallback = true;
-    }
-    return { dest, liveBytes: buf.length, sliceBytes: slice.length, startSize: start, tailFallback };
-  } catch (error) {
-    return { dest: null, liveBytes: 0, sliceBytes: 0, startSize, tailFallback: false, error: String(error) };
+    return { live, buf: await fs.readFile(live) };
+  } catch {
+    return { live, buf: Buffer.alloc(0) };
   }
+};
+const writeRange = async (buf, start, end, dest) => {
+  const from = Math.max(0, Math.min(start, buf.length));
+  const to = Math.max(from, Math.min(end, buf.length));
+  const slice = buf.subarray(from, to);
+  await fs.writeFile(dest, slice);
+  return { dest, bytes: slice.length, start: from, end: to };
+};
+const sliceWestonLog = async (startSize, dest) => {
+  const { live, buf } = await readWestonLive();
+  if (!live) return { dest: null, liveBytes: 0, sliceBytes: 0, startSize, tailFallback: false };
+  const start = Math.min(startSize, buf.length);
+  const written = await writeRange(buf, start, buf.length, dest);
+  let tailFallback = false;
+  if (written.bytes === 0 && buf.length > 0) {
+    await writeRange(buf, Math.max(0, buf.length - 65536), buf.length, `${dest.replace(/\.log$/, '')}-tail.log`);
+    tailFallback = true;
+  }
+  return { dest, liveBytes: buf.length, sliceBytes: written.bytes, startSize: start, tailFallback };
 };
 const summarizeFrameLogs = async (...files) => {
   const count = (text, re) => (text.match(re) || []).length;
@@ -212,51 +223,117 @@ const interpretFrameLogs = parts => {
     lastSurfaceFrame, lastCallbackDone, lastProtocolLine,
   };
 };
-const analyzeHungSurfaces = (...texts) => {
-  const text = texts.filter(Boolean).join('\n');
+const surfaceStats = (text, id) => {
+  const frames = [...(text || '').matchAll(new RegExp(`wl_surface[#@]${id}\\.frame\\(new id wl_callback[#@](\\d+)\\)`, 'g'))];
+  const callbackIds = [...new Set(frames.map(match => match[1]))];
+  const matchingDone = callbackIds.filter(callbackId =>
+    new RegExp(`wl_callback[#@]${callbackId}\\.done`).test(text || ''));
+  return {
+    emittedFrame: frames.length > 0,
+    frameCount: frames.length,
+    matchingDone: frames.length ? matchingDone.length > 0 : null,
+    callbackIds,
+    lastFrame: frames.at(-1)?.[0] ?? null,
+  };
+};
+const discoverSurfaceIds = text => [...new Set([
+  ...[...(text || '').matchAll(/wl_surface[#@](\d+)\.frame/g)].map(match => match[1]),
+  ...[...(text || '').matchAll(/create_surface\(new id wl_surface[#@](\d+)\)/g)].map(match => match[1]),
+])];
+const readText = async file => {
+  try { return await fs.readFile(file, 'utf8'); } catch { return ''; }
+};
+const analyzeHungSurfaces = ({ client = '', pre = '', core = '', post = '', widened = '' } = {}) => {
   const windowId = '3';
-  const windowFrames = [...text.matchAll(new RegExp(`wl_surface[#@]${windowId}\\.frame\\(new id wl_callback[#@](\\d+)\\)`, 'g'))];
-  const windowCallbackIds = [...new Set(windowFrames.map(match => match[1]))];
-  const windowMatchingDone = windowCallbackIds.filter(id =>
-    new RegExp(`wl_callback[#@]${id}\\.done`).test(text));
-  const helperFrames = [...text.matchAll(/wl_surface[#@](\d+)\.frame\(new id wl_callback[#@](\d+)\)/g)]
-    .filter(match => match[1] !== windowId);
-  const helperIds = [...new Set(helperFrames.map(match => match[1]))];
-  const helperDones = helperFrames.filter(match =>
-    new RegExp(`wl_callback[#@]${match[2]}\\.done`).test(text));
-  const saw1320 = /add\(0, 0, 1320, 900\)/.test(text) || /create_buffer\([^)]*1352,\s*942/.test(text);
-  const windowEmittedFrame = windowFrames.length > 0;
-  const helperFrameOrDone = helperFrames.length > 0 || helperDones.length > 0;
+  const window = surfaceStats([client, core, post].join('\n'), windowId);
+  const saw1320 = /add\(0, 0, 1320, 900\)/.test(client + core) || /create_buffer\([^)]*1352,\s*942/.test(client + core);
+  const helperIds = [...new Set(
+    discoverSurfaceIds([pre, core, post, client, widened].join('\n')).filter(id => id !== windowId),
+  )].sort((a, b) => Number(a) - Number(b));
+  const helpers = helperIds.map(id => {
+    const regions = {
+      pre: surfaceStats(pre, id),
+      core: surfaceStats(core, id),
+      post: surfaceStats(post, id),
+      client: surfaceStats(client, id),
+    };
+    const emittedFrame = Object.values(regions).some(region => region.emittedFrame);
+    const matchingDone = Object.values(regions).some(region => region.matchingDone);
+    const windowsWithFrame = Object.entries(regions).filter(([, region]) => region.emittedFrame).map(([name]) => name);
+    const duringHung = regions.core.emittedFrame || regions.post.emittedFrame || regions.client.emittedFrame;
+    return {
+      id: `wl_surface#${id}`,
+      emittedFrame,
+      matchingDone: emittedFrame ? matchingDone : null,
+      duringHung,
+      windowsWithFrame,
+      ...regions,
+    };
+  });
+  const helpersWithFrame = helpers.filter(helper => helper.emittedFrame).map(helper => helper.id);
+  const helpersDuringHung = helpers.filter(helper => helper.duringHung).map(helper => helper.id);
+  const helpersOnlyPre = helpers.filter(helper => helper.emittedFrame && !helper.duringHung).map(helper => helper.id);
   return {
     windowSurface: `wl_surface#${windowId}`,
     windowSize: '1320x900',
     windowLooksLikeHungWindow: saw1320,
-    windowEmittedFrame,
-    windowFrameCount: windowFrames.length,
-    windowMatchingDone: windowEmittedFrame ? windowMatchingDone.length > 0 : null,
-    windowCallbackIds,
-    helperFrameOrDone,
+    windowEmittedFrame: window.emittedFrame,
+    windowFrameCount: window.frameCount,
+    windowMatchingDone: window.matchingDone,
+    windowCallbackIds: window.callbackIds,
+    helperFrameOrDone: helpers.some(helper => helper.emittedFrame || helper.matchingDone),
     helperSurfaces: helperIds,
-    helperFrameCount: helperFrames.length,
-    helperDoneCount: helperDones.length,
-    interpretation: !windowEmittedFrame
-      ? 'no #3.frame: client stopped requesting frames for the hung window; cannot prove callback sent but missed. helper traffic (if any) means weston is not globally dead'
-      : windowMatchingDone.length > 0
+    helpers,
+    helpersWithFrame,
+    helpersDuringHung,
+    helpersOnlyPre,
+    helperSilence: helpersDuringHung.length
+      ? `helper frame/done during hung window: ${helpersDuringHung.join(', ')}`
+      : helpersOnlyPre.length
+        ? `helper frame/done only in pre-slice (${helpersOnlyPre.join(', ')}); core+post silent — not explained by narrow slice`
+        : 'no helper frame/done in widened pre/core/post — cannot distinguish true stop vs idle helper',
+    interpretation: !window.emittedFrame
+      ? 'no #3.frame in widened client/core/post: client did not request frames for the hung window; cannot prove callback sent but missed'
+      : window.matchingDone
         ? '#3.frame got matching wl_callback.done'
         : '#3.frame seen but no matching wl_callback.done',
   };
 };
 const recordFailureLogs = async ({ label, clientLog, westonStart, westonRoundLog, dumpLabel, extra = {} }) => {
+  const prePath = westonRoundLog.replace(/\.log$/, '-pre.log');
+  const corePath = westonRoundLog.replace(/\.log$/, '-core.log');
+  const postPath = westonRoundLog.replace(/\.log$/, '-post.log');
   await new Promise(resolve => setTimeout(resolve, 150));
   await extra.flushClientLog?.();
-  const westonMeta = await sliceWestonLog(westonStart, westonRoundLog);
-  const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog);
+  const atHang = await readWestonLive();
+  const hangEnd = atHang.buf.length;
+  const preStart = Math.max(0, Math.min(westonStart, hangEnd) - westonPreBytes);
+  await writeRange(atHang.buf, preStart, Math.min(westonStart, hangEnd), prePath);
+  await writeRange(atHang.buf, Math.min(westonStart, hangEnd), hangEnd, corePath);
+  await new Promise(resolve => setTimeout(resolve, westonPostMs));
+  await extra.flushClientLog?.();
+  const afterWait = await readWestonLive();
+  await writeRange(afterWait.buf, hangEnd, afterWait.buf.length, postPath);
+  const pre = atHang.buf.subarray(preStart, Math.min(westonStart, hangEnd));
+  const core = atHang.buf.subarray(Math.min(westonStart, hangEnd), hangEnd);
+  const post = afterWait.buf.subarray(Math.min(hangEnd, afterWait.buf.length));
+  await fs.writeFile(westonRoundLog, Buffer.concat([pre, core, post]));
+  const westonMeta = {
+    dest: westonRoundLog, prePath, corePath, postPath,
+    liveBytesAtHang: hangEnd, liveBytesAfterPost: afterWait.buf.length,
+    preBytes: pre.length, coreBytes: core.length, postBytes: post.length,
+    widenedBytes: pre.length + core.length + post.length,
+    startSize: Math.min(westonStart, hangEnd), preStart, postMs: westonPostMs,
+  };
+  const frameLogs = await summarizeFrameLogs(clientLog, westonRoundLog, prePath, corePath, postPath);
   const frameCallback = interpretFrameLogs(frameLogs);
-  const texts = [];
-  for (const file of [clientLog, westonRoundLog].filter(Boolean)) {
-    try { texts.push(await fs.readFile(file, 'utf8')); } catch {}
-  }
-  const hungSurfaceTable = analyzeHungSurfaces(...texts);
+  const hungSurfaceTable = analyzeHungSurfaces({
+    client: await readText(clientLog),
+    pre: pre.toString('utf8'),
+    core: core.toString('utf8'),
+    post: post.toString('utf8'),
+    widened: Buffer.concat([pre, core, post]).toString('utf8'),
+  });
   const dumpPath = path.join(artifactDir, `linux-wayland-diag-${dumpLabel}.json`);
   try {
     const dumped = JSON.parse(await fs.readFile(dumpPath, 'utf8'));
