@@ -4,6 +4,10 @@ Machine-readable contract for the agent-loop ↔ sidecar Module Protocol.
 **Hand-mapped** from `src/agent/modules/protocol.ts` `validateModuleMessage`
 plus source anchors and replay — `protocol.ts` is the only input.
 No protocol or runtime behavior change. No Rust type generation. No CI gate.
+PRs that touch the T-P0a-07 trigger paths (protocol.ts, schema scripts,
+fixtures, or `tools/agent-loop-parity/{run.py,scenarios.json}`) must follow
+[`evidence/protocol-sync-gate.md`](../protocol-sync-gate.md). Replay rewrites
+tracked reports; use that gate's one-replay-then-restore sequence.
 
 ## Artifacts
 
@@ -37,11 +41,13 @@ and per-source totals.
 
 ## Commands
 
-Tree must be clean before generate or official replay.
+Requires **Node 22** (engines `>=22.13.0 <23`) and a clean tree. Official
+protocol-change sequence is the CONTRIBUTING copy-paste block, run with
+**`bash -e <file>`** (restore after replay, then `exit "$replay_exit"`).
+Probe only:
 
 ```bash
 node scripts/generate-module-protocol-schema.mjs
-node scripts/replay-module-protocol-schema.mjs
 node scripts/probe-module-protocol-additional-properties.mjs
 ```
 
@@ -49,4 +55,8 @@ Generate refuses a dirty tree (exit 2). A second generate on a clean tree must b
 
 Replay compares accept/reject only against `validateModuleMessage` for the
 synthetic 53-scenario templates, plus negatives, edges, and a loosened-schema
-control that must FAIL (every conditional rule).
+control that must FAIL (every conditional rule). It rewrites
+`replay-report.json` / `.md`; copy them out and
+`git checkout --` those two files before any second official command.
+Do not add `--experimental-strip-types` to generate; replay re-execs itself
+(Node < 22.6 → exit 9).
