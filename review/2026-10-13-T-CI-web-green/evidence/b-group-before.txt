@@ -1,0 +1,4 @@
+F-7 stub. Canonical FE log (do not duplicate 32KB raw here):
+  ../2026-10-13-T-CI-web-green-fe/b-group-before.txt
+sha256: 54054696b10ff9a477f1da44685e6d4628d3af6e9150fd2aca5fb6993b08d62b
+note: 6 failed | 3 passed (9). Do not invent contents.

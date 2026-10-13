@@ -1,0 +1,780 @@
+
+ RUN  v4.1.7 /workspace/ui
+
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx (9 tests | 6 failed) 234ms
+     × disables unavailable updates 115ms
+     × disables unavailable updates 17ms
+     × disables unavailable updates 13ms
+     × keeps updating disabled until main-process status is known 12ms
+     × explains checksumMismatch and enforces its retry policy 13ms
+     × explains installFailed and enforces its retry policy 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > disables unavailable updates
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"unavailable"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"unavailable"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.unavailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0msettingsPage.about.desktopUpdate.reasons.noCompatibleInstaller[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:26:27
+     24|   ])('disables unavailable updates', async (props) => {
+     25|     show(props); await flush();
+     26|     const button = screen.getByRole('button', { name: copy('updateAndR…
+       |                           ^
+     27|     expect(button.disabled).toBe(true); fireEvent.click(button); expec…
+     28|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > disables unavailable updates
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"upToDate"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"upToDate"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.upToDate[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:26:27
+     24|   ])('disables unavailable updates', async (props) => {
+     25|     show(props); await flush();
+     26|     const button = screen.getByRole('button', { name: copy('updateAndR…
+       |                           ^
+     27|     expect(button.disabled).toBe(true); fireEvent.click(button); expec…
+     28|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > disables unavailable updates
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"unavailable"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"unavailable"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.unavailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0msettingsPage.about.desktopUpdate.reasons.checkFailed[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:26:27
+     24|   ])('disables unavailable updates', async (props) => {
+     25|     show(props); await flush();
+     26|     const button = screen.getByRole('button', { name: copy('updateAndR…
+       |                           ^
+     27|     expect(button.disabled).toBe(true); fireEvent.click(button); expec…
+     28|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > keeps updating disabled until main-process status is known
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"unavailable"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"unavailable"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.unavailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0msettingsPage.about.desktopUpdate.reasons.statusFailed[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:53:43
+     51|   it('keeps updating disabled until main-process status is known', asy…
+     52|     vi.useFakeTimers(); bridge.getUpdateStatus.mockRejectedValueOnce(n…
+     53|     show(); await flush(); expect((screen.getByRole('button', { name: …
+       |                                           ^
+     54|     await tick(); expect((screen.getByRole('button', { name: copy('upd…
+     55|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > explains checksumMismatch and enforces its retry policy
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"unavailable"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"unavailable"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.unavailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0msettingsPage.about.desktopUpdate.reasons.checksumMismatch[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:59:20
+     57|     bridge.getUpdateStatus.mockResolvedValue({ state: 'failed', reason…
+     58|     expect(screen.getByRole('alert').textContent).toBe(copy(`reasons.$…
+     59|     expect((screen.getByRole('button', { name: copy('updateAndRestart'…
+       |                    ^
+     60|   });
+     61|   it('cancels through Electron and offers a new attempt', async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/components/settings/view/about/DesktopAboutSections.test.tsx > desktop automatic update UI > explains installFailed and enforces its retry policy
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "settingsPage.about.desktopUpdate.updateAndRestart"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"desktop-update-status"[39m
+    [33mdata-state[39m=[32m"unavailable"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "settingsPage.about.desktopUpdate.checkAgain":
+  [36m<button[39m
+    [33mclass[39m=[32m"desktop-update-button primary"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-8"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card/50 desktop-update-card overflow-hidden"[39m
+        [33mdata-settings-surface[39m=[32m"panel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0msettingsPage.about.versionStatus[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"desktop-update-status"[39m
+              [33mdata-state[39m=[32m"unavailable"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [0msettingsPage.about.desktopUpdate.status.unavailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"desktop-update-button primary"[39m
+              [33mdisabled[39m=[32m""[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.8"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13.2 3.3M4.7 14.6a8 8 0 0 0 13.2 3.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0msettingsPage.about.desktopUpdate.checkAgain[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3 border-t border-border px-5 py-4 text-sm text-muted-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-x-6 gap-y-1"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.currentVersion[0m
+              [0m [0m
+              [0m2026.906.0[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0msettingsPage.about.latestVersion[0m
+              [0m [0m
+              [0m2026.907.0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0msettingsPage.about.desktopUpdate.reasons.installFailed[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/settings/view/about/DesktopAboutSections.test.tsx:59:20
+     57|     bridge.getUpdateStatus.mockResolvedValue({ state: 'failed', reason…
+     58|     expect(screen.getByRole('alert').textContent).toBe(copy(`reasons.$…
+     59|     expect((screen.getByRole('button', { name: copy('updateAndRestart'…
+       |                    ^
+     60|   });
+     61|   it('cancels through Electron and offers a new attempt', async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 3 passed (9)
+   Start at  04:45:27
+   Duration  1.23s (transform 318ms, setup 0ms, import 420ms, tests 234ms, environment 472ms)
+

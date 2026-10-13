@@ -1,0 +1,274 @@
+diff --git a/.github/workflows/web-regression.yml b/.github/workflows/web-regression.yml
+index 03048d7d..bb164123 100644
+--- a/.github/workflows/web-regression.yml
++++ b/.github/workflows/web-regression.yml
+@@ -33,6 +33,44 @@ jobs:
+       - name: Build Gateway and Web UI
+         run: pnpm run build:web
+ 
++      - name: Test Web UI node:test files
++        # These suites import node:test. Vitest/Vite cannot bundle that builtin,
++        # so they are excluded from the Vitest step and run here with Node.
++        working-directory: ui
++        run: |
++          files="$(node --input-type=module <<'EOF'
++          import { readdirSync, readFileSync } from 'node:fs';
++          import { join } from 'node:path';
++          const out = [];
++          function walk(dir) {
++            for (const entry of readdirSync(dir, { withFileTypes: true })) {
++              const path = join(dir, entry.name);
++              if (entry.isDirectory()) {
++                if (!['node_modules', 'dist', 'e2e'].includes(entry.name)) walk(path);
++                continue;
++              }
++              if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue;
++              const src = readFileSync(path, 'utf8');
++              if (/(?:from|import)\s+['"]node:test['"]/.test(src)) out.push(path);
++            }
++          }
++          walk('server');
++          if (out.length === 0) {
++            console.error('expected node:test files under ui/server');
++            process.exit(1);
++          }
++          process.stdout.write(out.sort().join('\n'));
++          EOF
++          )"
++          echo "Running node --test on ${files//$'\n'/ }"
++          printf '%s\n' "$files"
++          mapfile -t file_list <<< "$files"
++          if [ "${#file_list[@]}" -lt 8 ]; then
++            echo "expected at least 8 ui/server node:test files, found ${#file_list[@]}"
++            exit 1
++          fi
++          node --test "${file_list[@]}"
++
+       - name: Test Web UI and server
+         # The upstream suite currently lets Vitest collect a Playwright E2E file,
+         # and streamSmoother's fake-timer spec is independently flaky. Keep the
+diff --git a/ui/server/routes/config.test.js b/ui/server/routes/config.test.js
+index 17ca9d92..32212066 100644
+--- a/ui/server/routes/config.test.js
++++ b/ui/server/routes/config.test.js
+@@ -1,12 +1,56 @@
+ import express from 'express';
+-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
++import { spawnSync } from 'node:child_process';
++import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
++import { createRequire } from 'node:module';
+ import { tmpdir } from 'node:os';
+-import { dirname, join } from 'node:path';
++import { dirname, join, resolve } from 'node:path';
++import { pathToFileURL } from 'node:url';
+ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { validatePilotDeckConfig } from '../services/pilotdeckConfig.js';
+ import { rewriteModelReferences } from '../services/modelReferences.js';
+ 
++function findRepoRoot() {
++  for (const start of [process.cwd(), resolve(process.cwd(), '..')]) {
++    let dir = start;
++    for (let i = 0; i < 6; i++) {
++      if (existsSync(join(dir, 'src/pilot/config/loadPilotConfig.ts')) && existsSync(join(dir, 'package.json'))) {
++        return dir;
++      }
++      dir = resolve(dir, '..');
++    }
++  }
++  throw new Error('cannot locate src/pilot/config/loadPilotConfig.ts from cwd');
++}
++
++// Vite SSR cannot safely evaluate this Gateway loader inside a 5s vitest case:
++// the first dynamic import of the TS graph is multi-second, and a timeout leaves
++// that factory in-flight. afterEach vi.resetModules() then re-enters the same
++// module before `const existsSync = ...` is initialized (TDZ at loadPilotConfig.ts:221).
++// A fresh Node+tsx process is the real "restart the application" check.
++function loadPilotConfig(options) {
++  const repoRoot = findRepoRoot();
++  const tsx = createRequire(join(repoRoot, 'package.json')).resolve('tsx');
++  const specifier = pathToFileURL(join(repoRoot, 'src/pilot/config/loadPilotConfig.ts')).href;
++  const result = spawnSync(
++    process.execPath,
++    [
++      '--import',
++      tsx,
++      '--input-type=module',
++      '--eval',
++      `const { loadPilotConfig } = await import(${JSON.stringify(specifier)});
++       process.stdout.write(JSON.stringify(loadPilotConfig(${JSON.stringify(options)})));`,
++    ],
++    { encoding: 'utf8', cwd: repoRoot, maxBuffer: 8 * 1024 * 1024 },
++  );
++  if (result.status !== 0) {
++    throw new Error((result.stderr || result.stdout || `loadPilotConfig worker exited ${result.status}`).trim());
++  }
++  const stdout = result.stdout.trim();
++  return JSON.parse(stdout.slice(stdout.indexOf('{')));
++}
++
+ const nativeFetch = globalThis.fetch;
+ const tempDirs = [];
+ 
+@@ -1625,7 +1669,6 @@ describe('config model removal route', () => {
+ 
+     // Use the Gateway's real loader, not the UI validator or mocked reloader:
+     // a successful API write must also survive restarting the application.
+-    const { loadPilotConfig } = await import('../../../src/pilot/config/loadPilotConfig.ts');
+     const snapshot = loadPilotConfig({ configPath, env: { PILOT_HOME: dirname(configPath) } });
+     expect(snapshot.config.agent.model.id).toBe('deepseek/deepseek-chat');
+     expect(snapshot.config.memory.model).toBeUndefined();
+diff --git a/ui/src/components/settings/moduleLabels.test.tsx b/ui/src/components/settings/moduleLabels.test.tsx
+index d316d186..1842f2e0 100644
+--- a/ui/src/components/settings/moduleLabels.test.tsx
++++ b/ui/src/components/settings/moduleLabels.test.tsx
+@@ -1,5 +1,6 @@
+ import { cleanup, render, screen } from '@testing-library/react';
+ import { afterEach, expect, it, vi } from 'vitest';
++import { MemoryRouter } from 'react-router-dom';
+ import SettingsContent from './view/SettingsContent';
+ import SettingsSidebar from './view/SettingsSidebar';
+ 
+@@ -30,7 +31,7 @@ it('uses contribution translation keys for module navigation and headings', () =
+   expect(screen.getByRole('button', { name: '通用' })).toBeTruthy();
+   sidebar.unmount();
+ 
+-  render(<SettingsContent selectedKey="module:host-preferences" projects={[]} moduleSettings={[translatedSetting]} />);
++  render(<MemoryRouter><SettingsContent selectedKey="module:host-preferences" projects={[]} moduleSettings={[translatedSetting]} /></MemoryRouter>);
+   expect(screen.getByText('设置')).toBeTruthy();
+   expect(screen.getAllByText('通用')).toHaveLength(2);
+ });
+diff --git a/ui/src/components/settings/view/about/DesktopAboutSections.test.tsx b/ui/src/components/settings/view/about/DesktopAboutSections.test.tsx
+index 70fb0520..37dcf857 100644
+--- a/ui/src/components/settings/view/about/DesktopAboutSections.test.tsx
++++ b/ui/src/components/settings/view/about/DesktopAboutSections.test.tsx
+@@ -23,7 +23,7 @@ describe('desktop automatic update UI', () => {
+     { canDownload: false, checkUnavailable: true, desktopReason: 'checkFailed' },
+   ])('disables unavailable updates', async (props) => {
+     show(props); await flush();
+-    const button = screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement;
++    const button = screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement;
+     expect(button.disabled).toBe(true); fireEvent.click(button); expect(bridge.startUpdate).not.toHaveBeenCalled();
+   });
+   it('one click starts the native update; progress advances to automatic installation', async () => {
+@@ -50,13 +50,13 @@ describe('desktop automatic update UI', () => {
+   });
+   it('keeps updating disabled until main-process status is known', async () => {
+     vi.useFakeTimers(); bridge.getUpdateStatus.mockRejectedValueOnce(new Error('network'));
+-    show(); await flush(); expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(true);
++    show(); await flush(); expect((screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement).disabled).toBe(true);
+     await tick(); expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(false);
+   });
+-  it.each([['checksumMismatch', false], ['installFailed', true]])('explains %s and enforces its retry policy', async (reason, disabled) => {
++  it.each([['checksumMismatch', true], ['installFailed', true]])('explains %s and enforces its retry policy', async (reason, disabled) => {
+     bridge.getUpdateStatus.mockResolvedValue({ state: 'failed', reason, progress: 0 }); show(); await flush();
+     expect(screen.getByRole('alert').textContent).toBe(copy(`reasons.${reason}`));
+-    expect((screen.getByRole('button', { name: copy('updateAndRestart') }) as HTMLButtonElement).disabled).toBe(disabled);
++    expect((screen.getByRole('button', { name: copy('checkAgain') }) as HTMLButtonElement).disabled).toBe(disabled);
+   });
+   it('cancels through Electron and offers a new attempt', async () => {
+     bridge.getUpdateStatus.mockResolvedValue({ state: 'downloading', progress: .3 });
+diff --git a/ui/vite.config.js b/ui/vite.config.js
+index b80c11a5..4e6b7f21 100755
+--- a/ui/vite.config.js
++++ b/ui/vite.config.js
+@@ -1,3 +1,4 @@
++import { readdirSync, readFileSync } from 'node:fs'
+ import path from 'path'
+ import { defineConfig, loadEnv } from 'vite'
+ import react from '@vitejs/plugin-react'
+@@ -5,6 +6,33 @@ import { fileURLToPath } from 'url'
+ import { getConnectableHost, normalizeLoopbackHost } from './shared/networkHosts.js'
+ import { LIGHT_PRESETS } from '../apps/desktop/src/lightAppearance'
+ 
++function vitestExcludeNodeTestFiles(fromDir) {
++  const found = []
++  const skipDir = new Set(['node_modules', 'dist', 'e2e', '.git', 'coverage'])
++  const walk = (dir) => {
++    let entries
++    try {
++      entries = readdirSync(dir, { withFileTypes: true })
++    } catch {
++      return
++    }
++    for (const entry of entries) {
++      const full = path.join(dir, entry.name)
++      if (entry.isDirectory()) {
++        if (!skipDir.has(entry.name)) walk(full)
++        continue
++      }
++      if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue
++      const src = readFileSync(full, 'utf8')
++      if (/(?:from|import)\s+['"]node:test['"]/.test(src)) {
++        found.push(path.relative(fromDir, full).replaceAll('\\', '/'))
++      }
++    }
++  }
++  walk(fromDir)
++  return found
++}
++
+ const __filename = fileURLToPath(import.meta.url)
+ const __dirname = path.dirname(__filename)
+ const repoRoot = path.resolve(__dirname, '..')
+@@ -170,7 +198,7 @@ export default defineConfig(({ mode }) => {
+     },
+     test: {
+       environment: 'jsdom',
+-      exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
++      exclude: ['e2e/**', 'node_modules/**', 'dist/**', ...vitestExcludeNodeTestFiles(__dirname)],
+       server: {
+         deps: {
+           inline: ['react', 'react-dom']
+diff --git a/vitest.config.js b/vitest.config.js
+index c4a303e9..db9d17ce 100644
+--- a/vitest.config.js
++++ b/vitest.config.js
+@@ -1,10 +1,39 @@
++import { readdirSync, readFileSync } from 'node:fs';
++import { dirname, join, relative, resolve } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+-import { dirname, resolve } from 'node:path';
+ import { defineConfig } from 'vitest/config';
+ 
+ const rootDir = dirname(fileURLToPath(import.meta.url));
+ const uiNodeModules = resolve(rootDir, 'ui/node_modules');
+ 
++/** Test files that import node:test — Vite cannot bundle that builtin. */
++export function vitestExcludeNodeTestFiles(fromDir) {
++  const found = [];
++  const skipDir = new Set(['node_modules', 'dist', 'e2e', '.git', 'coverage']);
++  const walk = (dir) => {
++    let entries;
++    try {
++      entries = readdirSync(dir, { withFileTypes: true });
++    } catch {
++      return;
++    }
++    for (const entry of entries) {
++      const full = join(dir, entry.name);
++      if (entry.isDirectory()) {
++        if (!skipDir.has(entry.name)) walk(full);
++        continue;
++      }
++      if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue;
++      const src = readFileSync(full, 'utf8');
++      if (/(?:from|import)\s+['"]node:test['"]/.test(src)) {
++        found.push(relative(fromDir, full).replaceAll('\\', '/'));
++      }
++    }
++  };
++  walk(fromDir);
++  return found;
++}
++
+ export default defineConfig({
+   resolve: {
+     alias: {
+@@ -16,5 +45,6 @@ export default defineConfig({
+   },
+   test: {
+     setupFiles: [resolve(rootDir, 'vitest.setup.ts')],
++    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', ...vitestExcludeNodeTestFiles(rootDir)],
+   },
+ });

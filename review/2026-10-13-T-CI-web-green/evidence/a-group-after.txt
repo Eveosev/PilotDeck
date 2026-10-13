@@ -1,0 +1,4 @@
+F-7 stub. Full log not committed.
+name: node-test-8-after.log
+sha256: 0057205009e700f22b4065dc9764b87942ef42e6ca9102284bad804bf1502677
+note: PR artifact / not in git. Do not invent contents. Local + CI node --test on the same 8 files: tests 40 / pass 40 / fail 0.

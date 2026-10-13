@@ -1,0 +1,11 @@
+Linux / DEB arm64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414831	
+Linux / DEB x64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414712	
+Linux / RPM arm64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414574	
+Windows / arm64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414739	
+macOS / arm64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414889	
+macOS / x64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414702	
+web	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207846/job/115134414682	
+docker	pass	2m35s	https://github.com/Eveosev/PilotDeck/actions/runs/38348207846/job/115134414391	
+Linux / RPM x64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414684	
+Windows / x64	pending	0	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414727	
+Checks	pass	41s	https://github.com/Eveosev/PilotDeck/actions/runs/38348207851/job/115134414423	

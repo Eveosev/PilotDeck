@@ -1,0 +1,8 @@
+In-repo SUMMARY + extracts: ../qa-gate-c17f1874/
+  SUMMARY.md
+  non-review.diff
+  ci-checks.txt / ci-checks-final.txt
+  ci-runs/*.txt *.json (step extracts only)
+Raw zip / full logs remain on the shared box; hashes in ../qa-gate-c17f1874/RAW_LOGS_SHA256.txt (F-7 — not in git).
+GitHub: https://github.com/Eveosev/PilotDeck/actions/runs/38348207846
+  attempt 1/2/3 success, headSha c17f18747ebb2f3ee9b9eef0652972d196317639

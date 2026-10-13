@@ -1,0 +1,4 @@
+F-7 stub. Canonical FE log:
+  ../2026-10-13-T-CI-web-green-fe/c-group-before.txt
+sha256: 78a20feb2d25f5f975b3f5b718f5a951ed63e44d50b5844cd4691d459cafd9c7
+note: 1 failed | 1 passed (2); useLocation() without Router. Do not invent contents.

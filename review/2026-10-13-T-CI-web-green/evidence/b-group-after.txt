@@ -1,0 +1,4 @@
+F-7 stub. Canonical FE log:
+  ../2026-10-13-T-CI-web-green-fe/b-group-after.txt
+sha256: 0bcbeb40e5a939d85da28d1816987634cff4c86dd00a186014ae546491552044
+note: Test Files 1 passed; Tests 9 passed (9). Do not invent contents.
