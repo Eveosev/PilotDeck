@@ -9,11 +9,10 @@
  *   node scripts/check-web-node-test-scan.mjs
  *   node scripts/check-web-node-test-scan.mjs --print
  */
-import { createRequire, register } from "node:module";
+import { register } from "node:module";
 import { readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import picomatch from "picomatch";
 import {
   REPO_ROOT,
   SKIP_DIRS,
@@ -22,8 +21,6 @@ import {
   listWebUiNodeTestFiles,
   normalizeScanPath,
 } from "./lib/web-node-test-files.mjs";
-
-register(new URL("./lib/resolve-from-ui.mjs", import.meta.url));
 
 const BASELINE_SKIP = new Set([
   "**/node_modules/**",
@@ -49,10 +46,6 @@ function parseArgs(argv) {
 
 function sortedUnique(files) {
   return [...new Set(files.map(normalizeScanPath))].sort();
-}
-
-function isGlob(pattern) {
-  return /[*?[]/.test(pattern);
 }
 
 function toUiRelative(file, configRoot) {
@@ -85,7 +78,7 @@ function listUiTestFiles() {
   return found;
 }
 
-function resolveExcludeToUiTestFiles(exclude, configRoot) {
+function resolveExcludeToUiTestFiles(exclude, configRoot, picomatch) {
   if (!Array.isArray(exclude)) {
     throw new Error("config.test.exclude is missing or not an array");
   }
@@ -94,34 +87,34 @@ function resolveExcludeToUiTestFiles(exclude, configRoot) {
   for (const raw of exclude) {
     const pattern = normalizeScanPath(raw);
     if (BASELINE_SKIP.has(pattern)) continue;
-    const isMatch = picomatch(pattern, { dot: true });
-    for (const file of uiTests) {
-      const fromConfigRoot = normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
-      if (isMatch(fromConfigRoot) || isMatch(file)) out.add(file);
+    const relToConfig = (file) => normalizeScanPath(relative(configRoot, resolve(UI_DIR, file)));
+    if (picomatch.scan(pattern).isGlob) {
+      const isMatch = picomatch(pattern, { dot: true });
+      for (const file of uiTests) {
+        if (isMatch(relToConfig(file))) out.add(file);
+      }
+      continue;
     }
-    if (!isGlob(pattern)) {
-      const uiRel = toUiRelative(pattern, configRoot);
-      if (uiRel && TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) out.add(uiRel);
-    }
+    const uiRel = toUiRelative(pattern, configRoot);
+    if (uiRel && TEST_FILE_RE.test(uiRel.split("/").pop() ?? "")) out.add(uiRel);
   }
   return sortedUnique([...out]);
 }
 
-function resolveUiPackage(specifier) {
-  let requireUi;
+async function loadPicomatch() {
+  const { formatResolveError } = await import("./lib/resolve-from-ui.mjs");
   try {
-    requireUi = createRequire(resolve(UI_DIR, "package.json"));
+    const mod = await import("picomatch");
+    const picomatch = mod.default ?? mod;
+    if (typeof picomatch !== "function" || typeof picomatch.scan !== "function") {
+      throw new Error("picomatch export is missing scan()");
+    }
+    return picomatch;
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(`check-web-node-test-scan: cannot read ui/package.json. ${reason}`);
-  }
-  try {
-    return requireUi.resolve(specifier);
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `check-web-node-test-scan: cannot resolve '${specifier}' from ui/. Install Web UI dependencies (pnpm install --filter pilotdeck --filter pilotdeck-ui). ${reason}`,
+    console.error(
+      `check-web-node-test-scan: cannot import 'picomatch'. Install with: pnpm install --frozen-lockfile (root devDependency picomatch). ${formatResolveError(err)}`,
     );
+    process.exit(1);
   }
 }
 
@@ -134,7 +127,7 @@ async function loadEffectiveConfig(configFile) {
   return raw;
 }
 
-async function loadUiViteConfig() {
+async function loadUiViteConfig(resolveUiPackage) {
   const vite = await import(pathToFileURL(resolveUiPackage("vite")).href);
   const loaded = await vite.loadConfigFromFile(
     { command: "serve", mode: "test" },
@@ -175,16 +168,19 @@ if (printOnly) {
   process.exit(0);
 }
 
+register(new URL("./lib/resolve-from-ui.mjs", import.meta.url));
+const { resolveUiPackage } = await import("./lib/resolve-from-ui.mjs");
+const picomatch = await loadPicomatch();
 resolveUiPackage("vitest");
-const uiConfig = await loadUiViteConfig();
+const uiConfig = await loadUiViteConfig(resolveUiPackage);
 const rootConfig = await loadEffectiveConfig(resolve(REPO_ROOT, "vitest.config.js"));
 if (!uiConfig.test?.exclude || !rootConfig.test?.exclude) {
   console.error("check-web-node-test-scan: config.test.exclude missing after load");
   process.exit(1);
 }
 
-const uiExclude = resolveExcludeToUiTestFiles(uiConfig.test.exclude, UI_DIR);
-const rootExclude = resolveExcludeToUiTestFiles(rootConfig.test.exclude, REPO_ROOT);
+const uiExclude = resolveExcludeToUiTestFiles(uiConfig.test.exclude, UI_DIR, picomatch);
+const rootExclude = resolveExcludeToUiTestFiles(rootConfig.test.exclude, REPO_ROOT, picomatch);
 
 printSet("ui/vite.config.js test.exclude (ui test files)", uiExclude);
 printSet("vitest.config.js test.exclude (ui test files)", rootExclude);
