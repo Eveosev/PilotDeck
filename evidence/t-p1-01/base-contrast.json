@@ -1,0 +1,17 @@
+{
+  "lockTest": "cargo test -p pilotdeck-agent-loop --test lock",
+  "current": {
+    "gitSha": "4daa7a082fbb4783e97033d05705a1e8f4a74c88",
+    "exit": 0,
+    "result": "PASS",
+    "tests": 5
+  },
+  "base": {
+    "gitSha": "1da663a2",
+    "command": "git worktree add /tmp/t-p1-01-base 1da663a2 && cargo test -p pilotdeck-agent-loop --test lock",
+    "exit": 101,
+    "result": "FAIL",
+    "stderr": "error: package ID specification `pilotdeck-agent-loop` did not match any packages"
+  },
+  "why": "Base rust_standalone_alpha1@1da663a2 only has crates/pilotdeck-agent-loop-hello."
+}

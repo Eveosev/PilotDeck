@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["crates/pilotdeck-agent-loop-hello"]
+members = ["crates/pilotdeck-agent-loop-hello", "crates/pilotdeck-agent-loop"]
