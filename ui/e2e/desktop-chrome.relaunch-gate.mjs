@@ -279,15 +279,19 @@ const mainSurfaceTimeline = (text, id) => {
     const t = parseWaylandTs(line);
     if (t != null && new RegExp(`create_surface\\(new id wl_surface[#@]${id}\\)`).test(line)) createT = t;
     const frame = line.match(new RegExp(`wl_surface[#@]${id}\\.frame\\(new id wl_callback[#@](\\d+)\\)`));
-    if (frame && t != null) frames.push({ t, callback: frame[1], line: line.slice(0, 240) });
+    // Weston / WAYLAND_DEBUG lines are not always `[ts]`-prefixed. Count the
+    // frame request even when the timestamp is missing so OK spot-checks use
+    // the same 1320×900 surface evidence as hungSurfaceTable.windowFrameCount.
+    if (frame) frames.push({ t, callback: frame[1], line: line.slice(0, 240) });
   }
+  const stamped = frames.filter(frame => frame.t != null);
   return {
     frameCount: frames.length,
-    firstFrameT: frames[0]?.t ?? null,
-    lastFrameT: frames.at(-1)?.t ?? null,
+    firstFrameT: stamped[0]?.t ?? null,
+    lastFrameT: stamped.at(-1)?.t ?? null,
     createT,
-    firstFrameAfterCreateMs: frames[0] && createT != null ? frames[0].t - createT : null,
-    lastFrameAfterCreateMs: frames.at(-1) && createT != null ? frames.at(-1).t - createT : null,
+    firstFrameAfterCreateMs: stamped[0] && createT != null ? stamped[0].t - createT : null,
+    lastFrameAfterCreateMs: stamped.at(-1) && createT != null ? stamped.at(-1).t - createT : null,
     frames: frames.length <= 12 ? frames : [...frames.slice(0, 6), ...frames.slice(-4)],
   };
 };

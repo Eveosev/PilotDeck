@@ -1,5 +1,9 @@
 /** Acceptance C verdict for the File-click relaunch gate. */
 
+export function okSampleMainFrameCount(round) {
+  return Math.max(Number(round.timeline?.frameCount ?? 0), Number(round.hungSurfaceTable?.windowFrameCount ?? 0));
+}
+
 export function evaluateFileClickGate(rounds, {
   ozone = null,
   waylandFrameDiag = ozone === 'wayland',
@@ -14,7 +18,7 @@ export function evaluateFileClickGate(rounds, {
     return before || after;
   });
   const okSamples = rounds.filter(round => round.ok && round.keepLogs && round.timeline);
-  const okHaveMainFrame = okSamples.filter(round => (round.timeline?.frameCount ?? 0) > 0);
+  const okHaveMainFrame = okSamples.filter(round => okSampleMainFrameCount(round) > 0);
   const reasons = [];
   if (hung.length > 0 || earlyStop) reasons.push(`trulyHung=${hung.length} early-stop=${earlyStop}`);
   if (clickOk.length !== rounds.length) reasons.push(`clickOk=${clickOk.length}/${rounds.length}`);

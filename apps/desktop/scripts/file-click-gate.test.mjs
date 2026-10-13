@@ -35,6 +35,16 @@ test('X11 does not require wl_surface.frame and still fails on a hung round', ()
   assert.equal(fail.pass, false);
 });
 
+test('OK spot-check accepts hungSurfaceTable.windowFrameCount when timeline dropped unstamped frames', () => {
+  const rounds = [1, 2, 3].map(i => ok(i, {
+    timeline: { frameCount: 0, firstFrameT: null },
+    hungSurfaceTable: { windowFrameCount: 70 + i },
+  }));
+  const verdict = evaluateFileClickGate(rounds, { ozone: 'wayland', waylandFrameDiag: true, nRequested: 3 });
+  assert.equal(verdict.pass, true);
+  assert.equal(verdict.okFrameSamples, 3);
+});
+
 test('OK clicks with frozen rAF fail the gate', () => {
   const verdict = evaluateFileClickGate(
     [ok(1, { rafDelta1s: 0, rafRate: 0, afterRafDelta1s: 0, afterRafRate: 0 })],
