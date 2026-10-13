@@ -3,7 +3,7 @@
 - 分支：`pilotdeck-rust/T-CI-web-green`
 - draft PR：https://github.com/Eveosev/PilotDeck/pull/12
 - 基线（本轮开始 tip）：`a5b9c98efd6ffaf8a07f9518e7c3f630a9d670d9`
-- gitSha：（提交后回填）
+- gitSha：`582d563adb535be93b8c4ffab3ec6dd9aacf1d99`
 - gitDirty：`false`
 - 范围：仅
   - `ui/src/components/settings/view/about/DesktopAboutSections.test.tsx`
