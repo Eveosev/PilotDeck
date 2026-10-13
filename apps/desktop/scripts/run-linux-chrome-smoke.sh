@@ -52,6 +52,7 @@ else
   export XDG_RUNTIME_DIR="$runtime_dir"
   export WAYLAND_DISPLAY=wayland-pilotdeck-chrome
   unset DISPLAY
+  echo "WESTON_LAUNCH weston --backend=headless-backend.so --socket=$WAYLAND_DISPLAY --no-config --idle-time=0 --width=1440 --height=900 XDG_RUNTIME_DIR=$runtime_dir DISPLAY=unset"
   weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" \
     --no-config --idle-time=0 --width=1440 --height=900 >"$runtime_dir/weston.log" 2>&1 &
   weston_pid=$!

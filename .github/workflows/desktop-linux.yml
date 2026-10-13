@@ -128,7 +128,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: pilotdeck-linux-chrome-${{ matrix.arch }}
-          path: outputs/desktop-chrome-review/linux-*/linux-*.png
+          path: |
+            outputs/desktop-chrome-review/linux-*/linux-*.png
+            outputs/desktop-chrome-review/linux-*/linux-wayland-diag-*.json
           if-no-files-found: ignore
           retention-days: 14
 

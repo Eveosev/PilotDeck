@@ -27,8 +27,90 @@ const app = await electron.launch({
   env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE')), PILOTDECK_CHROME_PROFILE: profile },
 });
 app.process().on('exit', (code, signal) => { if (code) console.error('Electron exited', { code, signal }); });
+const electronLaunchArgs = [
+  path.join(root, 'apps/desktop/scripts/fixtures/desktop-chrome.cjs'),
+  ...(process.env.PILOTDECK_CHROME_SCALE ? [`--force-device-scale-factor=${process.env.PILOTDECK_CHROME_SCALE}`] : []),
+  ...(process.env.PILOTDECK_CHROME_OZONE ? [`--ozone-platform=${process.env.PILOTDECK_CHROME_OZONE}`] : []),
+  ...(process.env.PILOTDECK_CHROME_DISABLE_SANDBOX ? ['--no-sandbox'] : []),
+];
 try {
   const page = await app.firstWindow();
+  await page.addInitScript(() => {
+    const started = Date.now();
+    const events = [];
+    const bboxes = [];
+    let rafCount = 0;
+    let lastBboxTs = 0;
+    const record = (type, extra = {}) => {
+      events.push({
+        t: Date.now() - started, type, rafCount,
+        visibility: document.visibilityState, hasFocus: document.hasFocus(), ...extra,
+      });
+    };
+    const fileBbox = () => {
+      const host = document.getElementById('pilotdeck-window-caption');
+      const btn = host?.shadowRoot?.querySelector('button[data-menu="menu-file"]');
+      if (!btn) return null;
+      const r = btn.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    };
+    const tick = ts => {
+      rafCount += 1;
+      if (ts - lastBboxTs >= 50) {
+        lastBboxTs = ts;
+        const box = fileBbox();
+        bboxes.push({
+          t: Date.now() - started, rafCount,
+          visibility: document.visibilityState, hasFocus: document.hasFocus(), box,
+        });
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    record('install');
+    document.addEventListener('visibilitychange', () => record('visibilitychange'));
+    window.addEventListener('focus', () => record('focus'));
+    window.addEventListener('blur', () => record('blur'));
+    window.__waylandDiag = {
+      snapshot: () => ({
+        rafCount, visibility: document.visibilityState, hasFocus: document.hasFocus(),
+        events: events.slice(), bboxes: bboxes.slice(),
+      }),
+    };
+  });
+  const dumpWaylandDiag = async (label, error) => {
+    let snapshot = null;
+    try { snapshot = await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null); }
+    catch (evalError) { snapshot = { evalError: String(evalError) }; }
+    const png = path.join(artifactDir, `linux-wayland-diag-${label}.png`);
+    const json = path.join(artifactDir, `linux-wayland-diag-${label}.json`);
+    try { await page.screenshot({ path: png, fullPage: true }); } catch {}
+    const payload = {
+      label, error: error ? { name: error.name, message: error.message } : null,
+      ozone: process.env.PILOTDECK_CHROME_OZONE || null,
+      waylandDisplay: process.env.WAYLAND_DISPLAY || null,
+      snapshot,
+      png, json,
+    };
+    await fs.writeFile(json, `${JSON.stringify(payload, null, 2)}\n`);
+    console.log('WAYLAND_FILE_DIAG_DUMP', JSON.stringify({
+      label, png, json,
+      rafCount: snapshot?.rafCount, visibility: snapshot?.visibility, hasFocus: snapshot?.hasFocus,
+      eventCount: snapshot?.events?.length, bboxCount: snapshot?.bboxes?.length,
+      error: payload.error,
+    }));
+    return payload;
+  };
+  const clickFileOrDump = async (locator, label, options) => {
+    try {
+      await locator.click(options);
+      return { ok: true };
+    } catch (error) {
+      await dumpWaylandDiag(label, error);
+      if (options?.timeout !== undefined) return { ok: false, error };
+      throw error;
+    }
+  };
   const projects = [
     { name: 'general', displayName: 'General conversation', kind: 'general', fullPath: '/fixture/general', sessions: [], capabilities: { files: false } },
     { name: 'demo', displayName: 'Desktop design review', kind: 'workspace', fullPath: '/fixture/demo', sessions: [{ id: 'chrome-review', title: 'Native title review', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }], capabilities: { files: true } },
@@ -156,9 +238,81 @@ try {
     await expect(caption.locator('button')).toHaveCount(5);
     await expect(caption).toHaveCSS('background-color', 'rgb(23, 23, 23)');
     await expect(page.locator('.project-sidebar')).toHaveCSS('background-color', 'rgb(10, 10, 10)');
+    const livePrefs = await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const contents = win.webContents;
+      return {
+        backgroundThrottling: contents.backgroundThrottling,
+        lastWebPreferences: typeof contents.getLastWebPreferences === 'function' ? contents.getLastWebPreferences() : null,
+      };
+    });
+    console.log('WAYLAND_FILE_DIAG_ENV', JSON.stringify({
+      electronLaunchArgs,
+      ozone: process.env.PILOTDECK_CHROME_OZONE || null,
+      waylandDisplay: process.env.WAYLAND_DISPLAY || null,
+      westonLaunch: 'weston --backend=headless-backend.so --socket=$WAYLAND_DISPLAY --no-config --idle-time=0 --width=1440 --height=900',
+      fixtureWindow: {
+        file: 'apps/desktop/scripts/fixtures/desktop-chrome.cjs:101',
+        webPreferencesFile: 'apps/desktop/scripts/fixtures/desktop-chrome.cjs:103',
+        webPreferences: {
+          preload: 'apps/desktop/dist/preload.js',
+          contextIsolation: true,
+          sandbox: false,
+          nodeIntegration: false,
+          backgroundThrottling: 'unset (Electron default true)',
+        },
+        live: livePrefs,
+      },
+      productWindow: {
+        file: 'apps/desktop/src/main.ts:525',
+        webPreferencesFile: 'apps/desktop/src/main.ts:536',
+        webPreferences: {
+          preload: 'apps/desktop/dist/preload.js',
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: false,
+          backgroundThrottling: 'unset (Electron default true)',
+        },
+      },
+    }));
+    if (process.platform === 'linux') {
+      const fileBtn = () => caption.getByRole('button', { name: 'File', exact: true });
+      const rounds = [];
+      for (let i = 1; i <= 20; i += 1) {
+        await page.reload();
+        await expect(page.locator('.app-shell')).toBeVisible({ timeout: 60000 });
+        await expect.poll(() => app.evaluate(() => global.chromeTest.state().ready)).toBe(true);
+        await expect(caption.locator('button')).toHaveCount(5);
+        const before = await page.evaluate(() => window.__waylandDiag?.snapshot() ?? null);
+        const result = await clickFileOrDump(fileBtn(), `round-${String(i).padStart(2, '0')}`, { timeout: 10000 });
+        try {
+          await page.keyboard.press('Escape');
+          await expect(fileBtn()).toHaveAttribute('aria-expanded', 'false');
+        } catch (resetError) {
+          console.log('WAYLAND_FILE_DIAG_RESET', JSON.stringify({ i, message: resetError.message }));
+        }
+        rounds.push({
+          i, ok: result.ok,
+          rafCount: before?.rafCount, visibility: before?.visibility, hasFocus: before?.hasFocus,
+          error: result.error ? result.error.message : null,
+        });
+      }
+      const rafs = rounds.map(round => round.rafCount).filter(n => typeof n === 'number');
+      console.log('WAYLAND_FILE_DIAG_STATS', JSON.stringify({
+        n: rounds.length,
+        failures: rounds.filter(round => !round.ok).length,
+        rafMin: rafs.length ? Math.min(...rafs) : null,
+        rafMax: rafs.length ? Math.max(...rafs) : null,
+        rafs,
+        visibility: rounds.map(round => round.visibility),
+        fails: rounds.filter(round => !round.ok).map(round => ({
+          i: round.i, rafCount: round.rafCount, visibility: round.visibility, hasFocus: round.hasFocus, error: round.error,
+        })),
+      }));
+    }
     // Win32 owns its popup; Linux draws the same menu template in the preload
     // so it follows the app theme on GTK desktops with different system themes.
-    await caption.getByRole('button', { name: 'File', exact: true }).click();
+    await clickFileOrDump(caption.getByRole('button', { name: 'File', exact: true }), 'main-161');
     await expect.poll(() => app.evaluate(() => global.chromeTest.menuRequests().at(-1)?.id)).toBe('menu-file');
     const linuxPopup = page.locator('#pilotdeck-linux-popup');
     if (process.platform === 'linux') {
@@ -240,7 +394,7 @@ try {
     await page.reload();
   }
   if (process.platform === 'linux') {
-    await page.locator('#pilotdeck-window-caption').getByRole('button', { name: 'File', exact: true }).click();
+    await clickFileOrDump(page.locator('#pilotdeck-window-caption').getByRole('button', { name: 'File', exact: true }), 'new-project-243');
     await page.locator('#pilotdeck-linux-popup').locator('[data-action="new-project"]').click();
   } else await command('new-project');
   await expect(page.locator('.create-workspace-dialog')).toBeVisible();
@@ -336,7 +490,7 @@ try {
     if (process.platform === 'linux') {
       const popup = page.locator('#pilotdeck-linux-popup');
       const caption = page.locator('#pilotdeck-window-caption');
-      await caption.getByRole('button', { name: 'File', exact: true }).click();
+      await clickFileOrDump(caption.getByRole('button', { name: 'File', exact: true }), 'light-339');
       await expect(popup.locator('.panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
       await page.screenshot({ path: path.join(artifactDir, `${platformName}-light-popup.png`) });
       await page.evaluate(() => window.pilotdeckDesktop.setAppearance({ language: 'en', themeMode: 'dark' }));
@@ -363,7 +517,8 @@ try {
         ['menu-help', '[data-action="help-docs"]', '使用文档'],
       ]) {
         await page.keyboard.press('Escape');
-        await page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`).click();
+        if (id === 'menu-file') await clickFileOrDump(page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`), `zh-${id}`);
+        else await page.locator(`#pilotdeck-window-caption button[data-menu="${id}"]`).click();
         await expect(popup.locator('.panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
         await expect(popup.locator(selector)).toContainText(label);
       }
