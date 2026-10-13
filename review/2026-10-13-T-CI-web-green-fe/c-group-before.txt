@@ -1,0 +1,65 @@
+
+ RUN  v4.1.7 /workspace/ui
+
+Error: useLocation() may be used only in the context of a <Router> component.
+    at Object.invariant [as UNSAFE_invariant] (/workspace/node_modules/.pnpm/@remix-run+router@1.23.2/node_modules/@remix-run/router/dist/router.cjs.js:315:11)
+    at useLocation (/workspace/node_modules/.pnpm/react-router@6.30.3_react@18.3.1/node_modules/react-router/dist/umd/react-router.development.js:158:36)
+    at SettingsContent (/workspace/ui/src/components/settings/view/SettingsContent.tsx:103:22)
+    at renderWithHooks (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+Error: useLocation() may be used only in the context of a <Router> component.
+    at Object.invariant [as UNSAFE_invariant] (/workspace/node_modules/.pnpm/@remix-run+router@1.23.2/node_modules/@remix-run/router/dist/router.cjs.js:315:11)
+    at useLocation (/workspace/node_modules/.pnpm/react-router@6.30.3_react@18.3.1/node_modules/react-router/dist/umd/react-router.development.js:158:36)
+    at SettingsContent (/workspace/ui/src/components/settings/view/SettingsContent.tsx:103:22)
+    at renderWithHooks (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/workspace/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/workspace/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+stderr | src/components/settings/moduleLabels.test.tsx > uses contribution translation keys for module navigation and headings
+The above error occurred in the <SettingsContent> component:
+
+    at SettingsContent (/workspace/ui/src/components/settings/view/SettingsContent.tsx:85:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ src/components/settings/moduleLabels.test.tsx (2 tests | 1 failed) 126ms
+   × uses contribution translation keys for module navigation and headings 115ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/settings/moduleLabels.test.tsx > uses contribution translation keys for module navigation and headings
+Error: useLocation() may be used only in the context of a <Router> component.
+ ❯ Object.invariant [as UNSAFE_invariant] ../node_modules/.pnpm/@remix-run+router@1.23.2/node_modules/@remix-run/router/history.ts:494:10
+ ❯ invariant ../node_modules/.pnpm/react-router@6.30.3_react@18.3.1/node_modules/react-router/lib/hooks.tsx:105:2
+ ❯ SettingsContent src/components/settings/view/SettingsContent.tsx:103:22
+    101| }: SettingsContentProps) {
+    102|   const { t } = useTranslation("settings");
+    103|   const { search } = useLocation();
+       |                      ^
+    104|   const reference = new URLSearchParams(search).get("reference");
+    105|   useModelReferenceFocus(reference, selectedKey);
+ ❯ renderWithHooks ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  04:45:28
+   Duration  1.04s (transform 116ms, setup 0ms, import 262ms, tests 126ms, environment 447ms)
+
