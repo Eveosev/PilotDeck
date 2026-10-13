@@ -1,0 +1,6 @@
+start=2026-10-13T12:18:00Z
+end=2026-10-13T12:18:24Z
+exit=0
+seconds=24
+command=bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11
+node=v22.23.3

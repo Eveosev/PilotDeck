@@ -1,0 +1,7 @@
+start=2026-10-13T12:18:48Z
+end=2026-10-13T12:19:09Z
+exit=0
+seconds=21
+command=bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland
+node=v22.23.3
+timeoutCeilingSeconds=300

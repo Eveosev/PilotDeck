@@ -1,0 +1,5 @@
+note=NOT this merge SHA. PR #13 head 4ebfa745754373117da6ed46c522c5d8d74d60ef Desktop success, recorded only as nearest pre-merge CI.
+url=https://github.com/Eveosev/PilotDeck/actions/runs/38390778145
+conclusion=success
+event=pull_request
+headSha=4ebfa745754373117da6ed46c522c5d8d74d60ef
