@@ -1,0 +1,803 @@
+﻿2026-10-13T04:54:29.8049464Z ##[group]Run pnpm --dir ui exec vitest run --exclude 'e2e/**' --exclude 'src/components/chat/hooks/streamSmoother.test.ts' --exclude 'server/services/desktopUpdateNetwork.test.ts' --exclude 'server/services/desktopUpdates.spec.ts'
+2026-10-13T04:54:29.8050886Z pnpm --dir ui exec vitest run --exclude 'e2e/**' --exclude 'src/components/chat/hooks/streamSmoother.test.ts' --exclude 'server/services/desktopUpdateNetwork.test.ts' --exclude 'server/services/desktopUpdates.spec.ts'
+2026-10-13T04:54:29.8112409Z shell: /usr/bin/bash -e {0}
+2026-10-13T04:54:29.8112667Z env:
+2026-10-13T04:54:29.8112882Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+2026-10-13T04:54:29.8113215Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-10-13T04:54:29.8113509Z ##[endgroup]
+2026-10-13T04:54:30.2723000Z 
+2026-10-13T04:54:30.2724844Z  RUN  v4.1.7 /home/runner/work/PilotDeck/PilotDeck/ui
+2026-10-13T04:54:30.2725357Z 
+2026-10-13T04:54:32.0996729Z  ✓ src/stores/useSessionStore.streaming.test.ts (68 tests) 28ms
+2026-10-13T04:54:36.1033074Z stderr | src/components/chat-v2/MessagesPaneV2.render.test.tsx > ThinkingBlock phase transitions > opens while streaming, respects manual collapse, and closes once on completion
+2026-10-13T04:54:36.1062969Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:54:36.1064290Z 
+2026-10-13T04:54:38.4276413Z  ✓ src/components/onboarding/view/subcomponents/LlmConfigurationStep.test.tsx (24 tests) 4848ms
+2026-10-13T04:54:38.4324834Z      ✓ fetches Ollama models through the no-key provider path without also running catalog fallback  332ms
+2026-10-13T04:54:38.4333988Z      ✓ binds only the independently passed model tests  399ms
+2026-10-13T04:54:38.4335772Z      ✓ preserves other passed model bindings when one test expires  409ms
+2026-10-13T04:54:38.7522642Z  ✓ src/components/chat-v2/MessagesPaneV2.render.test.tsx (56 tests) 2880ms
+2026-10-13T04:54:38.7524181Z      ✓ renders the default 100-message window without virtualization  351ms
+2026-10-13T04:54:38.7525429Z      ✓ resynchronizes a virtual window when the mounted pane changes sessions  434ms
+2026-10-13T04:54:39.4270020Z  ✓ server/routes/config.test.js (123 tests) 7405ms
+2026-10-13T04:54:39.4271718Z      ✓ runs a detached task against the latest config after unrelated edit  380ms
+2026-10-13T04:54:39.4279747Z      ✓ runs a detached task against the latest config after credential edit  522ms
+2026-10-13T04:54:39.4281435Z      ✓ keeps hand-written provider formatting when a detached connection test saves  332ms
+2026-10-13T04:54:39.4282823Z      ✓ can reload memory inheritance after removal (memory enabled=true)  2088ms
+2026-10-13T04:54:39.4284148Z      ✓ can reload memory inheritance after removal (memory enabled=false)  1523ms
+2026-10-13T04:54:40.0256924Z  ✓ server/services/pilotdeckConfig.test.js (57 tests) 237ms
+2026-10-13T04:54:42.5543652Z  ✓ src/components/main-content-v2/CronV2.test.tsx (48 tests) 2878ms
+2026-10-13T04:54:43.2205390Z (node:2764) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:54:43.2211539Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:54:43.3412014Z (node:2776) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:54:43.3415833Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:54:44.1391591Z (node:2785) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:54:44.1392569Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:54:45.5227144Z stderr | server/pilotdeck-bridge.test.js > activity snapshot ordering > runs the gateway activity check in the background
+2026-10-13T04:54:45.5242029Z [pilotdeck-bridge] failed to verify activity before queued dispatch: Cannot read properties of undefined (reading 'map')
+2026-10-13T04:54:45.5252885Z 
+2026-10-13T04:54:45.5437605Z  ✓ server/pilotdeck-bridge.test.js (50 tests) 33ms
+2026-10-13T04:54:45.5557684Z  ✓ src/components/chat/hooks/useChatRealtimeHandlers.test.tsx (20 tests) 1963ms
+2026-10-13T04:54:45.5562572Z      ✓ preserves first WS child termination and error details (existing cache: false)  1892ms
+2026-10-13T04:54:46.5995409Z  ✓ src/components/chat-v2/processGrouping.test.ts (31 tests) 43ms
+2026-10-13T04:54:46.7481356Z  ✓ server/routes/modules-sdk.test.js (28 tests) 947ms
+2026-10-13T04:54:47.2142245Z  ✓ server/routes/onboarding.test.js (25 tests) 556ms
+2026-10-13T04:54:48.7052674Z  ✓ src/composition/modules/staffdeck/vendor/knowledge-host-adapter.test.tsx (16 tests) 26ms
+2026-10-13T04:54:48.7143711Z stderr | src/composition/modules/staffdeck/vendor/copy-page.test.tsx > PilotDeck shared plaza pages > maps mounted editor Back to the SOP list and preserves replace/query/hash without changing target scope
+2026-10-13T04:54:48.7159251Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:54:48.7202656Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:54:48.7204218Z 
+2026-10-13T04:54:48.8502182Z (node:2839) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:54:48.8537313Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:54:49.1003040Z stderr | src/composition/modules/staffdeck/vendor/copy-page.test.tsx > PilotDeck shared plaza pages > selects desktop Knowledge rows through the default shared table
+2026-10-13T04:54:49.1008501Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:54:49.1009567Z 
+2026-10-13T04:54:49.6363315Z  ✓ server/routes/modules.test.js (28 tests) 318ms
+2026-10-13T04:54:50.0034748Z  ✓ src/composition/modules/staffdeck/vendor/copy-page.test.tsx (14 tests) 1325ms
+2026-10-13T04:54:50.0036422Z      ✓ loads a newly copied Knowledge document on its first desktop row click  322ms
+2026-10-13T04:54:50.0037706Z      ✓ selects a published SOP and submits a scoped copy request  327ms
+2026-10-13T04:54:50.4695127Z  ✓ src/components/chat/hooks/useChatComposerState.attachments.test.tsx (13 tests) 433ms
+2026-10-13T04:54:50.5865613Z  ✓ server/services/desktopAutoUpdate.test.ts (26 tests) 405ms
+2026-10-13T04:54:51.6005202Z  ✓ src/stores/useSessionStore.reconciliation.test.tsx (25 tests) 51ms
+2026-10-13T04:54:51.6599270Z  ✓ src/stores/useSessionStore.requests.spec.tsx (12 tests) 41ms
+2026-10-13T04:54:52.2539312Z  ✓ src/hooks/useProjectsState.activity.test.tsx (25 tests) 1426ms
+2026-10-13T04:54:53.3396264Z  ✓ src/hooks/usePilotDeckConfig.test.tsx (10 tests) 712ms
+2026-10-13T04:54:53.3479242Z stderr | src/components/code-editor/view/subcomponents/CodeEditorBinaryFile.test.tsx > CodeEditorBinaryFile > keeps file identity in the full preview header
+2026-10-13T04:54:53.3488050Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:54:53.3489167Z 
+2026-10-13T04:54:53.4712685Z stderr | src/components/chat/hooks/useChatModelSelection.test.tsx > server model reconciliation > shows cache immediately, then restores the server choice after a full reload
+2026-10-13T04:54:53.4735980Z Warning: The current testing environment is not configured to support act(...)
+2026-10-13T04:54:53.4737343Z Warning: The current testing environment is not configured to support act(...)
+2026-10-13T04:54:53.4738009Z 
+2026-10-13T04:54:53.6329739Z stderr | src/components/chat/hooks/useChatModelSelection.test.tsx > server model reconciliation > does not let an older history response overwrite a newly accepted send
+2026-10-13T04:54:53.6332028Z Warning: The current testing environment is not configured to support act(...)
+2026-10-13T04:54:53.6332811Z 
+2026-10-13T04:54:53.6858823Z  ✓ src/components/code-editor/view/subcomponents/CodeEditorBinaryFile.test.tsx (11 tests) 365ms
+2026-10-13T04:54:53.6909073Z stderr | src/components/chat/hooks/useChatModelSelection.test.tsx > server model reconciliation > preserves an unsent manual choice through both initial and event-triggered reconciliation
+2026-10-13T04:54:53.6919800Z Warning: The current testing environment is not configured to support act(...)
+2026-10-13T04:54:53.6920698Z 
+2026-10-13T04:54:53.9636998Z  ✓ src/components/chat/hooks/useChatModelSelection.test.tsx (23 tests) 1380ms
+2026-10-13T04:54:55.0294518Z  ✓ server/routes/staffdeck-copy.test.js (9 tests) 265ms
+2026-10-13T04:54:56.8154864Z  ✓ src/components/settings/view/appearance/appearance.test.tsx (14 tests) 2379ms
+2026-10-13T04:54:56.8156656Z    ✓ saves presets, keeps custom colors and restores them after switching back  683ms
+2026-10-13T04:54:56.8158175Z    ✓ offers only solid and image backgrounds and keeps the solid look until an image is chosen  308ms
+2026-10-13T04:54:57.2882740Z  ✓ src/components/settings/view/modelPool/components/ProviderCard.test.tsx (17 tests) 2056ms
+2026-10-13T04:54:57.2884837Z      ✓ tests only the selected model, restores progress after remount and never saves on completion  1215ms
+2026-10-13T04:54:57.8244725Z  ✓ server/services/modelReferences.test.js (17 tests) 15ms
+2026-10-13T04:54:58.6522677Z stderr | src/components/app-shell/MainAreaV2.test.tsx > MainAreaV2 dashboard switcher > keeps General on chat and hides project-scoped Files and Explore tools
+2026-10-13T04:54:58.6542285Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:54:58.6570948Z 
+2026-10-13T04:54:58.6772088Z  ✓ server/services/webUpdateService.test.js (23 tests) 3448ms
+2026-10-13T04:54:58.9682631Z  ✓ src/components/app-shell/MainAreaV2.test.tsx (11 tests) 468ms
+2026-10-13T04:54:59.4922619Z (node:3708) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:54:59.4941574Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:00.0192274Z  ✓ src/stores/useSessionStore.timeline.test.tsx (15 tests) 1020ms
+2026-10-13T04:55:00.0313599Z stderr | server/projects.test.js > project registration and snapshot ordering > orders a slow scan before a registration even when it finishes afterwards
+2026-10-13T04:55:00.0315443Z [projects] failed to prepare General workspace: General workspace must be separate from PILOT_HOME.
+2026-10-13T04:55:00.0338063Z 
+2026-10-13T04:55:00.0382198Z stderr | server/projects.test.js > project registration and snapshot ordering > orders a slow scan before a registration even when it finishes afterwards
+2026-10-13T04:55:00.0392624Z [projects] failed to prepare General workspace: General workspace must be separate from PILOT_HOME.
+2026-10-13T04:55:00.0393325Z 
+2026-10-13T04:55:00.0950595Z  ✓ server/projects.test.js (9 tests) 154ms
+2026-10-13T04:55:00.7671947Z (node:3933) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:00.7691492Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:01.4046674Z  ✓ src/components/settings/view/modelPool/components/defaultModelReplacement.test.tsx (13 tests) 1329ms
+2026-10-13T04:55:01.4055248Z    ✓ previews and atomically removes a referenced provider, including null model definitions: false  413ms
+2026-10-13T04:55:01.6529799Z stdout | server/review-acceptance-lifecycle.test.js > persists accepted queued choices independently of execution, across reload, replay, and queue removal
+2026-10-13T04:55:01.6533265Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:01.6534160Z 
+2026-10-13T04:55:01.6582008Z stdout | server/review-acceptance-lifecycle.test.js > persists accepted queued choices independently of execution, across reload, replay, and queue removal
+2026-10-13T04:55:01.6641843Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:01.6702314Z stderr | server/review-acceptance-lifecycle.test.js > does not acknowledge a queued model choice when persistence fails
+2026-10-13T04:55:01.6703099Z 
+2026-10-13T04:55:01.6778061Z [pilotdeck-bridge] failed to persist queued inputs: Disk unavailable
+2026-10-13T04:55:01.6800679Z 
+2026-10-13T04:55:01.6875507Z  ✓ server/review-acceptance-lifecycle.test.js (5 tests) 477ms
+2026-10-13T04:55:01.7643398Z stderr | src/composition/modules/staffdeck/vendor/skills-host-adapter.test.tsx > editor provider bootstrap > does not mount an editor while management is missing
+2026-10-13T04:55:01.7653794Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:55:01.7657829Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:55:01.7659294Z 
+2026-10-13T04:55:01.8782540Z  ✓ src/composition/modules/staffdeck/vendor/skills-host-adapter.test.tsx (11 tests) 247ms
+2026-10-13T04:55:02.5327912Z  ✓ src/lib/lightAppearance.test.ts (26 tests) 79ms
+2026-10-13T04:55:03.2564970Z  ✓ server/services/spreadsheetPreview.test.js (9 tests) 327ms
+2026-10-13T04:55:03.6624345Z  ✓ src/hooks/useProjectsState.creation.test.tsx (10 tests) 509ms
+2026-10-13T04:55:04.0208221Z (node:3980) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:04.0216146Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:04.1722396Z  ✓ src/components/chat/utils/attachmentNotes.spec.ts (23 tests) 15ms
+2026-10-13T04:55:04.6042145Z  ✓ server/routes/modules-public-bridge.test.js (6 tests) 150ms
+2026-10-13T04:55:05.2077374Z stderr | src/components/app-shell/SidebarV2.test.tsx > SidebarV2 layout > distinguishes a project load failure from an empty project list
+2026-10-13T04:55:05.2085188Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:05.2110829Z 
+2026-10-13T04:55:05.8541512Z  ✓ src/components/app-shell/SidebarV2.test.tsx (14 tests) 896ms
+2026-10-13T04:55:06.4512753Z stderr | src/composition/modules/staffdeck/formal-overlay-contract.test.tsx > registered DialogFooter semantic Close and loading Confirm keep original controlled close behavior
+2026-10-13T04:55:06.4514722Z Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+2026-10-13T04:55:06.4534423Z 
+2026-10-13T04:55:06.4535018Z Check the render method of `Primitive.div.Slot`.
+2026-10-13T04:55:06.4536273Z     at AlertDialogOverlay (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:50:3)
+2026-10-13T04:55:06.4538167Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+2026-10-13T04:55:06.4540628Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.29__@types+r_1e841f72e6b2ab94efa7095e6b1c2433/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+2026-10-13T04:55:06.4543208Z     at Portal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-portal@1.1.17_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_1684d606eaf1698939950bb52fef3613/node_modules/@radix-ui/react-portal/dist/index.mjs:13:24)
+2026-10-13T04:55:06.4545770Z     at Presence (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.29__@types+re_27c99e916aed53423220c5a43f13135d/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+2026-10-13T04:55:06.4548125Z     at Provider (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+2026-10-13T04:55:06.4551028Z     at DialogPortal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_7107184bf5d08749ceaf87707ffd6e46/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+2026-10-13T04:55:06.4553804Z     at AlertDialogPortal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-alert-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@type_3014447b0dc6c0ed66fafc8859afdcc9/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs:31:11)
+2026-10-13T04:55:06.4556081Z     at AlertDialogPortal (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:41:6)
+2026-10-13T04:55:06.4557966Z     at AlertDialogContent (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:74:3)
+2026-10-13T04:55:06.4559513Z     at /home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:39:58
+2026-10-13T04:55:06.4561414Z     at Provider (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+2026-10-13T04:55:06.4563798Z     at Dialog (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_7107184bf5d08749ceaf87707ffd6e46/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+2026-10-13T04:55:06.4566508Z     at AlertDialog (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-alert-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@type_3014447b0dc6c0ed66fafc8859afdcc9/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs:19:11)
+2026-10-13T04:55:06.4568670Z     at AlertDialog (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:23:6)
+2026-10-13T04:55:06.4570077Z     at /home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:39:58
+2026-10-13T04:55:06.4571592Z     at ConfirmDialog (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalConfirmDialog.tsx:15:3)
+2026-10-13T04:55:06.4577489Z     at FormalHostPrimitiveProvider (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:30:40)
+2026-10-13T04:55:06.4578565Z     at FormalComponent
+2026-10-13T04:55:06.4578891Z 
+2026-10-13T04:55:06.5754517Z  ✓ src/composition/modules/staffdeck/formal-overlay-contract.test.tsx (7 tests) 778ms
+2026-10-13T04:55:06.5761775Z    ✓ Dropdown asChild keeps trigger props, keyboard selection, disabled action, Portal locale and focus return  394ms
+2026-10-13T04:55:07.1339978Z  ✓ src/components/settings/configurationRegression.test.tsx (18 tests) 1116ms
+2026-10-13T04:55:07.1353582Z    ✓ does not persist a cancelled new MCP server when saving an existing server  301ms
+2026-10-13T04:55:08.2337375Z  ✓ src/stores/useSessionStore.review-regressions.test.tsx (12 tests) 62ms
+2026-10-13T04:55:08.2756566Z  ✓ server/services/workspaceFileUpload.test.js (15 tests) 1285ms
+2026-10-13T04:55:08.2758359Z      ✓ accepts files over the old 50 MiB limit and preserves all bytes  484ms
+2026-10-13T04:55:08.4462539Z stderr | src/components/project-creation-wizard/components/FolderBrowserModal.test.tsx > folder creation and keyboard interaction > does not allow selecting the synthetic Windows drive root
+2026-10-13T04:55:08.4467972Z Warning: Encountered two children with the same key, `/`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+2026-10-13T04:55:08.4469650Z     at aside
+2026-10-13T04:55:08.4470076Z     at div
+2026-10-13T04:55:08.4470621Z     at div
+2026-10-13T04:55:08.4477928Z     at div
+2026-10-13T04:55:08.4479179Z     at FolderPicker (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/project-creation-wizard/components/FolderBrowserModal.tsx:48:25)
+2026-10-13T04:55:08.4481174Z     at FolderBrowserModal (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/project-creation-wizard/components/FolderBrowserModal.tsx:42:16)
+2026-10-13T04:55:08.4482798Z 
+2026-10-13T04:55:08.4758926Z stderr | src/components/project-creation-wizard/components/FolderBrowserModal.test.tsx > folder creation and keyboard interaction > does not allow selecting the synthetic Windows drive root
+2026-10-13T04:55:08.4767644Z Warning: Encountered two children with the same key, `/`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+2026-10-13T04:55:08.4769723Z     at aside
+2026-10-13T04:55:08.4770246Z     at div
+2026-10-13T04:55:08.4770985Z     at div
+2026-10-13T04:55:08.4771574Z     at div
+2026-10-13T04:55:08.4772702Z     at FolderPicker (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/project-creation-wizard/components/FolderBrowserModal.tsx:48:25)
+2026-10-13T04:55:08.4774584Z     at FolderBrowserModal (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/project-creation-wizard/components/FolderBrowserModal.tsx:42:16)
+2026-10-13T04:55:08.4775744Z 
+2026-10-13T04:55:08.4882170Z  ✓ src/components/project-creation-wizard/components/FolderBrowserModal.test.tsx (11 tests) 1289ms
+2026-10-13T04:55:09.3282129Z  ✓ src/utils/restartUi.spec.ts (14 tests) 31ms
+2026-10-13T04:55:09.6221251Z  ✓ src/components/code-editor/hooks/useEditorSidebar.test.tsx (13 tests) 32ms
+2026-10-13T04:55:10.4479100Z  ✓ server/services/modelConnectionProbe.test.js (32 tests) 28ms
+2026-10-13T04:55:10.5719424Z  ✓ server/webRuntimeSupervisor.test.js (13 tests) 321ms
+2026-10-13T04:55:10.7564540Z (node:4110) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:10.7566444Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:10.9662266Z  ✓ server/services/webUpdateCommand.test.js (19 tests) 245ms
+2026-10-13T04:55:11.4446569Z  ✓ src/components/chat/hooks/useScrollFollow.test.tsx (16 tests) 111ms
+2026-10-13T04:55:11.6222587Z  ✓ server/routes/gateway.test.js (9 tests) 2258ms
+2026-10-13T04:55:11.6244754Z      ✓ saves manual WeCom config to pilotdeck.yaml  378ms
+2026-10-13T04:55:11.6246411Z      ✓ preserves existing WeCom credentials on settings-only saves  336ms
+2026-10-13T04:55:11.6253800Z      ✓ broadcasts the latest config revision after a channel save  352ms
+2026-10-13T04:55:12.8044865Z (node:4134) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:12.8051253Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:12.8731963Z  ✓ server/routes/memory.test.js (6 tests) 112ms
+2026-10-13T04:55:13.7072276Z (node:4142) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:13.7073869Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:13.8452715Z  ✓ src/composition/consumption.test.tsx (9 tests) 259ms
+2026-10-13T04:55:14.0646434Z  ✓ server/routes/uploads.test.js (16 tests) 1611ms
+2026-10-13T04:55:14.0648667Z      ✓ limits repeated preview requests before file access, independently per user  1311ms
+2026-10-13T04:55:14.2082398Z  ✓ server/routes/sop.test.js (13 tests) 1001ms
+2026-10-13T04:55:14.2111913Z      ✓ consumes a separate normal SD login session and preserves its auth denials  949ms
+2026-10-13T04:55:14.7887901Z  ✓ src/stores/sessionTimeline.test.ts (10 tests) 32ms
+2026-10-13T04:55:15.8755767Z stderr | src/components/chat-v2/SubagentDetailMessageFlow.render.test.tsx > SubagentDetailMessageFlow > does not duplicate the active thinking indicator for __subagent_thinking_session-1_subagent-1
+2026-10-13T04:55:15.8758453Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:15.8759461Z 
+2026-10-13T04:55:16.3050221Z  ✓ src/components/chat-v2/SubagentDetailMessageFlow.render.test.tsx (7 tests) 488ms
+2026-10-13T04:55:16.5402301Z  ✓ src/components/chat-v2/ChatInterfaceV2.queue.test.tsx (3 tests) 158ms
+2026-10-13T04:55:17.3784837Z  ✓ src/components/chat-v2/chatHistorySearchUtils.spec.ts (6 tests) 42ms
+2026-10-13T04:55:17.6839790Z  ✓ src/composition/modules/staffdeck/publish-runtime-integration.test.tsx (7 tests) 153ms
+2026-10-13T04:55:18.7287598Z  ✓ src/components/code-editor/view/subcomponents/SpreadsheetInteractivePreview.test.tsx (1 test) 51ms
+2026-10-13T04:55:19.0097658Z  ✓ src/components/settings/view/modelPool/components/ModelsSection.test.tsx (8 tests) 640ms
+2026-10-13T04:55:19.6915182Z (node:4426) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:19.6916478Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:19.9247530Z stderr | src/components/main-content/view/MainContent.test.tsx > MainContent file workspace routing > routes every chat file open into the Files workbench
+2026-10-13T04:55:19.9250227Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:19.9251564Z 
+2026-10-13T04:55:20.0862304Z  ✓ src/components/main-content/view/MainContent.test.tsx (3 tests) 202ms
+2026-10-13T04:55:20.1545735Z  ✓ server/routes/modules-host-capabilities.test.js (5 tests) 99ms
+2026-10-13T04:55:20.6208586Z  ✓ server/utils/processTree.test.js (16 tests) 6241ms
+2026-10-13T04:55:20.6234803Z      ✓ cleans inherited-group orphans when the command exits after 0 ms  440ms
+2026-10-13T04:55:20.6301795Z      ✓ cleans inherited-group orphans when the command exits after 300 ms  579ms
+2026-10-13T04:55:20.6321684Z      ✓ times out even if tasks in its managed group hold stdout open  2654ms
+2026-10-13T04:55:20.6371517Z      ✓ preserves successful command output and completion  1763ms
+2026-10-13T04:55:22.0621238Z stderr | src/components/chat/view/subcomponents/MessageComponent.tool-error.test.tsx > MessageComponent tool errors > opens the dedicated search settings for web-search setup errors
+2026-10-13T04:55:22.0623897Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:22.0625014Z 
+2026-10-13T04:55:22.2562365Z  ✓ src/components/chat/view/subcomponents/MessageComponent.tool-error.test.tsx (6 tests) 367ms
+2026-10-13T04:55:22.3192231Z  ✓ src/components/chat-v2/MessageRowV2.userActions.test.tsx (5 tests) 396ms
+2026-10-13T04:55:22.4722747Z  ✓ src/composition/modules/staffdeck/StaffDeckLocaleBoundary.test.tsx (5 tests) 438ms
+2026-10-13T04:55:23.4503762Z  ✓ src/composition/modules/staffdeck/public-capability-adapter.test.ts (8 tests) 13ms
+2026-10-13T04:55:23.7342117Z (node:4485) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:23.7343405Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:24.1486658Z  ✓ server/services/modelConfigurationState.test.js (11 tests) 125ms
+2026-10-13T04:55:24.6222339Z  ✓ server/routes/update.test.js (6 tests) 60ms
+2026-10-13T04:55:24.9362771Z  ✓ src/components/chat/view/subcomponents/Markdown.copy.test.tsx (10 tests) 543ms
+2026-10-13T04:55:25.1331347Z  ✓ server/services/updateRuntime.test.js (14 tests) 13ms
+2026-10-13T04:55:25.7472398Z  ✓ server/services/desktopChrome.test.ts (4 tests) 46ms
+2026-10-13T04:55:26.1642704Z  ✓ server/services/terminalSessionRegistry.test.js (7 tests) 11ms
+2026-10-13T04:55:26.5052687Z  ✓ src/composition/modules/staffdeck/public-host-mapping.test.ts (14 tests) 39ms
+2026-10-13T04:55:27.5766435Z (node:4557) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:27.5767742Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:27.6018993Z  ✓ src/components/chat/hooks/useChatComposerState.commands.test.tsx (10 tests) 625ms
+2026-10-13T04:55:27.9743952Z stdout | server/pilotdeck-bridge.sending.test.js > shows idle input as sending, preserves concurrent input order, and removes each send only on acceptance
+2026-10-13T04:55:27.9746826Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:27.9747451Z 
+2026-10-13T04:55:28.0809388Z stdout | server/pilotdeck-bridge.sending.test.js > shows idle input as sending, preserves concurrent input order, and removes each send only on acceptance
+2026-10-13T04:55:28.0811993Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.0812992Z 
+2026-10-13T04:55:28.1015846Z stderr | src/composition/modules/staffdeck/vendor/host-contracts.test.tsx > formal Host audit regressions > keeps the original loading confirmation open and blocks Cancel/Confirm until loading completes
+2026-10-13T04:55:28.1019188Z Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+2026-10-13T04:55:28.1020274Z 
+2026-10-13T04:55:28.1020923Z Check the render method of `Primitive.div.Slot`.
+2026-10-13T04:55:28.1022645Z     at AlertDialogOverlay (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:50:3)
+2026-10-13T04:55:28.1024509Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+2026-10-13T04:55:28.1027207Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.29__@types+r_1e841f72e6b2ab94efa7095e6b1c2433/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+2026-10-13T04:55:28.1029871Z     at Portal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-portal@1.1.17_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_1684d606eaf1698939950bb52fef3613/node_modules/@radix-ui/react-portal/dist/index.mjs:13:24)
+2026-10-13T04:55:28.1032753Z     at Presence (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.29__@types+re_27c99e916aed53423220c5a43f13135d/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+2026-10-13T04:55:28.1035175Z     at Provider (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+2026-10-13T04:55:28.1037538Z     at DialogPortal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_7107184bf5d08749ceaf87707ffd6e46/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+2026-10-13T04:55:28.1040246Z     at AlertDialogPortal (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-alert-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@type_3014447b0dc6c0ed66fafc8859afdcc9/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs:31:11)
+2026-10-13T04:55:28.1042670Z     at AlertDialogPortal (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:41:6)
+2026-10-13T04:55:28.1044364Z     at AlertDialogContent (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:74:3)
+2026-10-13T04:55:28.1045924Z     at /home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:39:58
+2026-10-13T04:55:28.1071318Z     at Provider (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.29_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+2026-10-13T04:55:28.1073962Z     at Dialog (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@types+reac_7107184bf5d08749ceaf87707ffd6e46/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+2026-10-13T04:55:28.1076672Z     at AlertDialog (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@radix-ui+react-alert-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.29__@type_3014447b0dc6c0ed66fafc8859afdcc9/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs:19:11)
+2026-10-13T04:55:28.1078954Z     at AlertDialog (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/formal-primitives/alert-dialog.tsx:23:6)
+2026-10-13T04:55:28.1080743Z     at /home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:39:58
+2026-10-13T04:55:28.1082633Z     at ConfirmDialog (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalConfirmDialog.tsx:15:3)
+2026-10-13T04:55:28.1084244Z     at FormalHostPrimitiveProvider (/home/runner/work/PilotDeck/PilotDeck/ui/src/composition/modules/staffdeck/vendor/FormalHostPrimitives.tsx:30:40)
+2026-10-13T04:55:28.1085277Z     at FormalComponent
+2026-10-13T04:55:28.1085682Z 
+2026-10-13T04:55:28.1112061Z  ✓ src/composition/modules/staffdeck/vendor/host-contracts.test.tsx (7 tests) 240ms
+2026-10-13T04:55:28.1834610Z stderr | server/pilotdeck-bridge.sending.test.js > retains failed sends for recovery and treats only actually dispatched inputs as uncertain on restart
+2026-10-13T04:55:28.1837310Z stdout | server/pilotdeck-bridge.sending.test.js > retains failed sends for recovery and treats only actually dispatched inputs as uncertain on restart
+2026-10-13T04:55:28.1838741Z [pilotdeck-bridge] gateway error event: {
+2026-10-13T04:55:28.1839629Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.1840617Z   "sessionKey": "web:s_rejected",
+2026-10-13T04:55:28.1840973Z 
+2026-10-13T04:55:28.1841290Z   "projectKey": "/tmp/sending-project",
+2026-10-13T04:55:28.1841951Z   "runId": "rejected",
+2026-10-13T04:55:28.1844416Z   "message": "Rejected before acceptance"
+2026-10-13T04:55:28.1845086Z }
+2026-10-13T04:55:28.1845263Z 
+2026-10-13T04:55:28.2349409Z stdout | server/pilotdeck-bridge.sending.test.js > acknowledges a retry after execution without dispatching again (restart=false)
+2026-10-13T04:55:28.2401994Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.2402733Z 
+2026-10-13T04:55:28.2880079Z stdout | server/pilotdeck-bridge.sending.test.js > acknowledges a retry after execution without dispatching again (restart=false)
+2026-10-13T04:55:28.2882039Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.2882676Z 
+2026-10-13T04:55:28.3370968Z stdout | server/pilotdeck-bridge.sending.test.js > acknowledges a retry after execution without dispatching again (restart=true)
+2026-10-13T04:55:28.3372695Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.3373460Z 
+2026-10-13T04:55:28.5128102Z stdout | server/pilotdeck-bridge.sending.test.js > acknowledges a retry after execution without dispatching again (restart=true)
+2026-10-13T04:55:28.5165412Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.5174056Z 
+2026-10-13T04:55:28.5652511Z stdout | server/pilotdeck-bridge.sending.test.js > assigns a real ID before startup failure without acknowledging the input
+2026-10-13T04:55:28.5654130Z [pilotdeck-bridge] submitTurn runMode=agent mode=default (options.permissionMode=undefined, options.mode=undefined)
+2026-10-13T04:55:28.5680723Z 
+2026-10-13T04:55:28.5786268Z stderr | server/pilotdeck-bridge.sending.test.js > assigns a real ID before startup failure without acknowledging the input
+2026-10-13T04:55:28.5801164Z [pilotdeck-bridge] runChatViaGateway threw: Error: Gateway unavailable
+2026-10-13T04:55:28.5803000Z     at Object.getGateway (/home/runner/work/PilotDeck/PilotDeck/ui/server/pilotdeck-bridge.sending.test.js:101:45)
+2026-10-13T04:55:28.5805290Z     at Module.runChatViaGateway (/home/runner/work/PilotDeck/PilotDeck/ui/server/pilotdeck-bridge.js:1963:46)
+2026-10-13T04:55:28.5807652Z     at /home/runner/work/PilotDeck/PilotDeck/ui/server/pilotdeck-bridge.sending.test.js:99:26
+2026-10-13T04:55:28.5809198Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+2026-10-13T04:55:28.5810043Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+2026-10-13T04:55:28.5811208Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+2026-10-13T04:55:28.5811762Z     at new Promise (<anonymous>)
+2026-10-13T04:55:28.5812393Z     at runWithCancel (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)
+2026-10-13T04:55:28.5813440Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+2026-10-13T04:55:28.5813986Z     at new Promise (<anonymous>)
+2026-10-13T04:55:28.5814143Z 
+2026-10-13T04:55:28.5839243Z  ✓ server/pilotdeck-bridge.sending.test.js (6 tests) 615ms
+2026-10-13T04:55:28.9378225Z  ✓ src/components/main-content-v2/useWorkspaceUpload.test.tsx (7 tests) 358ms
+2026-10-13T04:55:29.0083191Z  ✓ src/components/chat/hooks/useChatSessionState.test.ts (15 tests) 9ms
+2026-10-13T04:55:29.7761848Z (node:4602) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:29.7762790Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:30.4297676Z  ✓ server/pilotdeck-host-remote-transport.test.js (3 tests) 141ms
+2026-10-13T04:55:30.7907884Z  ✓ src/components/chat/tools/UnifiedToolCall.test.tsx (10 tests) 367ms
+2026-10-13T04:55:31.0142359Z  ✓ src/composition/modules/staffdeck/formal-primitive-contract.test.tsx (4 tests) 532ms
+2026-10-13T04:55:31.6779864Z  ✓ server/routes/cron-jobs.test.js (14 tests) 105ms
+2026-10-13T04:55:31.8144317Z  ✓ src/components/settings/view/agentModel/utils/modelRefs.spec.ts (13 tests) 11ms
+2026-10-13T04:55:32.5206068Z  ✓ src/components/desktop/useDesktopCommands.test.tsx (3 tests) 322ms
+2026-10-13T04:55:32.8372493Z  ✓ src/composition/modules/staffdeck/host-contract-helpers.test.ts (5 tests) 48ms
+2026-10-13T04:55:33.5147482Z  ✓ src/components/chat/hooks/useChatPermissionMode.test.tsx (9 tests) 524ms
+2026-10-13T04:55:33.7332374Z  ✓ src/types/contentReference.spec.ts (8 tests) 8ms
+2026-10-13T04:55:33.8960055Z  ✓ src/components/chat-v2/SopWaitBanner.test.tsx (5 tests) 239ms
+2026-10-13T04:55:35.1079674Z  ✓ src/components/app-shell/useSessionIndicators.test.tsx (4 tests) 29ms
+2026-10-13T04:55:35.1975006Z  ✓ src/components/onboarding/view/subcomponents/WorkspaceStep.test.tsx (6 tests) 392ms
+2026-10-13T04:55:35.5345687Z  ✓ src/components/settings/view/modelPool/components/ModelSettingsModal.test.tsx (6 tests) 547ms
+2026-10-13T04:55:36.5552307Z  ✓ src/contexts/FindShortcutContext.test.tsx (7 tests) 199ms
+2026-10-13T04:55:36.6594464Z  ✓ src/components/settings/view/about/DesktopAboutSections.test.tsx (9 tests) 365ms
+2026-10-13T04:55:37.1515009Z (node:4716) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:37.1527324Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:37.7962347Z  ✓ src/composition/modules/staffdeck/clients.test.ts (9 tests) 23ms
+2026-10-13T04:55:37.8223359Z  ✓ src/composition/modules/staffdeck/public-module-client.test.ts (6 tests) 16ms
+2026-10-13T04:55:37.8583062Z  ✓ server/routes/user.test.js (5 tests) 1140ms
+2026-10-13T04:55:37.8605835Z      ✓ treats Ollama providers without an API key as completed onboarding  773ms
+2026-10-13T04:55:38.9020148Z  ✓ server/services/regenerateLastMessage.test.js (3 tests) 9ms
+2026-10-13T04:55:38.9783858Z stderr | src/components/chat/hooks/useFileMentions.test.tsx > useFileMentions conversation scope > opens on @ and loads project entries from the dialog file API
+2026-10-13T04:55:38.9785264Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:38.9785690Z 
+2026-10-13T04:55:39.1386254Z  ✓ src/components/chat/hooks/useFileMentions.test.tsx (4 tests) 178ms
+2026-10-13T04:55:39.2922435Z  ✓ server/services/connectionTestTasks.test.js (6 tests) 469ms
+2026-10-13T04:55:40.1072521Z  ✓ src/components/chat-v2/useSubagentMessages.test.ts (7 tests) 12ms
+2026-10-13T04:55:40.3613216Z  ✓ src/utils/workspaceFileMention.spec.ts (15 tests) 19ms
+2026-10-13T04:55:40.4253047Z stderr | src/components/code-editor/view/subcomponents/PdfDocumentPreview.test.tsx > PdfDocumentPreview search > does not restore stale results after the query changes during a search
+2026-10-13T04:55:40.4292165Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:40.4293245Z 
+2026-10-13T04:55:40.6192543Z  ✓ src/components/code-editor/view/subcomponents/PdfDocumentPreview.test.tsx (2 tests) 407ms
+2026-10-13T04:55:40.6193486Z      ✓ does not restore stale results after the query changes during a search  308ms
+2026-10-13T04:55:41.1147831Z  ✓ server/services/gatewayConnectionCache.test.js (5 tests) 12ms
+2026-10-13T04:55:41.7933959Z  ✓ src/composition/modules/staffdeck/useApproverSession.test.tsx (6 tests) 105ms
+2026-10-13T04:55:41.8204502Z stderr | src/components/settings/shared/view/ModelReferenceDetail.test.tsx > keeps dots and slashes in pricing model IDs as one path key
+2026-10-13T04:55:41.8207378Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:41.8230974Z 
+2026-10-13T04:55:42.0549060Z  ✓ src/components/settings/shared/view/ModelReferenceDetail.test.tsx (6 tests) 277ms
+2026-10-13T04:55:42.1614666Z  ✓ server/projectUpdateScheduler.test.js (5 tests) 13ms
+2026-10-13T04:55:43.1435565Z  ✓ src/components/chat/utils/sessionLauncher.spec.ts (8 tests) 18ms
+2026-10-13T04:55:43.2782348Z  ✓ server/utils/pilotPaths.test.js (3 tests) 13ms
+2026-10-13T04:55:43.3559309Z  ✓ src/components/settings/view/integrations/im/components/WeixinChannelSection.test.tsx (3 tests) 339ms
+2026-10-13T04:55:44.4402794Z  ✓ src/components/chat-v2/modelCapabilityOptions.spec.ts (9 tests) 8ms
+2026-10-13T04:55:44.5072621Z  ✓ src/stores/useSessionStore.renderKeys.test.tsx (7 tests) 45ms
+2026-10-13T04:55:44.6968594Z  ✓ src/components/shell/hooks/useShellConnection.test.tsx (1 test) 24ms
+2026-10-13T04:55:45.8241881Z stderr | src/components/auth/view/ProtectedRoute.test.tsx > ProtectedRoute runtime states > keeps the application visible with an empty model pool and stopped Gateway
+2026-10-13T04:55:45.8263024Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:55:45.8290691Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:55:45.8291993Z 
+2026-10-13T04:55:45.8470023Z  ✓ src/components/chat-v2/useSubagentMessages.refresh.test.tsx (3 tests) 158ms
+2026-10-13T04:55:46.0342919Z stderr | src/components/auth/view/ProtectedRoute.test.tsx > ProtectedRoute runtime states > links the model error screen to the repair settings
+2026-10-13T04:55:46.0345432Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:46.0392365Z 
+2026-10-13T04:55:46.0393418Z  ✓ src/components/auth/view/ProtectedRoute.test.tsx (7 tests) 246ms
+2026-10-13T04:55:46.1376618Z  ✓ src/components/chat-v2/WorkspacePickerBar.test.tsx (4 tests) 304ms
+2026-10-13T04:55:47.1802224Z  ✓ src/components/chat-v2/SubagentCard.test.tsx (6 tests) 83ms
+2026-10-13T04:55:47.7003834Z  ✓ src/components/chat-v2/QueuedMessagesTray.test.tsx (6 tests) 226ms
+2026-10-13T04:55:47.7223241Z  ✓ src/components/code-editor/view/subcomponents/CodeEditorTabBar.test.tsx (4 tests) 406ms
+2026-10-13T04:55:47.8918594Z  ✓ server/services/releaseService.test.js (24 tests) 13ms
+2026-10-13T04:55:48.8376058Z  ✓ src/components/app-shell/VersionBadge.test.tsx (4 tests) 418ms
+2026-10-13T04:55:49.0182843Z  ✓ src/composition/modules/staffdeck/public-approval-client.test.ts (4 tests) 13ms
+2026-10-13T04:55:49.3230599Z stderr | src/components/code-editor/view/subcomponents/DocxBuiltinPreview.test.tsx > DocxBuiltinPreview > opens with the outline collapsed and still lets the user toggle it
+2026-10-13T04:55:49.3233510Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:55:49.3234559Z 
+2026-10-13T04:55:49.4705136Z  ✓ src/components/code-editor/view/subcomponents/DocxBuiltinPreview.test.tsx (4 tests) 356ms
+2026-10-13T04:55:49.6672130Z  ✓ server/services/windowsCaptionMenu.test.ts (3 tests) 13ms
+2026-10-13T04:55:50.0922124Z  ✓ server/utils/isPilotDeckSessionKey.test.js (21 tests) 7ms
+2026-10-13T04:55:50.3601651Z  ✓ src/components/ui/ConfirmDialog.test.tsx (4 tests) 247ms
+2026-10-13T04:55:50.4435998Z (node:4971) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:50.4436923Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:50.7897041Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":false,"isMainAgent":true,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7899951Z [token-saver] Judge raw content blocks (attempt 1): [{"type":"text","text":"<tier>medium</tier>"}] | finishReason=stop
+2026-10-13T04:55:50.7900966Z 
+2026-10-13T04:55:50.7902835Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":false,"isMainAgent":true,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7905065Z [router] decision: tier=medium, model=tier/model, orchGate=true, alreadyOrch=false, resolvedFrom=tokenSaver
+2026-10-13T04:55:50.7906248Z [autoOrch] input: tier=medium, isMain=true, alreadyOrch=false, triggerTiers=complex
+2026-10-13T04:55:50.7906857Z 
+2026-10-13T04:55:50.7945417Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":true,"isMainAgent":true,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7973236Z [token-saver] Judge raw content blocks (attempt 1): [{"type":"text","text":"<tier>medium</tier>"}] | finishReason=stop
+2026-10-13T04:55:50.7980908Z 
+2026-10-13T04:55:50.7982840Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":true,"isMainAgent":true,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7984995Z [router] decision: tier=medium, model=tier/model, orchGate=true, alreadyOrch=false, resolvedFrom=tokenSaver
+2026-10-13T04:55:50.7986100Z [autoOrch] input: tier=medium, isMain=true, alreadyOrch=false, triggerTiers=complex
+2026-10-13T04:55:50.7986662Z 
+2026-10-13T04:55:50.7988439Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":false,"isMainAgent":false,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7990763Z [token-saver] Judge raw content blocks (attempt 1): [{"type":"text","text":"<tier>medium</tier>"}] | finishReason=stop
+2026-10-13T04:55:50.7991498Z 
+2026-10-13T04:55:50.7993300Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":false,"isMainAgent":false,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.7995403Z [router] decision: tier=medium, model=tier/model, orchGate=true, alreadyOrch=false, resolvedFrom=tokenSaver
+2026-10-13T04:55:50.7996549Z [autoOrch] input: tier=medium, isMain=false, alreadyOrch=false, triggerTiers=complex
+2026-10-13T04:55:50.7997097Z 
+2026-10-13T04:55:50.8004150Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":true,"isMainAgent":false,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.8027619Z [token-saver] Judge raw content blocks (attempt 1): [{"type":"text","text":"<tier>medium</tier>"}] | finishReason=stop
+2026-10-13T04:55:50.8032555Z 
+2026-10-13T04:55:50.8034524Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":true,"isMainAgent":false,"tokenSaverEnabled":true})
+2026-10-13T04:55:50.8036657Z [router] decision: tier=medium, model=tier/model, orchGate=true, alreadyOrch=false, resolvedFrom=tokenSaver
+2026-10-13T04:55:50.8037804Z [autoOrch] input: tier=medium, isMain=false, alreadyOrch=false, triggerTiers=complex
+2026-10-13T04:55:50.8038359Z 
+2026-10-13T04:55:50.8040132Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":false,"isMainAgent":true,"tokenSaverEnabled":false})
+2026-10-13T04:55:50.8042745Z [router] decision: tier=undefined, model=main/model, orchGate=false, alreadyOrch=false, resolvedFrom=scenario
+2026-10-13T04:55:50.8043459Z 
+2026-10-13T04:55:50.8045207Z stdout | server/services/modelRemovalRuntime.test.js > model removal with dynamic routing > preserves main-model recovery and deduplicates actual attempts ({"wholeProvider":true,"isMainAgent":true,"tokenSaverEnabled":false})
+2026-10-13T04:55:50.8047321Z [router] decision: tier=undefined, model=main/model, orchGate=false, alreadyOrch=false, resolvedFrom=scenario
+2026-10-13T04:55:50.8048008Z 
+2026-10-13T04:55:50.8048843Z  ✓ server/services/modelRemovalRuntime.test.js (6 tests) 22ms
+2026-10-13T04:55:51.1893232Z stdout | src/lib/desktopFilePicker.test.ts
+2026-10-13T04:55:51.1901331Z i18next: languageChanged en
+2026-10-13T04:55:51.1901871Z i18next: initialized {
+2026-10-13T04:55:51.1902455Z   debug: true,
+2026-10-13T04:55:51.1902978Z   initAsync: true,
+2026-10-13T04:55:51.1903435Z   ns: [
+2026-10-13T04:55:51.1903956Z     'common',    'settings',
+2026-10-13T04:55:51.1904611Z     'auth',      'sidebar',
+2026-10-13T04:55:51.1905271Z     'chat',      'codeEditor',
+2026-10-13T04:55:51.1905930Z     'tasks',     'alwaysOn',
+2026-10-13T04:55:51.1906571Z     'routing',   'onboarding',
+2026-10-13T04:55:51.1907144Z     'staffdeck'
+2026-10-13T04:55:51.1907590Z   ],
+2026-10-13T04:55:51.1908059Z   defaultNS: 'common',
+2026-10-13T04:55:51.1908628Z   fallbackLng: [ 'en' ],
+2026-10-13T04:55:51.1909194Z   fallbackNS: false,
+2026-10-13T04:55:51.1909761Z   supportedLngs: false,
+2026-10-13T04:55:51.1910542Z   nonExplicitSupportedLngs: false,
+2026-10-13T04:55:51.1925874Z   load: 'all',
+2026-10-13T04:55:51.1926442Z   preload: false,
+2026-10-13T04:55:51.1927033Z   keySeparator: '.',
+2026-10-13T04:55:51.1927577Z   nsSeparator: ':',
+2026-10-13T04:55:51.1928136Z   pluralSeparator: '_',
+2026-10-13T04:55:51.1928724Z   contextSeparator: '_',
+2026-10-13T04:55:51.1929307Z   enableSelector: false,
+2026-10-13T04:55:51.1929919Z   partialBundledLanguages: false,
+2026-10-13T04:55:51.1930655Z   saveMissing: false,
+2026-10-13T04:55:51.1931259Z   updateMissing: false,
+2026-10-13T04:55:51.1931848Z   saveMissingTo: 'fallback',
+2026-10-13T04:55:51.1932449Z   saveMissingPlurals: true,
+2026-10-13T04:55:51.1933043Z   missingKeyHandler: false,
+2026-10-13T04:55:51.1933700Z   missingInterpolationHandler: false,
+2026-10-13T04:55:51.1934333Z   postProcess: false,
+2026-10-13T04:55:51.1934916Z   postProcessPassResolved: false,
+2026-10-13T04:55:51.1935508Z   returnNull: false,
+2026-10-13T04:55:51.1936410Z   returnEmptyString: true,
+2026-10-13T04:55:51.1937000Z   returnObjects: false,
+2026-10-13T04:55:51.1937547Z   joinArrays: false,
+2026-10-13T04:55:51.1938111Z   returnedObjectHandler: false,
+2026-10-13T04:55:51.1938741Z   parseMissingKeyHandler: false,
+2026-10-13T04:55:51.1939394Z   appendNamespaceToMissingKey: false,
+2026-10-13T04:55:51.1940048Z   appendNamespaceToCIMode: false,
+2026-10-13T04:55:51.1941165Z   overloadTranslationOptionHandler: [Function: overloadTranslationOptionHandler],
+2026-10-13T04:55:51.1941945Z   interpolation: {
+2026-10-13T04:55:51.1942445Z     escapeValue: false,
+2026-10-13T04:55:51.1942959Z     prefix: '{{',
+2026-10-13T04:55:51.1943448Z     suffix: '}}',
+2026-10-13T04:55:51.1944230Z     formatSeparator: ',',
+2026-10-13T04:55:51.1944811Z     unescapePrefix: '-',
+2026-10-13T04:55:51.1945378Z     nestingPrefix: '$t(',
+2026-10-13T04:55:51.1945947Z     nestingSuffix: ')',
+2026-10-13T04:55:51.1946536Z     nestingOptionsSeparator: ',',
+2026-10-13T04:55:51.1947129Z     maxReplaces: 1000,
+2026-10-13T04:55:51.1947696Z     skipOnVariables: true,
+2026-10-13T04:55:51.1948307Z     format: [Function: bound format]
+2026-10-13T04:55:51.1948814Z   },
+2026-10-13T04:55:51.1949306Z   cacheInBuiltFormats: true,
+2026-10-13T04:55:51.1949799Z   resources: {
+2026-10-13T04:55:51.1950193Z     en: {
+2026-10-13T04:55:51.1950800Z       common: [Object],
+2026-10-13T04:55:51.1951354Z       settings: [Object],
+2026-10-13T04:55:51.1951906Z       auth: [Object],
+2026-10-13T04:55:51.1952459Z       sidebar: [Object],
+2026-10-13T04:55:51.1953007Z       chat: [Object],
+2026-10-13T04:55:51.1953552Z       codeEditor: [Object],
+2026-10-13T04:55:51.1954126Z       tasks: [Object],
+2026-10-13T04:55:51.1954676Z       alwaysOn: [Object],
+2026-10-13T04:55:51.1955251Z       routing: [Object],
+2026-10-13T04:55:51.1955808Z       onboarding: [Object],
+2026-10-13T04:55:51.1956366Z       staffdeck: [Object]
+2026-10-13T04:55:51.1956814Z     },
+2026-10-13T04:55:51.1957252Z     'zh-CN': {
+2026-10-13T04:55:51.1957772Z       common: [Object],
+2026-10-13T04:55:51.1958317Z       settings: [Object],
+2026-10-13T04:55:51.1958870Z       auth: [Object],
+2026-10-13T04:55:51.1959405Z       sidebar: [Object],
+2026-10-13T04:55:51.1959951Z       chat: [Object],
+2026-10-13T04:55:51.1960709Z       codeEditor: [Object],
+2026-10-13T04:55:51.1961306Z       alwaysOn: [Object],
+2026-10-13T04:55:51.1961865Z       routing: [Object],
+2026-10-13T04:55:51.1962422Z       onboarding: [Object],
+2026-10-13T04:55:51.1962987Z       staffdeck: [Object]
+2026-10-13T04:55:51.1963461Z     }
+2026-10-13T04:55:51.1963830Z   },
+2026-10-13T04:55:51.1964245Z   lng: 'en',
+2026-10-13T04:55:51.1964683Z   react: {
+2026-10-13T04:55:51.1965162Z     useSuspense: true,
+2026-10-13T04:55:51.1965744Z     bindI18n: 'languageChanged',
+2026-10-13T04:55:51.1966347Z     bindI18nStore: false
+2026-10-13T04:55:51.1966813Z   },
+2026-10-13T04:55:51.1967187Z   detection: {
+2026-10-13T04:55:51.1967700Z     order: [ 'localStorage' ],
+2026-10-13T04:55:51.1968359Z     lookupLocalStorage: 'userLanguage',
+2026-10-13T04:55:51.1969002Z     caches: [ 'localStorage' ],
+2026-10-13T04:55:51.1969612Z     lookupQuerystring: 'lng',
+2026-10-13T04:55:51.1970209Z     lookupCookie: 'i18next',
+2026-10-13T04:55:51.1970976Z     lookupSessionStorage: 'i18nextLng',
+2026-10-13T04:55:51.1971699Z     excludeCacheFor: [ 'cimode' ],
+2026-10-13T04:55:51.1972514Z     convertDetectedLanguage: [Function: convertDetectedLanguage]
+2026-10-13T04:55:51.1973198Z   },
+2026-10-13T04:55:51.1973699Z   userDefinedKeySeparator: '.',
+2026-10-13T04:55:51.1974483Z   userDefinedNsSeparator: ':',
+2026-10-13T04:55:51.1975091Z   ignoreJSONStructure: true
+2026-10-13T04:55:51.1975580Z }
+2026-10-13T04:55:51.1975905Z 
+2026-10-13T04:55:51.3950176Z  ✓ src/lib/desktopFilePicker.test.ts (5 tests) 202ms
+2026-10-13T04:55:51.4618665Z  ✓ server/routes/models.test.js (3 tests) 79ms
+2026-10-13T04:55:52.1441808Z  ✓ src/composition/modules/staffdeck/public-approval-consumer.test.tsx (3 tests) 106ms
+2026-10-13T04:55:52.4242726Z  ✓ src/components/settings/navigation.spec.ts (8 tests) 6ms
+2026-10-13T04:55:52.4332305Z  ✓ src/components/chat/hooks/useChatMessages.fileArtifacts.spec.ts (3 tests) 6ms
+2026-10-13T04:55:53.1319079Z  ✓ src/hooks/useProjectsState.test.ts (6 tests) 7ms
+2026-10-13T04:55:53.7852355Z  ✓ src/components/ui/useFloatingPanel.test.tsx (5 tests) 205ms
+2026-10-13T04:55:54.1221596Z  ✓ src/shared/catalogProviders.test.ts (4 tests) 6ms
+2026-10-13T04:55:54.2864320Z  ✓ src/components/settings/updateCheck.test.tsx (3 tests) 526ms
+2026-10-13T04:55:54.2866344Z    ✓ refreshes the real Settings version state after offline and only installs after a second click  398ms
+2026-10-13T04:55:54.3120986Z  ✓ server/services/desktopApplicationMenu.test.ts (8 tests) 12ms
+2026-10-13T04:55:54.7762474Z  ✓ src/components/main-content-v2/cronSchedule.spec.ts (31 tests) 11ms
+2026-10-13T04:55:55.1540181Z  ✓ server/routes/webUpdate.test.js (5 tests) 95ms
+2026-10-13T04:55:55.3042268Z  ✓ src/components/chat/hooks/useChatSessionState.spec.ts (7 tests) 8ms
+2026-10-13T04:55:55.5270656Z  ✓ src/components/chat-v2/useTypewriter.test.tsx (5 tests) 41ms
+2026-10-13T04:55:56.4182712Z stderr | src/components/auth/context/AuthContext.test.tsx > AuthContext model configuration state > does not fail open when the configuration status request fails
+2026-10-13T04:55:56.4206732Z Error checking onboarding status: Error: server unavailable
+2026-10-13T04:55:56.4251667Z     at /home/runner/work/PilotDeck/PilotDeck/ui/src/components/auth/context/AuthContext.test.tsx:43:50
+2026-10-13T04:55:56.4296984Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+2026-10-13T04:55:56.4301860Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+2026-10-13T04:55:56.4359216Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+2026-10-13T04:55:56.4366074Z     at new Promise (<anonymous>)
+2026-10-13T04:55:56.4372145Z     at runWithCancel (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)
+2026-10-13T04:55:56.4374180Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+2026-10-13T04:55:56.4375382Z     at new Promise (<anonymous>)
+2026-10-13T04:55:56.4376901Z     at runWithTimeout (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)
+2026-10-13T04:55:56.4379113Z     at file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+runner@4.1.7/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64
+2026-10-13T04:55:56.4380053Z 
+2026-10-13T04:55:56.5941730Z  ✓ src/components/code-editor/utils/pdfSearch.spec.ts (5 tests) 27ms
+2026-10-13T04:55:56.9456679Z  ✓ src/composition/modules/staffdeck/vendor/dialog-primitives.test.tsx (2 tests) 189ms
+2026-10-13T04:55:57.4482374Z  ✓ src/components/auth/context/AuthContext.test.tsx (3 tests) 1064ms
+2026-10-13T04:55:57.4484580Z      ✓ keeps polling while Gateway remains in its starting state  1012ms
+2026-10-13T04:55:58.0502244Z  ✓ src/components/chat-v2/useChatHistorySearch.render.test.tsx (2 tests) 49ms
+2026-10-13T04:55:58.0651453Z  ✓ src/components/settings/view/agentSearch/components/ToolsSection.providers.test.tsx (2 tests) 450ms
+2026-10-13T04:55:58.0656983Z    ✓ shows readable provider/engine labels in en and tests the selected engine  342ms
+2026-10-13T04:55:58.9242912Z  ✓ src/components/code-editor/view/subcomponents/FileSearchControls.test.tsx (4 tests) 204ms
+2026-10-13T04:55:59.5188957Z  ✓ src/contexts/WebSocketContext.modelMemory.test.tsx (2 tests) 179ms
+2026-10-13T04:55:59.6722065Z (node:5139) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:55:59.6723366Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:55:59.8282035Z  ✓ server/services/desktopRuntimeStop.test.js (3 tests) 211ms
+2026-10-13T04:56:00.1665434Z  ✓ server/routes/commands.test.js (1 test) 986ms
+2026-10-13T04:56:00.1667105Z      ✓ executes user commands discovered under custom PILOT_HOME  985ms
+2026-10-13T04:56:00.5616241Z  ✓ server/utils/generalWorkspace.test.js (4 tests) 20ms
+2026-10-13T04:56:00.8164366Z  ✓ src/components/settings/view/agentSearch/utils/webSearchConfig.spec.ts (8 tests) 9ms
+2026-10-13T04:56:01.2596510Z  ✓ src/components/app-shell/appShellSelection.test.tsx (9 tests) 16ms
+2026-10-13T04:56:02.2914377Z  ✓ src/components/settings/view/advanced/components/AdvancedRetrySection.test.tsx (3 tests) 418ms
+2026-10-13T04:56:02.2918438Z    ✓ edits only the current main model provider, even when another provider is listed first  307ms
+2026-10-13T04:56:02.4387041Z  ✓ src/components/main-content-v2/WorkspaceUploadStatus.test.tsx (3 tests) 257ms
+2026-10-13T04:56:02.9621829Z (node:5211) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:56:02.9622985Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:56:03.2803248Z  ✓ server/services/runtimeCoordination.test.js (4 tests) 13ms
+2026-10-13T04:56:03.3305322Z  ✓ src/contexts/WebSocketContext.queue.test.tsx (5 tests) 5ms
+2026-10-13T04:56:04.1383397Z  ✓ src/components/settings/view/optionalFeatures.test.tsx (5 tests) 405ms
+2026-10-13T04:56:04.5173420Z stdout | server/projects.cron.test.js
+2026-10-13T04:56:04.5227699Z 
+2026-10-13T04:56:04.5272082Z ════════════════════════════════════════════════════════════
+2026-10-13T04:56:04.5332064Z [INFO] App Installation: /home/runner/work/PilotDeck/PilotDeck/ui
+2026-10-13T04:56:04.5347729Z [INFO] Database: server/database/auth.db
+2026-10-13T04:56:04.5348954Z ════════════════════════════════════════════════════════════
+2026-10-13T04:56:04.5349616Z 
+2026-10-13T04:56:04.5349764Z 
+2026-10-13T04:56:04.5350803Z  ✓ server/projects.cron.test.js (1 test) 4ms
+2026-10-13T04:56:04.5902406Z  ✓ src/components/onboarding/view/hooks/useOnboardingWorkspace.test.tsx (3 tests) 34ms
+2026-10-13T04:56:05.3885707Z stderr | server/routes/messages.test.js > message routes > reports read failure Gateway WebSocket is not connected. instead of a successful empty transcript
+2026-10-13T04:56:05.3942041Z [messages] read_session_messages failed: Error: Gateway WebSocket is not connected.
+2026-10-13T04:56:05.4001849Z     at /home/runner/work/PilotDeck/PilotDeck/ui/server/routes/messages.test.js:43:15
+2026-10-13T04:56:05.4003422Z     at Mock (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+spy@4.1.7/node_modules/@vitest/spy/dist/index.js:332:34)
+2026-10-13T04:56:05.4031415Z     at /home/runner/work/PilotDeck/PilotDeck/ui/server/routes/messages.js:52:26
+2026-10-13T04:56:05.4092013Z     at Layer.handle [as handle_request] (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/layer.js:95:5)
+2026-10-13T04:56:05.4093611Z  ✓ server/routes/messages.test.js (3 tests) 96ms
+2026-10-13T04:56:05.4171622Z     at next (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/route.js:149:13)
+2026-10-13T04:56:05.4192087Z     at Route.dispatch (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/route.js:119:3)
+2026-10-13T04:56:05.4232151Z     at Layer.handle [as handle_request] (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/layer.js:95:5)
+2026-10-13T04:56:05.4264211Z     at /home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:284:15
+2026-10-13T04:56:05.4266124Z     at param (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:365:14)
+2026-10-13T04:56:05.4267756Z     at param (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:376:14)
+2026-10-13T04:56:05.4268553Z 
+2026-10-13T04:56:05.4269864Z stderr | server/routes/messages.test.js > message routes > reports read failure Transcript read failed instead of a successful empty transcript
+2026-10-13T04:56:05.4271365Z [messages] read_session_messages failed: Error: Transcript read failed
+2026-10-13T04:56:05.4272417Z     at /home/runner/work/PilotDeck/PilotDeck/ui/server/routes/messages.test.js:43:15
+2026-10-13T04:56:05.4273842Z     at Mock (file:///home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/@vitest+spy@4.1.7/node_modules/@vitest/spy/dist/index.js:332:34)
+2026-10-13T04:56:05.4275138Z     at /home/runner/work/PilotDeck/PilotDeck/ui/server/routes/messages.js:52:26
+2026-10-13T04:56:05.4276617Z     at Layer.handle [as handle_request] (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/layer.js:95:5)
+2026-10-13T04:56:05.4278735Z     at next (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/route.js:149:13)
+2026-10-13T04:56:05.4280263Z     at Route.dispatch (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/route.js:119:3)
+2026-10-13T04:56:05.4282168Z     at Layer.handle [as handle_request] (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/layer.js:95:5)
+2026-10-13T04:56:05.4283742Z     at /home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:284:15
+2026-10-13T04:56:05.4285621Z     at param (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:365:14)
+2026-10-13T04:56:05.4287301Z     at param (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/express@4.22.2/node_modules/express/lib/router/index.js:376:14)
+2026-10-13T04:56:05.4288180Z 
+2026-10-13T04:56:05.4807064Z  ✓ src/lib/appearanceImages.test.ts (4 tests) 15ms
+2026-10-13T04:56:05.6946522Z  ✓ src/components/chat-v2/useModelMenuLayout.spec.ts (6 tests) 6ms
+2026-10-13T04:56:06.5301545Z  ✓ src/utils/uploadFormData.spec.ts (3 tests) 11ms
+2026-10-13T04:56:06.9996635Z stderr | src/components/code-editor/view/EditorSidebar.test.tsx > EditorSidebar workspace embedding > keeps the mobile editor embedded inside the Files workspace
+2026-10-13T04:56:07.0000149Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:56:07.0001481Z 
+2026-10-13T04:56:07.0049176Z  ✓ src/components/code-editor/view/EditorSidebar.test.tsx (2 tests) 19ms
+2026-10-13T04:56:07.5228501Z  ✓ src/components/chat/view/subcomponents/Markdown.artifactText.test.tsx (5 tests) 192ms
+2026-10-13T04:56:08.0758048Z  ✓ src/types/assistantReplyReference.spec.ts (3 tests) 8ms
+2026-10-13T04:56:08.0856033Z  ✓ src/components/onboarding/view/subcomponents/ImageCapabilityModal.spec.tsx (2 tests) 343ms
+2026-10-13T04:56:08.9775587Z stderr | src/components/settings/navigationRecovery.test.tsx > opens General on the first selection from another settings section on mobile
+2026-10-13T04:56:08.9833499Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:56:08.9836901Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:56:08.9838286Z 
+2026-10-13T04:56:09.0972933Z  ✓ src/components/settings/navigationRecovery.test.tsx (3 tests) 344ms
+2026-10-13T04:56:09.2078286Z  ✓ src/components/code-editor/view/subcomponents/spreadsheetContextSelectionIntent.test.tsx (8 tests) 10ms
+2026-10-13T04:56:09.9022808Z  ✓ src/composition/modules/staffdeck/vendor/host-presentation-integration.test.tsx (3 tests) 225ms
+2026-10-13T04:56:10.2545790Z  ✓ src/components/settings/view/integrations/im/hooks/useGatewayStatus.test.tsx (1 test) 18ms
+2026-10-13T04:56:10.4972079Z  ✓ server/routes/projects.clone.test.js (2 tests) 135ms
+2026-10-13T04:56:10.9642558Z  ✓ server/services/mcpConfig.test.js (3 tests) 13ms
+2026-10-13T04:56:11.5874132Z  ✓ src/components/chat/hooks/useChatMessages.compactBoundary.spec.ts (2 tests) 6ms
+2026-10-13T04:56:11.6542754Z stderr | src/components/chat-v2/ProcessTrace.test.tsx > StreamingThinkingPreview > keeps the compact tail for non-scrollable previews
+2026-10-13T04:56:11.6572490Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:56:11.6630970Z 
+2026-10-13T04:56:11.8738210Z  ✓ src/components/chat-v2/ProcessTrace.test.tsx (3 tests) 300ms
+2026-10-13T04:56:11.9962349Z  ✓ src/utils/clipboard.spec.ts (3 tests) 23ms
+2026-10-13T04:56:12.6092105Z  ✓ server/session-activity.test.js (3 tests) 6ms
+2026-10-13T04:56:13.0794666Z stderr | src/contexts/WebSocketContext.models.test.tsx > waits for a login token before opening a non-platform socket
+2026-10-13T04:56:13.0811395Z No authentication token found for WebSocket connection
+2026-10-13T04:56:13.0852902Z 
+2026-10-13T04:56:13.0922306Z  ✓ src/contexts/WebSocketContext.models.test.tsx (2 tests) 34ms
+2026-10-13T04:56:13.2122289Z  ✓ src/components/chat-v2/processGrouping.streaming.test.ts (4 tests) 7ms
+2026-10-13T04:56:14.0250898Z stderr | src/components/settings/view/modelPool/index.test.tsx > saves an untested primary model from the new model pool without altering providers
+2026-10-13T04:56:14.0253630Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:56:14.0254671Z 
+2026-10-13T04:56:14.0688515Z  ✓ src/components/settings/view/modelPool/index.test.tsx (3 tests) 113ms
+2026-10-13T04:56:14.3532374Z  ✓ src/components/file-tree/constants/fileIcons.spec.ts (24 tests) 8ms
+2026-10-13T04:56:14.3561838Z  ✓ server/services/updateEntrypoints.test.ts (4 tests) 8ms
+2026-10-13T04:56:15.2198829Z  ✓ src/components/chat/view/subcomponents/MessageComponent.todo-write.test.tsx (2 tests) 108ms
+2026-10-13T04:56:15.4412453Z  ✓ src/components/code-editor/utils/pdfOutline.spec.ts (3 tests) 7ms
+2026-10-13T04:56:15.8382523Z  ✓ src/components/code-editor/view/subcomponents/CodeEditorHeader.test.tsx (3 tests) 241ms
+2026-10-13T04:56:16.0070523Z  ✓ server/services/desktopRendererRecovery.test.ts (2 tests) 8ms
+2026-10-13T04:56:16.3139228Z stdout | server/services/pilotdeckConfigWatcher.test.js > pilotdeck config watcher > reloads when a symlink target is atomically replaced
+2026-10-13T04:56:16.3141782Z [pilotdeck-config-watcher] watching /tmp/pilotdeck-config-watcher-9EuQpi/link/pilotdeck.yaml, /tmp/pilotdeck-config-watcher-9EuQpi/managed/pilotdeck.yaml
+2026-10-13T04:56:16.3142807Z 
+2026-10-13T04:56:16.4332787Z  ✓ src/components/settings/view/agentMemory/memoryIntervals.spec.ts (5 tests) 5ms
+2026-10-13T04:56:16.5682629Z stdout | server/services/pilotdeckConfigWatcher.test.js > pilotdeck config watcher > reloads when a symlink target is atomically replaced
+2026-10-13T04:56:16.5712258Z [pilotdeck-config-watcher] watching /tmp/pilotdeck-config-watcher-9EuQpi/link/pilotdeck.yaml, /tmp/pilotdeck-config-watcher-9EuQpi/managed/pilotdeck.yaml
+2026-10-13T04:56:16.5739789Z 
+2026-10-13T04:56:16.5825740Z  ✓ server/services/pilotdeckConfigWatcher.test.js (1 test) 332ms
+2026-10-13T04:56:16.5827387Z      ✓ reloads when a symlink target is atomically replaced  330ms
+2026-10-13T04:56:17.0432459Z  ✓ src/components/chat/sessionStatusProtocol.spec.ts (3 tests) 6ms
+2026-10-13T04:56:17.4410475Z  ✓ server/utils/defaultShell.test.js (5 tests) 5ms
+2026-10-13T04:56:17.8473235Z  ✓ src/components/chat/hooks/useChatComposerState.test.ts (5 tests) 5ms
+2026-10-13T04:56:18.1562422Z  ✓ src/utils/externalFileDrop.spec.ts (6 tests) 18ms
+2026-10-13T04:56:18.8302850Z  ✓ src/components/chat/tools/components/InteractiveRenderers/AskUserQuestionPanel.test.tsx (2 tests) 106ms
+2026-10-13T04:56:19.2232360Z  ✓ src/utils/reloadOnChunkError.test.ts (3 tests) 6ms
+2026-10-13T04:56:19.3372676Z  ✓ src/composition/modules/staffdeck/KnowledgeCitationLink.test.tsx (1 test) 11ms
+2026-10-13T04:56:19.9462454Z  ✓ server/utils/nativeFolderPicker.test.js (4 tests) 8ms
+2026-10-13T04:56:21.0441319Z  ✓ server/services/officePreview.test.js (2 tests) 9ms
+2026-10-13T04:56:21.2794437Z  ✓ src/components/chat-v2/MessageRowV2.artifactText.test.tsx (1 test) 72ms
+2026-10-13T04:56:21.7706417Z  ✓ src/components/chat-v2/MessageFileCards.confirm.test.tsx (2 tests) 464ms
+2026-10-13T04:56:21.7708381Z      ✓ waits for explicit confirmation in en and does not open on cancel  311ms
+2026-10-13T04:56:22.2892534Z  ✓ src/components/chat-v2/ChatInterfaceV2.reconnect.spec.ts (5 tests) 9ms
+2026-10-13T04:56:22.3912540Z  ✓ src/components/code-editor/hooks/useFileSearchShortcut.test.tsx (2 tests) 222ms
+2026-10-13T04:56:22.8222337Z  ✓ src/lib/interfacePreferences.test.ts (3 tests) 11ms
+2026-10-13T04:56:23.3302452Z  ✓ src/components/chat/utils/resolveMarkdownFileHref.test.ts (5 tests) 5ms
+2026-10-13T04:56:24.0262442Z  ✓ src/composition/modules/staffdeck/pilotdeck-host-capabilities.test.ts (2 tests) 9ms
+2026-10-13T04:56:24.0332017Z  ✓ src/components/settings/view/agentModel/index.spec.tsx (2 tests) 283ms
+2026-10-13T04:56:24.8217418Z  ✓ src/components/settings/view/about/DesktopBuildInfo.test.tsx (2 tests) 252ms
+2026-10-13T04:56:25.1395559Z  ✓ server/routes/onboardingResources.test.js (2 tests) 41ms
+2026-10-13T04:56:25.5366106Z stderr | src/components/settings/moduleLabels.test.tsx > uses contribution translation keys for module navigation and headings
+2026-10-13T04:56:25.5392923Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:56:25.5422393Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:56:25.5450588Z 
+2026-10-13T04:56:25.5662367Z  ✓ src/components/settings/moduleLabels.test.tsx (2 tests) 206ms
+2026-10-13T04:56:25.9208973Z  ✓ src/components/chat/tools/toolPresentation.spec.ts (5 tests) 7ms
+2026-10-13T04:56:26.1685386Z  ✓ src/components/settings/view/about/updateTranslations.spec.ts (1 test) 22ms
+2026-10-13T04:56:26.5842236Z  ✓ src/components/settings/view/about/updateActions.spec.ts (4 tests) 6ms
+2026-10-13T04:56:27.2901501Z  ✓ src/components/settings/view/modelPool/utils/providerStatus.spec.ts (8 tests) 7ms
+2026-10-13T04:56:27.6802254Z  ✓ server/utils/cronJobSort.test.js (4 tests) 5ms
+2026-10-13T04:56:28.0755472Z  ✓ src/components/chat/view/subcomponents/Markdown.specialTokens.test.tsx (3 tests) 99ms
+2026-10-13T04:56:28.6728664Z  ✓ src/composition/settings-behavior.test.tsx (1 test) 188ms
+2026-10-13T04:56:28.8158326Z  ✓ src/components/chat/hooks/useChatMessages.contentFidelity.spec.ts (6 tests) 13ms
+2026-10-13T04:56:29.5142066Z (node:5726) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:56:29.5171715Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:56:29.8731905Z  ✓ server/services/modelFreeHistory.test.js (1 test) 25ms
+2026-10-13T04:56:29.9091916Z  ✓ src/components/chat/utils/sessionLauncher.test.ts (2 tests) 9ms
+2026-10-13T04:56:30.5332436Z  ✓ src/composition/modules/staffdeck/ApproverAccount.test.tsx (1 test) 291ms
+2026-10-13T04:56:30.9460851Z  ✓ src/components/code-editor/utils/fileSearch.spec.ts (4 tests) 86ms
+2026-10-13T04:56:31.5092071Z (node:5761) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-13T04:56:31.5105017Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-13T04:56:31.9352389Z  ✓ server/staffdeck-public-gateway.test.js (2 tests) 9ms
+2026-10-13T04:56:32.0322458Z  ✓ src/components/chat/tools/components/ToolDetails.test.tsx (2 tests) 217ms
+2026-10-13T04:56:32.2111693Z TypeError: render failed
+2026-10-13T04:56:32.2151806Z     at Messages (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/main-content/view/ErrorBoundary.test.tsx:10:41)
+2026-10-13T04:56:32.2181890Z     at renderWithHooks (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+2026-10-13T04:56:32.2242319Z     at mountIndeterminateComponent (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+2026-10-13T04:56:32.2292028Z     at beginWork (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+2026-10-13T04:56:32.2321997Z     at HTMLUnknownElement.callCallback (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+2026-10-13T04:56:32.2324914Z     at HTMLUnknownElement.callTheUserObjectsOperation (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+2026-10-13T04:56:32.2351918Z     at innerInvokeEventListeners (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+2026-10-13T04:56:32.2380687Z     at invokeEventListeners (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+2026-10-13T04:56:32.2411845Z     at HTMLUnknownElementImpl._dispatch (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+2026-10-13T04:56:32.2441872Z     at HTMLUnknownElementImpl.dispatchEvent (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+2026-10-13T04:56:32.2461091Z TypeError: render failed
+2026-10-13T04:56:32.2462319Z     at Messages (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/main-content/view/ErrorBoundary.test.tsx:10:41)
+2026-10-13T04:56:32.2482912Z     at renderWithHooks (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+2026-10-13T04:56:32.2484853Z     at mountIndeterminateComponent (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+2026-10-13T04:56:32.2486801Z     at beginWork (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+2026-10-13T04:56:32.2488653Z     at HTMLUnknownElement.callCallback (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+2026-10-13T04:56:32.2490902Z     at HTMLUnknownElement.callTheUserObjectsOperation (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+2026-10-13T04:56:32.2497392Z     at innerInvokeEventListeners (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+2026-10-13T04:56:32.2499442Z     at invokeEventListeners (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+2026-10-13T04:56:32.2501779Z     at HTMLUnknownElementImpl._dispatch (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+2026-10-13T04:56:32.2503914Z     at HTMLUnknownElementImpl.dispatchEvent (/home/runner/work/PilotDeck/PilotDeck/node_modules/.pnpm/jsdom@29.1.1_@noble+hashes@2.2.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+2026-10-13T04:56:32.2608930Z  ✓ src/components/main-content/view/ErrorBoundary.test.tsx (1 test) 66ms
+2026-10-13T04:56:33.2052300Z  ✓ src/components/chat/hooks/useSessionInputQueue.spec.tsx (1 test) 18ms
+2026-10-13T04:56:33.3322303Z  ✓ src/composition/assemble.test.tsx (1 test) 4ms
+2026-10-13T04:56:33.4449478Z  ✓ src/components/chat-v2/ThinkingBlock.test.tsx (1 test) 167ms
+2026-10-13T04:56:34.3442605Z  ✓ src/components/code-editor/view/subcomponents/floatingSelectionAction.spec.ts (4 tests) 15ms
+2026-10-13T04:56:34.7345016Z stderr | src/components/settings/view/privacy/index.test.tsx > opening and reopening privacy never writes or disables global full access
+2026-10-13T04:56:34.7346901Z Failed to load permission settings from backend: TypeError: Body is unusable: Body has already been read
+2026-10-13T04:56:34.7348072Z     at consumeBody (node:internal/deps/undici/undici:5862:15)
+2026-10-13T04:56:34.7517879Z     at _Response.json (node:internal/deps/undici/undici:5815:18)
+2026-10-13T04:56:34.7519200Z     at fetchPilotDeckPermissionSettings (/home/runner/work/PilotDeck/PilotDeck/ui/src/components/chat/utils/chatStorage.ts:99:31)
+2026-10-13T04:56:34.7520611Z     at runNextTicks (node:internal/process/task_queues:64:5)
+2026-10-13T04:56:34.7521340Z     at listOnTimeout (node:internal/timers:547:9)
+2026-10-13T04:56:34.7522033Z     at processTimers (node:internal/timers:521:7)
+2026-10-13T04:56:34.7522334Z 
+2026-10-13T04:56:34.7523103Z  ✓ src/components/settings/view/privacy/index.test.tsx (1 test) 86ms
+2026-10-13T04:56:34.7926258Z  ✓ src/components/chat/tools/components/ContentRenderers/TodoList.test.tsx (2 tests) 77ms
+2026-10-13T04:56:34.9691621Z  ✓ server/utils/browseDirectories.test.js (2 tests) 27ms
+2026-10-13T04:56:35.4402637Z  ✓ src/components/code-editor/utils/editorToolbarPanel.test.tsx (2 tests) 6ms
+2026-10-13T04:56:35.7832241Z  ✓ src/components/chat-v2/processTraceUtils.spec.ts (15 tests) 11ms
+2026-10-13T04:56:36.4752403Z  ✓ src/components/chat-v2/SendingMessages.test.tsx (1 test) 207ms
+2026-10-13T04:56:36.5162419Z  ✓ src/components/settings/version.spec.ts (3 tests) 9ms
+2026-10-13T04:56:36.8002372Z  ✓ src/components/project-creation-wizard/utils/pathUtils.test.ts (9 tests) 6ms
+2026-10-13T04:56:37.4847230Z  ✓ src/components/settings/view/agentSchedule/utils/cron.spec.ts (5 tests) 5ms
+2026-10-13T04:56:37.7962103Z  ✓ server/pilotdeck-message.test.js (2 tests) 5ms
+2026-10-13T04:56:38.0587455Z  ✓ src/components/chat/view/subcomponents/Markdown.moduleLinks.test.tsx (1 test) 51ms
+2026-10-13T04:56:38.5452020Z  ✓ src/utils/officePreviewStatus.spec.ts (4 tests) 5ms
+2026-10-13T04:56:38.7860073Z  ✓ src/components/settings/view/modelPool/utils/modelRefs.spec.ts (3 tests) 4ms
+2026-10-13T04:56:39.1049469Z  ✓ src/components/code-editor/hooks/useDomFileSearch.spec.ts (3 tests) 28ms
+2026-10-13T04:56:39.6212286Z  ✓ server/services/terminalPtyPort.test.js (2 tests) 6ms
+2026-10-13T04:56:40.1888679Z stderr | src/components/settings/moduleExclusion.test.tsx > does not mount about module requests when the profile omits it
+2026-10-13T04:56:40.1925034Z ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+2026-10-13T04:56:40.1953088Z ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+2026-10-13T04:56:40.1973736Z 
+2026-10-13T04:56:40.2177795Z  ✓ src/components/settings/moduleExclusion.test.tsx (2 tests) 226ms
+2026-10-13T04:56:40.5230044Z  ✓ src/components/settings/view/about/index.test.tsx (1 test) 200ms
+2026-10-13T04:56:40.7032166Z  ✓ server/utils/pathSafety.test.js (3 tests) 4ms
+2026-10-13T04:56:41.2612232Z  ✓ src/utils/frameBatcher.test.ts (1 test) 5ms
+2026-10-13T04:56:41.7432357Z  ✓ src/utils/ime.test.ts (4 tests) 4ms
+2026-10-13T04:56:42.0375779Z  ✓ src/components/settings/view/modelPool/components/CatalogPicker.test.tsx (1 test) 307ms
+2026-10-13T04:56:42.0377600Z      ✓ selects the custom provider by default when opened  305ms
+2026-10-13T04:56:42.7663160Z  ✓ src/components/settings/view/agentSchedule/components/CronSection.test.tsx (1 test) 222ms
+2026-10-13T04:56:42.8142113Z  ✓ src/utils/api.preview.test.js (1 test) 6ms
+2026-10-13T04:56:43.0842341Z  ✓ src/components/chat-v2/composerPrimaryAction.spec.ts (2 tests) 4ms
+2026-10-13T04:56:43.7359202Z  ✓ src/lib/uiDiagnostics.test.ts (1 test) 9ms
+2026-10-13T04:56:43.8922464Z  ✓ src/components/chat-v2/MessageFileCards.spec.ts (3 tests) 4ms
+2026-10-13T04:56:44.3598522Z stderr | src/components/code-editor/view/subcomponents/SpreadsheetTabs.spec.tsx > SpreadsheetTabs > shows worksheet names and switches the active worksheet
+2026-10-13T04:56:44.3601191Z react-i18next:: useTranslation: You will need to pass in an i18next instance by using initReactI18next { code: 'NO_I18NEXT_INSTANCE' }
+2026-10-13T04:56:44.3630213Z 
+2026-10-13T04:56:44.3663631Z  ✓ src/components/code-editor/view/subcomponents/SpreadsheetTabs.spec.tsx (1 test) 135ms
+2026-10-13T04:56:44.8856520Z  ✓ src/components/code-editor/utils/binaryFile.spec.ts (10 tests) 6ms
+2026-10-13T04:56:44.9678282Z  ✓ src/components/chat/hooks/useChatMessages.parentRun.spec.ts (1 test) 5ms
+2026-10-13T04:56:45.4422278Z  ✓ server/utils/processSpawn.test.js (2 tests) 5ms
+2026-10-13T04:56:45.9394760Z  ✓ src/components/code-editor/utils/documentPreview.spec.ts (12 tests) 8ms
+2026-10-13T04:56:46.0303742Z  ✓ src/components/code-editor/utils/editorExtensions.spec.ts (2 tests) 4ms
+2026-10-13T04:56:46.6262239Z  ✓ src/components/code-editor/view/subcomponents/HtmlDocumentPreview.spec.tsx (1 test) 46ms
+2026-10-13T04:56:46.9792131Z  ✓ server/utils/gatewayGrantResult.test.js (2 tests) 4ms
+2026-10-13T04:56:47.3325476Z  ✓ src/contexts/ToastContext.warning.test.tsx (1 test) 141ms
+2026-10-13T04:56:47.6857902Z  ✓ src/components/chat/utils/chatStorage.spec.ts (2 tests) 4ms
+2026-10-13T04:56:47.9212640Z  ✓ src/components/code-editor/view/subcomponents/spreadsheetUniverConfig.spec.ts (1 test) 3ms
+2026-10-13T04:56:48.1706739Z  ✓ src/components/chat/tools/configs/toolConfigs.visibility.spec.ts (1 test) 2ms
+2026-10-13T04:56:48.1838371Z 
+2026-10-13T04:56:48.1848783Z  Test Files  268 passed (268)
+2026-10-13T04:56:48.1881166Z       Tests  2204 passed (2204)
+2026-10-13T04:56:48.1882201Z    Start at  04:54:30
+2026-10-13T04:56:48.1926175Z    Duration  137.88s (transform 22.10s, setup 0ms, import 80.94s, tests 87.52s, environment 201.39s)
+2026-10-13T04:56:48.1926950Z 

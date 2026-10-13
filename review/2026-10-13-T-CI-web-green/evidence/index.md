@@ -14,7 +14,7 @@ QA 门禁（全量绿，不是单失败对照）：
 
 | 项 | 路径 | 说明 |
 |---|---|---|
-| SUMMARY | `../qa-gate-c17f1874/SUMMARY.md` | QA 声明已放此；收集时若缺，见 PROGRESS |
+| SUMMARY | `../qa-gate-c17f1874/SUMMARY.md` | 已入库（slim） |
 | 3× CI | `../qa-gate-c17f1874/` + run `38348207846` attempts 1/2/3 | 已核实 GitHub：三次 conclusion=success，head `c17f1874` |
 | node:test list | `../qa-gate-c17f1874/` | 8 文件 / 40 pass / 0 fail |
 | non-review.diff | `../qa-gate-c17f1874/non-review.diff` | 相对 base `761572d7` 的非 review 代码 diff |

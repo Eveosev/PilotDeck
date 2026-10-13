@@ -1,0 +1,297 @@
+web	Test Web UI node:test files	﻿2026-10-13T04:49:49.1926656Z ##[group]Run files="$(node --input-type=module <<'EOF'
+web	Test Web UI node:test files	2026-10-13T04:49:49.1927239Z files="$(node --input-type=module <<'EOF'
+web	Test Web UI node:test files	2026-10-13T04:49:49.1927700Z import { readdirSync, readFileSync } from 'node:fs';
+web	Test Web UI node:test files	2026-10-13T04:49:49.1928154Z import { join } from 'node:path';
+web	Test Web UI node:test files	2026-10-13T04:49:49.1928524Z const out = [];
+web	Test Web UI node:test files	2026-10-13T04:49:49.1928841Z function walk(dir) {
+web	Test Web UI node:test files	2026-10-13T04:49:49.1929292Z   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+web	Test Web UI node:test files	2026-10-13T04:49:49.1929803Z     const path = join(dir, entry.name);
+web	Test Web UI node:test files	2026-10-13T04:49:49.1930176Z     if (entry.isDirectory()) {
+web	Test Web UI node:test files	2026-10-13T04:49:49.1931024Z       if (!['node_modules', 'dist', 'e2e'].includes(entry.name)) walk(path);
+web	Test Web UI node:test files	2026-10-13T04:49:49.1931666Z       continue;
+web	Test Web UI node:test files	2026-10-13T04:49:49.1931955Z     }
+web	Test Web UI node:test files	2026-10-13T04:49:49.1932319Z     if (!/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) continue;
+web	Test Web UI node:test files	2026-10-13T04:49:49.1932864Z     const src = readFileSync(path, 'utf8');
+web	Test Web UI node:test files	2026-10-13T04:49:49.1933335Z     if (/(?:from|import)\s+['"]node:test['"]/.test(src)) out.push(path);
+web	Test Web UI node:test files	2026-10-13T04:49:49.1933640Z   }
+web	Test Web UI node:test files	2026-10-13T04:49:49.1933802Z }
+web	Test Web UI node:test files	2026-10-13T04:49:49.1933967Z walk('server');
+web	Test Web UI node:test files	2026-10-13T04:49:49.1934161Z if (out.length === 0) {
+web	Test Web UI node:test files	2026-10-13T04:49:49.1934439Z   console.error('expected node:test files under ui/server');
+web	Test Web UI node:test files	2026-10-13T04:49:49.1934745Z   process.exit(1);
+web	Test Web UI node:test files	2026-10-13T04:49:49.1934940Z }
+web	Test Web UI node:test files	2026-10-13T04:49:49.1935144Z process.stdout.write(out.sort().join('\n'));
+web	Test Web UI node:test files	2026-10-13T04:49:49.1935399Z EOF
+web	Test Web UI node:test files	2026-10-13T04:49:49.1935563Z )"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1935771Z echo "Running node --test on ${files//$'\n'/ }"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1936029Z printf '%s\n' "$files"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1936244Z mapfile -t file_list <<< "$files"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1936490Z if [ "${#file_list[@]}" -lt 8 ]; then
+web	Test Web UI node:test files	2026-10-13T04:49:49.1936825Z   echo "expected at least 8 ui/server node:test files, found ${#file_list[@]}"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1937139Z   exit 1
+web	Test Web UI node:test files	2026-10-13T04:49:49.1937300Z fi
+web	Test Web UI node:test files	2026-10-13T04:49:49.1937482Z node --test "${file_list[@]}"
+web	Test Web UI node:test files	2026-10-13T04:49:49.1995178Z shell: /usr/bin/bash -e {0}
+web	Test Web UI node:test files	2026-10-13T04:49:49.1995427Z env:
+web	Test Web UI node:test files	2026-10-13T04:49:49.1995631Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+web	Test Web UI node:test files	2026-10-13T04:49:49.1995926Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+web	Test Web UI node:test files	2026-10-13T04:49:49.1996194Z ##[endgroup]
+web	Test Web UI node:test files	2026-10-13T04:49:49.2375304Z Running node --test on server/adapters/staffdeck-request-context.test.js server/module-request-abort.test.js server/public-knowledge-model-selection.test.mjs server/staffdeck-approval-authority.test.mjs server/staffdeck-public-capabilities.test.mjs server/staffdeck-publish-route.test.js server/staffdeck-publish-runtime.test.mjs server/staffdeck-runtime-readiness.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2376786Z server/adapters/staffdeck-request-context.test.js
+web	Test Web UI node:test files	2026-10-13T04:49:49.2377161Z server/module-request-abort.test.js
+web	Test Web UI node:test files	2026-10-13T04:49:49.2377587Z server/public-knowledge-model-selection.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2377966Z server/staffdeck-approval-authority.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2378299Z server/staffdeck-public-capabilities.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2378595Z server/staffdeck-publish-route.test.js
+web	Test Web UI node:test files	2026-10-13T04:49:49.2378883Z server/staffdeck-publish-runtime.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2379175Z server/staffdeck-runtime-readiness.test.mjs
+web	Test Web UI node:test files	2026-10-13T04:49:49.2760559Z TAP version 13
+web	Test Web UI node:test files	2026-10-13T04:49:49.3363239Z # Subtest: browser connection closure aborts the actual upstream fetch
+web	Test Web UI node:test files	2026-10-13T04:49:49.3392434Z ok 1 - browser connection closure aborts the actual upstream fetch
+web	Test Web UI node:test files	2026-10-13T04:49:49.3422432Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.3482157Z   duration_ms: 22.831451
+web	Test Web UI node:test files	2026-10-13T04:49:49.3482611Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.3512277Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.3542681Z # Subtest: normal response completion and old disposal do not cancel another request
+web	Test Web UI node:test files	2026-10-13T04:49:49.3572518Z ok 2 - normal response completion and old disposal do not cancel another request
+web	Test Web UI node:test files	2026-10-13T04:49:49.3601875Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.3631904Z   duration_ms: 0.253395
+web	Test Web UI node:test files	2026-10-13T04:49:49.3661998Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.3681918Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.3712231Z # Subtest: create binds the selected SOP without mutating content or extensions
+web	Test Web UI node:test files	2026-10-13T04:49:49.3752369Z ok 3 - create binds the selected SOP without mutating content or extensions
+web	Test Web UI node:test files	2026-10-13T04:49:49.3791929Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.3822857Z   duration_ms: 0.527221
+web	Test Web UI node:test files	2026-10-13T04:49:49.3862138Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.3902354Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.3938679Z # Subtest: draft projection uses only the ETag from that response, including create and rollback
+web	Test Web UI node:test files	2026-10-13T04:49:49.3962311Z ok 4 - draft projection uses only the ETag from that response, including create and rollback
+web	Test Web UI node:test files	2026-10-13T04:49:49.4001900Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4020901Z   duration_ms: 1.635593
+web	Test Web UI node:test files	2026-10-13T04:49:49.4032198Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4032704Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4033433Z # Subtest: a browser disconnect aborts upstream and releases listeners
+web	Test Web UI node:test files	2026-10-13T04:49:49.4034381Z ok 5 - a browser disconnect aborts upstream and releases listeners
+web	Test Web UI node:test files	2026-10-13T04:49:49.4035033Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4035467Z   duration_ms: 1.426032
+web	Test Web UI node:test files	2026-10-13T04:49:49.4035924Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4036354Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4037108Z # Subtest: normal response completion does not cancel upstream or leave request listeners
+web	Test Web UI node:test files	2026-10-13T04:49:49.4038186Z ok 6 - normal response completion does not cancel upstream or leave request listeners
+web	Test Web UI node:test files	2026-10-13T04:49:49.4038944Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4039364Z   duration_ms: 0.261567
+web	Test Web UI node:test files	2026-10-13T04:49:49.4039810Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4040239Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4041040Z # Subtest: browser search verifies the selected PD model and keeps SD lexical retrieval distinct
+web	Test Web UI node:test files	2026-10-13T04:49:49.4042469Z ok 7 - browser search verifies the selected PD model and keeps SD lexical retrieval distinct
+web	Test Web UI node:test files	2026-10-13T04:49:49.4043241Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4043723Z   duration_ms: 2.84995
+web	Test Web UI node:test files	2026-10-13T04:49:49.4044192Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4044633Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4045419Z # Subtest: missing, mismatched, unavailable and SD model IDs fail before a Knowledge request
+web	Test Web UI node:test files	2026-10-13T04:49:49.4046521Z ok 8 - missing, mismatched, unavailable and SD model IDs fail before a Knowledge request
+web	Test Web UI node:test files	2026-10-13T04:49:49.4047259Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4047683Z   duration_ms: 1.611016
+web	Test Web UI node:test files	2026-10-13T04:49:49.4048133Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4048580Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4092970Z # Subtest: normal current-user identity binds original wait and revision without resuming
+web	Test Web UI node:test files	2026-10-13T04:49:49.4097118Z ok 9 - normal current-user identity binds original wait and revision without resuming
+web	Test Web UI node:test files	2026-10-13T04:49:49.4097711Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4142529Z   duration_ms: 34.602231
+web	Test Web UI node:test files	2026-10-13T04:49:49.4192342Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4232479Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4252940Z # Subtest: different actor, tenant, disabled or nonnative subject cannot approve
+web	Test Web UI node:test files	2026-10-13T04:49:49.4253993Z ok 10 - different actor, tenant, disabled or nonnative subject cannot approve
+web	Test Web UI node:test files	2026-10-13T04:49:49.4254607Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4254934Z   duration_ms: 2.084507
+web	Test Web UI node:test files	2026-10-13T04:49:49.4255291Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4255624Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4256171Z # Subtest: invalid command and external task are rejected before authentication
+web	Test Web UI node:test files	2026-10-13T04:49:49.4256975Z ok 11 - invalid command and external task are rejected before authentication
+web	Test Web UI node:test files	2026-10-13T04:49:49.4257509Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4257763Z   duration_ms: 0.329077
+web	Test Web UI node:test files	2026-10-13T04:49:49.4258051Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4258298Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4258740Z # Subtest: original authentication failure status is preserved
+web	Test Web UI node:test files	2026-10-13T04:49:49.4259365Z ok 12 - original authentication failure status is preserved
+web	Test Web UI node:test files	2026-10-13T04:49:49.4259992Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4260226Z   duration_ms: 0.430137
+web	Test Web UI node:test files	2026-10-13T04:49:49.4260420Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4260581Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4260941Z # Subtest: identity authentication does not require pending wait for receipt replay
+web	Test Web UI node:test files	2026-10-13T04:49:49.4261639Z ok 13 - identity authentication does not require pending wait for receipt replay
+web	Test Web UI node:test files	2026-10-13T04:49:49.4262162Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4262414Z   duration_ms: 0.549774
+web	Test Web UI node:test files	2026-10-13T04:49:49.4262695Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4262934Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4277946Z # Subtest: unapproved operations never reach transport; unknown/inequivalent operations have no route
+web	Test Web UI node:test files	2026-10-13T04:49:49.4302461Z ok 14 - unapproved operations never reach transport; unknown/inequivalent operations have no route
+web	Test Web UI node:test files	2026-10-13T04:49:49.4342194Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4342778Z   duration_ms: 3.204215
+web	Test Web UI node:test files	2026-10-13T04:49:49.4343342Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4343820Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4344746Z # Subtest: directories preserve data envelopes and encoded scope; malformed response is not empty success
+web	Test Web UI node:test files	2026-10-13T04:49:49.4345978Z ok 15 - directories preserve data envelopes and encoded scope; malformed response is not empty success
+web	Test Web UI node:test files	2026-10-13T04:49:49.4346767Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4347179Z   duration_ms: 0.379322
+web	Test Web UI node:test files	2026-10-13T04:49:49.4347618Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4348023Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4348756Z # Subtest: tool write rejects masked credentials and scope override without modifying input
+web	Test Web UI node:test files	2026-10-13T04:49:49.4349775Z ok 16 - tool write rejects masked credentials and scope override without modifying input
+web	Test Web UI node:test files	2026-10-13T04:49:49.4350481Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4350897Z   duration_ms: 0.403788
+web	Test Web UI node:test files	2026-10-13T04:49:49.4351322Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4351840Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4352578Z # Subtest: rewrite refuses dirty/current skill/conversation rather than discard them or save
+web	Test Web UI node:test files	2026-10-13T04:49:49.4353617Z ok 17 - rewrite refuses dirty/current skill/conversation rather than discard them or save
+web	Test Web UI node:test files	2026-10-13T04:49:49.4354409Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4354805Z   duration_ms: 0.517286
+web	Test Web UI node:test files	2026-10-13T04:49:49.4355270Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4355679Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4356399Z # Subtest: generation and results preserve server-assigned draft/etag; never create a second draft
+web	Test Web UI node:test files	2026-10-13T04:49:49.4357428Z ok 18 - generation and results preserve server-assigned draft/etag; never create a second draft
+web	Test Web UI node:test files	2026-10-13T04:49:49.4358114Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4358485Z   duration_ms: 1.032309
+web	Test Web UI node:test files	2026-10-13T04:49:49.4358925Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4359334Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4360007Z # Subtest: original HTTP failures, abort signal and resume cursor are preserved
+web	Test Web UI node:test files	2026-10-13T04:49:49.4360931Z ok 19 - original HTTP failures, abort signal and resume cursor are preserved
+web	Test Web UI node:test files	2026-10-13T04:49:49.4363866Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4364318Z   duration_ms: 0.477757
+web	Test Web UI node:test files	2026-10-13T04:49:49.4364791Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4365197Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4366027Z # Subtest: SSE preserves real IDs, event names, multiline data and split UTF-8; drops incomplete frame
+web	Test Web UI node:test files	2026-10-13T04:49:49.4367225Z ok 20 - SSE preserves real IDs, event names, multiline data and split UTF-8; drops incomplete frame
+web	Test Web UI node:test files	2026-10-13T04:49:49.4367969Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4368369Z   duration_ms: 3.318514
+web	Test Web UI node:test files	2026-10-13T04:49:49.4368821Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4369225Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4369903Z # Subtest: approved facade plans remain fixed by name, method, path and input
+web	Test Web UI node:test files	2026-10-13T04:49:49.4370828Z ok 21 - approved facade plans remain fixed by name, method, path and input
+web	Test Web UI node:test files	2026-10-13T04:49:49.4371596Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4372010Z   duration_ms: 0.899061
+web	Test Web UI node:test files	2026-10-13T04:49:49.4372456Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4372859Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4373672Z # Subtest: preview keeps dirty current skill and conversation, while saved rewrite still rejects them
+web	Test Web UI node:test files	2026-10-13T04:49:49.4374822Z ok 22 - preview keeps dirty current skill and conversation, while saved rewrite still rejects them
+web	Test Web UI node:test files	2026-10-13T04:49:49.4375940Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4376334Z   duration_ms: 0.681389
+web	Test Web UI node:test files	2026-10-13T04:49:49.4376772Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4377166Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4377919Z # Subtest: preview SSE exposes only the native data.seq cursor and preserves token event text
+web	Test Web UI node:test files	2026-10-13T04:49:49.4378961Z ok 23 - preview SSE exposes only the native data.seq cursor and preserves token event text
+web	Test Web UI node:test files	2026-10-13T04:49:49.4379672Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4380086Z   duration_ms: 0.738393
+web	Test Web UI node:test files	2026-10-13T04:49:49.4380516Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4380913Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4381845Z # Subtest: selected agent never falls back to configured target; team uses bounded routes
+web	Test Web UI node:test files	2026-10-13T04:49:49.4383050Z ok 24 - selected agent never falls back to configured target; team uses bounded routes
+web	Test Web UI node:test files	2026-10-13T04:49:49.4383729Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4384132Z   duration_ms: 0.492059
+web	Test Web UI node:test files	2026-10-13T04:49:49.4384562Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4384959Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4385731Z # Subtest: selected SOP lifecycle preserves exact IDs, ETag precondition and original response
+web	Test Web UI node:test files	2026-10-13T04:49:49.4386822Z ok 25 - selected SOP lifecycle preserves exact IDs, ETag precondition and original response
+web	Test Web UI node:test files	2026-10-13T04:49:49.4387532Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4388120Z   duration_ms: 0.624675
+web	Test Web UI node:test files	2026-10-13T04:49:49.4388589Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4389012Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4389944Z # Subtest: fixed candidate target accepts original draft ETag and rejects explicit other scope before transport
+web	Test Web UI node:test files	2026-10-13T04:49:49.4391187Z ok 26 - fixed candidate target accepts original draft ETag and rejects explicit other scope before transport
+web	Test Web UI node:test files	2026-10-13T04:49:49.4392105Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4392500Z   duration_ms: 0.341396
+web	Test Web UI node:test files	2026-10-13T04:49:49.4392931Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4393339Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4394140Z # Subtest: fixed Knowledge routes retain base and document IDs, conflict timestamp and ingest idempotency
+web	Test Web UI node:test files	2026-10-13T04:49:49.4395315Z ok 27 - fixed Knowledge routes retain base and document IDs, conflict timestamp and ingest idempotency
+web	Test Web UI node:test files	2026-10-13T04:49:49.4396055Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4396443Z   duration_ms: 0.570104
+web	Test Web UI node:test files	2026-10-13T04:49:49.4396858Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4397261Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4570177Z # Subtest: normal publish uses the existing Gateway port and receipts survive a new web instance
+web	Test Web UI node:test files	2026-10-13T04:49:49.4572036Z ok 28 - normal publish uses the existing Gateway port and receipts survive a new web instance
+web	Test Web UI node:test files	2026-10-13T04:49:49.4572905Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4573322Z   duration_ms: 36.135262
+web	Test Web UI node:test files	2026-10-13T04:49:49.4573775Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4574197Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4629839Z # Subtest: Gateway failure stays a persisted runtime failure without changing owner publication
+web	Test Web UI node:test files	2026-10-13T04:49:49.4635914Z ok 29 - Gateway failure stays a persisted runtime failure without changing owner publication
+web	Test Web UI node:test files	2026-10-13T04:49:49.4636672Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4637114Z   duration_ms: 6.772399
+web	Test Web UI node:test files	2026-10-13T04:49:49.4637599Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4638039Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4680171Z # Subtest: receipt write failure preserves publication and refuses to claim persistence
+web	Test Web UI node:test files	2026-10-13T04:49:49.4681567Z ok 30 - receipt write failure preserves publication and refuses to claim persistence
+web	Test Web UI node:test files	2026-10-13T04:49:49.4682308Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4682730Z   duration_ms: 4.999063
+web	Test Web UI node:test files	2026-10-13T04:49:49.4683170Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4683574Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4822857Z # Subtest: formal publish writes exact owner snapshot atomically; refresh ack remains unverified
+web	Test Web UI node:test files	2026-10-13T04:49:49.4824416Z ok 31 - formal publish writes exact owner snapshot atomically; refresh ack remains unverified
+web	Test Web UI node:test files	2026-10-13T04:49:49.4825262Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4826085Z   duration_ms: 10.04129
+web	Test Web UI node:test files	2026-10-13T04:49:49.4826420Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4826695Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4827207Z # Subtest: publish errors keep original response and never touch runtime
+web	Test Web UI node:test files	2026-10-13T04:49:49.4827954Z ok 32 - publish errors keep original response and never touch runtime
+web	Test Web UI node:test files	2026-10-13T04:49:49.4828686Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4828943Z   duration_ms: 0.287035
+web	Test Web UI node:test files	2026-10-13T04:49:49.4829238Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4829568Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4833923Z # Subtest: runtime refresh failure preserves successful publish and new snapshot without retry
+web	Test Web UI node:test files	2026-10-13T04:49:49.4854115Z ok 33 - runtime refresh failure preserves successful publish and new snapshot without retry
+web	Test Web UI node:test files	2026-10-13T04:49:49.4855153Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4855638Z   duration_ms: 3.730274
+web	Test Web UI node:test files	2026-10-13T04:49:49.4856290Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4856786Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4871968Z # Subtest: owner mismatch, malformed publication and snapshot failure do not request refresh
+web	Test Web UI node:test files	2026-10-13T04:49:49.4873180Z ok 34 - owner mismatch, malformed publication and snapshot failure do not request refresh
+web	Test Web UI node:test files	2026-10-13T04:49:49.4886126Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4886410Z   duration_ms: 2.918011
+web	Test Web UI node:test files	2026-10-13T04:49:49.4886731Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4886987Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4887542Z # Subtest: concurrent publishes serialize the owner call and snapshot in the same path
+web	Test Web UI node:test files	2026-10-13T04:49:49.4888229Z ok 35 - concurrent publishes serialize the owner call and snapshot in the same path
+web	Test Web UI node:test files	2026-10-13T04:49:49.4888596Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4888800Z   duration_ms: 3.638533
+web	Test Web UI node:test files	2026-10-13T04:49:49.4889040Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4889213Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4889569Z # Subtest: single published file normalizes; JSON writer does not mutate caller bundle
+web	Test Web UI node:test files	2026-10-13T04:49:49.4890086Z ok 36 - single published file normalizes; JSON writer does not mutate caller bundle
+web	Test Web UI node:test files	2026-10-13T04:49:49.4890398Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4890575Z   duration_ms: 3.290543
+web	Test Web UI node:test files	2026-10-13T04:49:49.4890769Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4890928Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4914089Z # Subtest: seven-slot profile and owner binding stay config-only; secrets and paths are absent
+web	Test Web UI node:test files	2026-10-13T04:49:49.4915061Z ok 37 - seven-slot profile and owner binding stay config-only; secrets and paths are absent
+web	Test Web UI node:test files	2026-10-13T04:49:49.4915642Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4915911Z   duration_ms: 2.139007
+web	Test Web UI node:test files	2026-10-13T04:49:49.4916208Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4916471Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4917076Z # Subtest: publish receipt and persisted old pin remain claims pending runtime observation
+web	Test Web UI node:test files	2026-10-13T04:49:49.4922583Z ok 38 - publish receipt and persisted old pin remain claims pending runtime observation
+web	Test Web UI node:test files	2026-10-13T04:49:49.4923183Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4923449Z   duration_ms: 0.417117
+web	Test Web UI node:test files	2026-10-13T04:49:49.4923747Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4924021Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4924643Z # Subtest: off, absent, mismatch and incomplete bundle are reported without inventing readiness
+web	Test Web UI node:test files	2026-10-13T04:49:49.4925580Z ok 39 - off, absent, mismatch and incomplete bundle are reported without inventing readiness
+web	Test Web UI node:test files	2026-10-13T04:49:49.4926146Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4926405Z   duration_ms: 0.413042
+web	Test Web UI node:test files	2026-10-13T04:49:49.4926695Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4926957Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4927495Z # Subtest: malformed bundle IDs and versions are visible as configuration issues
+web	Test Web UI node:test files	2026-10-13T04:49:49.4928278Z ok 40 - malformed bundle IDs and versions are visible as configuration issues
+web	Test Web UI node:test files	2026-10-13T04:49:49.4928768Z   ---
+web	Test Web UI node:test files	2026-10-13T04:49:49.4929023Z   duration_ms: 1.432502
+web	Test Web UI node:test files	2026-10-13T04:49:49.4929318Z   type: 'test'
+web	Test Web UI node:test files	2026-10-13T04:49:49.4929577Z   ...
+web	Test Web UI node:test files	2026-10-13T04:49:49.4929818Z 1..40
+web	Test Web UI node:test files	2026-10-13T04:49:49.4930034Z # tests 40
+web	Test Web UI node:test files	2026-10-13T04:49:49.4930233Z # suites 0
+web	Test Web UI node:test files	2026-10-13T04:49:49.4930472Z # pass 40
+web	Test Web UI node:test files	2026-10-13T04:49:49.4930693Z # fail 0
+web	Test Web UI node:test files	2026-10-13T04:49:49.4930909Z # cancelled 0
+web	Test Web UI node:test files	2026-10-13T04:49:49.4931147Z # skipped 0
+web	Test Web UI node:test files	2026-10-13T04:49:49.4931540Z # todo 0
+web	Test Web UI node:test files	2026-10-13T04:49:49.4931801Z # duration_ms 231.103195

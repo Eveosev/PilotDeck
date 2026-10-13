@@ -11,7 +11,7 @@
   - `node --test`：8 文件，40/0
   - D memory true/false ×3 见下（A/D 本地）
   - 链接：https://github.com/Eveosev/PilotDeck/actions/runs/38348207846 （attempts/1 /attempts/2 /attempts/3）
-- QA SUMMARY 期望路径：`review/2026-10-13-T-CI-web-green/qa-gate-c17f1874/SUMMARY.md`（以及 3× CI logs、node:test list、`non-review.diff`）。收集 Reviewer 包时该目录**不在** tip `c17f1874` / `origin/pilotdeck-rust/T-CI-web-green`；QA 推上来后从此路径读取，`evidence/` 已预留链接。
+- QA SUMMARY 已入库：`review/2026-10-13-T-CI-web-green/qa-gate-c17f1874/SUMMARY.md`（slim extracts + `non-review.diff`）。完整 zip/full logs 在共享盘，见该目录 `RAW_LOGS_SHA256.txt`。
 
 ## 本轮
 
