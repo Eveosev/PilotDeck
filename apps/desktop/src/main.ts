@@ -1,6 +1,7 @@
 import { installRendererRecovery } from "./rendererRecovery";
 import { commandEnabled, emptyMenuState, normalizeMenuState, type DesktopCommand } from "./desktopCommands";
 import { isRendererEditingShortcut, windowChromeOptions, windowPalette, WINDOWS_CAPTION_HEIGHT } from "./windowChrome";
+import { isLinuxWaylandSession, scheduleLinuxWaylandPresent } from "./waylandWindow";
 import { desktopAboutInfo, desktopAboutInformation, presentDesktopAbout } from "./desktopAbout";
 import { WindowsCaptionMenu, type CaptionMenuRequest } from "./windowsCaptionMenu";
 import { linuxCaptionAction, linuxCaptionEntries } from "./linuxCaptionMenu";
@@ -506,13 +507,27 @@ async function ensureRuntime(): Promise<RuntimeInfo> {
   return pending;
 }
 
+function showCreatedWindow(window: BrowserWindow): void {
+  if (window.isDestroyed() || isQuitting) return;
+  if (isLinuxWaylandSession()) scheduleLinuxWaylandPresent(window);
+  else window.show();
+}
+
+function restoreShownWindow(window: BrowserWindow): void {
+  if (window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  if (process.platform === "darwin") app.show();
+  if (isLinuxWaylandSession()) scheduleLinuxWaylandPresent(window);
+  else {
+    window.show();
+    window.focus();
+  }
+}
+
 async function createOrShowWindow(): Promise<void> {
   if (isQuitting) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    if (process.platform === "darwin") app.show();
-    mainWindow.show();
-    mainWindow.focus();
+    restoreShownWindow(mainWindow);
     return;
   }
 
@@ -551,7 +566,7 @@ async function createOrShowWindow(): Promise<void> {
     recoveryWindow.off("close", cancelInitialShow);
     recoveryWindow.off("hide", cancelInitialShow);
     recoveryWindow.off("minimize", cancelInitialShow);
-    if (!isQuitting && allowInitialShow) recoveryWindow.show();
+    if (!isQuitting && allowInitialShow) showCreatedWindow(recoveryWindow);
   });
   // On Windows these events fire before isFullScreen() reflects the new state.
   recoveryWindow.on("enter-full-screen", () => setImmediate(publishWindowState));
@@ -607,6 +622,9 @@ async function createOrShowWindow(): Promise<void> {
 
   await mainWindow.webContents.session.clearCache();
   await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(renderLoadingHtml(readAppearance()))}`);
+  if (!isQuitting && allowInitialShow && isLinuxWaylandSession()) {
+    scheduleLinuxWaylandPresent(mainWindow);
+  }
   if (lastRuntimeStatus) {
     sendRuntimeStatus(lastRuntimeStatus);
   }

@@ -4,6 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { isRendererEditingShortcut, windowChromeOptions, windowPalette, WINDOWS_CAPTION_HEIGHT } = require('../../dist/windowChrome');
+const { isLinuxWaylandSession, scheduleLinuxWaylandPresent } = require('../../dist/waylandWindow');
 const { buildApplicationMenu } = require('../../dist/applicationMenu');
 const { WindowsCaptionMenu } = require('../../dist/windowsCaptionMenu');
 const { linuxCaptionEntries, linuxCaptionAction } = require('../../dist/linuxCaptionMenu');
@@ -100,9 +101,17 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark';
   window = new BrowserWindow({ ...windowChromeOptions(process.platform, true), show: false, width: 1320, height: 900,
     autoHideMenuBar: process.platform === 'win32' || process.platform === 'linux',
-    webPreferences: { preload: path.resolve(__dirname, '../../dist/preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
+    webPreferences: {
+      preload: path.resolve(__dirname, process.env.PILOTDECK_WAYLAND_DIAG === '1' ? './desktop-chrome-preload.cjs' : '../../dist/preload.js'),
+      contextIsolation: true,
+      sandbox: false,
+      nodeIntegration: false,
+    },
   });
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (isLinuxWaylandSession()) scheduleLinuxWaylandPresent(window);
+    else window.show();
+  });
   window.on('enter-full-screen', () => setImmediate(publish));
   window.on('leave-full-screen', () => setImmediate(publish));
   window.webContents.on('before-input-event', (_event, input) => {
@@ -110,6 +119,7 @@ app.whenReady().then(async () => {
   });
   refresh();
   await window.loadURL('about:blank');
+  if (isLinuxWaylandSession()) scheduleLinuxWaylandPresent(window);
 });
 app.on('window-all-closed', () => app.quit());
 // The parent removes its temporary profile after Chromium releases Windows locks.
