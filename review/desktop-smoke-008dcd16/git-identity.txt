@@ -1,0 +1,17 @@
+# Verified immediately after clean checkout of the merge commit,
+# before any evidence files were written (see SUMMARY.md for the
+# post-checkout re-verify that still showed a clean tree).
+#
+# Commands:
+#   git rev-parse HEAD
+#   git status --porcelain
+#
+# Results:
+gitSha=008dcd163fc04008c6c4236f036c4e566ee59106
+gitDirty=false
+porcelainByteCount=0
+verifiedAtUtc=2026-10-13T12:16:29Z
+branchAtVerify=cursor/desktop-smoke-008dcd16-8518
+refMessage=Merge pull request #13 from Eveosev/pilotdeck-rust/T-CI-F3-node-test-scan
+remoteBranch=origin/rust_standalone_alpha1
+remoteSha=008dcd163fc04008c6c4236f036c4e566ee59106
