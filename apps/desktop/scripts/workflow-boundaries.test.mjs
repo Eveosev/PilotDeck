@@ -37,6 +37,26 @@ test('PR checks do not inherit signing secrets or enable production macOS packag
   }
 });
 
+test('File-click C gates live on PR Desktop smoke only, not Daily Release or desktop-build', () => {
+  const linux = workflow('desktop-linux');
+  assert.equal(linux.jobs['wayland-file-gate'], undefined);
+  assert.equal(linux.jobs['x11-file-gate'], undefined);
+  const smoke = workflow('desktop-smoke');
+  assert.ok(smoke.on.pull_request);
+  assert.equal(smoke.on.schedule, undefined);
+  assert.equal(smoke.jobs['wayland-file-gate'].env.PILOTDECK_WAYLAND_DIAG_N, '300');
+  assert.equal(smoke.jobs['x11-file-gate'].env.PILOTDECK_WAYLAND_DIAG_N, '100');
+  assert.equal(smoke.jobs['wayland-file-gate'].env.PILOTDECK_WAYLAND_DIAG_EARLY_STOP, '1');
+  assert.equal(smoke.jobs['x11-file-gate'].env.PILOTDECK_WAYLAND_DIAG_EARLY_STOP, '1');
+  for (const name of ['release', 'desktop-build']) {
+    const data = workflow(name);
+    assert.equal(data.jobs['wayland-file-gate'], undefined);
+    assert.equal(data.jobs['x11-file-gate'], undefined);
+    assert.equal(data.jobs.linux.uses, './.github/workflows/desktop-linux.yml');
+    assert.equal(data.jobs.linux.with?.file_click_gate, undefined);
+  }
+});
+
 test('only the final release job can publish after all platform checks succeed', () => {
   const release = workflow('release');
   assert.equal(release.permissions.contents, 'read');
