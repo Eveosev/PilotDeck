@@ -1591,6 +1591,12 @@ mod tests {
         );
     }
 
+    /// Same-runId re-execute of a finished operation (F-9(b)):
+    /// - `ModuleOperationHost.accept` keeps the snapshot (`moduleRuntime.ts:31-34`)
+    /// - `InProcessModuleRuntime.execute` does not short-circuit: it `accept`s
+    ///   then always runs the handler and yields another completed
+    ///   (`moduleRuntime.ts:192-198`, `:268-293`, `:295-310`)
+    /// - `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`)
     #[test]
     fn execute_finished_run_match_is_accepted() {
         let (sidecar, sink) = collect();
@@ -1602,10 +1608,17 @@ mod tests {
             r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
         );
         sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"st-a","method":"status","requestId":"req-a"}"#,
+        );
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"st-b","method":"status","requestId":"req-b"}"#,
+        );
         let lines = sink.lock().expect("sink").clone();
         let accepted = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
         assert_eq!(accepted["ok"], true);
         assert!(accepted.get("code").is_none());
+        // Second completed: moduleRuntime.ts:192-198 then :268-293 / :295-310.
         assert_eq!(
             lines
                 .iter()
@@ -1613,11 +1626,18 @@ mod tests {
                 .count(),
             2
         );
+        // First outcome sticks: moduleRuntime.ts:51.
+        let status_a = lines.iter().find(|m| m["inReplyTo"] == "st-a").unwrap();
+        let status_b = lines.iter().find(|m| m["inReplyTo"] == "st-b").unwrap();
+        assert_eq!(status_a["payload"]["outcome"], "completed");
+        assert_eq!(status_a["payload"]["state"], "completed");
+        assert_eq!(status_b["payload"]["outcome"], "completed");
+        assert_eq!(status_b["payload"]["state"], "completed");
     }
 
-    /// F-9(b): same runId on a finished operation is accepted (TS
-    /// `moduleRuntime.ts:31-34` / `agentLoopSidecarServer.ts:208-221`) but
-    /// `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`).
+    /// F-9(b) status lock: same as `execute_finished_run_match_is_accepted`,
+    /// derived from `moduleRuntime.ts:31-34` (accept), `:192-198`/`:268-293`/
+    /// `:295-310` (second completed), `:51` (first outcome).
     #[test]
     fn execute_finished_same_run_keeps_first_status_outcome() {
         let (sidecar, sink) = collect();
