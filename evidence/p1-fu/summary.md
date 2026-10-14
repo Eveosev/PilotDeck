@@ -1,7 +1,7 @@
 # T-P1-03-FU-A evidence (B3 + S4 + #26 m1–m4)
 
-Provenance: `gitSha=74f044d8a553c9a93cca5c576694a98aab8dec36`, `gitDirty=false`.
-R2 F1′ refresh on clean `dist` + code tip `74f044d8` (before this evidence commit).
+Provenance: `gitSha=a1ab4e8c4b8ecc2efc07e01319cd592cbed307bf`, `gitDirty=false`.
+R3 F1″ refresh on clean `dist` + code tip `a1ab4e8c` (before this evidence commit).
 Draft PR: https://github.com/Eveosev/PilotDeck/pull/30 → `rust_standalone_alpha1`.
 
 ## B3 — seven serde cases (TS vs Rust, never silent)
@@ -27,27 +27,34 @@ Crate (`tests/common/suite.rs`):
 | stdio (`sidecar_stdio`) | 6 | PASS |
 | TCP `--listen 127.0.0.1:0` (`sidecar_tcp`) | 7 (same 6 + TS host B4) | PASS |
 
-T-P1-03 parity (TS native vs **observed Rust** sidecar), same scenes, side-by-side:
+T-P1-03 parity (TS native vs sidecar), same scenes:
 
-| Scene | stdio (observed Rust) | TCP `listening 127.0.0.1:45751` | stdio warnings | TCP warnings |
+| Scene | stdio (exec-proof Rust) | TCP `listening 127.0.0.1:45751` | stdio warnings | TCP warnings |
 | --- | --- | --- | ---: | ---: |
-| `pure_text` | PASS exit 0 | PASS exit 0 | 58 | 58 |
-| `single_tool` | PASS exit 0 | PASS exit 0 | 130 | 134 |
+| `pure_text` | PASS exit 0 | PASS exit 0 | 16 | 58 |
+| `single_tool` | PASS exit 0 | PASS exit 0 | 40 | 134 |
 
-R2 F1′: stdio re-run on **clean `dist`** with `--pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh`. `sidecarImplementation=rust` is **observed**, not command-string self-cert:
+### What stdio proves vs what TCP proves
 
-1. Wrapper appends `pid` + resolved `$bin` to `PARITY_RUST_SIDECAR_PROOF` before `exec`; adapter records `harness.proof` / `rust_sidecar_exec` (`bin=.../pilotdeck-agent-loop`).
-2. Behavioral assert: first `context.budget` **before** first `model.request` (Rust fingerprint), plus `requestEvidence`. Intended Rust without those observations is BLOCKED.
-3. Taxonomy is Rust-shaped (non-zero budget / modelView / requestEvidence), matching TCP `pure_text` 58 and resembling TCP `single_tool` 134 — **not** the TS envelope-only 16/40.
+**stdio** (`sidecarImplementation=rust`, source `exec-proof+module-call`, `rustFingerprint=n/a`):
 
-TCP reuse listen-then-connect collect kept from `98c88232` (`tcp.collectHead`).
+- Wrapper wrote `rust_sidecar_exec` (`pid` + resolved `target/release/pilotdeck-agent-loop`) before `exec`. That is the implementation discriminator.
+- Raw `sequence`: `budget.evaluate_request_budget` (4) before `model.prepare`/`model.stream` (5/6). Timing-independent module_call order, same shape as TCP Rust.
+- Host WS `context.budget` still arrives after `model.request` (`sequence` 10 after 8/9). That is **TS-shaped delivery timing**, not an implementation test. It is **not** used to PASS or BLOCK. Format warnings are envelope-only 16/40 — do **not** read this as “Rust-shaped taxonomy”.
+- Adapter does **not** rewrite traces or invent `requestEvidence`.
+
+**TCP** (`sidecarImplementation=rust`, source `fingerprint`, collectHead `98c88232`):
+
+- First `context.budget` raw `sequence` before first `model.request` (Rust fingerprint). Taxonomy 58/134 includes budget / modelView / requestEvidence.
+
+R3 F1″: deleted `alignObservedRustBudgetFingerprint`. Clean-dist recollect with `--pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh`.
 
 ## #26 R1 m1–m4
 
-- **m1**: `formatWarningNote` lists envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt. TCP `pure_text` and R2 stdio `pure_text` observed all ten categories.
+- **m1**: `formatWarningNote` lists envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt. TCP `pure_text` observed all ten categories.
 - **m2**: per-run `formatWarningTaxonomy` persisted; modelView format diffs are envelope-only (no semantic modelView FAIL).
-- **m3**: removed `g3-reuse-sidecar-command-native` (TCP-native crash twin). Added `g3-reuse-fake-sidecar` (malformed shape on listen port). Names match mode.
-- **m4**: `comparatorVersion=1.1.0` and per-run `traceDigest.ts` / `traceDigest.rust` (file + canonical). `rust` key is written only when the sidecar side is **observed** Rust.
+- **m3**: removed `g3-reuse-sidecar-command-native`. Added `g3-reuse-fake-sidecar`.
+- **m4**: `comparatorVersion=1.1.0` and per-run `traceDigest.ts` / `traceDigest.rust`. `rust` key only when sidecar is observed Rust.
 
 ### G3
 
@@ -61,6 +68,6 @@ TCP reuse listen-then-connect collect kept from `98c88232` (`tcp.collectHead`).
 ## Local gates
 
 `cargo test -p pilotdeck-agent-loop --test serde_r2`: 9/0.
-`python3 -m unittest test_trace` (cwd `tools/agent-loop-parity`): 86 passed.
+`python3 -m unittest test_trace` (cwd `tools/agent-loop-parity`): 87 passed.
 
 No `ui/`, no `apps/desktop`, no T-P1-04, no real model calls.
