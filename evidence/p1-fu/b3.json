@@ -1,8 +1,9 @@
 {
   "task": "T-P1-03-FU-A B3",
-  "gitSha": "98c882328c4d3cc87a3792502aba480507c754a5",
+  "gitSha": "f48bfd1db10a17fecd828b1768cd45e318c231a3",
   "gitDirty": false,
-  "collectedAt": "2026-10-14T16:45:58Z",
+  "collectedAt": "2026-10-14T17:15:24Z",
+  "r1": "F2 parseOk = overflow_rust.is_ok(); parseError = is_err()",
   "preserveOrder": true,
   "preserveOrderTest": "sidecar::tests::model_tool_schema_keeps_input_schema_key_order",
   "valueFirst": true,
@@ -10,7 +11,7 @@
   "remainingGaps": [
     "-0: TS keeps Object.is(-0,-0); Rust i64 0. Accept/reject aligned.",
     ">2^53: JS rounds 9007199254740993 to 9007199254740992; Rust keeps exact. Accept/reject aligned.",
-    "1e400: TS Infinity then validate reject; Rust parse error. Both reject.",
+    "1e400: TS Infinity then validate reject; Rust parse error (parseOk=false, parseError=true). Both reject.",
     "B3(a) budget tools estimate: preserve_order is on; HashMap in sidecar is operation state only, not wire JSON."
   ],
   "cases": [
@@ -114,7 +115,8 @@
         "tsOk": false
       },
       "rust": {
-        "parseOk": true,
+        "parseOk": false,
+        "parseError": true,
         "ok": false
       },
       "decision": "documented-divergence",

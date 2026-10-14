@@ -2,9 +2,11 @@
   "scenarios": 1,
   "gateScenarioCount": 53,
   "sidecarTransport": "stdio",
+  "sidecarImplementation": "rust",
+  "stdioSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
   "tcpSidecarLog": null,
   "provenance": {
-    "current": "98c882328c4d3cc87a3792502aba480507c754a5",
+    "current": "f48bfd1db10a17fecd828b1768cd45e318c231a3",
     "baseline": null,
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "node": "v22.23.3"
@@ -37,6 +39,7 @@
       "scenario": "pure_text",
       "label": "PilotDeck",
       "baseline": false,
+      "sidecarImplementation": "rust",
       "formatWarningCount": 16,
       "formatWarningTaxonomy": {
         "envelope": 16,
@@ -55,23 +58,23 @@
       "comparatorVersion": "1.1.0",
       "traceDigest": {
         "left": {
-          "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
-          "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+          "file": "sha256:e2c49aac51b4e6a23fa8cd680ce998a2584b5d79139c9afee3674e1cff22d970",
+          "canonical": "sha256:e61c4e0ec7c37444138ace9f66f5bda08a142f563856cfe605c4ef925713bc68"
         },
         "right": {
-          "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
-          "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+          "file": "sha256:1c12cecc16b5f71387e8906b67ca56a27f2ec52bf341746ec310de60756d7519",
+          "canonical": "sha256:f527b9bed54e61ff24ffeb3e749594c9fe9108391bf681d9fa2192051252faeb"
         },
         "ts": {
-          "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
-          "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+          "file": "sha256:e2c49aac51b4e6a23fa8cd680ce998a2584b5d79139c9afee3674e1cff22d970",
+          "canonical": "sha256:e61c4e0ec7c37444138ace9f66f5bda08a142f563856cfe605c4ef925713bc68"
         },
         "rust": {
-          "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
-          "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+          "file": "sha256:1c12cecc16b5f71387e8906b67ca56a27f2ec52bf341746ec310de60756d7519",
+          "canonical": "sha256:f527b9bed54e61ff24ffeb3e749594c9fe9108391bf681d9fa2192051252faeb"
         }
       }
     }
   ],
-  "output": "/tmp/t-p1-fu-raw/stdio-pure_text"
+  "output": "/tmp/t-p1-fu-r1/stdio-pure_text"
 }

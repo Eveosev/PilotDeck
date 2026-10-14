@@ -1,8 +1,8 @@
 {
   "task": "T-P1-03-FU-A S4",
-  "gitSha": "98c882328c4d3cc87a3792502aba480507c754a5",
+  "gitSha": "f48bfd1db10a17fecd828b1768cd45e318c231a3",
   "gitDirty": false,
-  "collectedAt": "2026-10-14T16:45:58Z",
+  "collectedAt": "2026-10-14T17:15:24Z",
   "listen": "listening 127.0.0.1:45751",
   "ephemeralPort": 45751,
   "hostConnectOnly": true,
@@ -40,6 +40,9 @@
         "pass": true,
         "mismatch": 0,
         "sidecarTransport": "stdio",
+        "sidecarImplementation": "rust",
+        "stdioSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
+        "harnessProofSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
         "tcpSidecarLog": null,
         "formatWarningCount": 16,
         "formatWarningTaxonomy": {
@@ -59,20 +62,20 @@
         "comparatorVersion": "1.1.0",
         "traceDigest": {
           "left": {
-            "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
-            "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+            "file": "sha256:e2c49aac51b4e6a23fa8cd680ce998a2584b5d79139c9afee3674e1cff22d970",
+            "canonical": "sha256:e61c4e0ec7c37444138ace9f66f5bda08a142f563856cfe605c4ef925713bc68"
           },
           "right": {
-            "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
-            "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+            "file": "sha256:1c12cecc16b5f71387e8906b67ca56a27f2ec52bf341746ec310de60756d7519",
+            "canonical": "sha256:f527b9bed54e61ff24ffeb3e749594c9fe9108391bf681d9fa2192051252faeb"
           },
           "ts": {
-            "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
-            "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+            "file": "sha256:e2c49aac51b4e6a23fa8cd680ce998a2584b5d79139c9afee3674e1cff22d970",
+            "canonical": "sha256:e61c4e0ec7c37444138ace9f66f5bda08a142f563856cfe605c4ef925713bc68"
           },
           "rust": {
-            "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
-            "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+            "file": "sha256:1c12cecc16b5f71387e8906b67ca56a27f2ec52bf341746ec310de60756d7519",
+            "canonical": "sha256:f527b9bed54e61ff24ffeb3e749594c9fe9108391bf681d9fa2192051252faeb"
           }
         },
         "summary": {
@@ -140,39 +143,42 @@
         "pass": true,
         "mismatch": 0,
         "sidecarTransport": "stdio",
+        "sidecarImplementation": "rust",
+        "stdioSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
+        "harnessProofSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
         "tcpSidecarLog": null,
-        "formatWarningCount": 40,
+        "formatWarningCount": 54,
         "formatWarningTaxonomy": {
-          "envelope": 40,
+          "envelope": 46,
           "budget": 0,
-          "modelView": 0,
+          "modelView": 2,
           "request": 0,
           "requestEvidence": 0,
-          "response": 0,
+          "response": 2,
           "state": 0,
-          "kind": 0,
+          "kind": 2,
           "source": 0,
-          "attempt": 0
+          "attempt": 2
         },
-        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=40. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=46, modelView=2, response=2, kind=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
         "modelViewFormatEnvelopeOnly": true,
         "comparatorVersion": "1.1.0",
         "traceDigest": {
           "left": {
-            "file": "sha256:a59afd3119fdae38274fe9f9800605332cea778c67bd4ff5e07c5d7701c3c96d",
-            "canonical": "sha256:400cc6a5cc41bd13edb2736f63071c32f89e5b02b22f9bba5fd20f13c4f5ce6d"
+            "file": "sha256:509dce7f040e70bee3be88652c8d28fd84f57e6c34bd1286593be45729d430b2",
+            "canonical": "sha256:35dab291ec113edd39af01b7df1cb28ca46155074cbf2d68819c06053e549867"
           },
           "right": {
-            "file": "sha256:eef6c124b8e5292e744ed50f528da654b24e66c47bf18b0192530475707be60b",
-            "canonical": "sha256:0c98b6a63f9ca7141853843f91217b7592080066cdc10723e590103cd1a72c12"
+            "file": "sha256:1cea3833579114b9e4227ed57b410014fa389945b3b3bf1a992ccdcf2f5c4752",
+            "canonical": "sha256:9f603e2cfe3ca9f08518d2df46bc4f531af70604567187300d481078d60019d5"
           },
           "ts": {
-            "file": "sha256:a59afd3119fdae38274fe9f9800605332cea778c67bd4ff5e07c5d7701c3c96d",
-            "canonical": "sha256:400cc6a5cc41bd13edb2736f63071c32f89e5b02b22f9bba5fd20f13c4f5ce6d"
+            "file": "sha256:509dce7f040e70bee3be88652c8d28fd84f57e6c34bd1286593be45729d430b2",
+            "canonical": "sha256:35dab291ec113edd39af01b7df1cb28ca46155074cbf2d68819c06053e549867"
           },
           "rust": {
-            "file": "sha256:eef6c124b8e5292e744ed50f528da654b24e66c47bf18b0192530475707be60b",
-            "canonical": "sha256:0c98b6a63f9ca7141853843f91217b7592080066cdc10723e590103cd1a72c12"
+            "file": "sha256:1cea3833579114b9e4227ed57b410014fa389945b3b3bf1a992ccdcf2f5c4752",
+            "canonical": "sha256:9f603e2cfe3ca9f08518d2df46bc4f531af70604567187300d481078d60019d5"
           }
         },
         "summary": {
@@ -180,7 +186,7 @@
           "failed": [],
           "oracleFailures": [],
           "formatWarnings": [
-            "single_tool/PilotDeck: 40 warning(s) [envelope=40]"
+            "single_tool/PilotDeck: 54 warning(s) [envelope=46, modelView=2, response=2, kind=2, attempt=2]"
           ]
         }
       },
@@ -235,5 +241,12 @@
       }
     }
   },
-  "note": "Crate B1/B4 is the same suite.rs over stdio and TCP 127.0.0.1:0. T-P1-03 pure_text + single_tool were re-run over rust TCP listen-then-connect on the ephemeral port and over harness stdio (same scenes, side-by-side)."
+  "note": "Crate B1/B4 is the same suite.rs over stdio and TCP 127.0.0.1:0. R1 F1: T-P1-03 pure_text + single_tool stdio re-run with --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh (PARITY_STDIO_SIDECAR_COMMAND). harness.proof.sidecarCommand is the wrapper; traceDigest.rust is the Rust sidecar. TCP reuse listen-then-connect unchanged.",
+  "r1": "F1 stdio re-collected with --pilotdeck-stdio-sidecar-cmd rust-stdio-sidecar.sh",
+  "stdioSidecarCommand": "/workspace/tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "stdioSidecarEnv": {
+    "PARITY_STDIO_SIDECAR_COMMAND": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+    "PILOTDECK_RUST_SIDECAR_BIN": "./target/release/pilotdeck-agent-loop",
+    "cli": "--pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh"
+  }
 }
