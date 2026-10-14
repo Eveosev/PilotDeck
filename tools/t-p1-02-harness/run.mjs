@@ -145,7 +145,7 @@ function resolveBin(explicit) {
 function runHost(env) {
   const replayed = spawnSync(process.execPath, [hostScript], {
     cwd: repoRoot,
-    env,
+    env: { ...env, NODE_NO_WARNINGS: "1" },
     encoding: "utf8",
   });
   let report = null;
