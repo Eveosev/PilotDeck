@@ -27,6 +27,7 @@ const args = parseArgs(process.argv.slice(2));
 const startedAt = Date.now();
 
 let rust = null;
+let rustPid = null;
 let hostChild = null;
 let shuttingDown = false;
 
@@ -66,6 +67,7 @@ if (args.hostOnly) {
   try {
     const bin = resolveBin(args.bin);
     rust = await spawnRust(bin);
+    rustPid = rust?.pid ?? null;
     const listen = await waitForListen(rust);
     const hostEnv = {
       ...process.env,
@@ -87,7 +89,7 @@ if (args.hostOnly) {
       mode: "harness",
       listen: formatListen(listen.address, listen.port),
       rustBin: bin,
-      rustPid: rust.pid,
+      rustPid: rust?.pid ?? rustPid,
       hostPid: host.pid,
       hostEnv: {
         PILOTDECK_AGENT_LOOP_TRANSPORT: hostEnv.PILOTDECK_AGENT_LOOP_TRANSPORT,
@@ -109,7 +111,7 @@ if (args.hostOnly) {
       task: "T-P1-02",
       mode: "harness",
       error: String(error?.message ?? error),
-      rustPid: rust?.pid ?? null,
+      rustPid: rust?.pid ?? rustPid,
       elapsedMs: Date.now() - startedAt,
     };
     emit(report, args.out);
@@ -175,6 +177,7 @@ function spawnRust(bin) {
       return;
     }
     rust = child;
+    rustPid = child?.pid ?? rustPid;
     const fail = (error) => {
       if (settled) return;
       settled = true;
@@ -372,7 +375,10 @@ function installProcessGuards() {
     const codes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
     process.exitCode = codes[signal] ?? 1;
     stopChildren().finally(() => {
-      process.exit(process.exitCode ?? 1);
+      // Let the main path emit the report after runHost resolves, then exit.
+      setImmediate(() => {
+        process.exit(process.exitCode ?? 1);
+      });
     });
   };
   process.on("SIGINT", () => onSignal("SIGINT"));
