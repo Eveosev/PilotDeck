@@ -665,14 +665,58 @@ fn finish_host_call(job: &StubJob, sequence: u64, result: HostCall) {
                 .get("code")
                 .and_then(Value::as_str)
                 .unwrap_or("MODULE_CALL_FAILED");
-            let message = response
-                .pointer("/error/message")
-                .and_then(Value::as_str)
-                .unwrap_or("Host module_call failed.");
+            let message = host_failed_message(&response);
             emit_failed_terminal(job, sequence, code, message);
         }
         HostCall::Ok(_) => {}
     }
+}
+
+fn host_failed_message(response: &Value) -> &str {
+    response
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("Host module_call failed.")
+}
+
+fn host_call_error_message(result: &HostCall) -> String {
+    match result {
+        HostCall::Timeout => "Host module_call timed out.".to_string(),
+        HostCall::Failed(response) => host_failed_message(response).to_string(),
+        _ => "Tool execution did not produce a result.".to_string(),
+    }
+}
+
+/// TS `createMissingToolResult` (`src/agent/loop/ensureToolResultPairing.ts`)
+/// used by `src/agent/loop/AgentLoop.ts:1962-1971`. Projected `isError` is
+/// `result.type === "error"` (`src/tool/protocol/result.ts:66`).
+fn missing_tool_result(tool_call_id: &str, tool_name: &str, message: &str) -> Value {
+    json!({
+        "type": "error",
+        "toolCallId": tool_call_id,
+        "toolName": tool_name,
+        "error": {
+            "code": "tool_execution_failed",
+            "message": message,
+        },
+        "content": [{ "type": "text", "text": message }],
+    })
+}
+
+fn emit_tool_result_event(job: &StubJob, sequence: &mut u64, result: &Value) {
+    emit_stub_event(
+        job,
+        "event",
+        "agent.tool_result",
+        *sequence,
+        json!({
+            "type": "tool_result",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "result": result,
+        }),
+    );
+    *sequence += 1;
 }
 
 fn text_content_blocks(text: &str) -> Value {
@@ -785,7 +829,8 @@ fn run_tool_calls(
     }
 
     let mut result_blocks = Vec::new();
-    for call in calls {
+    let mut call_iter = calls.iter();
+    while let Some(call) = call_iter.next() {
         let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
         let tool_name = call.get("name").and_then(Value::as_str).unwrap_or("");
         let tool_input = call.get("input").cloned().unwrap_or(json!({}));
@@ -800,9 +845,34 @@ fn run_tool_calls(
             }),
         ) {
             HostCall::Ok(response) => response,
-            other => {
-                finish_host_call(job, *sequence, other);
+            HostCall::Interrupted => {
+                emit_cancelled_terminal(job, *sequence);
                 return false;
+            }
+            other => {
+                // TS src/agent/loop/AgentLoop.ts fail fill:
+                //   :1962-1971 catch → createMissingToolResult
+                //   :1989-1995 ensureToolResultPairing
+                // Emit tool_result first (:2029), then projectToolResults (:2032)
+                // and tool_results_projected (:2070-2071). :1961-1995 does not
+                // include projected (QA G5: isError tool_result before projected).
+                if stub_interrupted(job) {
+                    emit_cancelled_terminal(job, *sequence);
+                    return false;
+                }
+                let message = host_call_error_message(&other);
+                for outstanding in std::iter::once(call).chain(call_iter) {
+                    let outstanding_id = outstanding.get("id").and_then(Value::as_str).unwrap_or("");
+                    let outstanding_name = outstanding.get("name").and_then(Value::as_str).unwrap_or("");
+                    let result = missing_tool_result(outstanding_id, outstanding_name, &message);
+                    emit_tool_result_event(job, sequence, &result);
+                    if stub_interrupted(job) {
+                        emit_cancelled_terminal(job, *sequence);
+                        return false;
+                    }
+                    result_blocks.push(tool_result_block(&result, outstanding_id, timeline));
+                }
+                break;
             }
         };
         if stub_interrupted(job) {
@@ -810,19 +880,7 @@ fn run_tool_calls(
             return false;
         }
         let result = capability_result(&capability, tool_call_id, tool_name);
-        emit_stub_event(
-            job,
-            "event",
-            "agent.tool_result",
-            *sequence,
-            json!({
-                "type": "tool_result",
-                "sessionId": job.session_id,
-                "turnId": job.turn_id,
-                "result": result,
-            }),
-        );
-        *sequence += 1;
+        emit_tool_result_event(job, sequence, &result);
         if stub_interrupted(job) {
             emit_cancelled_terminal(job, *sequence);
             return false;
@@ -833,7 +891,7 @@ fn run_tool_calls(
         "role": "user",
         "content": result_blocks,
     });
-    // TS AgentLoop.ts:2070-2072 — yield tool_results_projected, then onDurableMessage.
+    // TS AgentLoop.ts:2032 projectToolResults; :2070-2071 yield tool_results_projected.
     emit_stub_event(
         job,
         "event",
@@ -1070,8 +1128,8 @@ fn tool_call_block(
 }
 
 fn tool_result_block(result: &Value, tool_call_id: &str, timeline: &mut TurnTimeline) -> Value {
-    let is_error = result.get("type").and_then(Value::as_str) == Some("error")
-        || result.get("error").is_some();
+    // TS src/tool/protocol/result.ts:66 — isError when result.type === "error".
+    let is_error = result.get("type").and_then(Value::as_str) == Some("error");
     let mut block = json!({
         "type": "tool_result",
         "toolCallId": tool_call_id,
@@ -3553,6 +3611,209 @@ mod tests {
             terminal["payload"]["messages"][1]["content"][0]["isError"],
             true
         );
+    }
+
+    fn capability_execute_fail_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") => single_tool_host(call),
+            Some("capability") => Some(host_fail(call, "HOST_REJECTED")),
+            _ => None,
+        }
+    }
+
+    fn capability_execute_hang_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") => single_tool_host(call),
+            Some("capability") => None,
+            _ => None,
+        }
+    }
+
+    fn capability_execute_fail_first_of_two_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") if !conversation_has_tool_result(call) => reply_model_ops(
+                call,
+                json!([
+                    { "type": "request_started", "provider": STUB_PROVIDER, "model": STUB_MODEL },
+                    { "type": "message_start", "role": "assistant" },
+                    {
+                        "type": "tool_call_end",
+                        "toolCall": { "id": "t1", "name": "lookup", "input": { "q": "one" } }
+                    },
+                    {
+                        "type": "tool_call_end",
+                        "toolCall": { "id": "t2", "name": "lookup", "input": { "q": "two" } }
+                    },
+                    { "type": "message_end", "finishReason": "tool_call" }
+                ]),
+            ),
+            Some("model") => text_host(call),
+            Some("capability") => Some(host_fail(call, "HOST_REJECTED")),
+            _ => None,
+        }
+    }
+
+    fn client_payload_with_module_call_timeout(user_text: &str, timeout_ms: u64) -> String {
+        let mut payload: Value =
+            serde_json::from_str(&client_payload_json(user_text)).expect("payload");
+        payload["moduleCallTimeoutMs"] = json!(timeout_ms);
+        payload.to_string()
+    }
+
+    /// QA G5 / TS AgentLoop.ts:2029 then :2032 / :2070-2071 — every outstanding
+    /// tool_call gets an isError tool_result (`result.ts:66`) before projected.
+    fn assert_is_error_tool_results_then_projected(lines: &[Value], expected_ids: &[&str]) {
+        let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
+        let types: Vec<&str> = events
+            .iter()
+            .filter_map(|m| m["eventType"].as_str())
+            .collect();
+        let result_idxs: Vec<usize> = events
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m["eventType"] == "agent.tool_result")
+            .map(|(i, _)| i)
+            .collect();
+        let projected_idx = events
+            .iter()
+            .position(|m| m["eventType"] == "agent.tool_results_projected")
+            .unwrap_or_else(|| panic!("missing projected in {types:?}"));
+        assert_eq!(
+            result_idxs.len(),
+            expected_ids.len(),
+            "one tool_result per outstanding tool_call, have {types:?}"
+        );
+        for (idx, expected_id) in result_idxs.iter().zip(expected_ids) {
+            assert!(
+                *idx < projected_idx,
+                "tool_result must precede projected: {types:?}"
+            );
+            let result = &events[*idx]["payload"]["result"];
+            assert_eq!(result["type"], "error");
+            assert_eq!(result["toolCallId"], *expected_id);
+            assert_eq!(result["error"]["code"], "tool_execution_failed");
+            assert!(result.get("error").and_then(|e| e.get("message")).is_some());
+        }
+        assert!(
+            events[projected_idx + 1..]
+                .iter()
+                .all(|m| m["eventType"] != "agent.tool_result"),
+            "no tool_result after projected: {types:?}"
+        );
+        let blocks = events[projected_idx]["payload"]["message"]["content"]
+            .as_array()
+            .expect("projected content");
+        assert_eq!(blocks.len(), expected_ids.len());
+        for (block, expected_id) in blocks.iter().zip(expected_ids) {
+            assert_eq!(block["type"], "tool_result");
+            assert_eq!(block["toolCallId"], *expected_id);
+            assert_eq!(block["isError"], true);
+        }
+    }
+
+    #[test]
+    fn capability_execute_fail_emits_is_error_tool_result_then_projected() {
+        let (sidecar, sink) = collect_with_host(capability_execute_fail_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-fail",
+            "run-cap-fail",
+            "op-cap-fail",
+            "req-cap-fail",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_is_error_tool_results_then_projected(&lines, &["host-tool-1"]);
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_eq!(
+            tool_result["payload"]["result"]["error"]["message"],
+            "host rejected module_call"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|m| m["eventType"] == "agent.execute.completed"),
+            "TS continues after synthesized results, have {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|m| m["eventType"] != "agent.execute.failed"),
+            "capability execute fail must not abort the turn: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn capability_execute_timeout_emits_is_error_tool_result_then_projected() {
+        let (sidecar, sink) = collect_with_host(capability_execute_hang_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-to",
+            "run-cap-to",
+            "op-cap-to",
+            "req-cap-to",
+            &client_payload_with_module_call_timeout("Look up the status", 40),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(
+            lines.iter().any(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "capability"
+                    && m["payload"]["operation"] == "execute"
+            }),
+            "must attempt capability.execute: {lines:?}"
+        );
+        assert_is_error_tool_results_then_projected(&lines, &["host-tool-1"]);
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_eq!(
+            tool_result["payload"]["result"]["error"]["message"],
+            "Host module_call timed out."
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|m| m["eventType"] == "agent.execute.completed"),
+            "TS continues after synthesized results, have {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|m| m["eventType"] != "agent.execute.failed"),
+            "capability execute timeout must not abort the turn: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn capability_execute_fail_covers_every_outstanding_tool_call() {
+        let (sidecar, sink) = collect_with_host(capability_execute_fail_first_of_two_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-2",
+            "run-cap-2",
+            "op-cap-2",
+            "req-cap-2",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|m| {
+                    m["kind"] == "request"
+                        && m["module"] == "capability"
+                        && m["payload"]["operation"] == "execute"
+                })
+                .count(),
+            1,
+            "failing executeAll must not start later tool_calls: {lines:?}"
+        );
+        assert_is_error_tool_results_then_projected(&lines, &["t1", "t2"]);
     }
 
     #[test]
