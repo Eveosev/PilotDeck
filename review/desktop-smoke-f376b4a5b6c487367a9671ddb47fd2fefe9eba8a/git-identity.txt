@@ -1,0 +1,21 @@
+# Verified immediately after clean checkout of the merge commit,
+# before any evidence files were written (see SUMMARY.md).
+#
+# Commands:
+#   git fetch origin rust_standalone_alpha1
+#   git checkout --detach f376b4a5b6c487367a9671ddb47fd2fefe9eba8a
+#   git checkout -B cursor/desktop-smoke-f376b4a5-1fa6
+#   git rev-parse f376b4a5b6c487367a9671ddb47fd2fefe9eba8a
+#   git rev-parse HEAD
+#   git status --porcelain
+#
+# Results:
+gitSha=f376b4a5b6c487367a9671ddb47fd2fefe9eba8a
+gitDirty=false
+porcelainByteCount=0
+verifiedAtUtc=2026-10-14T18:36:05Z
+branchAtVerify=cursor/desktop-smoke-f376b4a5-1fa6
+refMessage=Merge pull request #30 from Eveosev/cursor/t-p1-03-fu-a-b3-s4-c891
+parents=84c0a63cd2e088445d3f27046f433b1f7e782927 796b60d8cf4efaedd0ae67f3c50e8eb3747572d5
+remoteBranch=origin/rust_standalone_alpha1
+remoteSha=f376b4a5b6c487367a9671ddb47fd2fefe9eba8a

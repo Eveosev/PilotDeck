@@ -1,0 +1,2 @@
+dbus-daemon[4761]: [session uid=1000 pid=4761] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=4776 comm="/workspace/node_modules/.pnpm/electron@42.11.1/nod" label="kernel")
+dbus-daemon[4761]: [session uid=1000 pid=4761] Successfully activated service 'org.a11y.Bus'
