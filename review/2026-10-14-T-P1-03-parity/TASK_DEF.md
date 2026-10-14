@@ -13,3 +13,7 @@ Source note: the T-P1-03 row below is inlined from the rust-proposal-v2 task pla
 - **F-9(a) and F-9(b) were already TS-aligned on baseline `c5bed6c1`. PR-A adds tests only; no F-9 product-logic change.**
 - **F-9(a)** (baseline): finished `operationId` + different `runId` → `OPERATION_RUN_MISMATCH`. TS `src/agent/modules/transport/moduleRuntime.ts:30`. Rust `c5bed6c1` `sidecar.rs:223-234` / test `:1251`. PR-A test: `execute_finished_run_mismatch_is_rejected`.
 - **F-9(b)** (baseline): same `runId` re-execute of a finished operation is accepted (`moduleRuntime.ts:31-34`); `InProcessModuleRuntime.execute` still yields a second completed (`moduleRuntime.ts:192-198`, `:268-293`, `:295-310`); `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`; `tests/agent/modules/module-protocol.spec.ts:250-251`). PR-A merged test: `execute_finished_cancel_then_complete_keeps_cancelled_status` (first run cancel, second run complete, status stays `cancelled`). Must pass on baseline `c5bed6c1` and tip.
+
+## M1 (Payne-approved)
+
+- Real host `sidecarDefaultModuleDispatcher.ts:67-150` / `hostModelInvokerPort.ts` has no `operation: complete`. Sidecar mints `preparationId` and drives `prepare` → `stream` → `close_stream`. Model text / tool calls are assembled from `payload.events` (`text_delta`, `tool_call_end`), not `payload.message` / `choices`. Capability `execute` is unchanged.

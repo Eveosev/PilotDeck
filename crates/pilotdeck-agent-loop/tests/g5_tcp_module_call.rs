@@ -63,14 +63,42 @@ fn g5_tcp_listen_real_client_payload_reaches_pure_text_and_single_tool() {
         },
         FAST,
     );
+    let text_ops: Vec<_> = text_lines
+        .iter()
+        .filter(|m| {
+            m.get("kind") == Some(&json!("request"))
+                && m.get("method") == Some(&json!("module_call"))
+                && m.get("requestId") == Some(&json!("req-text"))
+        })
+        .map(|m| {
+            (
+                m.get("module").and_then(Value::as_str).unwrap_or(""),
+                m.pointer("/payload/operation")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            )
+        })
+        .collect();
+    assert_eq!(
+        text_ops,
+        [
+            ("model", "prepare"),
+            ("model", "stream"),
+            ("model", "close_stream")
+        ]
+    );
     assert!(
         text_lines.iter().any(|m| {
             m.get("kind") == Some(&json!("request"))
                 && m.get("method") == Some(&json!("module_call"))
                 && m.get("module") == Some(&json!("model"))
+                && m.pointer("/payload/operation") == Some(&json!("prepare"))
+                && m.pointer("/payload/preparationId")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| !id.is_empty())
                 && m.get("requestId") == Some(&json!("req-text"))
         }),
-        "sidecar must send model module_call on the text path: {text_lines:?}"
+        "sidecar must send model prepare with preparationId: {text_lines:?}"
     );
     assert!(
         text_lines.iter().all(|m| {
@@ -112,9 +140,22 @@ fn g5_tcp_listen_real_client_payload_reaches_pure_text_and_single_tool() {
     assert_eq!(
         tool_calls
             .iter()
-            .map(|m| m.get("module").and_then(Value::as_str).unwrap_or(""))
+            .map(|m| (
+                m.get("module").and_then(Value::as_str).unwrap_or(""),
+                m.pointer("/payload/operation")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+            ))
             .collect::<Vec<_>>(),
-        ["model", "capability", "model"]
+        [
+            ("model", "prepare"),
+            ("model", "stream"),
+            ("model", "close_stream"),
+            ("capability", "execute"),
+            ("model", "prepare"),
+            ("model", "stream"),
+            ("model", "close_stream"),
+        ]
     );
     assert!(all.iter().any(|m| {
         m.get("eventType") == Some(&json!("agent.tool_calls_detected"))

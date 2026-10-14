@@ -337,31 +337,53 @@ pub fn mock_backend_reply(message: &Value) -> Option<Value> {
     let message_id = message.get("messageId").and_then(Value::as_str).unwrap_or("");
     let request_id = message.get("requestId").and_then(Value::as_str).unwrap_or("");
     let payload = match message.get("module").and_then(Value::as_str) {
-        Some("model") => {
-            let messages = message.pointer("/payload/request/messages");
-            let prompt = last_user_text(messages);
-            let lowered = prompt.to_ascii_lowercase();
-            let wants_tool = !conversation_has_tool_result(messages)
-                && (lowered.contains("lookup") || lowered.contains("look up"));
-            if wants_tool {
+        Some("model") => match message.pointer("/payload/operation").and_then(Value::as_str) {
+            Some("prepare") => {
+                let request = message
+                    .pointer("/payload/request")
+                    .cloned()
+                    .unwrap_or(json!({}));
                 json!({
-                    "message": {
-                        "role": "assistant",
-                        "content": null,
-                        "tool_calls": [{
-                            "id": "host-tool-1",
-                            "type": "function",
-                            "function": {
-                                "name": "lookup",
-                                "arguments": format!(r#"{{"q":"{prompt}"}}"#)
-                            }
-                        }]
+                    "prepared": {
+                        "request": request,
+                        "provider": request.get("provider").and_then(Value::as_str).unwrap_or("pilotdeck-stub"),
+                        "model": request.get("model").and_then(Value::as_str).unwrap_or("pilotdeck-stub"),
                     }
                 })
-            } else {
-                json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } })
             }
-        }
+            Some("stream") | Some("stream_next") => {
+                let messages = message.pointer("/payload/request/messages");
+                let prompt = last_user_text(messages);
+                let lowered = prompt.to_ascii_lowercase();
+                let wants_tool = !conversation_has_tool_result(messages)
+                    && (lowered.contains("lookup") || lowered.contains("look up"));
+                let events = if wants_tool {
+                    json!([
+                        { "type": "request_started", "provider": "pilotdeck-stub", "model": "pilotdeck-stub" },
+                        { "type": "message_start", "role": "assistant" },
+                        {
+                            "type": "tool_call_end",
+                            "toolCall": {
+                                "id": "host-tool-1",
+                                "name": "lookup",
+                                "input": { "q": prompt }
+                            }
+                        },
+                        { "type": "message_end", "finishReason": "tool_call" }
+                    ])
+                } else {
+                    json!([
+                        { "type": "request_started", "provider": "pilotdeck-stub", "model": "pilotdeck-stub" },
+                        { "type": "message_start", "role": "assistant" },
+                        { "type": "text_delta", "text": format!("HOST[{prompt}]") },
+                        { "type": "message_end", "finishReason": "stop" }
+                    ])
+                };
+                json!({ "events": events, "done": true })
+            }
+            Some("close_stream") => json!({ "closed": true }),
+            _ => json!({}),
+        },
         Some("capability") => {
             let name = message
                 .pointer("/payload/name")
@@ -400,7 +422,10 @@ fn record_host_trace(trace: &mut Vec<Value>, call: &Value, reply: &Value) {
             }));
             trace.push(json!({
                 "channel": "model.response",
-                "message": reply.pointer("/payload/message"),
+                "operation": call.pointer("/payload/operation"),
+                "prepared": reply.pointer("/payload/prepared"),
+                "events": reply.pointer("/payload/events"),
+                "closed": reply.pointer("/payload/closed"),
             }));
         }
         Some("capability") => {

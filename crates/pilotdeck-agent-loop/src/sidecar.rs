@@ -547,21 +547,16 @@ fn run_stub_execute(job: StubJob) {
     }
 
     let mut conversation = conversation_from_payload(&job.payload);
-    let first = match call_host_module(
-        &job,
-        "model",
-        model_complete_payload(&job.payload, &conversation),
-    ) {
-        HostCall::Ok(response) => response,
-        other => {
+    let first = match call_host_model(&job, &conversation) {
+        Ok(assembled) => assembled,
+        Err(other) => {
             finish_host_call(&job, sequence, other);
             return;
         }
     };
-    let message = model_message(&first).cloned().unwrap_or(json!({}));
-    let calls = tool_calls_from_message(&message);
+    let calls = first.tool_calls;
     if calls.is_empty() {
-        let text = text_from_message(&message);
+        let text = first.text;
         if !emit_text_only_turn(&job, &text, &mut sequence) {
             return;
         }
@@ -573,19 +568,14 @@ fn run_stub_execute(job: StubJob) {
     if !run_tool_calls(&job, &mut conversation, &calls, &mut sequence, &mut transcript) {
         return;
     }
-    let second = match call_host_module(
-        &job,
-        "model",
-        model_complete_payload(&job.payload, &conversation),
-    ) {
-        HostCall::Ok(response) => response,
-        other => {
+    let second = match call_host_model(&job, &conversation) {
+        Ok(assembled) => assembled,
+        Err(other) => {
             finish_host_call(&job, sequence, other);
             return;
         }
     };
-    let final_message = model_message(&second).cloned().unwrap_or(json!({}));
-    let text = text_from_message(&final_message);
+    let text = second.text;
     if stub_interrupted(&job) {
         emit_cancelled_terminal(&job, sequence);
         return;
@@ -1087,22 +1077,129 @@ fn append_conversation(conversation: &mut Value, message: Value) {
     }
 }
 
-fn model_complete_payload(payload: &Value, messages: &Value) -> Value {
+struct AssembledModel {
+    text: String,
+    tool_calls: Vec<Value>,
+}
+
+fn model_request(payload: &Value, messages: &Value) -> Value {
+    let mut request = json!({
+        "provider": first_nonempty_id(&[
+            payload.pointer("/agent/provider"),
+            payload.pointer("/hostModules/model/provider"),
+        ]).unwrap_or_else(|| STUB_PROVIDER.to_string()),
+        "model": first_nonempty_id(&[
+            payload.get("modelOverride"),
+            payload.pointer("/agent/model"),
+            payload.pointer("/hostModules/model/model"),
+        ]).unwrap_or_else(|| STUB_MODEL.to_string()),
+        "messages": messages,
+    });
+    if let Some(tools) = payload.get("tools") {
+        request["tools"] = tools.clone();
+    }
+    request
+}
+
+fn model_execution_context(job: &StubJob) -> Value {
     json!({
-        "operation": "complete",
-        "request": {
-            "provider": first_nonempty_id(&[
-                payload.pointer("/agent/provider"),
-                payload.pointer("/hostModules/model/provider"),
-            ]).unwrap_or_else(|| STUB_PROVIDER.to_string()),
-            "model": first_nonempty_id(&[
-                payload.get("modelOverride"),
-                payload.pointer("/agent/model"),
-                payload.pointer("/hostModules/model/model"),
-            ]).unwrap_or_else(|| STUB_MODEL.to_string()),
-            "messages": messages,
-        }
+        "sessionId": job.session_id,
+        "turnId": job.turn_id,
+        "runId": job.run_id,
+        "operationId": job.operation_id,
     })
+}
+
+/// Real host (`sidecarDefaultModuleDispatcher.ts:67-150`,
+/// `hostModelInvokerPort.ts`) has no `complete`. Sidecar mints
+/// `preparationId`, then `prepare` → `stream` → `close_stream`.
+fn call_host_model(job: &StubJob, conversation: &Value) -> Result<AssembledModel, HostCall> {
+    let preparation_id = next_id(&job.inner, "prepared");
+    let request = model_request(&job.payload, conversation);
+    let context = model_execution_context(job);
+    match call_host_module(
+        job,
+        "model",
+        json!({
+            "operation": "prepare",
+            "preparationId": preparation_id,
+            "request": request,
+            "context": context,
+        }),
+    ) {
+        HostCall::Ok(_) => {}
+        other => return Err(other),
+    }
+    if stub_interrupted(job) {
+        let _ = close_host_stream(job, &preparation_id);
+        return Err(HostCall::Interrupted);
+    }
+    let stream = call_host_module(
+        job,
+        "model",
+        json!({
+            "operation": "stream",
+            "preparationId": preparation_id,
+            "request": request,
+            "context": context,
+        }),
+    );
+    if stub_interrupted(job) {
+        let _ = close_host_stream(job, &preparation_id);
+        return Err(HostCall::Interrupted);
+    }
+    let assembled = match stream {
+        HostCall::Ok(response) => assemble_from_host_response(&response),
+        other => {
+            let _ = close_host_stream(job, &preparation_id);
+            return Err(other);
+        }
+    };
+    if let HostCall::Interrupted = close_host_stream(job, &preparation_id) {
+        return Err(HostCall::Interrupted);
+    }
+    Ok(assembled)
+}
+
+fn close_host_stream(job: &StubJob, preparation_id: &str) -> HostCall {
+    call_host_module(
+        job,
+        "model",
+        json!({
+            "operation": "close_stream",
+            "preparationId": preparation_id,
+        }),
+    )
+}
+
+fn assemble_from_host_response(response: &Value) -> AssembledModel {
+    let events = response
+        .pointer("/payload/events")
+        .and_then(Value::as_array)
+        .map(|events| events.as_slice())
+        .unwrap_or(&[]);
+    assemble_canonical_events(events)
+}
+
+fn assemble_canonical_events(events: &[Value]) -> AssembledModel {
+    let mut text = String::new();
+    let mut tool_calls = Vec::new();
+    for event in events {
+        match event.get("type").and_then(Value::as_str) {
+            Some("text_delta") => {
+                if let Some(delta) = event.get("text").and_then(Value::as_str) {
+                    text.push_str(delta);
+                }
+            }
+            Some("tool_call_end") => {
+                if let Some(call) = event.get("toolCall").and_then(normalize_tool_call) {
+                    tool_calls.push(call);
+                }
+            }
+            _ => {}
+        }
+    }
+    AssembledModel { text, tool_calls }
 }
 
 fn module_call_timeout_ms(payload: &Value) -> u64 {
@@ -1112,26 +1209,6 @@ fn module_call_timeout_ms(payload: &Value) -> u64 {
         .and_then(value_as_u64)
         .unwrap_or(DEFAULT_MODULE_CALL_TIMEOUT_MS)
         .clamp(1, MAX_STUB_DELAY_MS)
-}
-
-fn model_message(response: &Value) -> Option<&Value> {
-    response
-        .pointer("/payload/message")
-        .or_else(|| response.pointer("/payload/choices/0/message"))
-}
-
-fn text_from_message(message: &Value) -> String {
-    if let Some(text) = message.get("content").and_then(Value::as_str) {
-        return text.to_string();
-    }
-    text_from_content_blocks(message.get("content")).unwrap_or_default()
-}
-
-fn tool_calls_from_message(message: &Value) -> Vec<Value> {
-    let Some(calls) = message.get("tool_calls").and_then(Value::as_array) else {
-        return Vec::new();
-    };
-    calls.iter().filter_map(normalize_tool_call).collect()
 }
 
 fn normalize_tool_call(value: &Value) -> Option<Value> {
@@ -1387,45 +1464,77 @@ mod tests {
             })
     }
 
+    fn host_prepared(call: &Value) -> Value {
+        let request = call
+            .pointer("/payload/request")
+            .cloned()
+            .unwrap_or(json!({}));
+        host_ok(
+            call,
+            json!({
+                "prepared": {
+                    "request": request,
+                    "provider": request.get("provider").and_then(Value::as_str).unwrap_or(STUB_PROVIDER),
+                    "model": request.get("model").and_then(Value::as_str).unwrap_or(STUB_MODEL),
+                }
+            }),
+        )
+    }
+
+    fn text_events(prompt: &str) -> Value {
+        json!([
+            { "type": "request_started", "provider": STUB_PROVIDER, "model": STUB_MODEL },
+            { "type": "message_start", "role": "assistant" },
+            { "type": "text_delta", "text": format!("HOST[{prompt}]") },
+            { "type": "message_end", "finishReason": "stop" }
+        ])
+    }
+
+    fn tool_events(prompt: &str) -> Value {
+        json!([
+            { "type": "request_started", "provider": STUB_PROVIDER, "model": STUB_MODEL },
+            { "type": "message_start", "role": "assistant" },
+            {
+                "type": "tool_call_end",
+                "toolCall": {
+                    "id": "host-tool-1",
+                    "name": "lookup",
+                    "input": { "q": prompt }
+                }
+            },
+            { "type": "message_end", "finishReason": "tool_call" }
+        ])
+    }
+
+    fn reply_model_ops(call: &Value, events: Value) -> Option<Value> {
+        match call.pointer("/payload/operation").and_then(Value::as_str) {
+            Some("prepare") => Some(host_prepared(call)),
+            Some("stream") | Some("stream_next") => {
+                Some(host_ok(call, json!({ "events": events, "done": true })))
+            }
+            Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+            _ => None,
+        }
+    }
+
     fn text_host(call: &Value) -> Option<Value> {
         if call.get("module").and_then(Value::as_str) != Some("model") {
             return None;
         }
         let prompt = last_user_from_call(call);
-        Some(host_ok(
-            call,
-            json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } }),
-        ))
+        reply_model_ops(call, text_events(&prompt))
     }
 
     fn single_tool_host(call: &Value) -> Option<Value> {
         match call.get("module").and_then(Value::as_str) {
-            Some("model") if conversation_has_tool_result(call) => {
-                let prompt = last_user_from_call(call);
-                Some(host_ok(
-                    call,
-                    json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } }),
-                ))
-            }
             Some("model") => {
                 let prompt = last_user_from_call(call);
-                Some(host_ok(
-                    call,
-                    json!({
-                        "message": {
-                            "role": "assistant",
-                            "content": null,
-                            "tool_calls": [{
-                                "id": "host-tool-1",
-                                "type": "function",
-                                "function": {
-                                    "name": "lookup",
-                                    "arguments": format!(r#"{{"q":"{prompt}"}}"#)
-                                }
-                            }]
-                        }
-                    }),
-                ))
+                let events = if conversation_has_tool_result(call) {
+                    text_events(&prompt)
+                } else {
+                    tool_events(&prompt)
+                };
+                reply_model_ops(call, events)
             }
             Some("capability") => {
                 let name = call.pointer("/payload/name").and_then(Value::as_str).unwrap_or("lookup");
@@ -1483,16 +1592,18 @@ mod tests {
                         .unwrap_or("")
                         .to_string();
                     if !id.is_empty() && replied.insert(id.clone()) {
-                        sidecar.handle_value(json!({
-                            "kind": "response",
-                            "messageId": format!("host-{id}"),
-                            "inReplyTo": id,
-                            "requestId": message.get("requestId").and_then(Value::as_str).unwrap_or(""),
-                            "ok": true,
-                            "payload": {
-                                "message": { "role": "assistant", "content": "HOST" }
-                            }
-                        }));
+                        if let Some(reply) = text_host(message).or_else(|| {
+                            Some(json!({
+                                "kind": "response",
+                                "messageId": format!("host-{id}"),
+                                "inReplyTo": id,
+                                "requestId": message.get("requestId").and_then(Value::as_str).unwrap_or(""),
+                                "ok": true,
+                                "payload": { "events": [], "done": true, "closed": true }
+                            }))
+                        }) {
+                            sidecar.handle_value(reply);
+                        }
                     }
                 }
             }
@@ -1600,10 +1711,23 @@ mod tests {
             .iter()
             .filter(|m| m["kind"] == "request" && m["method"] == "module_call")
             .collect();
-        assert_eq!(calls.len(), 1);
+        assert_eq!(
+            calls
+                .iter()
+                .map(|m| m["payload"]["operation"].as_str().unwrap_or(""))
+                .collect::<Vec<_>>(),
+            ["prepare", "stream", "close_stream"]
+        );
         assert_eq!(calls[0]["module"], "model");
-        assert_eq!(calls[0]["payload"]["operation"], "complete");
+        let preparation_id = calls[0]["payload"]["preparationId"]
+            .as_str()
+            .expect("sidecar-minted preparationId");
+        assert!(!preparation_id.is_empty());
+        assert_eq!(calls[1]["payload"]["preparationId"], preparation_id);
+        assert_eq!(calls[2]["payload"]["preparationId"], preparation_id);
         assert!(validate_module_message(calls[0]).is_ok());
+        assert!(validate_module_message(calls[1]).is_ok());
+        assert!(validate_module_message(calls[2]).is_ok());
         let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
         assert_eq!(events[0]["final"], false);
         assert!(events[0].get("moduleInstanceId").is_none());
@@ -1645,12 +1769,28 @@ mod tests {
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
         assert_eq!(lines[0]["ok"], true);
-        let modules: Vec<_> = lines
+        let calls: Vec<_> = lines
             .iter()
             .filter(|m| m["kind"] == "request" && m["method"] == "module_call")
-            .map(|m| m["module"].as_str().unwrap().to_string())
             .collect();
-        assert_eq!(modules, ["model", "capability", "model"]);
+        assert_eq!(
+            calls
+                .iter()
+                .map(|m| (
+                    m["module"].as_str().unwrap(),
+                    m["payload"]["operation"].as_str().unwrap_or("")
+                ))
+                .collect::<Vec<_>>(),
+            [
+                ("model", "prepare"),
+                ("model", "stream"),
+                ("model", "close_stream"),
+                ("capability", "execute"),
+                ("model", "prepare"),
+                ("model", "stream"),
+                ("model", "close_stream"),
+            ]
+        );
         let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
         assert_eq!(events.len(), 4);
         assert_eq!(events[0]["eventType"], "agent.tool_calls_detected");
