@@ -80,7 +80,7 @@ if (args.hostOnly) {
       rustStderr: listen.stderr.trim() || undefined,
     };
     emit(report, args.out);
-    process.exitCode = host.ok ? 0 : 1;
+    if (!shuttingDown) process.exitCode = host.ok ? 0 : 1;
   } catch (error) {
     const report = {
       ok: false,
@@ -91,7 +91,7 @@ if (args.hostOnly) {
       elapsedMs: Date.now() - startedAt,
     };
     emit(report, args.out);
-    process.exitCode = 1;
+    if (!shuttingDown) process.exitCode = 1;
   } finally {
     await stopChildren();
   }
