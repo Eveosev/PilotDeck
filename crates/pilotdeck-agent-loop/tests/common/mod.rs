@@ -2,7 +2,7 @@
 
 pub mod suite;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -107,6 +107,7 @@ fn spawn_sidecar_mode(mode: SidecarMode) -> SidecarProcess {
         input,
         rx,
         captured: Vec::new(),
+        host_trace: Vec::new(),
         transport: match mode {
             SidecarMode::Stdio => "stdio",
             SidecarMode::Tcp => "tcp",
@@ -173,6 +174,7 @@ pub struct SidecarProcess {
     input: Input,
     rx: Receiver<Value>,
     pub captured: Vec<Value>,
+    pub host_trace: Vec<Value>,
     pub transport: &'static str,
 }
 
@@ -205,7 +207,15 @@ impl SidecarProcess {
                 );
             }
             match self.rx.recv_timeout(remaining) {
-                Ok(message) => self.captured.push(message),
+                Ok(message) => {
+                    if let Some(reply) = mock_backend_reply(&message) {
+                        record_host_trace(&mut self.host_trace, &message, &reply);
+                        self.captured.push(message);
+                        self.send_json(&reply);
+                    } else {
+                        self.captured.push(message);
+                    }
+                }
                 Err(_) => panic!(
                     "sidecar closed stdout before match, have: {:?}",
                     self.captured
@@ -249,4 +259,164 @@ pub fn find_reply<'a>(lines: &'a [Value], in_reply_to: &str) -> &'a Value {
         .iter()
         .find(|message| message.get("inReplyTo").and_then(Value::as_str) == Some(in_reply_to))
         .unwrap_or_else(|| panic!("missing inReplyTo={in_reply_to} in {lines:?}"))
+}
+
+/// Real-client execute payload (`agentLoopSidecarClient.ts:741-775`).
+/// `tools` is the host manifest and is always non-empty; the mock backend
+/// decides text vs tool from the conversation, not from this list.
+pub fn client_execute_payload(user_text: &str) -> Value {
+    json!({
+        "agent": {
+            "id": "pilotdeck-stub",
+            "provider": "pilotdeck-stub",
+            "model": "pilotdeck-stub"
+        },
+        "messages": [{
+            "role": "user",
+            "content": [{ "type": "text", "text": user_text }]
+        }],
+        "tools": [{
+            "name": "lookup",
+            "description": "Look up a value",
+            "inputSchema": { "type": "object", "properties": { "q": { "type": "string" } } }
+        }],
+        "permissionContext": { "mode": "auto" },
+        "hostModules": { "model": true, "capability": true },
+        "interactionCapabilities": { "elicitationAvailable": false }
+    })
+}
+
+fn last_user_text(messages: Option<&Value>) -> String {
+    let Some(messages) = messages.and_then(Value::as_array) else {
+        return "What is the status?".to_string();
+    };
+    for message in messages.iter().rev() {
+        if message.get("role").and_then(Value::as_str) != Some("user") {
+            continue;
+        }
+        if let Some(blocks) = message.get("content").and_then(Value::as_array) {
+            for block in blocks.iter().rev() {
+                if block.get("type").and_then(Value::as_str) == Some("text") {
+                    if let Some(text) = block.get("text").and_then(Value::as_str) {
+                        if !text.is_empty() {
+                            return text.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "What is the status?".to_string()
+}
+
+fn conversation_has_tool_result(messages: Option<&Value>) -> bool {
+    messages
+        .and_then(Value::as_array)
+        .is_some_and(|messages| {
+            messages.iter().any(|message| {
+                message
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|blocks| {
+                        blocks.iter().any(|block| {
+                            block.get("type").and_then(Value::as_str) == Some("tool_result")
+                        })
+                    })
+            })
+        })
+}
+
+/// Host-side mock: `Look up` / `lookup` on the last user text with no tool
+/// result → tool_calls; otherwise text. The crate never inspects this.
+pub fn mock_backend_reply(message: &Value) -> Option<Value> {
+    if message.get("kind").and_then(Value::as_str) != Some("request")
+        || message.get("method").and_then(Value::as_str) != Some("module_call")
+    {
+        return None;
+    }
+    let message_id = message.get("messageId").and_then(Value::as_str).unwrap_or("");
+    let request_id = message.get("requestId").and_then(Value::as_str).unwrap_or("");
+    let payload = match message.get("module").and_then(Value::as_str) {
+        Some("model") => {
+            let messages = message.pointer("/payload/request/messages");
+            let prompt = last_user_text(messages);
+            let lowered = prompt.to_ascii_lowercase();
+            let wants_tool = !conversation_has_tool_result(messages)
+                && (lowered.contains("lookup") || lowered.contains("look up"));
+            if wants_tool {
+                json!({
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "host-tool-1",
+                            "type": "function",
+                            "function": {
+                                "name": "lookup",
+                                "arguments": format!(r#"{{"q":"{prompt}"}}"#)
+                            }
+                        }]
+                    }
+                })
+            } else {
+                json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } })
+            }
+        }
+        Some("capability") => {
+            let name = message
+                .pointer("/payload/name")
+                .and_then(Value::as_str)
+                .unwrap_or("lookup");
+            let prompt = message
+                .pointer("/payload/arguments/q")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            json!({
+                "type": "success",
+                "toolCallId": message.pointer("/payload/toolCallId"),
+                "toolName": name,
+                "content": [{ "type": "text", "text": format!("HOST_RESULT[{name}]: {prompt}") }],
+            })
+        }
+        _ => json!({}),
+    };
+    Some(json!({
+        "kind": "response",
+        "messageId": format!("host-{message_id}"),
+        "inReplyTo": message_id,
+        "requestId": request_id,
+        "ok": true,
+        "payload": payload,
+    }))
+}
+
+fn record_host_trace(trace: &mut Vec<Value>, call: &Value, reply: &Value) {
+    match call.get("module").and_then(Value::as_str) {
+        Some("model") => {
+            trace.push(json!({
+                "channel": "model.request",
+                "operation": call.pointer("/payload/operation"),
+                "messages": call.pointer("/payload/request/messages"),
+            }));
+            trace.push(json!({
+                "channel": "model.response",
+                "message": reply.pointer("/payload/message"),
+            }));
+        }
+        Some("capability") => {
+            trace.push(json!({
+                "channel": "tool.call",
+                "name": call.pointer("/payload/name"),
+                "arguments": call.pointer("/payload/arguments"),
+                "toolCallId": call.pointer("/payload/toolCallId"),
+            }));
+            trace.push(json!({
+                "channel": "tool.result",
+                "result": reply.get("payload"),
+            }));
+        }
+        other => {
+            trace.push(json!({ "channel": other.unwrap_or("unknown"), "module": other }));
+        }
+    }
 }

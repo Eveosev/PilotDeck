@@ -67,7 +67,7 @@ pub fn s1_execute_pure_text_events_and_final_outcome(sidecar: &mut SidecarProces
         "requestId": "req-1",
         "sessionId": "sess-1",
         "turnId": "turn-1",
-        "payload": { "scenario": "pure_text", "q": "What is the status?" }
+        "payload": super::client_execute_payload("What is the status?")
     }));
     let lines = sidecar.wait_for(
         |msgs| {

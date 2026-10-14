@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
@@ -15,7 +16,10 @@ use crate::{CAPABILITIES_VERSION, MODULE_ID, PROTOCOL_VERSION};
 const STUB_POLL_MS: u64 = 10;
 const MAX_STUB_DELAY_MS: u64 = 60_000;
 const DEFAULT_STUB_TEXT: &str = "What is the status?";
+const DEFAULT_MODULE_CALL_TIMEOUT_MS: u64 = 2_000;
 const STABLE_IDS_ENV: &str = "PILOTDECK_AGENT_LOOP_STABLE_IDS";
+const STUB_PROVIDER: &str = "pilotdeck-stub";
+const STUB_MODEL: &str = "pilotdeck-stub";
 
 #[derive(Clone)]
 struct OperationSnapshot {
@@ -67,12 +71,21 @@ struct Inner {
     transport: String,
     token: AtomicU64,
     operations: Mutex<Operations>,
+    pending_calls: Mutex<HashMap<String, mpsc::Sender<Value>>>,
     joins: Mutex<Vec<JoinHandle<()>>>,
 }
 
 /// Module Protocol sidecar that speaks hello/capabilities/execute/cancel/status.
 pub struct Sidecar {
     inner: Arc<Inner>,
+}
+
+impl Clone for Sidecar {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl Sidecar {
@@ -98,6 +111,7 @@ impl Sidecar {
                     request_to_operation: HashMap::new(),
                     active: HashMap::new(),
                 }),
+                pending_calls: Mutex::new(HashMap::new()),
                 joins: Mutex::new(Vec::new()),
             }),
         }
@@ -149,6 +163,10 @@ impl Sidecar {
 
     fn dispatch(&self, value: Value) {
         let kind = value.get("kind").and_then(Value::as_str).unwrap_or("");
+        if kind == "response" {
+            self.handle_host_response(value);
+            return;
+        }
         if kind != "request" {
             return;
         }
@@ -193,6 +211,20 @@ impl Sidecar {
                 "INVALID_METHOD",
                 "Module request method is invalid.",
             ),
+        }
+    }
+
+    fn handle_host_response(&self, value: Value) {
+        let in_reply_to = string_field(&value, "inReplyTo");
+        if in_reply_to.is_empty() {
+            return;
+        }
+        let sender = {
+            let mut pending = self.inner.pending_calls.lock().expect("pending_calls lock");
+            pending.remove(&in_reply_to)
+        };
+        if let Some(sender) = sender {
+            let _ = sender.send(value);
         }
     }
 
@@ -493,6 +525,13 @@ struct StubJob {
     deadline_at_ms: Option<i64>,
 }
 
+enum HostCall {
+    Ok(Value),
+    Failed(Value),
+    Timeout,
+    Interrupted,
+}
+
 fn run_stub_execute(job: StubJob) {
     let delay = stub_delay_ms(&job.payload);
     let mut sequence: u64 = 0;
@@ -507,86 +546,131 @@ fn run_stub_execute(job: StubJob) {
         return;
     }
 
-    let prompt = stub_prompt(&job.payload);
-    let scenario = stub_scenario(&job.payload);
-    if scenario == "single_tool" {
-        emit_single_tool_stub(&job, &prompt, &scenario, &mut sequence);
+    let mut conversation = conversation_from_payload(&job.payload);
+    let first = match call_host_module(
+        &job,
+        "model",
+        model_complete_payload(&job.payload, &conversation),
+    ) {
+        HostCall::Ok(response) => response,
+        other => {
+            finish_host_call(&job, sequence, other);
+            return;
+        }
+    };
+    let message = model_message(&first).cloned().unwrap_or(json!({}));
+    let calls = tool_calls_from_message(&message);
+    if calls.is_empty() {
+        let text = text_from_message(&message);
+        if !emit_text_only_turn(&job, &text, &mut sequence) {
+            return;
+        }
+        emit_completed(&job, sequence, 1, json!([{ "role": "assistant", "content": text }]));
         return;
     }
-    let text = format!("STUB[{scenario}]: {prompt}");
-    (job.inner.emit)(json!({
-        "kind": "event",
-        "messageId": next_id(&job.inner, "event"),
-        "eventType": "agent.message",
-        "streamId": job.stream_id,
-        "sequence": sequence,
-        "runId": job.run_id,
-        "operationId": job.operation_id,
-        "requestId": job.request_id,
-        "final": false,
-        "payload": {
+
+    let mut transcript = Vec::new();
+    if !run_tool_calls(&job, &mut conversation, &calls, &mut sequence, &mut transcript) {
+        return;
+    }
+    let second = match call_host_module(
+        &job,
+        "model",
+        model_complete_payload(&job.payload, &conversation),
+    ) {
+        HostCall::Ok(response) => response,
+        other => {
+            finish_host_call(&job, sequence, other);
+            return;
+        }
+    };
+    let final_message = model_message(&second).cloned().unwrap_or(json!({}));
+    let text = text_from_message(&final_message);
+    if stub_interrupted(&job) {
+        emit_cancelled_terminal(&job, sequence);
+        return;
+    }
+    emit_stub_event(
+        &job,
+        "event",
+        "agent.assistant_message",
+        sequence,
+        json!({
+            "type": "assistant_message",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "message": {
+                "role": "assistant",
+                "content": [{ "type": "text", "text": text }],
+            },
+        }),
+    );
+    sequence += 1;
+    if stub_interrupted(&job) {
+        emit_cancelled_terminal(&job, sequence);
+        return;
+    }
+    transcript.push(json!({
+        "role": "assistant",
+        "content": [{ "type": "text", "text": text }],
+    }));
+    emit_completed(&job, sequence, 2, Value::Array(transcript));
+}
+
+fn finish_host_call(job: &StubJob, sequence: u64, result: HostCall) {
+    match result {
+        HostCall::Interrupted => emit_cancelled_terminal(job, sequence),
+        HostCall::Timeout => emit_failed_terminal(
+            job,
+            sequence,
+            "MODULE_CALL_TIMEOUT",
+            "Host module_call timed out.",
+        ),
+        HostCall::Failed(response) => {
+            let code = response
+                .get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("MODULE_CALL_FAILED");
+            let message = response
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("Host module_call failed.");
+            emit_failed_terminal(job, sequence, code, message);
+        }
+        HostCall::Ok(_) => {}
+    }
+}
+
+fn emit_text_only_turn(job: &StubJob, text: &str, sequence: &mut u64) -> bool {
+    emit_stub_event(
+        job,
+        "event",
+        "agent.message",
+        *sequence,
+        json!({
             "type": "message",
             "role": "assistant",
             "text": text,
             "sessionId": job.session_id,
             "turnId": job.turn_id,
             "stub": true,
-        },
-    }));
-    sequence += 1;
-
-    if job.cancel.load(Ordering::SeqCst)
-        || runtime_deadline_exceeded(job.deadline_at_ms, &job.deadline_exceeded)
-    {
-        emit_cancelled_terminal(&job, sequence);
-        return;
-    }
-
-    record_final_locked(
-        &mut job.inner.operations.lock().expect("operations lock"),
-        &job.operation_id,
-        &job.request_id,
-        "completed",
+        }),
     );
-    (job.inner.emit)(json!({
-        "kind": "event",
-        "messageId": next_id(&job.inner, "final"),
-        "eventType": "agent.execute.completed",
-        "streamId": job.stream_id,
-        "sequence": sequence,
-        "runId": job.run_id,
-        "operationId": job.operation_id,
-        "requestId": job.request_id,
-        "final": true,
-        "outcome": "completed",
-        "payload": {
-            "result": stub_turn_result(
-                "success",
-                &job.session_id,
-                &job.turn_id,
-                "completed",
-                1,
-                &job.started_at,
-            ),
-            "messages": [{ "role": "assistant", "content": text }],
-            "stub": { "model": "pilotdeck-stub", "scenario": scenario }
-        },
-    }));
-    clear_active(&job);
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return false;
+    }
+    true
 }
 
-/// `single_tool` follows the TS sidecar event types (`agent.{AgentEvent.type}`)
-/// used by tools/agent-loop-parity scenario `single_tool`: tool call, tool
-/// result, then final assistant text. Text and tool I/O are derived from the
-/// protocol scenario plus the execute prompt — not replayed goldens.
-fn emit_single_tool_stub(job: &StubJob, prompt: &str, scenario: &str, sequence: &mut u64) {
-    let tool_name = stub_tool_name(&job.payload);
-    let tool_call_id = next_id(&job.inner, "tool");
-    let tool_input = json!({ "q": prompt });
-    let result_text = format!("STUB_RESULT[{scenario}/{tool_name}]: {prompt}");
-    let final_text = format!("STUB[{scenario}]: {prompt}");
-    let started_at = now_iso();
-
+fn run_tool_calls(
+    job: &StubJob,
+    conversation: &mut Value,
+    calls: &[Value],
+    sequence: &mut u64,
+    transcript: &mut Vec<Value>,
+) -> bool {
     emit_stub_event(
         job,
         "event",
@@ -596,66 +680,90 @@ fn emit_single_tool_stub(job: &StubJob, prompt: &str, scenario: &str, sequence: 
             "type": "tool_calls_detected",
             "sessionId": job.session_id,
             "turnId": job.turn_id,
-            "calls": [{
+            "calls": calls.iter().map(|call| {
+                json!({
+                    "id": call.get("id").cloned().unwrap_or(Value::Null),
+                    "name": call.get("name").cloned().unwrap_or(Value::Null),
+                    "input": call.get("input").cloned().unwrap_or(json!({})),
+                })
+            }).collect::<Vec<_>>(),
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return false;
+    }
+
+    for call in calls {
+        let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
+        let tool_name = call.get("name").and_then(Value::as_str).unwrap_or("");
+        let tool_input = call.get("input").cloned().unwrap_or(json!({}));
+        let started_at = now_iso();
+        let capability = match call_host_module(
+            job,
+            "capability",
+            json!({
+                "operation": "execute",
+                "toolCallId": tool_call_id,
+                "name": tool_name,
+                "arguments": tool_input,
+            }),
+        ) {
+            HostCall::Ok(response) => response,
+            other => {
+                finish_host_call(job, *sequence, other);
+                return false;
+            }
+        };
+        if stub_interrupted(job) {
+            emit_cancelled_terminal(job, *sequence);
+            return false;
+        }
+        let result = capability_result(&capability, tool_call_id, tool_name, &started_at);
+        emit_stub_event(
+            job,
+            "event",
+            "agent.tool_result",
+            *sequence,
+            json!({
+                "type": "tool_result",
+                "sessionId": job.session_id,
+                "turnId": job.turn_id,
+                "result": result,
+            }),
+        );
+        *sequence += 1;
+        if stub_interrupted(job) {
+            emit_cancelled_terminal(job, *sequence);
+            return false;
+        }
+        let assistant_call = json!({
+            "role": "assistant",
+            "content": [{
+                "type": "tool_call",
                 "id": tool_call_id,
                 "name": tool_name,
                 "input": tool_input,
             }],
-        }),
-    );
-    *sequence += 1;
-    if stub_interrupted(job) {
-        emit_cancelled_terminal(job, *sequence);
-        return;
-    }
-
-    let completed_at = now_iso();
-    emit_stub_event(
-        job,
-        "event",
-        "agent.tool_result",
-        *sequence,
-        json!({
-            "type": "tool_result",
-            "sessionId": job.session_id,
-            "turnId": job.turn_id,
-            "result": {
-                "type": "success",
+        });
+        let user_result = json!({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
                 "toolCallId": tool_call_id,
-                "toolName": tool_name,
-                "content": [{ "type": "text", "text": result_text }],
-                "startedAt": started_at,
-                "completedAt": completed_at,
-            },
-        }),
-    );
-    *sequence += 1;
-    if stub_interrupted(job) {
-        emit_cancelled_terminal(job, *sequence);
-        return;
+                "content": result.get("content").cloned().unwrap_or(json!([])),
+            }],
+        });
+        append_conversation(conversation, assistant_call.clone());
+        append_conversation(conversation, user_result.clone());
+        transcript.push(assistant_call);
+        transcript.push(user_result);
     }
+    true
+}
 
-    emit_stub_event(
-        job,
-        "event",
-        "agent.assistant_message",
-        *sequence,
-        json!({
-            "type": "assistant_message",
-            "sessionId": job.session_id,
-            "turnId": job.turn_id,
-            "message": {
-                "role": "assistant",
-                "content": [{ "type": "text", "text": final_text }],
-            },
-        }),
-    );
-    *sequence += 1;
-    if stub_interrupted(job) {
-        emit_cancelled_terminal(job, *sequence);
-        return;
-    }
-
+fn emit_completed(job: &StubJob, sequence: u64, turns: u64, messages: Value) {
     record_final_locked(
         &mut job.inner.operations.lock().expect("operations lock"),
         &job.operation_id,
@@ -667,7 +775,7 @@ fn emit_single_tool_stub(job: &StubJob, prompt: &str, scenario: &str, sequence: 
         "messageId": next_id(&job.inner, "final"),
         "eventType": "agent.execute.completed",
         "streamId": job.stream_id,
-        "sequence": *sequence,
+        "sequence": sequence,
         "runId": job.run_id,
         "operationId": job.operation_id,
         "requestId": job.request_id,
@@ -679,36 +787,64 @@ fn emit_single_tool_stub(job: &StubJob, prompt: &str, scenario: &str, sequence: 
                 &job.session_id,
                 &job.turn_id,
                 "completed",
-                2,
+                turns,
                 &job.started_at,
             ),
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": [{
-                        "type": "tool_call",
-                        "id": tool_call_id,
-                        "name": tool_name,
-                        "input": tool_input,
-                    }],
-                },
-                {
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "toolCallId": tool_call_id,
-                        "content": [{ "type": "text", "text": result_text }],
-                    }],
-                },
-                {
-                    "role": "assistant",
-                    "content": [{ "type": "text", "text": final_text }],
-                }
-            ],
-            "stub": { "model": "pilotdeck-stub", "scenario": scenario }
+            "messages": messages,
+            "stub": { "model": STUB_MODEL }
         },
     }));
     clear_active(job);
+}
+
+fn call_host_module(job: &StubJob, module: &str, payload: Value) -> HostCall {
+    let message_id = next_id(&job.inner, "module-call");
+    let (sender, receiver) = mpsc::channel();
+    {
+        let mut pending = job.inner.pending_calls.lock().expect("pending_calls lock");
+        pending.insert(message_id.clone(), sender);
+    }
+    (job.inner.emit)(json!({
+        "kind": "request",
+        "messageId": message_id,
+        "method": "module_call",
+        "runId": job.run_id,
+        "operationId": job.operation_id,
+        "requestId": job.request_id,
+        "module": module,
+        "payload": payload,
+    }));
+    let timeout = Duration::from_millis(module_call_timeout_ms(&job.payload));
+    let started = Instant::now();
+    loop {
+        if stub_interrupted(job) {
+            job.inner
+                .pending_calls
+                .lock()
+                .expect("pending_calls lock")
+                .remove(&message_id);
+            return HostCall::Interrupted;
+        }
+        let remaining = timeout.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            job.inner
+                .pending_calls
+                .lock()
+                .expect("pending_calls lock")
+                .remove(&message_id);
+            return HostCall::Timeout;
+        }
+        match receiver.recv_timeout(remaining.min(Duration::from_millis(STUB_POLL_MS))) {
+            Ok(response) => {
+                if response.get("ok").and_then(Value::as_bool) == Some(true) {
+                    return HostCall::Ok(response);
+                }
+                return HostCall::Failed(response);
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return HostCall::Timeout,
+        }
+    }
 }
 
 fn emit_stub_event(job: &StubJob, prefix: &str, event_type: &str, sequence: u64, payload: Value) {
@@ -788,6 +924,41 @@ fn emit_cancelled_terminal(job: &StubJob, sequence: u64) {
     clear_active(job);
 }
 
+fn emit_failed_terminal(job: &StubJob, sequence: u64, code: &str, message: &str) {
+    record_final_locked(
+        &mut job.inner.operations.lock().expect("operations lock"),
+        &job.operation_id,
+        &job.request_id,
+        "failed",
+    );
+    (job.inner.emit)(json!({
+        "kind": "event",
+        "messageId": next_id(&job.inner, "failed"),
+        "eventType": "agent.execute.failed",
+        "streamId": job.stream_id,
+        "sequence": sequence,
+        "runId": job.run_id,
+        "operationId": job.operation_id,
+        "requestId": job.request_id,
+        "final": true,
+        "outcome": "failed",
+        "code": code,
+        "error": { "code": code, "message": message },
+        "payload": {
+            "result": stub_turn_result(
+                "error",
+                &job.session_id,
+                &job.turn_id,
+                "failed",
+                0,
+                &job.started_at,
+            ),
+            "messages": [],
+        },
+    }));
+    clear_active(job);
+}
+
 fn clear_active(job: &StubJob) {
     let mut ops = job.inner.operations.lock().expect("operations lock");
     ops.active.remove(&job.operation_id);
@@ -864,40 +1035,152 @@ fn value_as_u64(value: &Value) -> Option<u64> {
     })
 }
 
-fn stub_prompt(payload: &Value) -> String {
-    if let Some(text) = payload
-        .get("q")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-    {
-        return text.to_string();
-    }
-    if let Some(text) = payload
-        .get("prompt")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-    {
-        return text.to_string();
-    }
-    if let Some(messages) = payload.get("messages").and_then(Value::as_array) {
-        for message in messages.iter().rev() {
-            if let Some(text) = message
-                .get("content")
-                .and_then(Value::as_str)
-                .filter(|value| !value.is_empty())
-            {
-                return text.to_string();
-            }
-            if let Some(text) = message
-                .get("text")
-                .and_then(Value::as_str)
-                .filter(|value| !value.is_empty())
-            {
-                return text.to_string();
-            }
+fn last_user_text_block(payload: &Value) -> String {
+    last_user_text_from_messages(payload.get("messages")).unwrap_or_else(|| DEFAULT_STUB_TEXT.to_string())
+}
+
+fn last_user_text_from_messages(messages: Option<&Value>) -> Option<String> {
+    let messages = messages.and_then(Value::as_array)?;
+    for message in messages.iter().rev() {
+        if message.get("role").and_then(Value::as_str) != Some("user") {
+            continue;
+        }
+        if let Some(text) = text_from_content_blocks(message.get("content")) {
+            return Some(text);
         }
     }
-    DEFAULT_STUB_TEXT.to_string()
+    None
+}
+
+fn text_from_content_blocks(content: Option<&Value>) -> Option<String> {
+    let blocks = content.and_then(Value::as_array)?;
+    for block in blocks.iter().rev() {
+        if block.get("type").and_then(Value::as_str) != Some("text") {
+            continue;
+        }
+        if let Some(text) = block
+            .get("text")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(text.to_string());
+        }
+    }
+    None
+}
+
+fn conversation_from_payload(payload: &Value) -> Value {
+    if let Some(messages) = payload.get("messages").and_then(Value::as_array) {
+        if !messages.is_empty() {
+            return json!(messages);
+        }
+    }
+    json!([{
+        "role": "user",
+        "content": [{ "type": "text", "text": last_user_text_block(payload) }],
+    }])
+}
+
+fn append_conversation(conversation: &mut Value, message: Value) {
+    if let Some(messages) = conversation.as_array_mut() {
+        messages.push(message);
+    }
+}
+
+fn model_complete_payload(payload: &Value, messages: &Value) -> Value {
+    json!({
+        "operation": "complete",
+        "request": {
+            "provider": first_nonempty_id(&[
+                payload.pointer("/agent/provider"),
+                payload.pointer("/hostModules/model/provider"),
+            ]).unwrap_or_else(|| STUB_PROVIDER.to_string()),
+            "model": first_nonempty_id(&[
+                payload.get("modelOverride"),
+                payload.pointer("/agent/model"),
+                payload.pointer("/hostModules/model/model"),
+            ]).unwrap_or_else(|| STUB_MODEL.to_string()),
+            "messages": messages,
+        }
+    })
+}
+
+fn module_call_timeout_ms(payload: &Value) -> u64 {
+    payload
+        .get("moduleCallTimeoutMs")
+        .or_else(|| payload.pointer("/stub/moduleCallTimeoutMs"))
+        .and_then(value_as_u64)
+        .unwrap_or(DEFAULT_MODULE_CALL_TIMEOUT_MS)
+        .clamp(1, MAX_STUB_DELAY_MS)
+}
+
+fn model_message(response: &Value) -> Option<&Value> {
+    response
+        .pointer("/payload/message")
+        .or_else(|| response.pointer("/payload/choices/0/message"))
+}
+
+fn text_from_message(message: &Value) -> String {
+    if let Some(text) = message.get("content").and_then(Value::as_str) {
+        return text.to_string();
+    }
+    text_from_content_blocks(message.get("content")).unwrap_or_default()
+}
+
+fn tool_calls_from_message(message: &Value) -> Vec<Value> {
+    let Some(calls) = message.get("tool_calls").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    calls.iter().filter_map(normalize_tool_call).collect()
+}
+
+fn normalize_tool_call(value: &Value) -> Option<Value> {
+    let id = value
+        .get("id")
+        .or_else(|| value.get("toolCallId"))
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())?;
+    let name = value
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/function/name").and_then(Value::as_str))
+        .filter(|name| !name.is_empty())?;
+    let input = value
+        .get("input")
+        .cloned()
+        .or_else(|| value.get("arguments").cloned())
+        .or_else(|| {
+            value
+                .pointer("/function/arguments")
+                .map(|arguments| match arguments {
+                    Value::String(raw) => serde_json::from_str(raw).unwrap_or(json!({ "raw": raw })),
+                    other => other.clone(),
+                })
+        })
+        .unwrap_or(json!({}));
+    Some(json!({ "id": id, "name": name, "input": input }))
+}
+
+fn capability_result(response: &Value, tool_call_id: &str, tool_name: &str, started_at: &str) -> Value {
+    let payload = response.get("payload").cloned().unwrap_or(json!({}));
+    let result = payload.get("result").cloned().unwrap_or(payload);
+    let content = result
+        .get("content")
+        .cloned()
+        .unwrap_or_else(|| json!([{ "type": "text", "text": result.to_string() }]));
+    let completed_at = result
+        .get("completedAt")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(now_iso);
+    json!({
+        "type": result.get("type").and_then(Value::as_str).unwrap_or("success"),
+        "toolCallId": result.get("toolCallId").and_then(Value::as_str).unwrap_or(tool_call_id),
+        "toolName": result.get("toolName").and_then(Value::as_str).unwrap_or(tool_name),
+        "content": content,
+        "startedAt": result.get("startedAt").and_then(Value::as_str).unwrap_or(started_at),
+        "completedAt": completed_at,
+    })
 }
 
 fn stub_session_id(request: &Value, payload: &Value, run_id: &str) -> String {
@@ -937,52 +1220,6 @@ fn stub_turn_result(
         "turns": turns,
         "startedAt": started_at,
         "completedAt": now_iso(),
-    })
-}
-
-fn stub_scenario(payload: &Value) -> String {
-    payload
-        .get("scenario")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("pure_text")
-        .to_string()
-}
-
-/// Parity `single_tool` uses `lookup` (`scenarios.json`). Prefer an explicit
-/// tool from the execute payload (host manifest objects or harness strings).
-fn stub_tool_name(payload: &Value) -> String {
-    if let Some(name) = payload
-        .get("tools")
-        .and_then(Value::as_array)
-        .and_then(|tools| tools.first())
-        .and_then(tool_name_from_value)
-    {
-        return name;
-    }
-    if let Some(name) = payload.get("tool").and_then(tool_name_from_value) {
-        return name;
-    }
-    if let Some(name) = payload
-        .get("toolName")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-    {
-        return name.to_string();
-    }
-    "lookup".to_string()
-}
-
-fn tool_name_from_value(value: &Value) -> Option<String> {
-    if let Some(name) = value.as_str().filter(|name| !name.is_empty()) {
-        return Some(name.to_string());
-    }
-    ["name", "toolName"].into_iter().find_map(|field| {
-        value
-            .get(field)
-            .and_then(Value::as_str)
-            .filter(|name| !name.is_empty())
-            .map(str::to_string)
     })
 }
 
@@ -1066,6 +1303,7 @@ fn stable_ids_enabled() -> bool {
 mod tests {
     use super::*;
     use crate::time::format_unix_ms;
+    use serde_json::json;
     use std::sync::mpsc;
     use std::time::Instant;
 
@@ -1076,6 +1314,217 @@ mod tests {
             emit_sink.lock().expect("sink").push(message);
         }));
         (sidecar, sink)
+    }
+
+    fn collect_with_host(
+        host: impl Fn(&Value) -> Option<Value> + Send + Sync + 'static,
+    ) -> (Sidecar, Arc<Mutex<Vec<Value>>>) {
+        let sink = Arc::new(Mutex::new(Vec::new()));
+        let holder: Arc<Mutex<Option<Sidecar>>> = Arc::new(Mutex::new(None));
+        let emit_sink = Arc::clone(&sink);
+        let emit_holder = Arc::clone(&holder);
+        let host = Arc::new(host);
+        let sidecar = Sidecar::new(Arc::new(move |message| {
+            emit_sink.lock().expect("sink").push(message.clone());
+            if message.get("kind") == Some(&json!("request"))
+                && message.get("method") == Some(&json!("module_call"))
+            {
+                if let Some(reply) = host(&message) {
+                    if let Some(sidecar) = emit_holder.lock().expect("holder").as_ref() {
+                        sidecar.handle_value(reply);
+                    }
+                }
+            }
+        }));
+        *holder.lock().expect("holder") = Some(sidecar.clone());
+        (sidecar, sink)
+    }
+
+    fn host_ok(call: &Value, payload: Value) -> Value {
+        json!({
+            "kind": "response",
+            "messageId": format!("host-{}", call.get("messageId").and_then(Value::as_str).unwrap_or("x")),
+            "inReplyTo": call.get("messageId").and_then(Value::as_str).unwrap_or(""),
+            "requestId": call.get("requestId").and_then(Value::as_str).unwrap_or(""),
+            "ok": true,
+            "payload": payload,
+        })
+    }
+
+    fn host_fail(call: &Value, code: &str) -> Value {
+        json!({
+            "kind": "response",
+            "messageId": format!("host-{}", call.get("messageId").and_then(Value::as_str).unwrap_or("x")),
+            "inReplyTo": call.get("messageId").and_then(Value::as_str).unwrap_or(""),
+            "requestId": call.get("requestId").and_then(Value::as_str).unwrap_or(""),
+            "ok": false,
+            "final": true,
+            "outcome": "failed",
+            "code": code,
+            "error": { "code": code, "message": "host rejected module_call" },
+        })
+    }
+
+    fn last_user_from_call(call: &Value) -> String {
+        last_user_text_from_messages(call.pointer("/payload/request/messages"))
+            .unwrap_or_else(|| DEFAULT_STUB_TEXT.to_string())
+    }
+
+    fn conversation_has_tool_result(call: &Value) -> bool {
+        call.pointer("/payload/request/messages")
+            .and_then(Value::as_array)
+            .is_some_and(|messages| {
+                messages.iter().any(|message| {
+                    message
+                        .get("content")
+                        .and_then(Value::as_array)
+                        .is_some_and(|blocks| {
+                            blocks.iter().any(|block| {
+                                block.get("type").and_then(Value::as_str) == Some("tool_result")
+                            })
+                        })
+                })
+            })
+    }
+
+    fn text_host(call: &Value) -> Option<Value> {
+        if call.get("module").and_then(Value::as_str) != Some("model") {
+            return None;
+        }
+        let prompt = last_user_from_call(call);
+        Some(host_ok(
+            call,
+            json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } }),
+        ))
+    }
+
+    fn single_tool_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") if conversation_has_tool_result(call) => {
+                let prompt = last_user_from_call(call);
+                Some(host_ok(
+                    call,
+                    json!({ "message": { "role": "assistant", "content": format!("HOST[{prompt}]") } }),
+                ))
+            }
+            Some("model") => {
+                let prompt = last_user_from_call(call);
+                Some(host_ok(
+                    call,
+                    json!({
+                        "message": {
+                            "role": "assistant",
+                            "content": null,
+                            "tool_calls": [{
+                                "id": "host-tool-1",
+                                "type": "function",
+                                "function": {
+                                    "name": "lookup",
+                                    "arguments": format!(r#"{{"q":"{prompt}"}}"#)
+                                }
+                            }]
+                        }
+                    }),
+                ))
+            }
+            Some("capability") => {
+                let name = call.pointer("/payload/name").and_then(Value::as_str).unwrap_or("lookup");
+                let prompt = call
+                    .pointer("/payload/arguments/q")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                Some(host_ok(
+                    call,
+                    json!({
+                        "type": "success",
+                        "toolCallId": call.pointer("/payload/toolCallId"),
+                        "toolName": name,
+                        "content": [{ "type": "text", "text": format!("HOST_RESULT[{name}]: {prompt}") }],
+                    }),
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Portable pump used by the F-9(b) test so the same body works on
+    /// baseline `c5bed6c1` (no module_call) and this tip (host must reply).
+    fn reply_if_module_call(sidecar: &Sidecar, sink: &Mutex<Vec<Value>>, timeout_ms: u64) {
+        let finals_before = sink
+            .lock()
+            .expect("sink")
+            .iter()
+            .filter(|m| {
+                m.get("kind").and_then(Value::as_str) == Some("event")
+                    && m.get("final") == Some(&Value::Bool(true))
+            })
+            .count();
+        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        let mut replied = std::collections::HashSet::new();
+        loop {
+            let snapshot = sink.lock().expect("sink").clone();
+            let finals_now = snapshot
+                .iter()
+                .filter(|m| {
+                    m.get("kind").and_then(Value::as_str) == Some("event")
+                        && m.get("final") == Some(&Value::Bool(true))
+                })
+                .count();
+            if finals_now > finals_before {
+                return;
+            }
+            for message in &snapshot {
+                if message.get("kind").and_then(Value::as_str) == Some("request")
+                    && message.get("method").and_then(Value::as_str) == Some("module_call")
+                {
+                    let id = message
+                        .get("messageId")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    if !id.is_empty() && replied.insert(id.clone()) {
+                        sidecar.handle_value(json!({
+                            "kind": "response",
+                            "messageId": format!("host-{id}"),
+                            "inReplyTo": id,
+                            "requestId": message.get("requestId").and_then(Value::as_str).unwrap_or(""),
+                            "ok": true,
+                            "payload": {
+                                "message": { "role": "assistant", "content": "HOST" }
+                            }
+                        }));
+                    }
+                }
+            }
+            if Instant::now() >= deadline {
+                return;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn client_payload_json(user_text: &str) -> String {
+        json!({
+            "agent": { "id": "pilotdeck-stub", "provider": "pilotdeck-stub", "model": "pilotdeck-stub" },
+            "messages": [{
+                "role": "user",
+                "content": [{ "type": "text", "text": user_text }]
+            }],
+            "tools": [{
+                "name": "lookup",
+                "description": "Look up a value",
+                "inputSchema": { "type": "object" }
+            }],
+            "permissionContext": {},
+            "hostModules": { "model": true, "capability": true }
+        })
+        .to_string()
+    }
+
+    fn execute_line(message_id: &str, run_id: &str, operation_id: &str, request_id: &str, payload: &str) -> String {
+        format!(
+            r#"{{"kind":"request","messageId":"{message_id}","method":"execute","runId":"{run_id}","operationId":"{operation_id}","requestId":"{request_id}","payload":{payload}}}"#
+        )
     }
 
     fn wait_for(
@@ -1131,10 +1580,14 @@ mod tests {
 
     #[test]
     fn execute_pure_text_emits_events_and_final_outcome() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-1","method":"execute","runId":"run-1","operationId":"op-1","requestId":"req-1","payload":{"scenario":"pure_text","q":"What is the status?"}}"#,
-        );
+        let (sidecar, sink) = collect_with_host(text_host);
+        sidecar.handle_line(&execute_line(
+            "ex-1",
+            "run-1",
+            "op-1",
+            "req-1",
+            &client_payload_json("What is the status?"),
+        ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
         assert_eq!(lines[0]["ok"], true);
@@ -1143,6 +1596,14 @@ mod tests {
             .and_then(Value::as_str)
             .is_some_and(|id| !id.is_empty()));
         assert_eq!(lines[0].get("final"), None);
+        let calls: Vec<_> = lines
+            .iter()
+            .filter(|m| m["kind"] == "request" && m["method"] == "module_call")
+            .collect();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0]["module"], "model");
+        assert_eq!(calls[0]["payload"]["operation"], "complete");
+        assert!(validate_module_message(calls[0]).is_ok());
         let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
         assert_eq!(events[0]["final"], false);
         assert!(events[0].get("moduleInstanceId").is_none());
@@ -1163,10 +1624,7 @@ mod tests {
             .find(|m| m["eventType"] == "agent.message")
             .expect("pure_text agent.message");
         assert_eq!(message["payload"]["type"], "message");
-        assert_eq!(
-            message["payload"]["text"],
-            "STUB[pure_text]: What is the status?"
-        );
+        assert_eq!(message["payload"]["text"], "HOST[What is the status?]");
         assert_eq!(
             events
                 .iter()
@@ -1179,13 +1637,20 @@ mod tests {
 
     #[test]
     fn execute_single_tool_emits_tool_call_result_and_final_text() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-st","method":"execute","runId":"run-st","operationId":"op-st","requestId":"req-st","sessionId":"sess-st","turnId":"turn-st","payload":{"scenario":"single_tool","q":"Look up the status","tools":["lookup"]}}"#,
-        );
+        let (sidecar, sink) = collect_with_host(single_tool_host);
+        sidecar.handle_line(&format!(
+            r#"{{"kind":"request","messageId":"ex-st","method":"execute","runId":"run-st","operationId":"op-st","requestId":"req-st","sessionId":"sess-st","turnId":"turn-st","payload":{}}}"#,
+            client_payload_json("Look up the status")
+        ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
         assert_eq!(lines[0]["ok"], true);
+        let modules: Vec<_> = lines
+            .iter()
+            .filter(|m| m["kind"] == "request" && m["method"] == "module_call")
+            .map(|m| m["module"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(modules, ["model", "capability", "model"]);
         let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
         assert_eq!(events.len(), 4);
         assert_eq!(events[0]["eventType"], "agent.tool_calls_detected");
@@ -1215,7 +1680,7 @@ mod tests {
         assert_eq!(events[2]["payload"]["type"], "assistant_message");
         assert_eq!(
             events[2]["payload"]["message"]["content"][0]["text"],
-            "STUB[single_tool]: Look up the status"
+            "HOST[Look up the status]"
         );
 
         let terminal = events[3];
@@ -1236,7 +1701,7 @@ mod tests {
         );
         assert_eq!(
             terminal["payload"]["messages"][2]["content"][0]["text"],
-            "STUB[single_tool]: Look up the status"
+            "HOST[Look up the status]"
         );
         for event in &events {
             assert!(validate_module_message(event).is_ok(), "{event}");
@@ -1246,14 +1711,22 @@ mod tests {
 
     #[test]
     fn execute_single_tool_prompt_mutation_changes_output() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-a","method":"execute","runId":"run-a","operationId":"op-a","requestId":"req-a","payload":{"scenario":"single_tool","q":"alpha-prompt"}}"#,
-        );
+        let (sidecar, sink) = collect_with_host(single_tool_host);
+        sidecar.handle_line(&execute_line(
+            "ex-a",
+            "run-a",
+            "op-a",
+            "req-a",
+            &client_payload_json("alpha-prompt"),
+        ));
         sidecar.join();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-b","method":"execute","runId":"run-b","operationId":"op-b","requestId":"req-b","payload":{"scenario":"single_tool","q":"beta-prompt"}}"#,
-        );
+        sidecar.handle_line(&execute_line(
+            "ex-b",
+            "run-b",
+            "op-b",
+            "req-b",
+            &client_payload_json("beta-prompt"),
+        ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
         let finals: Vec<_> = lines
@@ -1284,11 +1757,52 @@ mod tests {
     }
 
     #[test]
-    fn completed_final_echoes_request_session_and_turn_ids() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-ids","method":"execute","runId":"run-ids","operationId":"op-ids","requestId":"req-ids","sessionId":"sess-host","turnId":"turn-host","payload":{"scenario":"pure_text","q":"hi"}}"#,
+    fn execute_prompt_comes_from_last_user_text_block_not_q_or_tools() {
+        let (sidecar, sink) = collect_with_host(text_host);
+        let payload = json!({
+            "q": "ignore-q",
+            "scenario": "single_tool",
+            "tools": [{ "name": "lookup", "inputSchema": {} }],
+            "messages": [
+                { "role": "user", "content": [{ "type": "text", "text": "first" }] },
+                { "role": "assistant", "content": [{ "type": "text", "text": "ack" }] },
+                { "role": "user", "content": [{ "type": "text", "text": "block-prompt" }] }
+            ]
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-b1",
+            "run-b1",
+            "op-b1",
+            "req-b1",
+            &payload.to_string(),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let call = lines
+            .iter()
+            .find(|m| m["kind"] == "request" && m["method"] == "module_call")
+            .expect("model module_call");
+        assert_eq!(
+            last_user_text_from_messages(call.pointer("/payload/request/messages")).as_deref(),
+            Some("block-prompt")
         );
+        let message = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.message")
+            .expect("text path despite tools[] + scenario");
+        assert_eq!(message["payload"]["text"], "HOST[block-prompt]");
+        assert!(lines
+            .iter()
+            .all(|m| m.get("eventType").and_then(Value::as_str) != Some("agent.tool_calls_detected")));
+    }
+
+    #[test]
+    fn completed_final_echoes_request_session_and_turn_ids() {
+        let (sidecar, sink) = collect_with_host(text_host);
+        sidecar.handle_line(&format!(
+            r#"{{"kind":"request","messageId":"ex-ids","method":"execute","runId":"run-ids","operationId":"op-ids","requestId":"req-ids","sessionId":"sess-host","turnId":"turn-host","payload":{}}}"#,
+            client_payload_json("hi")
+        ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
         let terminal = lines
@@ -1303,9 +1817,9 @@ mod tests {
 
     #[test]
     fn execute_duplicate_keys_use_last_request_id() {
-        let (sidecar, sink) = collect();
+        let (sidecar, sink) = collect_with_host(text_host);
         sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-dup","method":"execute","runId":"run-1","operationId":"op-dup","requestId":"first","payload":{"q":"A"},"requestId":"second","payload":{"q":"B","scenario":"pure_text"}}"#,
+            r#"{"kind":"request","messageId":"ex-dup","method":"execute","runId":"run-1","operationId":"op-dup","requestId":"first","payload":{"q":"A"},"requestId":"second","payload":{"messages":[{"role":"user","content":[{"type":"text","text":"B"}]}]}}"#,
         );
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
@@ -1319,6 +1833,61 @@ mod tests {
             .as_str()
             .unwrap()
             .contains('B'));
+    }
+
+    #[test]
+    fn inbound_module_call_is_still_unexpected() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"mod-in","method":"module_call","runId":"run-1","operationId":"op-1","requestId":"req-mod","module":"model","payload":{}}"#,
+        );
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(lines[0]["ok"], false);
+        assert_eq!(lines[0]["code"], "UNEXPECTED_MODULE_CALL");
+        assert_eq!(lines[0]["inReplyTo"], "mod-in");
+    }
+
+    #[test]
+    fn module_call_host_ok_false_fails_execute() {
+        let (sidecar, sink) = collect_with_host(|call| Some(host_fail(call, "HOST_REJECTED")));
+        sidecar.handle_line(&execute_line(
+            "ex-fail",
+            "run-fail",
+            "op-fail",
+            "req-fail",
+            &client_payload_json("What is the status?"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(lines.iter().any(|m| m["kind"] == "request" && m["method"] == "module_call"));
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("failed terminal");
+        assert_eq!(terminal["outcome"], "failed");
+        assert_eq!(terminal["code"], "HOST_REJECTED");
+        assert_eq!(terminal["eventType"], "agent.execute.failed");
+    }
+
+    #[test]
+    fn module_call_timeout_fails_execute() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(&execute_line(
+            "ex-to",
+            "run-to",
+            "op-to",
+            "req-to",
+            r#"{"messages":[{"role":"user","content":[{"type":"text","text":"hang"}]}],"moduleCallTimeoutMs":40}"#,
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert!(lines.iter().any(|m| m["kind"] == "request" && m["method"] == "module_call"));
+        let terminal = lines
+            .iter()
+            .find(|m| m["kind"] == "event" && m["final"] == true)
+            .expect("timeout terminal");
+        assert_eq!(terminal["outcome"], "failed");
+        assert_eq!(terminal["code"], "MODULE_CALL_TIMEOUT");
     }
 
     fn assert_cancel_won_before_message(
@@ -1480,10 +2049,10 @@ mod tests {
 
     #[test]
     fn future_deadline_completes_when_not_expired() {
-        let (sidecar, sink) = collect();
+        let (sidecar, sink) = collect_with_host(text_host);
         let deadline = format_unix_ms(now_unix_ms() + 60_000);
         let line = format!(
-            r#"{{"kind":"request","messageId":"ex-far","method":"execute","runId":"run-far","operationId":"op-far","requestId":"req-far","operationDeadline":"{deadline}","payload":{{"delayMs":20,"scenario":"pure_text"}}}}"#
+            r#"{{"kind":"request","messageId":"ex-far","method":"execute","runId":"run-far","operationId":"op-far","requestId":"req-far","operationDeadline":"{deadline}","payload":{{"delayMs":20,"messages":[{{"role":"user","content":[{{"type":"text","text":"ok"}}]}}]}}}}"#
         );
         sidecar.handle_line(&line);
         sidecar.join();
@@ -1569,14 +2138,22 @@ mod tests {
 
     #[test]
     fn execute_finished_run_mismatch_is_rejected() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
-        );
+        let (sidecar, sink) = collect_with_host(text_host);
+        sidecar.handle_line(&execute_line(
+            "ex-done",
+            "run-a",
+            "op-reuse",
+            "req-a",
+            &client_payload_json("What is the status?"),
+        ));
         sidecar.join();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-b","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
-        );
+        sidecar.handle_line(&execute_line(
+            "ex-reuse",
+            "run-b",
+            "op-reuse",
+            "req-b",
+            &client_payload_json("What is the status?"),
+        ));
         let lines = sink.lock().expect("sink").clone();
         let rejected = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
         assert_eq!(rejected["ok"], false);
@@ -1591,22 +2168,30 @@ mod tests {
         );
     }
 
-    /// Same-runId re-execute of a finished operation (F-9(b)):
-    /// - `ModuleOperationHost.accept` keeps the snapshot (`moduleRuntime.ts:31-34`)
-    /// - `InProcessModuleRuntime.execute` does not short-circuit: it `accept`s
-    ///   then always runs the handler and yields another completed
-    ///   (`moduleRuntime.ts:192-198`, `:268-293`, `:295-310`)
-    /// - `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`)
+    /// F-9(b) merged: first run cancel, second run same runId complete.
+    /// `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`); accept
+    /// still allows the same-runId re-execute (`moduleRuntime.ts:31-34`).
+    /// This body must also pass on baseline `c5bed6c1` (copy + run there):
+    /// cancel uses delay, complete replies only if a module_call appears.
     #[test]
-    fn execute_finished_run_match_is_accepted() {
+    fn execute_finished_cancel_then_complete_keeps_cancelled_status() {
         let (sidecar, sink) = collect();
         sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
+            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"delayMs":10000}}"#,
+        );
+        let _ = wait_for(
+            &sink,
+            |lines| lines.iter().any(|m| m["inReplyTo"] == "ex-done"),
+            500,
+        );
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"cancel-1","method":"cancel","runId":"run-a","operationId":"op-reuse","requestId":"req-a","reason":"user_cancelled"}"#,
         );
         sidecar.join();
         sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
+            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{}}"#,
         );
+        reply_if_module_call(&sidecar, &sink, 2_000);
         sidecar.join();
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"st-a","method":"status","requestId":"req-a"}"#,
@@ -1618,75 +2203,19 @@ mod tests {
         let accepted = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
         assert_eq!(accepted["ok"], true);
         assert!(accepted.get("code").is_none());
-        // Second completed: moduleRuntime.ts:192-198 then :268-293 / :295-310.
-        assert_eq!(
-            lines
-                .iter()
-                .filter(|m| m["eventType"] == "agent.execute.completed")
-                .count(),
-            2
-        );
-        // First outcome sticks: moduleRuntime.ts:51.
-        let status_a = lines.iter().find(|m| m["inReplyTo"] == "st-a").unwrap();
-        let status_b = lines.iter().find(|m| m["inReplyTo"] == "st-b").unwrap();
-        assert_eq!(status_a["payload"]["outcome"], "completed");
-        assert_eq!(status_a["payload"]["state"], "completed");
-        assert_eq!(status_b["payload"]["outcome"], "completed");
-        assert_eq!(status_b["payload"]["state"], "completed");
-    }
-
-    /// F-9(b) status lock: same as `execute_finished_run_match_is_accepted`,
-    /// derived from `moduleRuntime.ts:31-34` (accept), `:192-198`/`:268-293`/
-    /// `:295-310` (second completed), `:51` (first outcome).
-    #[test]
-    fn execute_finished_same_run_keeps_first_status_outcome() {
-        let (sidecar, sink) = collect();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
-        );
-        sidecar.join();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"st-first","method":"status","requestId":"req-a"}"#,
-        );
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
-        );
-        sidecar.join();
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"st-a","method":"status","requestId":"req-a"}"#,
-        );
-        sidecar.handle_line(
-            r#"{"kind":"request","messageId":"st-b","method":"status","requestId":"req-b"}"#,
-        );
-        let lines = sink.lock().expect("sink").clone();
-        let first_status = lines.iter().find(|m| m["inReplyTo"] == "st-first").unwrap();
-        assert_eq!(first_status["ok"], true);
-        assert_eq!(first_status["payload"]["outcome"], "completed");
-        assert_eq!(first_status["payload"]["state"], "completed");
-        let accepted = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
-        assert_eq!(accepted["ok"], true);
-        assert_eq!(
-            lines
-                .iter()
-                .filter(|m| m["eventType"] == "agent.execute.completed")
-                .count(),
-            2
-        );
         let status_a = lines.iter().find(|m| m["inReplyTo"] == "st-a").unwrap();
         let status_b = lines.iter().find(|m| m["inReplyTo"] == "st-b").unwrap();
         assert_eq!(status_a["ok"], true);
-        assert_eq!(status_a["payload"]["outcome"], "completed");
-        assert_eq!(status_a["payload"]["state"], "completed");
+        assert_eq!(status_a["payload"]["outcome"], "cancelled");
+        assert_eq!(status_a["payload"]["state"], "cancelled");
         assert_eq!(status_b["ok"], true);
-        assert_eq!(status_b["payload"]["outcome"], "completed");
-        assert_eq!(status_b["payload"]["state"], "completed");
+        assert_eq!(status_b["payload"]["outcome"], "cancelled");
+        assert_eq!(status_b["payload"]["state"], "cancelled");
         assert_eq!(status_b["payload"]["runId"], "run-a");
         assert!(
-            status_b["payload"]["requestIds"]
-                .as_array()
-                .is_some_and(
-                    |ids| ids.iter().any(|id| id == "req-a") && ids.iter().any(|id| id == "req-b")
-                ),
+            status_b["payload"]["requestIds"].as_array().is_some_and(|ids| {
+                ids.iter().any(|id| id == "req-a") && ids.iter().any(|id| id == "req-b")
+            }),
             "both requestIds stay on the first snapshot, have {status_b}"
         );
     }
