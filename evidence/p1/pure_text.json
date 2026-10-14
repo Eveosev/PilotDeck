@@ -1,0 +1,575 @@
+{
+  "task": "T-P1-03 PR-B",
+  "gitSha": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "gitDirty": false,
+  "collectHead": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "base": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "branch": "cursor/t-p1-03-pr-b-evidence",
+  "target": "rust_standalone_alpha1",
+  "mode": "reuse",
+  "hostConnectOnly": true,
+  "listen": "127.0.0.1:37211",
+  "collectedAt": "2026-10-14T12:06:25Z",
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
+  "node": "v22.23.3",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "scenario": "pure_text",
+  "command": "cargo build -p pilotdeck-agent-loop --release && ./target/release/pilotdeck-agent-loop --listen 127.0.0.1:37211  # reuse listener, host is connect-only\n# then 30 times:\npython3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-NN",
+  "sidecarCommand": "./target/release/pilotdeck-agent-loop --listen 127.0.0.1:37211",
+  "summary": {
+    "runs": 30,
+    "pass": 30,
+    "mismatch": 0,
+    "formatWarnings": {
+      "min": 16,
+      "max": 58,
+      "last": 58,
+      "values": [
+        58,
+        58,
+        58,
+        16,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        16,
+        58,
+        16,
+        58,
+        58,
+        58,
+        58,
+        58,
+        16,
+        58,
+        58,
+        16,
+        58,
+        16,
+        58,
+        58,
+        58
+      ]
+    },
+    "exits": [
+      0
+    ]
+  },
+  "passCriteria": {
+    "exit": 0,
+    "semanticDiffs": 0,
+    "mismatch": 0,
+    "formatWarningsAllowed": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-01"
+    },
+    {
+      "run": 2,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-02"
+    },
+    {
+      "run": 3,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-03"
+    },
+    {
+      "run": 4,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-04"
+    },
+    {
+      "run": 5,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-05"
+    },
+    {
+      "run": 6,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-06"
+    },
+    {
+      "run": 7,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-07"
+    },
+    {
+      "run": 8,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-08"
+    },
+    {
+      "run": 9,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-09"
+    },
+    {
+      "run": 10,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-10"
+    },
+    {
+      "run": 11,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-11"
+    },
+    {
+      "run": 12,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-12"
+    },
+    {
+      "run": 13,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-13"
+    },
+    {
+      "run": 14,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-14"
+    },
+    {
+      "run": 15,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-15"
+    },
+    {
+      "run": 16,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-16"
+    },
+    {
+      "run": 17,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-17"
+    },
+    {
+      "run": 18,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-18"
+    },
+    {
+      "run": 19,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-19"
+    },
+    {
+      "run": 20,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-20"
+    },
+    {
+      "run": 21,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-21"
+    },
+    {
+      "run": 22,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-22"
+    },
+    {
+      "run": 23,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-23"
+    },
+    {
+      "run": 24,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-24"
+    },
+    {
+      "run": 25,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-25"
+    },
+    {
+      "run": 26,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-26"
+    },
+    {
+      "run": 27,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 16,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 16 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-27"
+    },
+    {
+      "run": 28,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-28"
+    },
+    {
+      "run": 29,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-29"
+    },
+    {
+      "run": 30,
+      "exit": 0,
+      "pass": true,
+      "mismatch": 0,
+      "formatWarningCount": 58,
+      "formatWarnings": [
+        "pure_text/PilotDeck: 58 warning(s)"
+      ],
+      "blocked": [],
+      "failed": [],
+      "oracleFailures": [],
+      "sidecarTransport": "tcp",
+      "tcpSidecarLog": null,
+      "command": "python3 tools/agent-loop-parity/run.py --pilotdeck-root \"$PWD\" --comparison same-version --surface gateway --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 37211 --scenario pure_text --adapter-timeout-seconds 120 --output /tmp/t-p1-03-pr-b-raw/pure_text/run-30"
+    }
+  ],
+  "representativeSummary": {
+    "scenarios": 1,
+    "gateScenarioCount": 53,
+    "sidecarTransport": "tcp",
+    "tcpSidecarLog": null,
+    "provenance": {
+      "current": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+      "baseline": null,
+      "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+      "node": "v22.23.3"
+    },
+    "blocked": [],
+    "failed": [],
+    "oracleFailures": [],
+    "knownGaps": [],
+    "expectedExtensions": [],
+    "notApplicable": [],
+    "formatWarnings": [
+      "pure_text/PilotDeck: 58 warning(s)"
+    ],
+    "output": "/tmp/t-p1-03-pr-b-raw/pure_text/run-01"
+  },
+  "formatWarningNote": "Envelope/serialization differences only (invocationId, sequence, agentScope, budget estimate fields). They do not change exit status."
+}
