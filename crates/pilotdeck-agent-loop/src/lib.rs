@@ -4,6 +4,7 @@
 //! last wins, matching `JSON.parse`). Validation is a hand-written port of
 //! `validateModuleMessage` in `src/agent/modules/protocol.ts`.
 
+mod error_recovery;
 pub mod protocol;
 pub mod sidecar;
 pub mod stdio;

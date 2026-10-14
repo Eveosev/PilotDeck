@@ -357,20 +357,6 @@ def rust_module_budget_precedes_model_call(records: list[dict[str, Any]]) -> boo
     )
 
 
-def rust_handshake_capabilities_transport(records: list[dict[str, Any]]) -> str | None:
-    for record in records:
-        if record.get("kind") != "harness.proof":
-            continue
-        if record.get("state") != "handshake_completed" and record.get("type") != "handshake_completed":
-            continue
-        capabilities = record.get("capabilities")
-        if isinstance(capabilities, dict):
-            transport = capabilities.get("transport")
-            if isinstance(transport, str) and transport.strip():
-                return transport.strip()
-    return None
-
-
 def rust_sidecar_exec_proofs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         record for record in records
@@ -398,15 +384,21 @@ def observe_sidecar_implementation(
 ) -> tuple[str, list[str], str]:
     """Derive sidecarImplementation from timing-independent observations.
 
-    Stdio Rust is claimed only from exec proof (and optionally module_call
-    order / handshake capabilities.transport). Host WS context.budget vs
-    model.request order is N/A on stdio — it must not PASS or BLOCK.
+    Stdio Rust **sole** PASS criterion is wrapper exec proof
+    (`rust_sidecar_exec` pid + resolved ``pilotdeck-agent-loop``).
+    ``module_call`` budget≺model order is side evidence only (appended to
+    ``source``); it must not PASS or BLOCK. Handshake ``capabilities.transport``
+    is not recorded by the host observer and is not a criterion.
 
-    TCP may use the budget-before-request fingerprint (raw sequence).
+    Host WS context.budget vs model.request order is N/A on stdio — it must
+    not PASS or BLOCK, and must not be rewritten to forge a fingerprint.
+
+    TCP may use the budget-before-request fingerprint (raw sequence). A TS
+    TCP sidecar that happens to deliver budget before request can be labeled
+    rust; TCP reuse has no command-string intent by design. See README.
     """
     exec_ok = any(_exec_proof_is_rust_bin(record) for record in rust_sidecar_exec_proofs(records))
     module_ok = rust_module_budget_precedes_model_call(records)
-    handshake_transport = rust_handshake_capabilities_transport(records)
     fingerprint = rust_budget_precedes_model_request(records)
     errors: list[str] = []
     if transport == "stdio":
@@ -417,8 +409,6 @@ def observe_sidecar_implementation(
             source = "exec-proof"
             if module_ok:
                 source += "+module-call"
-            if handshake_transport:
-                source += "+capabilities.transport"
             return "rust", [], source
         return "ts", [], "none"
     if fingerprint:

@@ -71,3 +71,10 @@ R3 F1″: deleted `alignObservedRustBudgetFingerprint`. Clean-dist recollect wit
 `python3 -m unittest test_trace` (cwd `tools/agent-loop-parity`): 87 passed.
 
 No `ui/`, no `apps/desktop`, no T-P1-04, no real model calls.
+
+## T-P1-03-FU-B disclosure (harness docs only; tip not re-collected)
+
+- stdio Rust **sole** Formal PASS criterion is wrapper exec proof. `module_call` order is side evidence (`exec-proof+module-call` above). Handshake `capabilities.transport` was a dead reader (host observer never records it) and was removed.
+- QA Formal: collect harness proof with the correct unittest class and `-v`:
+  `python3 -m unittest -v test_trace.ObserveSidecarImplementationTests`
+- TCP rust-label still uses the fingerprint without command-string intent (reuse has no start command). Documented risk: a TS TCP sidecar with budget≺request delivery can be labeled rust. Existing TCP collectHead `98c88232` is unchanged.

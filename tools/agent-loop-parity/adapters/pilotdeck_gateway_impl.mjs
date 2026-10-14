@@ -127,6 +127,9 @@ const push = (kind, extra = {}) => {
     linkRequestBudgetEvidence();
   }
 };
+// Append-only exec proof. Do not reorder existing records, rewrite
+// sequence, or invent a budget≺request fingerprint. Stdio Rust PASS is
+// this proof alone; TS host delivery order stays as observed.
 const flushRustSidecarExecProofs = async () => {
   const proofPath = String(process.env.PARITY_RUST_SIDECAR_PROOF ?? "").trim();
   if (!proofPath) return;
@@ -730,6 +733,9 @@ const local = createLocalGateway({
   ...(useSidecarTransport ? {
     agentLoopTransportObserver: {
       observe(observation) {
+        // Spread the host observation as-is. handshake_completed is
+        // {moduleId, capabilitiesVersion} only — do not invent
+        // capabilities.transport (dead path removed in FU-B B2).
         push("harness.proof", { state: observation.type, ...observation });
         if (observation.type === "handshake_completed") perf.mark("handshake_completed");
         if (observation.type === "stream_accepted") perf.mark("stream_accepted");

@@ -72,14 +72,18 @@ python tools/agent-loop-parity/run.py \
   --output /tmp/pilotdeck-agent-loop-parity-stdio-rust
 ```
 
-`sidecarImplementation` is **observed**, not inferred from the command string. The adapter **does not rewrite** traces (no budget/request reorder, no invented `requestEvidence`).
+`sidecarImplementation` is **observed**, not inferred from the command string. The adapter **does not rewrite** traces (no budget/request reorder, no invented `requestEvidence`, no forged fingerprint).
 
 **stdio** (host WS delivery of `context.budget` is TS-shaped; fingerprint is **N/A**):
 
-- Rust is claimed only from timing-independent observations: wrapper `rust_sidecar_exec` (`pid` + resolved `pilotdeck-agent-loop`), and/or raw `sequence` of `module_call` `budget.evaluate_request_budget` before `model.prepare`/`model.stream`, and/or handshake `capabilities.transport` when the observer sees it.
-- Missing exec proof when Rust was requested (`--pilotdeck-stdio-sidecar-cmd`) is **BLOCKED**. Host `context.budget` vs `model.request` order never PASSes or BLOCKs stdio Rust.
+- **Sole PASS criterion for Rust = exec proof.** Wrapper `rust_sidecar_exec` (`pid` + resolved `pilotdeck-agent-loop`) is the only observation that can label stdio `sidecarImplementation=rust` or BLOCK when Rust was requested (`--pilotdeck-stdio-sidecar-cmd`).
+- `module_call` raw `sequence` (`budget.evaluate_request_budget` before `model.prepare` / `model.stream`) is **side evidence only**. It may appear in `sidecarImplementationSource` as `exec-proof+module-call`; it must not PASS or BLOCK by itself.
+- Handshake `capabilities.transport` is **not recorded** (host observer emits `handshake_completed` with `moduleId` + `capabilitiesVersion` only). The dead reader was removed; do not treat handshake capabilities as a Rust criterion.
+- Missing exec proof when Rust was requested is **BLOCKED**. Host `context.budget` vs `model.request` order never PASSes or BLOCKs stdio Rust and must not be rewritten.
 
 **tcp**: the budget≺request fingerprint (raw `sequence`) still applies. TCP reuse (no start command) is not intended-rust by itself.
+
+**TCP rust-label risk (R3 M4, documented, not changed):** TCP `observe_sidecar_implementation` still labels rust from the fingerprint without command-string intent. A TS TCP sidecar whose host WS happens to deliver `context.budget` before `model.request` can be labeled rust. Adding intent would also drop legitimate TCP-reuse Rust (S4 listen-then-connect, no start command). Leave the fingerprint rule; do not re-collect the TCP evidence tip (`98c88232`).
 
 `traceDigest.rust` is written only when the observed implementation is rust.
 
@@ -186,3 +190,14 @@ mock model/tool 只作为正式 host dispatcher 的确定性依赖，不代表�
 production proof 时必须同时运行 harness negative-control：fake runner 或缺少 handshake 证据必须得到 `BLOCKED`。stdio 与 tcp 各保留一条 spawn-mode native 负控制；reuse 模式另用 `g3-reuse-fake-sidecar`（假 sidecar 占 listen 端口），不要再复制一条 TCP-native crash twin。
 
 比较摘要写入 `summary.json` 的 `comparatorVersion`、`formatWarningNote` / `formatWarningTaxonomy`（按 envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt 分类）以及每条 same-version 对拍的 `traceDigest.ts` / `traceDigest.rust`，便于在省略 raw traces 时离线复核。
+
+## QA Formal evidence
+
+When collecting Formal evidence for this harness, run the **correct unittest class with `-v`** so the log names each case (do not paste a silent `unittest` run as proof):
+
+```bash
+cd tools/agent-loop-parity
+python3 -m unittest -v test_trace.ObserveSidecarImplementationTests
+```
+
+stdio Rust Formal PASS is **only** exec proof. `module_call` order and handshake are side evidence / not recorded. TCP Formal still uses the fingerprint; cite the existing tip, do not re-collect unless the crate or observer changes.
