@@ -1615,6 +1615,62 @@ mod tests {
         );
     }
 
+    /// F-9(b): same runId on a finished operation is accepted (TS
+    /// `moduleRuntime.ts:31-34` / `agentLoopSidecarServer.ts:208-221`) but
+    /// `recordFinal` keeps the first outcome (`moduleRuntime.ts:51`).
+    #[test]
+    fn execute_finished_same_run_keeps_first_status_outcome() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
+        );
+        sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"st-first","method":"status","requestId":"req-a"}"#,
+        );
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
+        );
+        sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"st-a","method":"status","requestId":"req-a"}"#,
+        );
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"st-b","method":"status","requestId":"req-b"}"#,
+        );
+        let lines = sink.lock().expect("sink").clone();
+        let first_status = lines.iter().find(|m| m["inReplyTo"] == "st-first").unwrap();
+        assert_eq!(first_status["ok"], true);
+        assert_eq!(first_status["payload"]["outcome"], "completed");
+        assert_eq!(first_status["payload"]["state"], "completed");
+        let accepted = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
+        assert_eq!(accepted["ok"], true);
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|m| m["eventType"] == "agent.execute.completed")
+                .count(),
+            2
+        );
+        let status_a = lines.iter().find(|m| m["inReplyTo"] == "st-a").unwrap();
+        let status_b = lines.iter().find(|m| m["inReplyTo"] == "st-b").unwrap();
+        assert_eq!(status_a["ok"], true);
+        assert_eq!(status_a["payload"]["outcome"], "completed");
+        assert_eq!(status_a["payload"]["state"], "completed");
+        assert_eq!(status_b["ok"], true);
+        assert_eq!(status_b["payload"]["outcome"], "completed");
+        assert_eq!(status_b["payload"]["state"], "completed");
+        assert_eq!(status_b["payload"]["runId"], "run-a");
+        assert!(
+            status_b["payload"]["requestIds"]
+                .as_array()
+                .is_some_and(
+                    |ids| ids.iter().any(|id| id == "req-a") && ids.iter().any(|id| id == "req-b")
+                ),
+            "both requestIds stay on the first snapshot, have {status_b}"
+        );
+    }
+
     #[test]
     fn status_and_stale_cancel_and_unsupported_resume_ack() {
         let (sidecar, sink) = collect();
