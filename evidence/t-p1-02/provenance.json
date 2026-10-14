@@ -1,9 +1,9 @@
 {
   "task": "T-P1-02",
   "slice": "R2-m1 + n1-n6 + extended G8",
-  "gitSha": "8046ea2f405820697e51db3977fb66677f71f3d2",
+  "gitSha": "cf80abc7e165142e9354b486918a44c8ce6fc009",
   "collectHead": "8046ea2f405820697e51db3977fb66677f71f3d2",
-  "evidenceContentTip": "8046ea2f405820697e51db3977fb66677f71f3d2",
+  "evidenceContentTip": "cf80abc7e165142e9354b486918a44c8ce6fc009",
   "gitDirty": false,
   "base": "1d15a13033aeb57f2740b3677e13281cc5f9036d",
   "branch": "cursor/t-p1-02-r2m1-ea2a",
