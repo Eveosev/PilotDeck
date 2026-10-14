@@ -548,10 +548,17 @@ fn run_stub_execute(job: StubJob) {
 
     let mut conversation = conversation_from_payload(&job.payload);
     let mut timeline = TurnTimeline::new(&job.turn_id);
-    if !emit_context_budget_if_advertised(&job, &conversation, &mut sequence) {
+    let first_request = match build_model_request(&job, &conversation) {
+        Ok(request) => request,
+        Err(other) => {
+            finish_host_call(&job, sequence, other);
+            return;
+        }
+    };
+    if !emit_context_budget_if_advertised(&job, &first_request, &mut sequence) {
         return;
     }
-    let first = match call_host_model(&job, &conversation) {
+    let first = match call_host_model(&job, &first_request) {
         Ok(assembled) => assembled,
         Err(other) => {
             finish_host_call(&job, sequence, other);
@@ -586,10 +593,17 @@ fn run_stub_execute(job: StubJob) {
     if !emit_turn_continued(&job, &mut sequence) {
         return;
     }
-    if !emit_context_budget_if_advertised(&job, &conversation, &mut sequence) {
+    let second_request = match build_model_request(&job, &conversation) {
+        Ok(request) => request,
+        Err(other) => {
+            finish_host_call(&job, sequence, other);
+            return;
+        }
+    };
+    if !emit_context_budget_if_advertised(&job, &second_request, &mut sequence) {
         return;
     }
-    let second = match call_host_model(&job, &conversation) {
+    let second = match call_host_model(&job, &second_request) {
         Ok(assembled) => assembled,
         Err(other) => {
             finish_host_call(&job, sequence, other);
@@ -882,11 +896,32 @@ fn host_advertises_budget(payload: &Value) -> bool {
     }
 }
 
-fn emit_context_budget_if_advertised(job: &StubJob, conversation: &Value, sequence: &mut u64) -> bool {
+fn host_advertises_context(payload: &Value) -> bool {
+    match payload.pointer("/hostModules/context") {
+        Some(Value::Bool(true)) => true,
+        Some(Value::Object(object)) => {
+            object
+                .get("methods")
+                .and_then(Value::as_array)
+                .is_some_and(|methods| {
+                    methods
+                        .iter()
+                        .any(|method| method.as_str() == Some("prepare_for_model"))
+                })
+                || object.contains_key("prepare_for_model")
+                || !object.is_empty()
+        }
+        Some(Value::Array(methods)) => methods
+            .iter()
+            .any(|method| method.as_str() == Some("prepare_for_model")),
+        _ => false,
+    }
+}
+
+fn emit_context_budget_if_advertised(job: &StubJob, request: &Value, sequence: &mut u64) -> bool {
     if !host_advertises_budget(&job.payload) {
         return true;
     }
-    let request = model_request(&job.payload, conversation);
     let max_context_tokens = job
         .payload
         .pointer("/agent/maxContextTokens")
@@ -1329,7 +1364,126 @@ fn model_tool_definition(tool: &Value) -> Option<Value> {
     }))
 }
 
-fn model_request(payload: &Value, messages: &Value) -> Value {
+fn payload_flag(payload: &Value, path: &str) -> bool {
+    payload.pointer(path).and_then(Value::as_bool) == Some(true)
+}
+
+fn can_prompt(payload: &Value) -> bool {
+    payload_flag(payload, "/canPrompt") || payload_flag(payload, "/permissionContext/canPrompt")
+}
+
+fn can_elicit(payload: &Value) -> bool {
+    payload_flag(payload, "/canElicit")
+}
+
+fn allow_plan_mode_tools(payload: &Value) -> bool {
+    payload_flag(payload, "/allowPlanModeTools")
+}
+
+fn permission_mode(payload: &Value) -> String {
+    first_nonempty_id(&[
+        payload.pointer("/permissionContext/mode"),
+        payload.pointer("/agent/permissionMode"),
+    ])
+    .unwrap_or_else(|| "default".to_string())
+}
+
+fn tool_requires_prompt(tool: &Value) -> bool {
+    matches!(
+        tool.get("name").and_then(Value::as_str),
+        Some("enter_plan_mode") | Some("ask_user_question")
+    ) || payload_flag(tool, "/requiresUserInteraction")
+}
+
+/// Native `AgentLoop.createContextPrepareInput` drops plan-mode tools unless
+/// `allowPlanModeTools`, and drops prompt-gated tools (including
+/// `ask_user_question`) when the host cannot prompt/elicit.
+fn filter_model_tools(payload: &Value) -> Vec<Value> {
+    let Some(tools) = payload.get("tools").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let allow_plan = allow_plan_mode_tools(payload);
+    let prompt_ok = can_prompt(payload);
+    let elicit_ok = can_elicit(payload);
+    tools
+        .iter()
+        .filter_map(|tool| {
+            let name = tool.get("name").and_then(Value::as_str)?;
+            if !allow_plan && matches!(name, "enter_plan_mode" | "exit_plan_mode") {
+                return None;
+            }
+            if !prompt_ok {
+                let keep_ask = elicit_ok && name == "ask_user_question";
+                if tool_requires_prompt(tool) && !keep_ask {
+                    return None;
+                }
+            }
+            model_tool_definition(tool)
+        })
+        .collect()
+}
+
+const PLAN_MODE_REMINDER: &str = concat!(
+    "Plan mode is active.\n",
+    "Read first using read-only tools, then write or refine plan markdown only under `.pilotdeck/plans/`.\n",
+    "Do not make implementation changes while planning.\n",
+    "When the plan is ready for user review, call `exit_plan_mode` with the plan file path.",
+);
+
+fn append_plan_mode_reminder(messages: &mut Value) {
+    if let Some(array) = messages.as_array_mut() {
+        array.push(json!({
+            "role": "user",
+            "content": [{ "type": "text", "text": PLAN_MODE_REMINDER }],
+            "metadata": { "synthetic": true, "purpose": "plan_mode_reminder" },
+        }));
+    }
+}
+
+fn context_prepare_input(job: &StubJob, conversation: &Value, tools: &[Value]) -> Value {
+    let payload = &job.payload;
+    let mut input = json!({
+        "sessionId": job.session_id,
+        "turnId": job.turn_id,
+        "cwd": payload.pointer("/agent/cwd").and_then(Value::as_str).unwrap_or(""),
+        "provider": first_nonempty_id(&[
+            payload.pointer("/agent/provider"),
+            payload.pointer("/hostModules/model/provider"),
+        ]).unwrap_or_else(|| STUB_PROVIDER.to_string()),
+        "model": model_from_payload(payload),
+        "permissionMode": permission_mode(payload),
+        "runMode": payload
+            .pointer("/agent/runMode")
+            .and_then(Value::as_str)
+            .unwrap_or("agent"),
+        "additionalWorkingDirectories": payload
+            .pointer("/permissionContext/additionalWorkingDirectories")
+            .cloned()
+            .unwrap_or(json!([])),
+        "messages": conversation,
+        "tools": tools,
+    });
+    if let Some(system_prompt) = payload.pointer("/agent/systemPrompt").cloned() {
+        input["customSystemPrompt"] = system_prompt;
+    }
+    if let Some(append) = payload.pointer("/agent/appendSystemPrompt").cloned() {
+        input["appendSystemPrompt"] = append;
+    }
+    if let Some(surface) = payload.pointer("/agent/runtimeContextSurface").cloned() {
+        input["runtimeContextSurface"] = surface;
+    }
+    if let Some(max_messages) = payload.pointer("/agent/maxContextMessages").cloned() {
+        input["maxMessages"] = max_messages;
+    }
+    input
+}
+
+fn assemble_model_request(
+    payload: &Value,
+    messages: &Value,
+    system_prompt: Option<Value>,
+    tools: Vec<Value>,
+) -> Value {
     let mut request = json!({
         "provider": first_nonempty_id(&[
             payload.pointer("/agent/provider"),
@@ -1342,7 +1496,7 @@ fn model_request(payload: &Value, messages: &Value) -> Value {
     if let Some(max_output) = payload.pointer("/agent/maxOutputTokens").cloned() {
         request["maxOutputTokens"] = max_output;
     }
-    if let Some(system_prompt) = payload.pointer("/agent/systemPrompt").cloned() {
+    if let Some(system_prompt) = system_prompt {
         request["systemPrompt"] = system_prompt;
     }
     if let Some(tool_choice) = payload.pointer("/agent/toolChoice").cloned() {
@@ -1354,10 +1508,66 @@ fn model_request(payload: &Value, messages: &Value) -> Value {
     if let Some(metadata) = payload.pointer("/agent/metadata").cloned() {
         request["metadata"] = metadata;
     }
-    if let Some(tools) = payload.get("tools").and_then(Value::as_array) {
-        request["tools"] = json!(tools.iter().filter_map(model_tool_definition).collect::<Vec<_>>());
+    if payload.get("tools").is_some() {
+        request["tools"] = json!(tools);
     }
     request
+}
+
+/// Native path: filter tools → host `context.prepare_for_model` (when
+/// advertised) → finalize request. Unit hosts without context keep the
+/// payload-only systemPrompt / filtered schemas.
+fn build_model_request(job: &StubJob, conversation: &Value) -> Result<Value, HostCall> {
+    let tools = filter_model_tools(&job.payload);
+    let mut messages = conversation.clone();
+    let mut system_prompt = job.payload.pointer("/agent/systemPrompt").cloned();
+    let mut request_tools = tools.clone();
+    if host_advertises_context(&job.payload) {
+        let prepared = match call_host_module(
+            job,
+            "context",
+            json!({
+                "operation": "prepare_for_model",
+                "input": context_prepare_input(job, conversation, &tools),
+            }),
+        ) {
+            HostCall::Ok(response) => response,
+            other => return Err(other),
+        };
+        if stub_interrupted(job) {
+            return Err(HostCall::Interrupted);
+        }
+        let result = prepared
+            .pointer("/payload/result")
+            .cloned()
+            .or_else(|| prepared.get("payload").cloned())
+            .unwrap_or(json!({}));
+        if let Some(prepared_messages) = result.get("messages").cloned() {
+            if !prepared_messages.is_null() {
+                messages = prepared_messages;
+            }
+        }
+        if let Some(prepared_prompt) = result.get("systemPrompt").cloned() {
+            if !prepared_prompt.is_null() {
+                system_prompt = Some(prepared_prompt);
+            }
+        }
+        if let Some(prepared_tools) = result.get("tools").and_then(Value::as_array) {
+            request_tools = prepared_tools
+                .iter()
+                .filter_map(model_tool_definition)
+                .collect();
+        }
+    }
+    if permission_mode(&job.payload) == "plan" {
+        append_plan_mode_reminder(&mut messages);
+    }
+    Ok(assemble_model_request(
+        &job.payload,
+        &messages,
+        system_prompt,
+        request_tools,
+    ))
 }
 
 fn model_execution_context(job: &StubJob) -> Value {
@@ -1372,9 +1582,8 @@ fn model_execution_context(job: &StubJob) -> Value {
 /// Real host (`sidecarDefaultModuleDispatcher.ts:67-150`,
 /// `hostModelInvokerPort.ts`) has no `complete`. Sidecar mints
 /// `preparationId`, then `prepare` → `stream` → `close_stream`.
-fn call_host_model(job: &StubJob, conversation: &Value) -> Result<AssembledModel, HostCall> {
+fn call_host_model(job: &StubJob, request: &Value) -> Result<AssembledModel, HostCall> {
     let preparation_id = next_id(&job.inner, "prepared");
-    let request = model_request(&job.payload, conversation);
     let context = model_execution_context(job);
     match call_host_module(
         job,
@@ -2677,6 +2886,178 @@ mod tests {
         assert_eq!(request["tools"][0]["inputSchema"], json!({ "type": "object" }));
         assert!(request["tools"][0].get("permission").is_none());
         assert!(request["tools"][0].get("extraManifestField").is_none());
+    }
+
+    fn payload_with_gated_tools(user_text: &str) -> String {
+        json!({
+            "agent": {
+                "id": "pilotdeck-stub",
+                "provider": "pilotdeck-stub",
+                "model": "pilotdeck-stub",
+                "maxOutputTokens": 1024,
+                "systemPrompt": "You are a test agent."
+            },
+            "messages": [{
+                "role": "user",
+                "content": [{ "type": "text", "text": user_text }]
+            }],
+            "tools": [
+                { "name": "lookup", "description": "Look up", "inputSchema": { "type": "object" } },
+                { "name": "ask_user_question", "description": "Ask", "inputSchema": { "type": "object" }, "requiresUserInteraction": true },
+                { "name": "enter_plan_mode", "description": "Enter plan", "inputSchema": { "type": "object" } },
+                { "name": "exit_plan_mode", "description": "Exit plan", "inputSchema": { "type": "object" } }
+            ],
+            "permissionContext": { "mode": "default", "canPrompt": false },
+            "hostModules": {
+                "model": true,
+                "capability": true,
+                "budget": { "methods": ["evaluate_request_budget"] }
+            }
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn model_request_filters_plan_and_prompt_gated_tools() {
+        let (sidecar, sink) = collect_with_host(with_budget_host(text_host));
+        sidecar.handle_line(&execute_line(
+            "ex-filter",
+            "run-filter",
+            "op-filter",
+            "req-filter",
+            &payload_with_gated_tools("What is the status?"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let prepare = lines
+            .iter()
+            .find(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "model"
+                    && m["payload"]["operation"] == "prepare"
+            })
+            .expect("prepare");
+        let tools = prepare["payload"]["request"]["tools"]
+            .as_array()
+            .expect("tools");
+        let names: Vec<&str> = tools
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(names, vec!["lookup"]);
+    }
+
+    fn with_prepared_context_host(
+        inner: impl Fn(&Value) -> Option<Value> + Send + Sync + 'static,
+    ) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
+        move |call: &Value| {
+            if call.get("module").and_then(Value::as_str) == Some("context") {
+                let input = call.pointer("/payload/input").cloned().unwrap_or(json!({}));
+                return Some(host_ok(
+                    call,
+                    json!({
+                        "result": {
+                            "messages": input.get("messages").cloned().unwrap_or(json!([])),
+                            "systemPrompt": "PREPARED_SYSTEM_PROMPT",
+                            "systemPromptParts": ["PREPARED_SYSTEM_PROMPT"],
+                            "tools": input.get("tools").cloned().unwrap_or(json!([])),
+                            "diagnostics": [],
+                            "boundaries": []
+                        }
+                    }),
+                ));
+            }
+            inner(call)
+        }
+    }
+
+    fn payload_with_context(user_text: &str) -> String {
+        json!({
+            "agent": {
+                "id": "pilotdeck-stub",
+                "provider": "pilotdeck-stub",
+                "model": "pilotdeck-stub",
+                "cwd": "/tmp/test-home",
+                "maxOutputTokens": 1024,
+                "systemPrompt": "You are a test agent."
+            },
+            "messages": [{
+                "role": "user",
+                "content": [{ "type": "text", "text": user_text }]
+            }],
+            "tools": [
+                { "name": "lookup", "description": "Look up", "inputSchema": { "type": "object" } },
+                { "name": "ask_user_question", "description": "Ask", "inputSchema": { "type": "object" }, "requiresUserInteraction": true },
+                { "name": "enter_plan_mode", "description": "Enter plan", "inputSchema": { "type": "object" } },
+                { "name": "exit_plan_mode", "description": "Exit plan", "inputSchema": { "type": "object" } }
+            ],
+            "permissionContext": { "mode": "default", "canPrompt": false },
+            "hostModules": {
+                "model": true,
+                "capability": true,
+                "budget": { "methods": ["evaluate_request_budget"] },
+                "context": { "methods": ["prepare_for_model"] }
+            }
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn prepare_for_model_supplies_system_prompt_and_filtered_tools() {
+        let (sidecar, sink) = collect_with_host(with_budget_host(with_prepared_context_host(text_host)));
+        sidecar.handle_line(&execute_line(
+            "ex-prep",
+            "run-prep",
+            "op-prep",
+            "req-prep",
+            &payload_with_context("What is the status?"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let prepare_ctx = lines
+            .iter()
+            .find(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "context"
+                    && m["payload"]["operation"] == "prepare_for_model"
+            })
+            .expect("prepare_for_model");
+        let sent_tools = prepare_ctx["payload"]["input"]["tools"]
+            .as_array()
+            .expect("input tools");
+        let sent_names: Vec<&str> = sent_tools
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(sent_names, vec!["lookup"]);
+        assert_eq!(
+            prepare_ctx["payload"]["input"]["customSystemPrompt"],
+            "You are a test agent."
+        );
+        let budget = lines
+            .iter()
+            .find(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "budget"
+                    && m["payload"]["operation"] == "evaluate_request_budget"
+            })
+            .expect("budget");
+        assert_eq!(
+            budget["payload"]["request"]["systemPrompt"],
+            "PREPARED_SYSTEM_PROMPT"
+        );
+        let prepare = lines
+            .iter()
+            .find(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "model"
+                    && m["payload"]["operation"] == "prepare"
+            })
+            .expect("prepare");
+        let request = &prepare["payload"]["request"];
+        assert_eq!(request["systemPrompt"], "PREPARED_SYSTEM_PROMPT");
+        assert_eq!(request["tools"][0]["name"], "lookup");
+        assert_eq!(request["tools"].as_array().map(|t| t.len()), Some(1));
     }
 
     fn text_then_tool_host(call: &Value) -> Option<Value> {

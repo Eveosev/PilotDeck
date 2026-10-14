@@ -394,6 +394,25 @@ pub fn mock_backend_reply(message: &Value) -> Option<Value> {
                 "ratio": 0.0
             }
         }),
+        Some("context") => {
+            let input = message
+                .pointer("/payload/input")
+                .cloned()
+                .unwrap_or(json!({}));
+            json!({
+                "result": {
+                    "messages": input.get("messages").cloned().unwrap_or(json!([])),
+                    "systemPrompt": input
+                        .get("customSystemPrompt")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                    "systemPromptParts": [],
+                    "tools": input.get("tools").cloned().unwrap_or(json!([])),
+                    "diagnostics": [],
+                    "boundaries": []
+                }
+            })
+        }
         Some("capability") => {
             let name = message
                 .pointer("/payload/name")
