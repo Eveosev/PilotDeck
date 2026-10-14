@@ -1,0 +1,4 @@
+name=sigint
+when=before
+count=0
+pgrep -f 'pilotdeck-agent-loop --listen'

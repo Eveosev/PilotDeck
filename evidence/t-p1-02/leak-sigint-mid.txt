@@ -1,0 +1,5 @@
+run_pid=5345
+rust_seen=1
+mid_count=1
+mid_pgrep:
+5365 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0

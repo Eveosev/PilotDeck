@@ -1,0 +1,7 @@
+name=sidecar-command
+when=after
+count=0
+before=0
+exit=1
+returned_to_baseline=true
+pgrep -f 'pilotdeck-agent-loop --listen'

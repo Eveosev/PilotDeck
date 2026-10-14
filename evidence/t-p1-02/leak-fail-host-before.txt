@@ -1,0 +1,4 @@
+name=fail-host
+when=before
+count=0
+pgrep -f 'pilotdeck-agent-loop --listen'
