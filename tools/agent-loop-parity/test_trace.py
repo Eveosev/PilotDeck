@@ -6,11 +6,23 @@ import unittest
 from pathlib import Path
 
 from trace import (
+    COMPARATOR_VERSION,
+    FORMAT_WARNING_CATEGORIES,
+    Difference,
     canonicalize,
+    classify_format_warning,
     compare_baseline_trace_details,
     compare_continuable_trace_details,
     compare_trace_details,
     compare_traces,
+    format_warning_note,
+    format_warning_taxonomy,
+    model_view_format_is_envelope_only,
+    load_raw_trace,
+    observe_sidecar_implementation,
+    rust_budget_precedes_model_request,
+    rust_module_budget_precedes_model_call,
+    trace_digest,
     validate_production_sidecar_proof,
     validate_trace_expectations,
 )
@@ -19,6 +31,8 @@ from run import (
     REQUIRED_GATEWAY_SCENARIOS,
     ROOT,
     adapter_env,
+    rust_sidecar_configured,
+    rust_sidecar_intended,
     append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
     baseline_not_applicable_reason,
@@ -856,6 +870,57 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         self.assertEqual(env["PARITY_TCP_PORT"], "9345")
         self.assertNotEqual(env.get("PILOTDECK_AGENT_LOOP_TRANSPORT"), "tcp")
 
+    def test_adapter_env_forwards_stdio_rust_sidecar_command(self) -> None:
+        scenario = {"scenarioId": "pure_text", "q": "status"}
+        wrapper = "tools/agent-loop-parity/rust-stdio-sidecar.sh"
+        env = adapter_env(
+            scenario, "sidecar", Path("/tmp/src"), "http://127.0.0.1:9",
+            Path("/tmp/out.jsonl"), "working-tree", "inv-1",
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+        )
+        self.assertEqual(env["PARITY_STDIO_SIDECAR_COMMAND"], wrapper)
+        self.assertTrue(env["PARITY_RUST_SIDECAR_PROOF"].endswith("out.jsonl.rust-exec.jsonl"))
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+            tcp_target=None,
+        ))
+        self.assertTrue(rust_sidecar_configured(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+            tcp_target=None,
+        ))
+        self.assertFalse(rust_sidecar_configured(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=None,
+            tcp_target=None,
+        ))
+
+    def test_tcp_reuse_is_not_intended_rust(self) -> None:
+        reuse = resolve_tcp_sidecar_target(
+            host="127.0.0.1",
+            port=9345,
+            command=None,
+            source=Path("/tmp/unused"),
+        )
+        self.assertFalse(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=reuse,
+        ))
+        started = resolve_tcp_sidecar_target(
+            host=None,
+            port=None,
+            command="./target/release/pilotdeck-agent-loop --listen 127.0.0.1:9345",
+            source=Path("/tmp/unused"),
+        )
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=started,
+        ))
+
     def test_wait_for_tcp_accepts_an_open_loopback_port(self) -> None:
         import socket
         with socket.create_server(("127.0.0.1", 0)) as server:
@@ -1580,6 +1645,207 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             ),
             [],
         )
+
+
+class FormatWarningTaxonomyTests(unittest.TestCase):
+    def test_classify_covers_reviewer_vocabulary_not_request_id(self) -> None:
+        self.assertEqual(classify_format_warning("trace[0].invocationId"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].sequence"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].agentScope"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].requestId"), "envelope")
+        self.assertEqual(classify_format_warning("trace[1].modelView.tools[0].name"), "modelView")
+        self.assertEqual(classify_format_warning("trace[2].breakdown.total"), "budget")
+        self.assertEqual(classify_format_warning("trace[2].displayUsed"), "budget")
+        self.assertEqual(classify_format_warning("trace[3].request.messages"), "request")
+        self.assertEqual(classify_format_warning("trace[3].requestEvidence.estimate"), "requestEvidence")
+        self.assertEqual(classify_format_warning("trace[4].response.content"), "response")
+        self.assertEqual(classify_format_warning("trace[5].state"), "state")
+        self.assertEqual(classify_format_warning("trace[6].kind"), "kind")
+        self.assertEqual(classify_format_warning("trace[7].source"), "source")
+        self.assertEqual(classify_format_warning("trace[8].attempt"), "attempt")
+
+    def test_note_lists_full_vocabulary_and_run_counts(self) -> None:
+        taxonomy = format_warning_taxonomy([
+            Difference("trace[0].sequence", 1, 2),
+            Difference("trace[1].modelView", {"a": 1}, {"a": 1}),
+            Difference("trace[2].attempt", 0, 1),
+        ])
+        note = format_warning_note(taxonomy)
+        for name in FORMAT_WARNING_CATEGORIES:
+            self.assertIn(name, note)
+        self.assertIn("envelope=1", note)
+        self.assertIn("modelView=1", note)
+        self.assertIn("attempt=1", note)
+        self.assertIn("request/requestEvidence/response/state/kind/source/attempt", note)
+
+    def test_model_view_format_is_envelope_when_semantic_content_matches(self) -> None:
+        warnings = [Difference("trace[0].modelView.provider", "p", "p")]
+        semantic = [Difference("trace[0].sequence", 1, 2)]
+        self.assertTrue(model_view_format_is_envelope_only(warnings, semantic))
+        semantic_content = [Difference("trace[0].modelView.messages", ["a"], ["b"])]
+        self.assertFalse(model_view_format_is_envelope_only(warnings, semantic_content))
+
+    def test_trace_digest_and_comparator_version_are_stable(self) -> None:
+        records = [{"kind": "terminal", "outcome": "completed", "messageId": "volatile-1"}]
+        same = [{"kind": "terminal", "outcome": "completed", "messageId": "volatile-2"}]
+        self.assertTrue(COMPARATOR_VERSION)
+        self.assertEqual(trace_digest(records), trace_digest(same))
+        self.assertNotEqual(
+            trace_digest(records),
+            trace_digest([{"kind": "terminal", "outcome": "failed"}]),
+        )
+        self.assertTrue(trace_digest(records).startswith("sha256:"))
+
+
+class ObserveSidecarImplementationTests(unittest.TestCase):
+    def test_rust_fingerprint_uses_raw_sequence_not_list_order(self) -> None:
+        rust_order = [
+            {"kind": "context.budget", "sequence": 7},
+            {"kind": "model.request", "sequence": 9},
+        ]
+        ts_order = [
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        forged_list = [
+            {"kind": "context.budget", "sequence": 10},
+            {"kind": "model.request", "sequence": 8},
+        ]
+        self.assertTrue(rust_budget_precedes_model_request(rust_order))
+        self.assertFalse(rust_budget_precedes_model_request(ts_order))
+        self.assertFalse(rust_budget_precedes_model_request(forged_list))
+
+    def test_stdio_rust_uses_exec_proof_not_host_budget_order(self) -> None:
+        records = [
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 4242,
+                "bin": "./target/release/pilotdeck-agent-loop",
+                "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+                "sequence": 17,
+            },
+        ]
+        impl, errors, source = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "rust")
+        self.assertEqual(errors, [])
+        self.assertTrue(source.startswith("exec-proof"))
+        self.assertFalse(rust_budget_precedes_model_request(records))
+
+    def test_stdio_exec_proof_with_ts_delivery_order_does_not_forge_fingerprint(self) -> None:
+        records = [
+            {"kind": "model.request", "sequence": 8, "scenarioId": "t", "q": "q"},
+            {"kind": "model.response", "sequence": 9, "scenarioId": "t", "q": "q"},
+            {"kind": "context.budget", "sequence": 10, "scenarioId": "t", "q": "q"},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 4242,
+                "bin": "./target/release/pilotdeck-agent-loop",
+                "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+                "sequence": 17,
+                "scenarioId": "t",
+                "q": "q",
+            },
+        ]
+        before = [record.get("kind") for record in records]
+        impl, errors, source = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        after = [record.get("kind") for record in records]
+        self.assertEqual(before, after)
+        self.assertEqual(
+            [record.get("sequence") for record in records],
+            [8, 9, 10, 17],
+        )
+        self.assertEqual(impl, "rust")
+        self.assertEqual(errors, [])
+        self.assertNotEqual(source, "fingerprint")
+        self.assertFalse(rust_budget_precedes_model_request(records))
+        adapter = (ROOT / "adapters" / "pilotdeck_gateway_impl.mjs").read_text(encoding="utf-8")
+        self.assertNotIn("alignObservedRustBudgetFingerprint", adapter)
+        self.assertNotIn("alignObservedRust", adapter)
+
+    def test_intended_rust_stdio_without_exec_proof_is_blocked(self) -> None:
+        records = [
+            {"kind": "context.budget", "sequence": 7},
+            {"kind": "model.request", "sequence": 9},
+        ]
+        impl, errors, source = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertEqual(source, "none")
+        self.assertTrue(any("exec proof" in item for item in errors))
+
+    def test_module_call_sequence_is_timing_independent(self) -> None:
+        records = [
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "budget",
+                "operation": "evaluate_request_budget",
+                "sequence": 4,
+            },
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "model",
+                "operation": "stream",
+                "sequence": 6,
+            },
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        self.assertTrue(rust_module_budget_precedes_model_call(records))
+        self.assertFalse(rust_budget_precedes_model_request(records))
+
+    def test_raw_trace_keeps_exec_pid_for_observation(self) -> None:
+        import tempfile
+        records = [
+            {"kind": "model.request", "scenarioId": "t", "q": "q", "sequence": 8},
+            {"kind": "context.budget", "scenarioId": "t", "q": "q", "sequence": 10},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 9,
+                "bin": "/x/pilotdeck-agent-loop",
+                "resolved": "/x/pilotdeck-agent-loop",
+                "scenarioId": "t",
+                "q": "q",
+                "sequence": 17,
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "t.jsonl"
+            path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+            raw = load_raw_trace(path)
+            self.assertEqual(raw[-1]["pid"], 9)
+            impl, errors, source = observe_sidecar_implementation(
+                raw, transport="stdio", rust_intended=True,
+            )
+            self.assertEqual(impl, "rust")
+            self.assertEqual(errors, [])
+            self.assertTrue(source.startswith("exec-proof"))
+
+    def test_tcp_reuse_without_fingerprint_stays_ts(self) -> None:
+        records = [
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        impl, errors, source = observe_sidecar_implementation(
+            records, transport="tcp", rust_intended=False,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertEqual(source, "none")
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

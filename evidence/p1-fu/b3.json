@@ -1,0 +1,157 @@
+{
+  "task": "T-P1-03-FU-A B3",
+  "gitSha": "f48bfd1db10a17fecd828b1768cd45e318c231a3",
+  "gitDirty": false,
+  "collectedAt": "2026-10-14T17:15:24Z",
+  "r1": "F2 parseOk = overflow_rust.is_ok(); parseError = is_err()",
+  "preserveOrder": true,
+  "preserveOrderTest": "sidecar::tests::model_tool_schema_keeps_input_schema_key_order",
+  "valueFirst": true,
+  "deriveDeserializeOnWire": false,
+  "remainingGaps": [
+    "-0: TS keeps Object.is(-0,-0); Rust i64 0. Accept/reject aligned.",
+    ">2^53: JS rounds 9007199254740993 to 9007199254740992; Rust keeps exact. Accept/reject aligned.",
+    "1e400: TS Infinity then validate reject; Rust parse error (parseOk=false, parseError=true). Both reject.",
+    "B3(a) budget tools estimate: preserve_order is on; HashMap in sidecar is operation state only, not wire JSON."
+  ],
+  "cases": [
+    {
+      "id": "1.0",
+      "ts": {
+        "parseOk": true,
+        "tsOk": true,
+        "js": 1
+      },
+      "rust": {
+        "parseOk": true,
+        "ok": true,
+        "value": 1
+      },
+      "decision": "aligned",
+      "divergence": ""
+    },
+    {
+      "id": "-0",
+      "ts": {
+        "parseOk": true,
+        "tsOk": true,
+        "objectIsNegativeZero": true
+      },
+      "rust": {
+        "parseOk": true,
+        "ok": true,
+        "i64": 0
+      },
+      "decision": "documented-divergence",
+      "divergence": "TS Object.is(-0,-0); Rust i64 0. Accept/reject aligned; sign not a distinct Number."
+    },
+    {
+      "id": "scientific",
+      "tokens": [
+        "1e2",
+        "1E0",
+        "100e-2"
+      ],
+      "ts": [
+        {
+          "token": "1e2",
+          "tsOk": true,
+          "js": 100,
+          "expected": 100
+        },
+        {
+          "token": "1E0",
+          "tsOk": true,
+          "js": 1,
+          "expected": 1
+        },
+        {
+          "token": "100e-2",
+          "tsOk": true,
+          "js": 1,
+          "expected": 1
+        }
+      ],
+      "rust": [
+        {
+          "token": "1e2",
+          "ok": true,
+          "value": 100
+        },
+        {
+          "token": "1E0",
+          "ok": true,
+          "value": 1
+        },
+        {
+          "token": "100e-2",
+          "ok": true,
+          "value": 1
+        }
+      ],
+      "decision": "aligned",
+      "divergence": ""
+    },
+    {
+      "id": ">2^53",
+      "ts": {
+        "parseOk": true,
+        "tsOk": true,
+        "js": 9007199254740992
+      },
+      "rust": {
+        "parseOk": true,
+        "ok": true,
+        "u64": 9007199254740993
+      },
+      "decision": "documented-divergence",
+      "divergence": "JSON.parse rounds 9007199254740993 to 9007199254740992; serde_json keeps the exact integer. Accept/reject aligned."
+    },
+    {
+      "id": "1e400",
+      "ts": {
+        "parseOk": true,
+        "js": "Infinity",
+        "tsOk": false
+      },
+      "rust": {
+        "parseOk": false,
+        "parseError": true,
+        "ok": false
+      },
+      "decision": "documented-divergence",
+      "divergence": "TS JSON.parse → Infinity then validate reject; Rust serde_json parse error (no Infinity). Both reject; path differs."
+    },
+    {
+      "id": "duplicate-key-last-wins",
+      "ts": {
+        "parseOk": true,
+        "tsOk": true,
+        "requestId": "second",
+        "prompt": "B"
+      },
+      "rust": {
+        "parseOk": true,
+        "ok": true,
+        "requestId": "second",
+        "prompt": "B"
+      },
+      "decision": "aligned",
+      "divergence": ""
+    },
+    {
+      "id": "ajv-strict",
+      "ts": {
+        "ajvStrict": true,
+        "accept": true,
+        "reject1e400": true
+      },
+      "rust": {
+        "accept": true,
+        "reject1e400": true
+      },
+      "decision": "aligned",
+      "divergence": ""
+    }
+  ]
+}

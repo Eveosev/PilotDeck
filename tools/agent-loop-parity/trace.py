@@ -1,11 +1,30 @@
 """Canonical trace normalization and semantic comparison for parity runs."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+# Bump when comparison rules or format-warning taxonomy change.
+# Offline recheck of a stored summary uses this plus per-run traceDigest.
+COMPARATOR_VERSION = "1.1.0"
+
+FORMAT_WARNING_CATEGORIES = (
+    "envelope",
+    "budget",
+    "modelView",
+    "request",
+    "requestEvidence",
+    "response",
+    "state",
+    "kind",
+    "source",
+    "attempt",
+)
 
 _VOLATILE_KEYS = {
     "timestamp", "startedAt", "completedAt", "createdAt", "updatedAt",
@@ -213,6 +232,19 @@ def canonicalize(
     return value
 
 
+def load_raw_trace(path: Path) -> list[dict[str, Any]]:
+    """Load trace records without canonicalize (keeps pid / exec proof)."""
+    records: list[dict[str, Any]] = []
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise TypeError(f"{path}:{line_no}: trace record must be an object")
+        records.append(value)
+    return records
+
+
 def load_trace(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     generated_ids: dict[tuple[str, str], str] = {}
@@ -273,6 +305,130 @@ def validate_production_sidecar_proof(
     if missing_operations:
         errors.append(f"production sidecar operation proof is missing: {', '.join(missing_operations)}")
     return errors
+
+
+def _record_sequence(record: dict[str, Any], index: int) -> int:
+    sequence = record.get("sequence")
+    return sequence if isinstance(sequence, int) else index
+
+
+def rust_budget_precedes_model_request(records: list[dict[str, Any]]) -> bool:
+    """TCP-only fingerprint: first context.budget sequence before first model.request.
+
+    Uses raw ``sequence`` when present so a rewritten list order cannot forge it.
+    Do not use this to PASS or BLOCK stdio Rust — host WS delivery is TS-shaped.
+    """
+    budget_seq: int | None = None
+    request_seq: int | None = None
+    for index, record in enumerate(records):
+        kind = record.get("kind")
+        seq = _record_sequence(record, index)
+        if kind == "context.budget" and (budget_seq is None or seq < budget_seq):
+            budget_seq = seq
+        if kind == "model.request" and (request_seq is None or seq < request_seq):
+            request_seq = seq
+    return (
+        budget_seq is not None
+        and request_seq is not None
+        and budget_seq < request_seq
+    )
+
+
+def rust_module_budget_precedes_model_call(records: list[dict[str, Any]]) -> bool:
+    """Timing-independent: module_call budget.evaluate_request_budget before model.prepare/stream."""
+    budget_seq: int | None = None
+    model_seq: int | None = None
+    for index, record in enumerate(records):
+        if record.get("kind") != "harness.proof" or record.get("state") != "module_call_received":
+            continue
+        seq = _record_sequence(record, index)
+        module = record.get("module")
+        operation = record.get("operation")
+        if module == "budget" and operation == "evaluate_request_budget":
+            if budget_seq is None or seq < budget_seq:
+                budget_seq = seq
+        if module == "model" and operation in {"prepare", "stream"}:
+            if model_seq is None or seq < model_seq:
+                model_seq = seq
+    return (
+        budget_seq is not None
+        and model_seq is not None
+        and budget_seq < model_seq
+    )
+
+
+def rust_handshake_capabilities_transport(records: list[dict[str, Any]]) -> str | None:
+    for record in records:
+        if record.get("kind") != "harness.proof":
+            continue
+        if record.get("state") != "handshake_completed" and record.get("type") != "handshake_completed":
+            continue
+        capabilities = record.get("capabilities")
+        if isinstance(capabilities, dict):
+            transport = capabilities.get("transport")
+            if isinstance(transport, str) and transport.strip():
+                return transport.strip()
+    return None
+
+
+def rust_sidecar_exec_proofs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        record for record in records
+        if record.get("kind") == "harness.proof" and record.get("state") == "rust_sidecar_exec"
+    ]
+
+
+def _exec_proof_is_rust_bin(record: dict[str, Any]) -> bool:
+    path = str(record.get("resolved") or record.get("bin") or "")
+    if not path.rstrip("/").endswith("pilotdeck-agent-loop"):
+        return False
+    if "pid" not in record:
+        return True
+    try:
+        return int(record.get("pid")) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def observe_sidecar_implementation(
+    records: list[dict[str, Any]],
+    *,
+    transport: str,
+    rust_intended: bool,
+) -> tuple[str, list[str], str]:
+    """Derive sidecarImplementation from timing-independent observations.
+
+    Stdio Rust is claimed only from exec proof (and optionally module_call
+    order / handshake capabilities.transport). Host WS context.budget vs
+    model.request order is N/A on stdio — it must not PASS or BLOCK.
+
+    TCP may use the budget-before-request fingerprint (raw sequence).
+    """
+    exec_ok = any(_exec_proof_is_rust_bin(record) for record in rust_sidecar_exec_proofs(records))
+    module_ok = rust_module_budget_precedes_model_call(records)
+    handshake_transport = rust_handshake_capabilities_transport(records)
+    fingerprint = rust_budget_precedes_model_request(records)
+    errors: list[str] = []
+    if transport == "stdio":
+        if rust_intended and not exec_ok:
+            errors.append("rust sidecar exec proof is missing (wrapper did not record pid/bin)")
+            return "ts", errors, "none"
+        if exec_ok:
+            source = "exec-proof"
+            if module_ok:
+                source += "+module-call"
+            if handshake_transport:
+                source += "+capabilities.transport"
+            return "rust", [], source
+        return "ts", [], "none"
+    if fingerprint:
+        return "rust", [], "fingerprint"
+    if rust_intended:
+        errors.append(
+            "rust sidecar fingerprint missing: context.budget did not precede model.request"
+        )
+        return "ts", errors, "none"
+    return "ts", [], "none"
 
 
 @dataclass(frozen=True)
@@ -621,6 +777,92 @@ class Comparison:
     semantic: list[Difference]
     format_warnings: list[Difference]
     contract: str | None = None
+
+
+def classify_format_warning(path: str) -> str:
+    """Map a format-warning path to the #26 R1 vocabulary.
+
+    Categories are envelope + budget + modelView.* +
+    request/requestEvidence/response/state/kind/source/attempt.
+    Token match (not substring) so ``requestId`` is envelope, not request.
+    """
+    tokens = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", path or ""))
+    if "requestEvidence" in tokens:
+        return "requestEvidence"
+    if "modelView" in tokens:
+        return "modelView"
+    if tokens & {"budget", "breakdown", "displayUsed", "budgetUsed", "reservedOutputTokens"}:
+        return "budget"
+    if "request" in tokens:
+        return "request"
+    if "response" in tokens:
+        return "response"
+    if "state" in tokens:
+        return "state"
+    if "kind" in tokens:
+        return "kind"
+    if "source" in tokens:
+        return "source"
+    if "attempt" in tokens:
+        return "attempt"
+    return "envelope"
+
+
+def format_warning_taxonomy(warnings: list[Difference]) -> dict[str, int]:
+    counts = Counter(classify_format_warning(item.path) for item in warnings)
+    return {name: int(counts.get(name, 0)) for name in FORMAT_WARNING_CATEGORIES}
+
+
+def format_warning_note(taxonomy: dict[str, int] | None = None) -> str:
+    """Widen summary wording to the actual warning vocabulary (m1)."""
+    observed = [
+        f"{name}={int((taxonomy or {}).get(name, 0))}"
+        for name in FORMAT_WARNING_CATEGORIES
+        if int((taxonomy or {}).get(name, 0)) > 0
+    ]
+    observed_text = ", ".join(observed) if observed else "none"
+    return (
+        "Format warnings do not change exit status. "
+        "Categories cover envelope + budget + modelView.* + "
+        "request/requestEvidence/response/state/kind/source/attempt "
+        f"({', '.join(FORMAT_WARNING_CATEGORIES)}). "
+        f"This run: {observed_text}. "
+        "modelView format diffs are order/envelope "
+        "(canonicalize sorts keys); semantic modelView content remains a FAIL."
+    )
+
+
+def model_view_format_is_envelope_only(
+    warnings: list[Difference],
+    semantic: list[Difference],
+) -> bool:
+    """True when modelView format warnings are not semantic content diffs (m2)."""
+    semantic_model_view = [
+        item for item in semantic if "modelView" in (item.path or "")
+    ]
+    if semantic_model_view:
+        return False
+    return True
+
+
+def trace_digest(data: bytes | str | list[dict[str, Any]]) -> str:
+    """Stable sha256 so a summary can be rechecked without omitted raw traces (m4)."""
+    if isinstance(data, list):
+        payload = json.dumps(
+            canonicalize(data),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    elif isinstance(data, str):
+        payload = data.encode("utf-8")
+    else:
+        payload = data
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def trace_file_digest(path: Path) -> str:
+    return trace_digest(path.read_bytes())
 
 
 def compare_traces(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> list[Difference]:
@@ -1760,8 +2002,11 @@ def write_report(
         for diff in semantic[:50]:
             lines.extend(["", f"- `{diff.path}`", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
     if warnings:
+        taxonomy = format_warning_taxonomy(warnings)
         lines.append("\n## Format Warnings\n")
-        lines.append(f"{len(warnings)} envelope/serialization difference(s); these do not affect exit status.")
+        lines.append(format_warning_note(taxonomy))
+        lines.append(f"{len(warnings)} difference(s). taxonomy={json.dumps(taxonomy, ensure_ascii=False)}")
         for diff in warnings[:50]:
-            lines.extend(["", f"- `{diff.path}`", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
+            category = classify_format_warning(diff.path)
+            lines.extend(["", f"- `{diff.path}` ({category})", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

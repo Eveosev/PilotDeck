@@ -1,0 +1,41 @@
+{
+  "task": "T-P1-03-FU-A",
+  "gitSha": "a1ab4e8c4b8ecc2efc07e01319cd592cbed307bf",
+  "gitDirty": false,
+  "collectHead": "a1ab4e8c4b8ecc2efc07e01319cd592cbed307bf",
+  "base": "84c0a63cd2e088445d3f27046f433b1f7e782927",
+  "branch": "cursor/t-p1-03-fu-a-b3-s4-c891",
+  "target": "rust_standalone_alpha1",
+  "draftPr": "https://github.com/Eveosev/PilotDeck/pull/30",
+  "collectedAt": "2026-10-14T18:17:13Z",
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
+  "node": "v22.23.3",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "listen": "listening 127.0.0.1:45751",
+  "comparatorVersion": "1.1.0",
+  "cargoTest": {
+    "serde_r2": 9,
+    "sidecar_stdio": 6,
+    "sidecar_tcp": 7
+  },
+  "harnessUnittest": {
+    "passed": 87,
+    "failed": 0
+  },
+  "cleanDist": true,
+  "traceRewrite": false,
+  "command": "rm -rf dist && npm run build\nexport PILOTDECK_RUST_SIDECAR_BIN=$PWD/target/release/pilotdeck-agent-loop\npython3 tools/agent-loop-parity/run.py --pilotdeck-root $PWD --comparison same-version --surface gateway \\\n  --sidecar-transport stdio --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh \\\n  --scenario <pure_text|single_tool> --adapter-timeout-seconds 180 --output /tmp/t-p1-fu-r3/stdio-<scene>\n# TCP reuse evidence from 98c88232 collect kept (budget≺request fingerprint)",
+  "whitelist": [
+    "tools/agent-loop-parity/**",
+    "evidence/p1-fu/**"
+  ],
+  "r3": "F1'' delete alignObservedRustBudgetFingerprint; stdio exec-proof+module-call; fingerprint N/A",
+  "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "sidecarImplementationSource": "exec-proof+module-call",
+  "rustFingerprint": "n/a",
+  "stdioWarningCounts": {
+    "pure_text": 16,
+    "single_tool": 40,
+    "note": "envelope-only host delivery; not Rust-shaped taxonomy"
+  }
+}

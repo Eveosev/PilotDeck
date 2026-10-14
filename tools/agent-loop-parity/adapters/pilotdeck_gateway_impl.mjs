@@ -127,6 +127,28 @@ const push = (kind, extra = {}) => {
     linkRequestBudgetEvidence();
   }
 };
+const flushRustSidecarExecProofs = async () => {
+  const proofPath = String(process.env.PARITY_RUST_SIDECAR_PROOF ?? "").trim();
+  if (!proofPath) return;
+  try {
+    const text = await readFile(proofPath, "utf8");
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      const rec = JSON.parse(line);
+      push("harness.proof", {
+        state: "rust_sidecar_exec",
+        pid: rec.pid,
+        bin: rec.bin,
+        resolved: rec.resolved,
+      });
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+};
+const finalizeSidecarTrace = async () => {
+  await flushRustSidecarExecProofs();
+};
 const modelView = (request) => ({
   provider: request.provider,
   model: request.model,
@@ -670,14 +692,21 @@ if (selectedTransport === "tcp") {
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH;
 } else if (selectedTransport === "stdio") {
   gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "stdio";
-  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND = process.execPath;
+  const stdioOverride = String(process.env.PARITY_STDIO_SIDECAR_COMMAND ?? "").trim();
+  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND = stdioOverride || process.execPath;
   gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH = path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js");
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_HOST;
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_PORT;
 } else {
   gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "native";
 }
-push("harness.proof", { state: "transport_selected", transport: selectedTransport });
+push("harness.proof", {
+  state: "transport_selected",
+  transport: selectedTransport,
+  ...(selectedTransport === "stdio"
+    ? { sidecarCommand: gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND }
+    : {}),
+});
 
 const observedPersistenceProvider = createObservedPersistenceProvider();
 const local = createLocalGateway({
@@ -898,6 +927,7 @@ try {
       usage: terminal?.usage,
       resultType: terminal?.result?.type,
     });
+    await finalizeSidecarTrace();
     await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
     await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   } else {
@@ -1162,6 +1192,7 @@ try {
     durableStopReason: durableTurnResult?.stopReason,
     durableErrorCode: durableTurnResult?.errors?.[0]?.code,
   });
+  await finalizeSidecarTrace();
   await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
   await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   }

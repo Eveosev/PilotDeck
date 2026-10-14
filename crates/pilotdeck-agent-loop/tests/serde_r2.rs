@@ -1,14 +1,18 @@
-//! S3 / B3: R2-2 seven serde risk cases from T-P0a-01.
+//! S3 / B3: R2-2 seven serde risk cases from T-P0a-01 / T-P1-03-FU-A.
 //!
 //! Expectation = TS `JSON.parse` + `validateModuleMessage`.
-//! Each case records TS vs Rust; divergences are asserted and documented.
+//! Each case records TS vs Rust; divergences are listed and decided
+//! explicitly (never silent). B3(a) `preserve_order` is covered by
+//! `sidecar::model_tool_schema_keeps_input_schema_key_order` and must
+//! not regress.
 
 mod common;
 
 use common::repo_root;
 use pilotdeck_agent_loop::protocol::parse_json_line;
 use pilotdeck_agent_loop::validate_module_message;
-use serde_json::Value;
+use serde_json::{json, Value};
+use std::fs;
 use std::process::Command;
 
 const EVENT_SEQ: &str = r#"{"kind":"event","eventType":"model.delta","streamId":"stream-1","sequence":TOKEN,"runId":"run-1","operationId":"operation-1","requestId":"request-1","final":false,"payload":{}}"#;
@@ -144,7 +148,9 @@ fn s3_sequence_1e400_both_reject_via_different_paths() {
 
 #[test]
 fn s3_duplicate_keys_last_wins_like_json_parse() {
-    let raw = r#"{"kind":"request","messageId":"m","method":"execute","runId":"run-1","operationId":"op-1","requestId":"first","payload":{"prompt":"A"},"requestId":"second","payload":{"prompt":"B","scenario":"pure_text"}}"#;
+    // Derive-heavy execute payload (agent / messages / tools / hostModules).
+    // Raw input is parse_json_line → Value first; never a derive Deserialize.
+    let raw = r#"{"kind":"request","messageId":"m","method":"execute","runId":"run-1","operationId":"op-1","sessionId":"sess-1","turnId":"turn-1","requestId":"first","payload":{"prompt":"A","agent":{"id":"first-agent"},"tools":[]},"requestId":"second","payload":{"prompt":"B","scenario":"pure_text","agent":{"id":"pilotdeck-stub","provider":"pilotdeck-stub","model":"pilotdeck-stub"},"messages":[{"role":"user","content":[{"type":"text","text":"B"}]}],"tools":[{"name":"lookup","description":"Look up","inputSchema":{"type":"object","properties":{"q":{"type":"string"}}}}],"hostModules":{"model":true,"capability":true}}}"#;
     let ts = ts_oracle(raw);
     let rust = rust_parse(raw).expect("duplicate keys must parse as Value");
     assert_eq!(ts["parseOk"], true);
@@ -152,9 +158,29 @@ fn s3_duplicate_keys_last_wins_like_json_parse() {
     assert_eq!(ts["schemaOk"], true);
     assert_eq!(rust["requestId"], "second");
     assert_eq!(rust["payload"]["prompt"], "B");
+    assert_eq!(rust["payload"]["agent"]["id"], "pilotdeck-stub");
+    assert_eq!(rust["payload"]["tools"][0]["name"], "lookup");
     assert_eq!(ts["jsAfterJSONParse"]["requestId"], "second");
     assert_eq!(ts["jsAfterJSONParse"]["payload"]["prompt"], "B");
+    assert_eq!(ts["jsAfterJSONParse"]["payload"]["agent"]["id"], "pilotdeck-stub");
     assert!(validate_module_message(&rust).is_ok());
+}
+
+#[test]
+fn s3_wire_input_is_value_first_not_derive() {
+    let protocol = include_str!("../src/protocol.rs");
+    assert!(
+        protocol.contains("serde_json::from_str::<Value>"),
+        "wire parse must go through serde_json::Value"
+    );
+    let crate_root = repo_root().join("crates/pilotdeck-agent-loop/src");
+    for name in ["protocol.rs", "sidecar.rs", "stdio.rs", "tcp.rs", "lib.rs"] {
+        let text = fs::read_to_string(crate_root.join(name)).expect(name);
+        assert!(
+            !text.contains("Deserialize"),
+            "{name} must not derive-deserialize wire frames"
+        );
+    }
 }
 
 #[test]
@@ -190,4 +216,119 @@ fn s3_ajv_strict_agrees_with_ts_and_rust() {
     let report: Value = serde_json::from_str(stdout.trim()).unwrap();
     assert_eq!(report["ajvStrict"], true);
     assert_eq!(report["mismatch"], 0, "{report}");
+}
+
+/// Explicit TS vs Rust decisions for the seven B3 cases. Never silent.
+#[test]
+fn s3_seven_cases_record_explicit_decisions() {
+    let cases = b3_comparison_table();
+    assert_eq!(cases.as_array().map(Vec::len), Some(7), "{cases}");
+    for case in cases.as_array().unwrap() {
+        assert!(case["id"].as_str().is_some(), "{case}");
+        assert!(case["decision"].as_str().is_some(), "{case}");
+        assert!(case.get("ts").is_some(), "{case}");
+        assert!(case.get("rust").is_some(), "{case}");
+        assert!(
+            case["decision"] == "aligned"
+                || case["decision"] == "documented-divergence",
+            "silent divergence is not allowed: {case}"
+        );
+        if case["decision"] == "documented-divergence" {
+            assert!(
+                case["divergence"]
+                    .as_str()
+                    .is_some_and(|text| !text.is_empty()),
+                "{case}"
+            );
+        }
+    }
+    if let Ok(path) = std::env::var("T_P1_FU_B3_OUT") {
+        if !path.is_empty() {
+            fs::write(&path, serde_json::to_string_pretty(&cases).unwrap() + "\n")
+                .unwrap_or_else(|error| panic!("write {path}: {error}"));
+        }
+    }
+}
+
+fn b3_comparison_table() -> Value {
+    let one = event("1.0");
+    let neg = event("-0");
+    let exp = [
+        ("1e2", event("1e2"), 100u64),
+        ("1E0", event("1E0"), 1),
+        ("100e-2", event("100e-2"), 1),
+    ];
+    let big = event("9007199254740993");
+    let overflow = event("1e400");
+    let dup = r#"{"kind":"request","messageId":"m","method":"execute","runId":"run-1","operationId":"op-1","sessionId":"sess-1","turnId":"turn-1","requestId":"first","payload":{"prompt":"A"},"requestId":"second","payload":{"prompt":"B","scenario":"pure_text","agent":{"id":"pilotdeck-stub"},"tools":[{"name":"lookup"}]}}"#;
+
+    let one_ts = ts_oracle(&one);
+    let one_rust = rust_parse(&one).expect("1.0");
+    let neg_ts = ts_oracle(&neg);
+    let neg_rust = rust_parse(&neg).expect("-0");
+    let big_ts = ts_oracle(&big);
+    let big_rust = rust_parse(&big).expect(">2^53");
+    let overflow_ts = ts_oracle(&overflow);
+    let overflow_rust = rust_parse(&overflow);
+    let dup_ts = ts_oracle(dup);
+    let dup_rust = rust_parse(dup).expect("dup");
+
+    json!([
+        {
+            "id": "1.0",
+            "ts": { "parseOk": one_ts["parseOk"], "tsOk": one_ts["tsOk"], "js": one_ts["jsAfterNumberParse"] },
+            "rust": { "parseOk": true, "ok": validate_module_message(&one_rust).is_ok(), "value": 1 },
+            "decision": "aligned",
+            "divergence": ""
+        },
+        {
+            "id": "-0",
+            "ts": { "parseOk": true, "tsOk": neg_ts["tsOk"], "objectIsNegativeZero": neg_ts["objectIsNegativeZero"] },
+            "rust": { "parseOk": true, "ok": validate_module_message(&neg_rust).is_ok(), "i64": 0 },
+            "decision": "documented-divergence",
+            "divergence": "TS Object.is(-0,-0); Rust i64 0. Accept/reject aligned; sign not a distinct Number."
+        },
+        {
+            "id": "scientific",
+            "tokens": ["1e2", "1E0", "100e-2"],
+            "ts": exp.iter().map(|(token, raw, expected)| {
+                let ts = ts_oracle(raw);
+                json!({ "token": token, "tsOk": ts["tsOk"], "js": ts["jsAfterNumberParse"], "expected": expected })
+            }).collect::<Vec<_>>(),
+            "rust": exp.iter().map(|(token, raw, expected)| {
+                let rust = rust_parse(raw).unwrap();
+                json!({ "token": token, "ok": validate_module_message(&rust).is_ok(), "value": expected })
+            }).collect::<Vec<_>>(),
+            "decision": "aligned",
+            "divergence": ""
+        },
+        {
+            "id": ">2^53",
+            "ts": { "parseOk": true, "tsOk": big_ts["tsOk"], "js": big_ts["jsAfterNumberParse"] },
+            "rust": { "parseOk": true, "ok": validate_module_message(&big_rust).is_ok(), "u64": 9_007_199_254_740_993u64 },
+            "decision": "documented-divergence",
+            "divergence": "JSON.parse rounds 9007199254740993 to 9007199254740992; serde_json keeps the exact integer. Accept/reject aligned."
+        },
+        {
+            "id": "1e400",
+            "ts": { "parseOk": overflow_ts["parseOk"], "js": overflow_ts["jsAfterNumberParse"], "tsOk": overflow_ts["tsOk"] },
+            "rust": { "parseOk": overflow_rust.is_ok(), "parseError": overflow_rust.is_err(), "ok": false },
+            "decision": "documented-divergence",
+            "divergence": "TS JSON.parse → Infinity then validate reject; Rust serde_json parse error (no Infinity). Both reject; path differs."
+        },
+        {
+            "id": "duplicate-key-last-wins",
+            "ts": { "parseOk": true, "tsOk": dup_ts["tsOk"], "requestId": dup_ts["jsAfterJSONParse"]["requestId"], "prompt": dup_ts["jsAfterJSONParse"]["payload"]["prompt"] },
+            "rust": { "parseOk": true, "ok": validate_module_message(&dup_rust).is_ok(), "requestId": dup_rust["requestId"], "prompt": dup_rust["payload"]["prompt"] },
+            "decision": "aligned",
+            "divergence": ""
+        },
+        {
+            "id": "ajv-strict",
+            "ts": { "ajvStrict": true, "accept": true, "reject1e400": true },
+            "rust": { "accept": true, "reject1e400": true },
+            "decision": "aligned",
+            "divergence": ""
+        }
+    ])
 }

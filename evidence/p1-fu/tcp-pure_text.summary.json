@@ -1,0 +1,77 @@
+{
+  "scenarios": 1,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "tcp",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "98c882328c4d3cc87a3792502aba480507c754a5",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.23.3"
+  },
+  "blocked": [],
+  "failed": [],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [
+    "pure_text/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 28,
+    "budget": 6,
+    "modelView": 10,
+    "request": 2,
+    "requestEvidence": 1,
+    "response": 2,
+    "state": 2,
+    "kind": 3,
+    "source": 2,
+    "attempt": 2
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [
+    {
+      "scenario": "pure_text",
+      "label": "PilotDeck",
+      "baseline": false,
+      "formatWarningCount": 58,
+      "formatWarningTaxonomy": {
+        "envelope": 28,
+        "budget": 6,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 1,
+        "response": 2,
+        "state": 2,
+        "kind": 3,
+        "source": 2,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:0e7be7ef57b035e9f158300c77df3968e54f10c40725e3329602f3496208b9e1",
+          "canonical": "sha256:bc7d7a69b8536d2974311214df2f5eed0f3f031baa89661e261293e3a3b82d10"
+        },
+        "right": {
+          "file": "sha256:c5d7abf31497f8986ccef8012aad9681a3124a59dd417ad4666a48e76aecfa6c",
+          "canonical": "sha256:b941a0c182baae2db47e57c363fbe452f4ca3acbc3a1aa07e419836128f07502"
+        },
+        "ts": {
+          "file": "sha256:0e7be7ef57b035e9f158300c77df3968e54f10c40725e3329602f3496208b9e1",
+          "canonical": "sha256:bc7d7a69b8536d2974311214df2f5eed0f3f031baa89661e261293e3a3b82d10"
+        },
+        "rust": {
+          "file": "sha256:c5d7abf31497f8986ccef8012aad9681a3124a59dd417ad4666a48e76aecfa6c",
+          "canonical": "sha256:b941a0c182baae2db47e57c363fbe452f4ca3acbc3a1aa07e419836128f07502"
+        }
+      }
+    }
+  ],
+  "output": "/tmp/t-p1-fu-raw/tcp-pure_text"
+}
