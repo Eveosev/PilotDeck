@@ -4,10 +4,10 @@
  *
  * Does not spawn a sidecar and does not read SIDECAR_COMMAND / SIDECAR_PATH.
  * Resolves the same TCP profile as `src/cli/AgentLoopDeploymentProfile.ts`
- * (TRANSPORT / TCP_HOST / TCP_PORT) and TCP-connects the way
- * `createTcpAgentLoopSidecarConnectionFactory` does (host connect at
- * AgentLoopDeploymentProfile.ts:84-93 / tcpAgentLoopSidecarConnection.ts:56-57):
- * `createConnection({ host, port })` + `setNoDelay`. No SIDECAR_COMMAND spawn.
+ * (TRANSPORT / TCP_HOST / TCP_PORT) and TCP-connects by *mirroring*
+ * `createTcpAgentLoopSidecarConnectionFactory` (AgentLoopDeploymentProfile.ts:84-93
+ * / tcpAgentLoopSidecarConnection.ts:56-57): `createConnection({ host, port })`
+ * + `setNoDelay`. This file does not import or call the factory. No spawn.
  *
  * Dialogue: hello → execute → status. No capabilities/cancel/resume/ack,
  * no real model. Wraps the #18 `b4-tcp-host.mjs` listen/connect pattern
@@ -32,6 +32,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..");
 
 assertConnectOnly();
+if (process.env.T_P1_02_FORCE_HOST_FAIL === "1") {
+  throw new Error("T-P1-02 forced host failure (T_P1_02_FORCE_HOST_FAIL=1).");
+}
 const profile = resolveTcpProfile(process.env);
 
 const { validateModuleMessage } = await import(
@@ -45,13 +48,26 @@ const lines = createInterface({ input: socket, crlfDelay: Infinity });
 
 lines.on("line", (line) => {
   if (!line.trim()) return;
-  const message = JSON.parse(line);
+  let message;
+  try {
+    message = JSON.parse(line);
+  } catch (error) {
+    for (const waiter of waiters.splice(0)) {
+      if (typeof waiter.reject === "function") waiter.reject(error);
+    }
+    return;
+  }
   incoming.push(message);
   for (let i = waiters.length - 1; i >= 0; i -= 1) {
     if (waiters[i].pred(incoming)) {
       waiters[i].resolve(incoming.slice());
       waiters.splice(i, 1);
     }
+  }
+});
+socket.on("error", (error) => {
+  for (const waiter of waiters.splice(0)) {
+    if (typeof waiter.reject === "function") waiter.reject(error);
   }
 });
 
@@ -70,6 +86,10 @@ function waitFor(pred, timeoutMs = 5_000) {
       resolve: (value) => {
         clearTimeout(timer);
         resolveWait(value);
+      },
+      reject: (error) => {
+        clearTimeout(timer);
+        reject(error);
       },
     });
   });
@@ -139,18 +159,25 @@ const report = {
   host: profile.host,
   port: profile.port,
   connect: "createConnection({ host, port }) + setNoDelay",
-  connectFactory: "createTcpAgentLoopSidecarConnectionFactory",
+  mirrorsFactory: "AgentLoopDeploymentProfile.ts:84-93 (createTcpAgentLoopSidecarConnectionFactory)",
+  connectFactoryUsed: false,
   profileSource: "src/cli/AgentLoopDeploymentProfile.ts",
   helloOk: hello?.ok === true,
   protocolVersion: hello?.protocolVersion ?? null,
   moduleId: hello?.moduleId ?? null,
-  executeAccepted: executed?.ok === true && executed?.final !== true,
+  executeAccepted: executed?.ok === true && executed?.final !== true && typeof executed?.streamId === "string" && executed.streamId.length > 0,
   streamId: executed?.streamId ?? null,
-  statusOk: status?.ok === true,
+  statusOk: statusMatches(status, executeIds),
   statusState: status?.payload?.state ?? null,
   statusOutcome: status?.payload?.outcome ?? null,
+  statusRunId: status?.payload?.runId ?? null,
+  statusOperationId: status?.payload?.operationId ?? null,
+  terminalOk: terminalMatches(terminal, executeIds),
   terminalOutcome: terminal?.outcome ?? null,
+  terminalEventType: terminal?.eventType ?? null,
   resultType: terminal?.payload?.result?.type ?? null,
+  resultStopReason: terminal?.payload?.result?.stopReason ?? null,
+  resultTurns: terminal?.payload?.result?.turns ?? null,
   sessionId: terminal?.payload?.result?.sessionId ?? null,
   turnId: terminal?.payload?.result?.turnId ?? null,
   tsAccept,
@@ -168,8 +195,12 @@ const failed = !(
   && report.moduleId === "pilotdeck-agent-loop"
   && report.executeAccepted
   && report.statusOk
+  && report.terminalOk
   && report.terminalOutcome === "completed"
+  && report.terminalEventType === "agent.execute.completed"
   && report.resultType === "success"
+  && report.resultStopReason === "completed"
+  && report.resultTurns === 1
   && report.sessionId === executeIds.sessionId
   && report.turnId === executeIds.turnId
   && mismatch === 0
@@ -239,6 +270,35 @@ function optionalPositiveInteger(value) {
     throw new Error("PILOTDECK_AGENT_LOOP_CONNECT_TIMEOUT_MS must be a positive integer.");
   }
   return parsed;
+}
+
+function statusMatches(status, ids) {
+  if (!status || status.ok !== true || status.kind !== "response") return false;
+  const payload = status.payload;
+  if (!payload || typeof payload !== "object") return false;
+  if (payload.runId !== ids.runId || payload.operationId !== ids.operationId) return false;
+  if (!Array.isArray(payload.requestIds) || !payload.requestIds.includes(ids.requestId)) return false;
+  if (payload.cancelRequested !== false) return false;
+  if (payload.state === "running") return payload.outcome === undefined;
+  if (payload.state === "completed") return payload.outcome === "completed";
+  return false;
+}
+
+function terminalMatches(terminal, ids) {
+  if (!terminal || terminal.kind !== "event" || terminal.final !== true) return false;
+  if (terminal.outcome !== "completed" || terminal.eventType !== "agent.execute.completed") return false;
+  if (terminal.runId !== ids.runId || terminal.operationId !== ids.operationId || terminal.requestId !== ids.requestId) {
+    return false;
+  }
+  const result = terminal.payload?.result;
+  if (!result || typeof result !== "object") return false;
+  return result.type === "success"
+    && result.sessionId === ids.sessionId
+    && result.turnId === ids.turnId
+    && result.stopReason === "completed"
+    && result.turns === 1
+    && typeof result.startedAt === "string"
+    && typeof result.completedAt === "string";
 }
 
 function connect(addr) {
