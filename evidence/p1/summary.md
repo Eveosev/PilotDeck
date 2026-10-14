@@ -4,6 +4,8 @@ Provenance: `gitSha=3a26dd9d34adeaad93de1350ee8dea576988dc50`, `gitDirty=false`.
 Collected on the clean PR-A merge tip before this evidence commit.
 Mode: start Rust sidecar with `--listen`, then `tools/agent-loop-parity/run.py` over TCP. Host is connect-only (`tcpSidecarLog=null`).
 
+Comparison: TS native AgentLoop vs the Rust sidecar over TCP (`run.py --comparison same-version`). TCP is used only on the sidecar side; this is what `TASK_DEF.md:5` calls "TS-tcp".
+
 ```
 cargo build -p pilotdeck-agent-loop --release
 ./target/release/pilotdeck-agent-loop --listen 127.0.0.1:37211
@@ -19,7 +21,7 @@ python3 tools/agent-loop-parity/run.py \
   --output /tmp/t-p1-03-pr-b-raw/<scene>/run-NN
 ```
 
-`review/2026-10-14-T-P1-03-parity/QA-ACCEPTANCE.md` is **not** in the tree at `3a26dd9d` (or any `origin` branch). G3 negatives follow `tools/agent-loop-parity/README.md` Negative control plus reuse-mode connect-only proofs. `tools/agent-loop-parity/**` was not modified.
+No `QA-ACCEPTANCE.md` exists under `review/2026-10-14-T-P1-03-parity/`, so PR-B follows `TASK_DEF.md:5` / `:9` / `:10`. The T-P1-01 `review/2026-10-12-T-P1-01-rust-agent-loop/QA-ACCEPTANCE.md` that exists on mainline is out of scope. G3 negatives follow `tools/agent-loop-parity/README.md` Negative control plus reuse-mode connect-only proofs. `tools/agent-loop-parity/**` was not modified.
 
 ## Per-scene table
 
