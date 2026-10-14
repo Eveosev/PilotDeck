@@ -1,9 +1,9 @@
 {
   "task": "T-P1-02",
   "slice": "R1 M1/m1-m4 + G8/G9 leak checks",
-  "gitSha": "b5b47aee481d464ffd918fdf3b6191d9a202df52",
+  "gitSha": "384a5e424b5c762936cc199021446c82bf12ebec",
   "collectHead": "b5b47aee481d464ffd918fdf3b6191d9a202df52",
-  "evidenceContentTip": null,
+  "evidenceContentTip": "384a5e424b5c762936cc199021446c82bf12ebec",
   "gitDirty": false,
   "base": "0db122b3b60b638b01edd45fe8650fcd9d4eeb8e",
   "branch": "cursor/t-p1-02-harness-9da3",
