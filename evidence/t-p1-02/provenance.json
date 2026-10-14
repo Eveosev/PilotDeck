@@ -1,15 +1,15 @@
 {
   "task": "T-P1-02",
-  "slice": "TCP connect-only harness hello→execute→status",
-  "gitSha": "fbdb5f65d2575efa6421bdf12acf7e439ec30367",
-  "collectHead": "3a6fbffd0397006651c0c27073f36d1917822eea",
-  "evidenceContentTip": "fbdb5f65d2575efa6421bdf12acf7e439ec30367",
+  "slice": "R1 M1/m1-m4 + G8/G9 leak checks",
+  "gitSha": "b5b47aee481d464ffd918fdf3b6191d9a202df52",
+  "collectHead": "b5b47aee481d464ffd918fdf3b6191d9a202df52",
+  "evidenceContentTip": null,
   "gitDirty": false,
   "base": "0db122b3b60b638b01edd45fe8650fcd9d4eeb8e",
   "branch": "cursor/t-p1-02-harness-9da3",
   "target": "rust_standalone_alpha1",
   "pr": "Eveosev/PilotDeck#20",
-  "collectedAt": "2026-10-14T02:59:02Z",
+  "collectedAt": "2026-10-14T03:37:05Z",
   "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
   "node": "v22.14.0",
   "typescriptFunction": "validateModuleMessage",
@@ -25,12 +25,16 @@
   "noSrcUiPackages": true,
   "crateTcp": "crates/pilotdeck-agent-loop --listen (T-P1-01 #18 S4)",
   "b4TsHost": "crates/pilotdeck-agent-loop/scripts/b4-tcp-host.mjs wrapped into tools/t-p1-02-harness/",
-  "profile": "src/cli/AgentLoopDeploymentProfile.ts TCP HOST/PORT; host connect :84-93",
+  "profile": "mirrors AgentLoopDeploymentProfile.ts:84-93 createTcpAgentLoopSidecarConnectionFactory (does not import/call it)",
+  "pgrep": "pgrep -f 'pilotdeck-agent-loop --listen'",
   "runs": {
-    "harness1": "exit 0",
-    "harness2": "exit 0",
-    "hostOnly": "exit 0",
-    "negativeSidecarCommand": "exit 1"
+    "harness1": "exit 0, pgrep 0→0",
+    "harness2": "exit 0, pgrep 0→0",
+    "hostOnly": "exit 0, pgrep 1→1 (external listener)",
+    "negativeSidecarCommand": "exit 1, pgrep 0→0",
+    "failBadBin": "exit 1, pgrep 0→0",
+    "failHost": "exit 1, pgrep 0→0",
+    "sigint": "exit 130, mid pgrep 1, after 0"
   },
-  "note": "Collected on clean code tip 3a6fbffd (gitDirty=false). Evidence files written after that tip. Two full harness runs and one --host-only reuse all exit 0: helloOk, executeAccepted, statusOk, terminalOutcome=completed, mismatch=0. Host refuses PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND."
+  "note": "Collected on clean code tip b5b47aee (gitDirty=false). Evidence files written after that tip. G8: every run returned pgrep count to its pre-run baseline. G9: bad --bin and --fail-host exit 1 with zero orphans; SIGINT mid-run exits 130 and reaps the child."
 }

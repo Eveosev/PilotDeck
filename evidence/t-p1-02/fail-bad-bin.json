@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "task": "T-P1-02",
+  "mode": "harness",
+  "error": "failed to spawn Rust sidecar /no/such/pilotdeck-agent-loop-missing: spawn /no/such/pilotdeck-agent-loop-missing ENOENT (ENOENT)",
+  "rustPid": null,
+  "elapsedMs": 2
+}
