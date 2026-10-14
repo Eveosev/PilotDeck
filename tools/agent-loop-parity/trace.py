@@ -307,21 +307,68 @@ def validate_production_sidecar_proof(
     return errors
 
 
+def _record_sequence(record: dict[str, Any], index: int) -> int:
+    sequence = record.get("sequence")
+    return sequence if isinstance(sequence, int) else index
+
+
 def rust_budget_precedes_model_request(records: list[dict[str, Any]]) -> bool:
-    """Rust fingerprint: first context.budget is emitted before first model.request."""
-    budget_index = next(
-        (index for index, record in enumerate(records) if record.get("kind") == "context.budget"),
-        None,
-    )
-    request_index = next(
-        (index for index, record in enumerate(records) if record.get("kind") == "model.request"),
-        None,
-    )
+    """TCP-only fingerprint: first context.budget sequence before first model.request.
+
+    Uses raw ``sequence`` when present so a rewritten list order cannot forge it.
+    Do not use this to PASS or BLOCK stdio Rust — host WS delivery is TS-shaped.
+    """
+    budget_seq: int | None = None
+    request_seq: int | None = None
+    for index, record in enumerate(records):
+        kind = record.get("kind")
+        seq = _record_sequence(record, index)
+        if kind == "context.budget" and (budget_seq is None or seq < budget_seq):
+            budget_seq = seq
+        if kind == "model.request" and (request_seq is None or seq < request_seq):
+            request_seq = seq
     return (
-        budget_index is not None
-        and request_index is not None
-        and budget_index < request_index
+        budget_seq is not None
+        and request_seq is not None
+        and budget_seq < request_seq
     )
+
+
+def rust_module_budget_precedes_model_call(records: list[dict[str, Any]]) -> bool:
+    """Timing-independent: module_call budget.evaluate_request_budget before model.prepare/stream."""
+    budget_seq: int | None = None
+    model_seq: int | None = None
+    for index, record in enumerate(records):
+        if record.get("kind") != "harness.proof" or record.get("state") != "module_call_received":
+            continue
+        seq = _record_sequence(record, index)
+        module = record.get("module")
+        operation = record.get("operation")
+        if module == "budget" and operation == "evaluate_request_budget":
+            if budget_seq is None or seq < budget_seq:
+                budget_seq = seq
+        if module == "model" and operation in {"prepare", "stream"}:
+            if model_seq is None or seq < model_seq:
+                model_seq = seq
+    return (
+        budget_seq is not None
+        and model_seq is not None
+        and budget_seq < model_seq
+    )
+
+
+def rust_handshake_capabilities_transport(records: list[dict[str, Any]]) -> str | None:
+    for record in records:
+        if record.get("kind") != "harness.proof":
+            continue
+        if record.get("state") != "handshake_completed" and record.get("type") != "handshake_completed":
+            continue
+        capabilities = record.get("capabilities")
+        if isinstance(capabilities, dict):
+            transport = capabilities.get("transport")
+            if isinstance(transport, str) and transport.strip():
+                return transport.strip()
+    return None
 
 
 def rust_sidecar_exec_proofs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -348,35 +395,40 @@ def observe_sidecar_implementation(
     *,
     transport: str,
     rust_intended: bool,
-) -> tuple[str, list[str]]:
-    """Derive sidecarImplementation from observations, not command-string self-cert.
+) -> tuple[str, list[str], str]:
+    """Derive sidecarImplementation from timing-independent observations.
 
-    Rust is claimed only when the budget-before-request fingerprint holds, and
-    for stdio also when the wrapper recorded pid + resolved bin before exec.
-    If rust was intended and either observation is missing, return errors so
-    the run is BLOCKED instead of silently labeled rust.
+    Stdio Rust is claimed only from exec proof (and optionally module_call
+    order / handshake capabilities.transport). Host WS context.budget vs
+    model.request order is N/A on stdio — it must not PASS or BLOCK.
+
+    TCP may use the budget-before-request fingerprint (raw sequence).
     """
-    fingerprint = rust_budget_precedes_model_request(records)
     exec_ok = any(_exec_proof_is_rust_bin(record) for record in rust_sidecar_exec_proofs(records))
+    module_ok = rust_module_budget_precedes_model_call(records)
+    handshake_transport = rust_handshake_capabilities_transport(records)
+    fingerprint = rust_budget_precedes_model_request(records)
     errors: list[str] = []
-    if transport == "stdio" and rust_intended:
-        if not exec_ok:
+    if transport == "stdio":
+        if rust_intended and not exec_ok:
             errors.append("rust sidecar exec proof is missing (wrapper did not record pid/bin)")
-        if not fingerprint:
-            errors.append(
-                "rust sidecar fingerprint missing: context.budget did not precede model.request"
-            )
-        if errors:
-            return "ts", errors
-        return "rust", []
+            return "ts", errors, "none"
+        if exec_ok:
+            source = "exec-proof"
+            if module_ok:
+                source += "+module-call"
+            if handshake_transport:
+                source += "+capabilities.transport"
+            return "rust", [], source
+        return "ts", [], "none"
     if fingerprint:
-        return "rust", []
+        return "rust", [], "fingerprint"
     if rust_intended:
         errors.append(
             "rust sidecar fingerprint missing: context.budget did not precede model.request"
         )
-        return "ts", errors
-    return "ts", []
+        return "ts", errors, "none"
+    return "ts", [], "none"
 
 
 @dataclass(frozen=True)

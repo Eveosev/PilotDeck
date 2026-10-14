@@ -831,6 +831,7 @@ def main() -> int:
     format_taxonomies: list[dict[str, int]] = []
     run_records: list[dict[str, Any]] = []
     scenario_sidecar_impl: dict[str, str] = {}
+    scenario_sidecar_source: dict[str, str] = {}
     sidecar_ready = True
     try:
         if tcp_target is not None and tcp_target.start_command and tcp_sidecar_log is not None:
@@ -887,7 +888,7 @@ def main() -> int:
                             for failure in validate_trace_expectations(load_trace(trace_path), oracle_scenario, "pilotdeck", name):
                                 oracle_failures.append(f"{sid}/{name}: {failure.path} expected={failure.left!r} actual={failure.right!r}")
                             if mode == "sidecar" and args.surface == "gateway":
-                                observed_impl, observe_errors = observe_sidecar_implementation(
+                                observed_impl, observe_errors, observed_source = observe_sidecar_implementation(
                                     load_raw_trace(trace_path),
                                     transport=sidecar_transport,
                                     rust_intended=rust_intended,
@@ -897,6 +898,7 @@ def main() -> int:
                                     del traces[name]
                                     continue
                                 scenario_sidecar_impl[sid] = observed_impl
+                                scenario_sidecar_source[sid] = observed_source
                         comparisons = [
                             ("PilotDeck", "pilotdeck-current-native", "pilotdeck-current-sidecar", False),
                             ("PilotDeck baseline drift", "pilotdeck-baseline-native", "pilotdeck-current-native", True),
@@ -945,6 +947,16 @@ def main() -> int:
                                 "label": label,
                                 "baseline": is_baseline,
                                 "sidecarImplementation": observed_impl,
+                                "sidecarImplementationSource": scenario_sidecar_source.get(sid, "none"),
+                                "rustFingerprint": (
+                                    "n/a"
+                                    if sidecar_transport == "stdio"
+                                    else (
+                                        "context.budget before model.request"
+                                        if observed_impl == "rust"
+                                        else "missing"
+                                    )
+                                ),
                                 "formatWarningCount": len(comparison.format_warnings),
                                 "formatWarningTaxonomy": taxonomy,
                                 "formatWarningNote": format_warning_note(taxonomy),
@@ -1014,7 +1026,16 @@ def main() -> int:
             if scenario_sidecar_impl and all(value == "rust" for value in scenario_sidecar_impl.values())
             else "ts"
         ),
-        "sidecarImplementationSource": "observed",
+        "sidecarImplementationSource": (
+            next(iter(set(scenario_sidecar_source.values())), "none")
+            if scenario_sidecar_source
+            else "none"
+        ),
+        "rustFingerprint": "n/a" if sidecar_transport == "stdio" else (
+            "context.budget before model.request"
+            if scenario_sidecar_impl and all(value == "rust" for value in scenario_sidecar_impl.values())
+            else "missing"
+        ),
         "rustSidecarIntended": rust_intended,
         "stdioSidecarCommand": stdio_sidecar_command,
         "tcpSidecarLog": str(tcp_sidecar_log) if tcp_sidecar_log is not None else None,

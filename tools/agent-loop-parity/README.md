@@ -72,12 +72,16 @@ python tools/agent-loop-parity/run.py \
   --output /tmp/pilotdeck-agent-loop-parity-stdio-rust
 ```
 
-`sidecarImplementation` is **observed**, not inferred from the command string:
+`sidecarImplementation` is **observed**, not inferred from the command string. The adapter **does not rewrite** traces (no budget/request reorder, no invented `requestEvidence`).
 
-- `rust-stdio-sidecar.sh` appends `pid` + resolved `$bin` to `PARITY_RUST_SIDECAR_PROOF` before `exec`; the adapter copies that into `harness.proof` / `rust_sidecar_exec`.
-- A Rust claim also requires the sidecar-trace fingerprint: first `context.budget` **before** first `model.request`.
-- If Rust was requested (`--pilotdeck-stdio-sidecar-cmd` / rust start command) but either observation is missing, the run is **BLOCKED** (it is not labeled rust).
-- `traceDigest.rust` is written only when the observed implementation is rust. TCP reuse (no start command) is not intended-rust by itself.
+**stdio** (host WS delivery of `context.budget` is TS-shaped; fingerprint is **N/A**):
+
+- Rust is claimed only from timing-independent observations: wrapper `rust_sidecar_exec` (`pid` + resolved `pilotdeck-agent-loop`), and/or raw `sequence` of `module_call` `budget.evaluate_request_budget` before `model.prepare`/`model.stream`, and/or handshake `capabilities.transport` when the observer sees it.
+- Missing exec proof when Rust was requested (`--pilotdeck-stdio-sidecar-cmd`) is **BLOCKED**. Host `context.budget` vs `model.request` order never PASSes or BLOCKs stdio Rust.
+
+**tcp**: the budget≺request fingerprint (raw `sequence`) still applies. TCP reuse (no start command) is not intended-rust by itself.
+
+`traceDigest.rust` is written only when the observed implementation is rust.
 
 选择 TCP（harness 在 loopback 上分配空闲端口并启动 TS sidecar）：
 

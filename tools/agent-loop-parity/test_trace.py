@@ -21,6 +21,7 @@ from trace import (
     load_raw_trace,
     observe_sidecar_implementation,
     rust_budget_precedes_model_request,
+    rust_module_budget_precedes_model_call,
     trace_digest,
     validate_production_sidecar_proof,
     validate_trace_expectations,
@@ -1697,72 +1698,119 @@ class FormatWarningTaxonomyTests(unittest.TestCase):
 
 
 class ObserveSidecarImplementationTests(unittest.TestCase):
-    def test_rust_fingerprint_requires_budget_before_request(self) -> None:
+    def test_rust_fingerprint_uses_raw_sequence_not_list_order(self) -> None:
         rust_order = [
-            {"kind": "context.budget"},
-            {"kind": "model.request"},
+            {"kind": "context.budget", "sequence": 7},
+            {"kind": "model.request", "sequence": 9},
         ]
         ts_order = [
-            {"kind": "model.request"},
-            {"kind": "model.response"},
-            {"kind": "context.budget"},
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        forged_list = [
+            {"kind": "context.budget", "sequence": 10},
+            {"kind": "model.request", "sequence": 8},
         ]
         self.assertTrue(rust_budget_precedes_model_request(rust_order))
         self.assertFalse(rust_budget_precedes_model_request(ts_order))
+        self.assertFalse(rust_budget_precedes_model_request(forged_list))
 
-    def test_stdio_rust_requires_exec_proof_and_fingerprint(self) -> None:
+    def test_stdio_rust_uses_exec_proof_not_host_budget_order(self) -> None:
         records = [
-            {"kind": "context.budget"},
-            {"kind": "model.request"},
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
             {
                 "kind": "harness.proof",
                 "state": "rust_sidecar_exec",
                 "pid": 4242,
                 "bin": "./target/release/pilotdeck-agent-loop",
                 "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+                "sequence": 17,
             },
         ]
-        impl, errors = observe_sidecar_implementation(
+        impl, errors, source = observe_sidecar_implementation(
             records, transport="stdio", rust_intended=True,
         )
         self.assertEqual(impl, "rust")
         self.assertEqual(errors, [])
+        self.assertTrue(source.startswith("exec-proof"))
+        self.assertFalse(rust_budget_precedes_model_request(records))
 
-    def test_intended_rust_stdio_without_fingerprint_is_blocked(self) -> None:
+    def test_stdio_exec_proof_with_ts_delivery_order_does_not_forge_fingerprint(self) -> None:
         records = [
-            {"kind": "model.request"},
-            {"kind": "model.response"},
-            {"kind": "context.budget"},
+            {"kind": "model.request", "sequence": 8, "scenarioId": "t", "q": "q"},
+            {"kind": "model.response", "sequence": 9, "scenarioId": "t", "q": "q"},
+            {"kind": "context.budget", "sequence": 10, "scenarioId": "t", "q": "q"},
             {
                 "kind": "harness.proof",
                 "state": "rust_sidecar_exec",
                 "pid": 4242,
                 "bin": "./target/release/pilotdeck-agent-loop",
                 "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+                "sequence": 17,
+                "scenarioId": "t",
+                "q": "q",
             },
         ]
-        impl, errors = observe_sidecar_implementation(
+        before = [record.get("kind") for record in records]
+        impl, errors, source = observe_sidecar_implementation(
             records, transport="stdio", rust_intended=True,
         )
-        self.assertEqual(impl, "ts")
-        self.assertTrue(any("fingerprint" in item for item in errors))
+        after = [record.get("kind") for record in records]
+        self.assertEqual(before, after)
+        self.assertEqual(
+            [record.get("sequence") for record in records],
+            [8, 9, 10, 17],
+        )
+        self.assertEqual(impl, "rust")
+        self.assertEqual(errors, [])
+        self.assertNotEqual(source, "fingerprint")
+        self.assertFalse(rust_budget_precedes_model_request(records))
+        adapter = (ROOT / "adapters" / "pilotdeck_gateway_impl.mjs").read_text(encoding="utf-8")
+        self.assertNotIn("alignObservedRustBudgetFingerprint", adapter)
+        self.assertNotIn("alignObservedRust", adapter)
 
     def test_intended_rust_stdio_without_exec_proof_is_blocked(self) -> None:
         records = [
-            {"kind": "context.budget"},
-            {"kind": "model.request"},
+            {"kind": "context.budget", "sequence": 7},
+            {"kind": "model.request", "sequence": 9},
         ]
-        impl, errors = observe_sidecar_implementation(
+        impl, errors, source = observe_sidecar_implementation(
             records, transport="stdio", rust_intended=True,
         )
         self.assertEqual(impl, "ts")
+        self.assertEqual(source, "none")
         self.assertTrue(any("exec proof" in item for item in errors))
+
+    def test_module_call_sequence_is_timing_independent(self) -> None:
+        records = [
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "budget",
+                "operation": "evaluate_request_budget",
+                "sequence": 4,
+            },
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "model",
+                "operation": "stream",
+                "sequence": 6,
+            },
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        self.assertTrue(rust_module_budget_precedes_model_call(records))
+        self.assertFalse(rust_budget_precedes_model_request(records))
 
     def test_raw_trace_keeps_exec_pid_for_observation(self) -> None:
         import tempfile
         records = [
-            {"kind": "context.budget", "scenarioId": "t", "q": "q", "sequence": 0},
-            {"kind": "model.request", "scenarioId": "t", "q": "q", "sequence": 1},
+            {"kind": "model.request", "scenarioId": "t", "q": "q", "sequence": 8},
+            {"kind": "context.budget", "scenarioId": "t", "q": "q", "sequence": 10},
             {
                 "kind": "harness.proof",
                 "state": "rust_sidecar_exec",
@@ -1771,7 +1819,7 @@ class ObserveSidecarImplementationTests(unittest.TestCase):
                 "resolved": "/x/pilotdeck-agent-loop",
                 "scenarioId": "t",
                 "q": "q",
-                "sequence": 2,
+                "sequence": 17,
             },
         ]
         with tempfile.TemporaryDirectory() as temporary:
@@ -1779,22 +1827,24 @@ class ObserveSidecarImplementationTests(unittest.TestCase):
             path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
             raw = load_raw_trace(path)
             self.assertEqual(raw[-1]["pid"], 9)
-            impl, errors = observe_sidecar_implementation(
+            impl, errors, source = observe_sidecar_implementation(
                 raw, transport="stdio", rust_intended=True,
             )
             self.assertEqual(impl, "rust")
             self.assertEqual(errors, [])
+            self.assertTrue(source.startswith("exec-proof"))
 
     def test_tcp_reuse_without_fingerprint_stays_ts(self) -> None:
         records = [
-            {"kind": "model.request"},
-            {"kind": "model.response"},
-            {"kind": "context.budget"},
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "model.response", "sequence": 9},
+            {"kind": "context.budget", "sequence": 10},
         ]
-        impl, errors = observe_sidecar_implementation(
+        impl, errors, source = observe_sidecar_implementation(
             records, transport="tcp", rust_intended=False,
         )
         self.assertEqual(impl, "ts")
+        self.assertEqual(source, "none")
         self.assertEqual(errors, [])
 
 
