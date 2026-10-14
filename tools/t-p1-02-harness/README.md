@@ -4,7 +4,7 @@ Reusable TCP harness for the Rust `pilotdeck-agent-loop` crate from T-P1-01 / #1
 
 1. Start `pilotdeck-agent-loop --listen 127.0.0.1:0`.
 2. Discover the ephemeral port from stderr (`listening HOST:PORT`).
-3. Run a **connect-only** TS host. The host never spawns and never sees `PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND` / `SIDECAR_PATH`. It connects with the same TCP env as `src/cli/AgentLoopDeploymentProfile.ts` and `createTcpAgentLoopSidecarConnectionFactory` (host connect at `:84-93`).
+3. Run a **connect-only** TS host. The host never spawns and never sees `PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND` / `SIDECAR_PATH`. It connects with the same TCP env as `src/cli/AgentLoopDeploymentProfile.ts` (`TRANSPORT` / `TCP_HOST` / `TCP_PORT`) using `createConnection({ host, port })` + `setNoDelay` — the same connect path as `createTcpAgentLoopSidecarConnectionFactory` (`AgentLoopDeploymentProfile.ts:84-93`).
 4. Dialogue: **hello → execute → status**. Exit 0 on success.
 
 This is not T-P1-03/04/07, not a real model, and not resume/ack.

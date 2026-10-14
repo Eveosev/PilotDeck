@@ -4,14 +4,18 @@
  *
  * Does not spawn a sidecar and does not read SIDECAR_COMMAND / SIDECAR_PATH.
  * Resolves the same TCP profile as `src/cli/AgentLoopDeploymentProfile.ts`
- * (TRANSPORT / TCP_HOST / TCP_PORT) and connects through
- * `createTcpAgentLoopSidecarConnectionFactory` — the host-connect path at
- * AgentLoopDeploymentProfile.ts:84-93.
+ * (TRANSPORT / TCP_HOST / TCP_PORT) and TCP-connects the way
+ * `createTcpAgentLoopSidecarConnectionFactory` does (host connect at
+ * AgentLoopDeploymentProfile.ts:84-93 / tcpAgentLoopSidecarConnection.ts:56-57):
+ * `createConnection({ host, port })` + `setNoDelay`. No SIDECAR_COMMAND spawn.
  *
  * Dialogue: hello → execute → status. No capabilities/cancel/resume/ack,
- * no real model.
+ * no real model. Wraps the #18 `b4-tcp-host.mjs` listen/connect pattern
+ * into a hello→execute→status-only host.
  */
 import { spawnSync } from "node:child_process";
+import { createConnection } from "node:net";
+import { createInterface } from "node:readline";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -30,47 +34,29 @@ const repoRoot = resolve(here, "..", "..");
 assertConnectOnly();
 const profile = resolveTcpProfile(process.env);
 
-const { createTcpAgentLoopSidecarConnectionFactory } = await import(
-  pathToFileURL(
-    resolve(repoRoot, "src/agent/modules/transport/tcpAgentLoopSidecarConnection.ts"),
-  ).href
-);
 const { validateModuleMessage } = await import(
   pathToFileURL(resolve(repoRoot, "src/agent/modules/protocol.ts")).href
 );
 
-const connect = createTcpAgentLoopSidecarConnectionFactory({
-  host: profile.host,
-  port: profile.port,
-  ...(profile.connectTimeoutMs === undefined ? {} : { connectTimeoutMs: profile.connectTimeoutMs }),
-});
-const connection = await connect();
-
+const socket = await connect(profile);
 const incoming = [];
 const waiters = [];
-let pumpError;
+const lines = createInterface({ input: socket, crlfDelay: Infinity });
 
-const pump = (async () => {
-  try {
-    for await (const message of connection.receive()) {
-      incoming.push(message);
-      for (let i = waiters.length - 1; i >= 0; i -= 1) {
-        if (waiters[i].pred(incoming)) {
-          waiters[i].resolve(incoming.slice());
-          waiters.splice(i, 1);
-        }
-      }
-    }
-  } catch (error) {
-    pumpError = error;
-    for (const waiter of waiters.splice(0)) {
-      waiter.reject(error);
+lines.on("line", (line) => {
+  if (!line.trim()) return;
+  const message = JSON.parse(line);
+  incoming.push(message);
+  for (let i = waiters.length - 1; i >= 0; i -= 1) {
+    if (waiters[i].pred(incoming)) {
+      waiters[i].resolve(incoming.slice());
+      waiters.splice(i, 1);
     }
   }
-})();
+});
 
 function send(message) {
-  return connection.send(message);
+  socket.write(`${JSON.stringify(message)}\n`);
 }
 
 function waitFor(pred, timeoutMs = 5_000) {
@@ -84,10 +70,6 @@ function waitFor(pred, timeoutMs = 5_000) {
       resolve: (value) => {
         clearTimeout(timer);
         resolveWait(value);
-      },
-      reject: (error) => {
-        clearTimeout(timer);
-        reject(error);
       },
     });
   });
@@ -106,10 +88,10 @@ const executeIds = {
   turnId: "turn-t-p1-02",
 };
 
-await send({ kind: "request", messageId: "hello-t-p1-02", method: "hello", payload: {} });
+send({ kind: "request", messageId: "hello-t-p1-02", method: "hello", payload: {} });
 await waitFor((msgs) => msgs.some((m) => m.inReplyTo === "hello-t-p1-02"));
 
-await send({
+send({
   kind: "request",
   messageId: executeIds.messageId,
   method: "execute",
@@ -122,7 +104,7 @@ await send({
 });
 await waitFor((msgs) => msgs.some((m) => m.inReplyTo === executeIds.messageId));
 
-await send({
+send({
   kind: "request",
   messageId: "st-t-p1-02",
   method: "status",
@@ -156,6 +138,7 @@ const report = {
   transport: profile.transport,
   host: profile.host,
   port: profile.port,
+  connect: "createConnection({ host, port }) + setNoDelay",
   connectFactory: "createTcpAgentLoopSidecarConnectionFactory",
   profileSource: "src/cli/AgentLoopDeploymentProfile.ts",
   helloOk: hello?.ok === true,
@@ -193,25 +176,20 @@ const failed = !(
   && incoming.length > 0
 );
 if (failed) report.ok = false;
-if (pumpError && report.ok) {
-  report.ok = false;
-  report.pumpError = String(pumpError);
-}
 
 console.log(JSON.stringify(report, null, 2));
-await connection.close();
-await pump;
+socket.destroy();
 process.exit(report.ok ? 0 : 1);
 
 function assertConnectOnly() {
   const command = process.env.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND?.trim();
-  const path = process.env.PILOTDECK_AGENT_LOOP_SIDECAR_PATH?.trim();
+  const sidecarPath = process.env.PILOTDECK_AGENT_LOOP_SIDECAR_PATH?.trim();
   if (command) {
     throw new Error(
       "T-P1-02 host is TCP connect-only; unset PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND.",
     );
   }
-  if (path) {
+  if (sidecarPath) {
     throw new Error(
       "T-P1-02 host is TCP connect-only; unset PILOTDECK_AGENT_LOOP_SIDECAR_PATH.",
     );
@@ -261,4 +239,24 @@ function optionalPositiveInteger(value) {
     throw new Error("PILOTDECK_AGENT_LOOP_CONNECT_TIMEOUT_MS must be a positive integer.");
   }
   return parsed;
+}
+
+function connect(addr) {
+  return new Promise((resolveWait, reject) => {
+    const timeoutMs = addr.connectTimeoutMs ?? 5_000;
+    const sock = createConnection({ host: addr.host, port: addr.port });
+    sock.setNoDelay(true);
+    const timer = setTimeout(() => {
+      sock.destroy();
+      reject(new Error(`Timed out connecting to sidecar TCP server after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    sock.once("connect", () => {
+      clearTimeout(timer);
+      resolveWait(sock);
+    });
+    sock.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
 }
