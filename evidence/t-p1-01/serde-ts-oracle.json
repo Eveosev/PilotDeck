@@ -1,0 +1,72 @@
+{
+  "1.0": {
+    "parseOk": true,
+    "rawNumberToken": "1.0",
+    "jsAfterNumberParse": 1,
+    "objectIsNegativeZero": false,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "-0": {
+    "parseOk": true,
+    "rawNumberToken": "-0",
+    "jsAfterNumberParse": 0,
+    "objectIsNegativeZero": true,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "1e2": {
+    "parseOk": true,
+    "rawNumberToken": "1e2",
+    "jsAfterNumberParse": 100,
+    "objectIsNegativeZero": false,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "1E0": {
+    "parseOk": true,
+    "rawNumberToken": "1E0",
+    "jsAfterNumberParse": 1,
+    "objectIsNegativeZero": false,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "100e-2": {
+    "parseOk": true,
+    "rawNumberToken": "100e-2",
+    "jsAfterNumberParse": 1,
+    "objectIsNegativeZero": false,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "gt2p53": {
+    "parseOk": true,
+    "rawNumberToken": "9007199254740993",
+    "jsAfterNumberParse": 9007199254740992,
+    "objectIsNegativeZero": false,
+    "isInteger": true,
+    "tsOk": true,
+    "schemaOk": true,
+    "ajvStrict": true
+  },
+  "1e400": {
+    "parseOk": true,
+    "rawNumberToken": "1e400",
+    "jsAfterNumberParse": "Infinity",
+    "objectIsNegativeZero": false,
+    "isInteger": false,
+    "tsOk": false,
+    "schemaOk": false,
+    "ajvStrict": true
+  }
+}

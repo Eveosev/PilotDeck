@@ -1,0 +1,2 @@
+regenerating F-3 corpus via cargo test (T_P1_01_EMITTED_OUT)
+F-3 mask compare: 19 messages, F-5 shape, field sets match, masked bytes identical

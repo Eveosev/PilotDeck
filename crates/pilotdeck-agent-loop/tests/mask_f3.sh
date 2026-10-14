@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# F-3 scheme 2: regenerate the live sidecar corpus and compare it to the
-# committed sample after path-precise masking of unstable ID / timestamp
-# fields. Never masks a whole line or a whole message.
+# F-3 scheme 2 (moved in PR-B): regenerate the live sidecar corpus and compare
+# it to the committed sample after path-precise masking of unstable ID /
+# timestamp fields. Never masks a whole line or a whole message.
+#
+# PR-B decision: MOVE (do not delete). Test-mode stable IDs
+# (`PILOTDECK_AGENT_LOOP_STABLE_IDS=1`) make messageId / streamId /
+# moduleInstanceId / connectionGeneration deterministic, but status
+# `updatedAt` and F-5 `startedAt`/`completedAt` still vary, so the mask
+# script remains the F-3 comparator.
 #
 # Usage:
 #   mask_f3.sh [--committed PATH] [--live PATH]
 # Defaults:
-#   --committed  git show 0e60f9e4:review/.../evidence/emitted-messages.json
+#   --committed  evidence/t-p1-01/emitted-messages.json
 #   --live       regenerate via cargo test + T_P1_01_EMITTED_OUT
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(git -C "$HERE" rev-parse --show-toplevel)"
-COMMITTED_REF="${F3_COMMITTED_REF:-0e60f9e4124e6f197e077cce42f430f0aa4fe0cd}"
-COMMITTED_GIT_PATH="${F3_COMMITTED_GIT_PATH:-review/2026-10-12-T-P1-01-rust-agent-loop/evidence/emitted-messages.json}"
-COMMITTED=""
+COMMITTED="${F3_COMMITTED:-$ROOT/evidence/t-p1-01/emitted-messages.json}"
 LIVE=""
 
 while [[ $# -gt 0 ]]; do
@@ -22,7 +26,7 @@ while [[ $# -gt 0 ]]; do
     --committed) COMMITTED="$2"; shift 2 ;;
     --live) LIVE="$2"; shift 2 ;;
     -h|--help)
-      sed -n '2,14p' "$0"
+      sed -n '2,18p' "$0"
       exit 0
       ;;
     *)
@@ -35,10 +39,6 @@ done
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-if [[ -z "$COMMITTED" ]]; then
-  COMMITTED="$tmpdir/committed.json"
-  git -C "$ROOT" show "${COMMITTED_REF}:${COMMITTED_GIT_PATH}" >"$COMMITTED"
-fi
 if [[ ! -f "$COMMITTED" ]]; then
   echo "committed sample not found: $COMMITTED" >&2
   exit 2
@@ -47,7 +47,8 @@ fi
 if [[ -z "$LIVE" ]]; then
   LIVE="$tmpdir/live.json"
   echo "regenerating F-3 corpus via cargo test (T_P1_01_EMITTED_OUT)" >&2
-  if ! T_P1_01_EMITTED_OUT="$LIVE" cargo test -p pilotdeck-agent-loop \
+  if ! T_P1_01_EMITTED_OUT="$LIVE" PILOTDECK_AGENT_LOOP_STABLE_IDS=1 \
+    cargo test -p pilotdeck-agent-loop \
     --manifest-path "$ROOT/Cargo.toml" \
     --test roundtrip rust_emitted_messages_roundtrip_schema_and_ts \
     -- --test-threads=1 >"$tmpdir/cargo-test.log" 2>&1; then
@@ -129,14 +130,39 @@ def dump(obj):
 
 
 def require_f3_shape(label, rows):
+    ok = True
     if len(rows) != 19:
         print(f"{label}: expected 19 messages, got {len(rows)}", file=sys.stderr)
-        return False
+        ok = False
     types = [row.get("message", {}).get("eventType") for row in rows]
     if "agent.execute.completed" not in types or "agent.execute.cancelled" not in types:
         print(f"{label}: corpus must include completed and cancelled finals", file=sys.stderr)
-        return False
-    return True
+        ok = False
+    completed = next(
+        (
+            row.get("message", {})
+            for row in rows
+            if row.get("message", {}).get("eventType") == "agent.execute.completed"
+        ),
+        {},
+    )
+    cancelled = next(
+        (
+            row.get("message", {})
+            for row in rows
+            if row.get("message", {}).get("eventType") == "agent.execute.cancelled"
+        ),
+        {},
+    )
+    result = completed.get("payload", {}).get("result", {})
+    if not result.get("sessionId") or not result.get("turnId"):
+        print(f"{label}: completed final must include sessionId/turnId (F-5)", file=sys.stderr)
+        ok = False
+    aborted = cancelled.get("payload", {}).get("result", {})
+    if aborted.get("type") != "aborted":
+        print(f"{label}: cancelled final must use type:aborted shape (F-5)", file=sys.stderr)
+        ok = False
+    return ok
 
 
 _, committed_rows = load(committed_path)
@@ -176,5 +202,5 @@ if masked_committed != masked_live:
 
 if not ok:
     sys.exit(1)
-print("F-3 mask compare: 19 messages, field sets match, masked bytes identical")
+print("F-3 mask compare: 19 messages, F-5 shape, field sets match, masked bytes identical")
 PY

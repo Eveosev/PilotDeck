@@ -4,12 +4,12 @@
       "id": "emitted-0",
       "message": {
         "capabilitiesVersion": "1",
-        "connectionGeneration": "pilotdeck-agent-loop-instance-18ddd6acfa045d08-0-641c-18ddd6acfa050658-1-641c",
+        "connectionGeneration": "pilotdeck-agent-loop-instance-0-1",
         "inReplyTo": "hello-1",
         "kind": "response",
-        "messageId": "hello-18ddd6acfa06144d-2-641c",
+        "messageId": "hello-2",
         "moduleId": "pilotdeck-agent-loop",
-        "moduleInstanceId": "pilotdeck-agent-loop-instance-18ddd6acfa045d08-0-641c",
+        "moduleInstanceId": "pilotdeck-agent-loop-instance-0",
         "ok": true,
         "payload": {},
         "protocolVersion": "2.0"
@@ -20,12 +20,12 @@
       "id": "emitted-1",
       "message": {
         "capabilitiesVersion": "1",
-        "connectionGeneration": "pilotdeck-agent-loop-instance-18ddd6acfa045d08-0-641c-18ddd6acfa050658-1-641c",
+        "connectionGeneration": "pilotdeck-agent-loop-instance-0-1",
         "inReplyTo": "caps-1",
         "kind": "response",
-        "messageId": "capabilities-18ddd6acfa06ea6a-3-641c",
+        "messageId": "capabilities-3",
         "moduleId": "pilotdeck-agent-loop",
-        "moduleInstanceId": "pilotdeck-agent-loop-instance-18ddd6acfa045d08-0-641c",
+        "moduleInstanceId": "pilotdeck-agent-loop-instance-0",
         "ok": true,
         "payload": {
           "capabilitiesVersion": "1",
@@ -69,10 +69,10 @@
         "cursor": 0,
         "inReplyTo": "ex-done",
         "kind": "response",
-        "messageId": "accepted-18ddd6acfa083750-5-641c",
+        "messageId": "accepted-5",
         "ok": true,
         "requestId": "req-done",
-        "streamId": "stream-18ddd6acfa0831bf-4-641c"
+        "streamId": "stream-4"
       },
       "source": "rust-sidecar"
     },
@@ -82,18 +82,20 @@
         "eventType": "agent.message",
         "final": false,
         "kind": "event",
-        "messageId": "event-18ddd6acfa09f981-6-641c",
+        "messageId": "event-6",
         "operationId": "op-done",
         "payload": {
           "role": "assistant",
+          "sessionId": "sess-done",
           "stub": true,
           "text": "STUB[pure_text]: What is the status?",
+          "turnId": "turn-done",
           "type": "message"
         },
         "requestId": "req-done",
         "runId": "run-done",
         "sequence": 0,
-        "streamId": "stream-18ddd6acfa0831bf-4-641c"
+        "streamId": "stream-4"
       },
       "source": "rust-sidecar"
     },
@@ -103,7 +105,7 @@
         "eventType": "agent.execute.completed",
         "final": true,
         "kind": "event",
-        "messageId": "final-18ddd6acfa0aa24a-7-641c",
+        "messageId": "final-7",
         "operationId": "op-done",
         "outcome": "completed",
         "payload": {
@@ -114,9 +116,15 @@
             }
           ],
           "result": {
+            "completedAt": "2026-10-13T19:12:19.998Z",
+            "permissionDenials": [],
+            "sessionId": "sess-done",
+            "startedAt": "2026-10-13T19:12:19.998Z",
             "stopReason": "completed",
+            "turnId": "turn-done",
             "turns": 1,
-            "type": "success"
+            "type": "success",
+            "usage": {}
           },
           "stub": {
             "model": "pilotdeck-stub",
@@ -126,7 +134,7 @@
         "requestId": "req-done",
         "runId": "run-done",
         "sequence": 1,
-        "streamId": "stream-18ddd6acfa0831bf-4-641c"
+        "streamId": "stream-4"
       },
       "source": "rust-sidecar"
     },
@@ -136,10 +144,10 @@
         "cursor": 0,
         "inReplyTo": "ex-1",
         "kind": "response",
-        "messageId": "accepted-18ddd6acfa13c8bb-9-641c",
+        "messageId": "accepted-9",
         "ok": true,
         "requestId": "req-1",
-        "streamId": "stream-18ddd6acfa13ba8c-8-641c"
+        "streamId": "stream-8"
       },
       "source": "rust-sidecar"
     },
@@ -148,7 +156,7 @@
       "message": {
         "inReplyTo": "st-1",
         "kind": "response",
-        "messageId": "status-18ddd6acfa15b15e-a-641c",
+        "messageId": "status-a",
         "ok": true,
         "payload": {
           "cancelRequested": false,
@@ -158,7 +166,7 @@
           ],
           "runId": "run-1",
           "state": "running",
-          "updatedAt": "2026-10-12T16:57:45.181Z"
+          "updatedAt": "2026-10-13T19:12:19.998Z"
         },
         "requestId": "req-1"
       },
@@ -169,7 +177,7 @@
       "message": {
         "inReplyTo": "cancel-1",
         "kind": "response",
-        "messageId": "cancel-18ddd6acfa165d6c-b-641c",
+        "messageId": "cancel-b",
         "ok": true,
         "payload": {
           "cancelled": true,
@@ -184,7 +192,7 @@
         "code": "RESUME_UNSUPPORTED",
         "inReplyTo": "resume-1",
         "kind": "response",
-        "messageId": "resume-18ddd6acfa16c200-c-641c",
+        "messageId": "resume-c",
         "ok": false
       },
       "source": "rust-sidecar"
@@ -195,7 +203,7 @@
         "code": "ACK_UNSUPPORTED",
         "inReplyTo": "ack-1",
         "kind": "response",
-        "messageId": "ack-18ddd6acfa16f5f6-d-641c",
+        "messageId": "ack-d",
         "ok": false
       },
       "source": "rust-sidecar"
@@ -206,7 +214,7 @@
         "code": "INVALID_JSON",
         "kind": "error",
         "message": "Module message is not valid JSON.",
-        "messageId": "parse-18ddd6acfa17434e-e-641c",
+        "messageId": "parse-e",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -217,7 +225,7 @@
         "code": "INVALID_KIND",
         "kind": "error",
         "message": "Module message kind is invalid.",
-        "messageId": "validation-18ddd6acfa177643-f-641c",
+        "messageId": "validation-f",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -228,7 +236,7 @@
         "code": "INVALID_HANDSHAKE_REQUEST",
         "kind": "error",
         "message": "Handshake requires payload.",
-        "messageId": "validation-18ddd6acfa17a2b0-10-641c",
+        "messageId": "validation-10",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -239,7 +247,7 @@
         "code": "UNSUPPORTED_FIELD",
         "kind": "error",
         "message": "attemptId and stepId are not public fields.",
-        "messageId": "validation-18ddd6acfa17e268-11-641c",
+        "messageId": "validation-11",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -250,7 +258,7 @@
         "code": "UNSUPPORTED_FIELD",
         "kind": "error",
         "message": "attemptId and stepId are not public fields.",
-        "messageId": "validation-18ddd6acfa1820d5-12-641c",
+        "messageId": "validation-12",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -261,7 +269,7 @@
         "code": "INVALID_STATUS_REQUEST",
         "kind": "error",
         "message": "Status requires requestId.",
-        "messageId": "validation-18ddd6acfa184dad-13-641c",
+        "messageId": "validation-13",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -272,7 +280,7 @@
         "code": "INVALID_CANCEL_REQUEST",
         "kind": "error",
         "message": "Cancel requires runId, operationId, and reason.",
-        "messageId": "validation-18ddd6acfa187dab-14-641c",
+        "messageId": "validation-14",
         "retryability": "unsafe"
       },
       "source": "rust-sidecar"
@@ -284,7 +292,7 @@
         "final": true,
         "inReplyTo": "mod-1",
         "kind": "response",
-        "messageId": "module-call-18ddd6acfa18bfa2-15-641c",
+        "messageId": "module-call-15",
         "ok": false,
         "outcome": "failed",
         "requestId": "req-mod"
@@ -297,14 +305,27 @@
         "eventType": "agent.execute.cancelled",
         "final": true,
         "kind": "event",
-        "messageId": "failed-18ddd6acfb13892b-16-641c",
+        "messageId": "failed-16",
         "operationId": "op-1",
         "outcome": "cancelled",
-        "payload": {},
+        "payload": {
+          "messages": [],
+          "result": {
+            "completedAt": "2026-10-13T19:12:20.009Z",
+            "permissionDenials": [],
+            "sessionId": "sess-1",
+            "startedAt": "2026-10-13T19:12:19.999Z",
+            "stopReason": "aborted_streaming",
+            "turnId": "turn-1",
+            "turns": 0,
+            "type": "aborted",
+            "usage": {}
+          }
+        },
         "requestId": "req-1",
         "runId": "run-1",
         "sequence": 0,
-        "streamId": "stream-18ddd6acfa13ba8c-8-641c"
+        "streamId": "stream-8"
       },
       "source": "rust-sidecar"
     }

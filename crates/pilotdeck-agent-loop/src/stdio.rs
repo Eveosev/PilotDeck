@@ -1,4 +1,4 @@
-//! stdio JSONL transport. TCP listen is S4 (later PR).
+//! stdio JSONL transport. TCP listen is [`crate::serve_tcp`].
 
 use std::io::{self, BufRead, Write};
 use std::sync::{Arc, Mutex};
@@ -10,16 +10,19 @@ use crate::Sidecar;
 /// Active execute workers are joined before return so a final event is flushed.
 pub fn serve_stdio() -> io::Result<()> {
     let stdout = Arc::new(Mutex::new(io::stdout()));
-    let sidecar = Sidecar::new(Arc::new({
-        let stdout = Arc::clone(&stdout);
-        move |message| {
-            let mut out = stdout.lock().expect("stdout lock");
-            if writeln!(out, "{message}").is_err() {
-                return;
+    let sidecar = Sidecar::with_transport(
+        Arc::new({
+            let stdout = Arc::clone(&stdout);
+            move |message| {
+                let mut out = stdout.lock().expect("stdout lock");
+                if writeln!(out, "{message}").is_err() {
+                    return;
+                }
+                let _ = out.flush();
             }
-            let _ = out.flush();
-        }
-    }));
+        }),
+        "stdio",
+    );
 
     let mut stdin = io::stdin().lock();
     let mut buf = Vec::new();
