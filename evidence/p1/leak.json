@@ -1,0 +1,25 @@
+{
+  "task": "T-P1-03 PR-B",
+  "gitSha": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "gitDirty": false,
+  "collectHead": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "base": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "branch": "cursor/t-p1-03-pr-b-evidence",
+  "target": "rust_standalone_alpha1",
+  "mode": "reuse",
+  "hostConnectOnly": true,
+  "listen": "127.0.0.1:37211",
+  "collectedAt": "2026-10-14T12:06:25Z",
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
+  "node": "v22.23.3",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "command": "pgrep -f 'pilotdeck-agent-loop --listen'; pgrep -f 'pilotdeck_gateway_impl.mjs'",
+  "leak": {
+    "beforeListen": 0,
+    "midListen": 1,
+    "afterRuns": 1,
+    "afterStopListen": 0,
+    "afterStopHost": 0,
+    "baselineRestored": true
+  }
+}
