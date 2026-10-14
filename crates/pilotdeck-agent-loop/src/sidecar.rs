@@ -509,6 +509,10 @@ fn run_stub_execute(job: StubJob) {
 
     let prompt = stub_prompt(&job.payload);
     let scenario = stub_scenario(&job.payload);
+    if scenario == "single_tool" {
+        emit_single_tool_stub(&job, &prompt, &scenario, &mut sequence);
+        return;
+    }
     let text = format!("STUB[{scenario}]: {prompt}");
     (job.inner.emit)(json!({
         "kind": "event",
@@ -569,6 +573,162 @@ fn run_stub_execute(job: StubJob) {
         },
     }));
     clear_active(&job);
+}
+
+/// `single_tool` follows the TS sidecar event types (`agent.{AgentEvent.type}`)
+/// used by tools/agent-loop-parity scenario `single_tool`: tool call, tool
+/// result, then final assistant text. Text and tool I/O are derived from the
+/// protocol scenario plus the execute prompt — not replayed goldens.
+fn emit_single_tool_stub(job: &StubJob, prompt: &str, scenario: &str, sequence: &mut u64) {
+    let tool_name = stub_tool_name(&job.payload);
+    let tool_call_id = next_id(&job.inner, "tool");
+    let tool_input = json!({ "q": prompt });
+    let result_text = format!("STUB_RESULT[{scenario}/{tool_name}]: {prompt}");
+    let final_text = format!("STUB[{scenario}]: {prompt}");
+    let started_at = now_iso();
+
+    emit_stub_event(
+        job,
+        "event",
+        "agent.tool_calls_detected",
+        *sequence,
+        json!({
+            "type": "tool_calls_detected",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "calls": [{
+                "id": tool_call_id,
+                "name": tool_name,
+                "input": tool_input,
+            }],
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return;
+    }
+
+    let completed_at = now_iso();
+    emit_stub_event(
+        job,
+        "event",
+        "agent.tool_result",
+        *sequence,
+        json!({
+            "type": "tool_result",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "result": {
+                "type": "success",
+                "toolCallId": tool_call_id,
+                "toolName": tool_name,
+                "content": [{ "type": "text", "text": result_text }],
+                "startedAt": started_at,
+                "completedAt": completed_at,
+            },
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return;
+    }
+
+    emit_stub_event(
+        job,
+        "event",
+        "agent.assistant_message",
+        *sequence,
+        json!({
+            "type": "assistant_message",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "message": {
+                "role": "assistant",
+                "content": [{ "type": "text", "text": final_text }],
+            },
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return;
+    }
+
+    record_final_locked(
+        &mut job.inner.operations.lock().expect("operations lock"),
+        &job.operation_id,
+        &job.request_id,
+        "completed",
+    );
+    (job.inner.emit)(json!({
+        "kind": "event",
+        "messageId": next_id(&job.inner, "final"),
+        "eventType": "agent.execute.completed",
+        "streamId": job.stream_id,
+        "sequence": *sequence,
+        "runId": job.run_id,
+        "operationId": job.operation_id,
+        "requestId": job.request_id,
+        "final": true,
+        "outcome": "completed",
+        "payload": {
+            "result": stub_turn_result(
+                "success",
+                &job.session_id,
+                &job.turn_id,
+                "completed",
+                2,
+                &job.started_at,
+            ),
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [{
+                        "type": "tool_call",
+                        "id": tool_call_id,
+                        "name": tool_name,
+                        "input": tool_input,
+                    }],
+                },
+                {
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "toolCallId": tool_call_id,
+                        "content": [{ "type": "text", "text": result_text }],
+                    }],
+                },
+                {
+                    "role": "assistant",
+                    "content": [{ "type": "text", "text": final_text }],
+                }
+            ],
+            "stub": { "model": "pilotdeck-stub", "scenario": scenario }
+        },
+    }));
+    clear_active(job);
+}
+
+fn emit_stub_event(job: &StubJob, prefix: &str, event_type: &str, sequence: u64, payload: Value) {
+    (job.inner.emit)(json!({
+        "kind": "event",
+        "messageId": next_id(&job.inner, prefix),
+        "eventType": event_type,
+        "streamId": job.stream_id,
+        "sequence": sequence,
+        "runId": job.run_id,
+        "operationId": job.operation_id,
+        "requestId": job.request_id,
+        "final": false,
+        "payload": payload,
+    }));
+}
+
+fn stub_interrupted(job: &StubJob) -> bool {
+    job.cancel.load(Ordering::SeqCst)
+        || runtime_deadline_exceeded(job.deadline_at_ms, &job.deadline_exceeded)
 }
 
 fn emit_cancelled_terminal(job: &StubJob, sequence: u64) {
@@ -789,6 +949,43 @@ fn stub_scenario(payload: &Value) -> String {
         .to_string()
 }
 
+/// Parity `single_tool` uses `lookup` (`scenarios.json`). Prefer an explicit
+/// tool from the execute payload (host manifest objects or harness strings).
+fn stub_tool_name(payload: &Value) -> String {
+    if let Some(name) = payload
+        .get("tools")
+        .and_then(Value::as_array)
+        .and_then(|tools| tools.first())
+        .and_then(tool_name_from_value)
+    {
+        return name;
+    }
+    if let Some(name) = payload.get("tool").and_then(tool_name_from_value) {
+        return name;
+    }
+    if let Some(name) = payload
+        .get("toolName")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    {
+        return name.to_string();
+    }
+    "lookup".to_string()
+}
+
+fn tool_name_from_value(value: &Value) -> Option<String> {
+    if let Some(name) = value.as_str().filter(|name| !name.is_empty()) {
+        return Some(name.to_string());
+    }
+    ["name", "toolName"].into_iter().find_map(|field| {
+        value
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+    })
+}
+
 fn earliest_deadline_ms(request: &Value) -> Option<i64> {
     ["operationDeadline", "attemptDeadline"]
         .into_iter()
@@ -961,6 +1158,129 @@ mod tests {
         assert_eq!(terminal["payload"]["result"]["turnId"], "op-1");
         assert!(validate_module_message(terminal).is_ok());
         assert!(validate_module_message(&lines[0]).is_ok());
+        let message = events
+            .iter()
+            .find(|m| m["eventType"] == "agent.message")
+            .expect("pure_text agent.message");
+        assert_eq!(message["payload"]["type"], "message");
+        assert_eq!(
+            message["payload"]["text"],
+            "STUB[pure_text]: What is the status?"
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|m| m["eventType"] == "agent.tool_calls_detected"
+                    || m["eventType"] == "agent.tool_result")
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn execute_single_tool_emits_tool_call_result_and_final_text() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-st","method":"execute","runId":"run-st","operationId":"op-st","requestId":"req-st","sessionId":"sess-st","turnId":"turn-st","payload":{"scenario":"single_tool","q":"Look up the status","tools":["lookup"]}}"#,
+        );
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(lines[0]["ok"], true);
+        let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
+        assert_eq!(events.len(), 4);
+        assert_eq!(events[0]["eventType"], "agent.tool_calls_detected");
+        assert_eq!(events[0]["final"], false);
+        assert_eq!(events[0]["sequence"], 0);
+        assert_eq!(events[0]["payload"]["type"], "tool_calls_detected");
+        assert_eq!(events[0]["payload"]["sessionId"], "sess-st");
+        assert_eq!(events[0]["payload"]["turnId"], "turn-st");
+        let call = &events[0]["payload"]["calls"][0];
+        assert_eq!(call["name"], "lookup");
+        assert_eq!(call["input"]["q"], "Look up the status");
+        let tool_call_id = call["id"].as_str().expect("tool call id");
+        assert!(!tool_call_id.is_empty());
+
+        assert_eq!(events[1]["eventType"], "agent.tool_result");
+        assert_eq!(events[1]["payload"]["type"], "tool_result");
+        assert_eq!(events[1]["payload"]["result"]["type"], "success");
+        assert_eq!(events[1]["payload"]["result"]["toolName"], "lookup");
+        assert_eq!(events[1]["payload"]["result"]["toolCallId"], tool_call_id);
+        let result_text = events[1]["payload"]["result"]["content"][0]["text"]
+            .as_str()
+            .expect("tool result text");
+        assert!(result_text.contains("Look up the status"));
+        assert!(result_text.contains("lookup"));
+
+        assert_eq!(events[2]["eventType"], "agent.assistant_message");
+        assert_eq!(events[2]["payload"]["type"], "assistant_message");
+        assert_eq!(
+            events[2]["payload"]["message"]["content"][0]["text"],
+            "STUB[single_tool]: Look up the status"
+        );
+
+        let terminal = events[3];
+        assert_eq!(terminal["final"], true);
+        assert_eq!(terminal["outcome"], "completed");
+        assert_eq!(terminal["eventType"], "agent.execute.completed");
+        assert_eq!(terminal["payload"]["result"]["type"], "success");
+        assert_eq!(terminal["payload"]["result"]["sessionId"], "sess-st");
+        assert_eq!(terminal["payload"]["result"]["turnId"], "turn-st");
+        assert_eq!(terminal["payload"]["result"]["turns"], 2);
+        assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["type"],
+            "tool_call"
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"][0]["type"],
+            "tool_result"
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][2]["content"][0]["text"],
+            "STUB[single_tool]: Look up the status"
+        );
+        for event in &events {
+            assert!(validate_module_message(event).is_ok(), "{event}");
+        }
+        assert!(validate_module_message(&lines[0]).is_ok());
+    }
+
+    #[test]
+    fn execute_single_tool_prompt_mutation_changes_output() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-a","method":"execute","runId":"run-a","operationId":"op-a","requestId":"req-a","payload":{"scenario":"single_tool","q":"alpha-prompt"}}"#,
+        );
+        sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-b","method":"execute","runId":"run-b","operationId":"op-b","requestId":"req-b","payload":{"scenario":"single_tool","q":"beta-prompt"}}"#,
+        );
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let finals: Vec<_> = lines
+            .iter()
+            .filter(|m| m["eventType"] == "agent.assistant_message")
+            .collect();
+        assert_eq!(finals.len(), 2);
+        let text_a = finals[0]["payload"]["message"]["content"][0]["text"]
+            .as_str()
+            .unwrap();
+        let text_b = finals[1]["payload"]["message"]["content"][0]["text"]
+            .as_str()
+            .unwrap();
+        assert_ne!(text_a, text_b);
+        assert!(text_a.contains("alpha-prompt"));
+        assert!(text_b.contains("beta-prompt"));
+        let inputs: Vec<_> = lines
+            .iter()
+            .filter(|m| m["eventType"] == "agent.tool_calls_detected")
+            .map(|m| {
+                m["payload"]["calls"][0]["input"]["q"]
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(inputs, ["alpha-prompt", "beta-prompt"]);
     }
 
     #[test]
@@ -1261,6 +1581,38 @@ mod tests {
         let rejected = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
         assert_eq!(rejected["ok"], false);
         assert_eq!(rejected["code"], "OPERATION_RUN_MISMATCH");
+        assert!(
+            lines
+                .iter()
+                .filter(|m| m["eventType"] == "agent.execute.completed")
+                .count()
+                == 1,
+            "mismatch must not start a second run, have {lines:?}"
+        );
+    }
+
+    #[test]
+    fn execute_finished_run_match_is_accepted() {
+        let (sidecar, sink) = collect();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-done","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-a","payload":{"scenario":"pure_text"}}"#,
+        );
+        sidecar.join();
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"ex-reuse","method":"execute","runId":"run-a","operationId":"op-reuse","requestId":"req-b","payload":{"scenario":"pure_text"}}"#,
+        );
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let accepted = lines.iter().find(|m| m["inReplyTo"] == "ex-reuse").unwrap();
+        assert_eq!(accepted["ok"], true);
+        assert!(accepted.get("code").is_none());
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|m| m["eventType"] == "agent.execute.completed")
+                .count(),
+            2
+        );
     }
 
     #[test]
