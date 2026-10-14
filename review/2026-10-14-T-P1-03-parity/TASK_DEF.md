@@ -31,3 +31,8 @@ Source note: the T-P1-03 row below is inlined from the rust-proposal-v2 task pla
 - **m-b.** First-round text before tool calls is kept on the same assistant message. Multiple tool calls in one round become one assistant message and one results message. A second-round tool call fails with `UNEXPECTED_SECOND_TURN_TOOL_CALLS`.
 - **m-c.** Prepare interrupt and a host that never answers `stream` both send `close_stream`. Tests: `cancel_during_prepare_still_sends_close_stream`, `cancel_while_host_omits_stream_still_closes_stream`.
 - **n-b errata (append-only).** The F-9(a) sentence above keeps its `c5bed6c1` cites (`sidecar.rs:223-234` / test `:1251`). Those are baseline line numbers, not the current tip. TS `moduleRuntime.ts:30` is unchanged. Current rust check is `sidecar.rs` `OPERATION_RUN_MISMATCH` in `handle_execute` and test `execute_finished_run_mismatch_is_rejected`.
+
+## B3 gate v3 (Payne-approved)
+
+- **budget tools estimate.** Host `estimateToolSchemas` tokenizes `name + description + JSON.stringify(inputSchema)` with JS insertion order (no key sort). Sidecar `serde_json` now uses `preserve_order` so prepare/budget/model requests keep the filtered tool set's field order and whitespace bytes. `fafbbcb3` was 20 tokens low (6717 vs 6697) from BTreeMap alphabetical rewrite.
+- **second-round raw/timeline.** `TurnTimeline` reuses coordinates by id and `update()` bumps revision (TS `TurnTimeline.ts`). `tool_call` does not invent `raw`. `capability_result` keeps host `data` / extra fields and does not invent `startedAt` / `completedAt` on raw.

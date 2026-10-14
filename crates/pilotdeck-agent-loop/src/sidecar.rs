@@ -717,7 +717,7 @@ fn run_tool_calls(
         assistant_blocks.push(json!({
             "type": "text",
             "text": first.text,
-            "timeline": timeline.position("text:pre-tool"),
+            "timeline": timeline.update("text:pre-tool"),
         }));
     }
     let detected_calls: Vec<Value> = calls
@@ -759,7 +759,6 @@ fn run_tool_calls(
         let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
         let tool_name = call.get("name").and_then(Value::as_str).unwrap_or("");
         let tool_input = call.get("input").cloned().unwrap_or(json!({}));
-        let started_at = now_iso();
         let capability = match call_host_module(
             job,
             "capability",
@@ -780,7 +779,7 @@ fn run_tool_calls(
             emit_cancelled_terminal(job, *sequence);
             return false;
         }
-        let result = capability_result(&capability, tool_call_id, tool_name, &started_at);
+        let result = capability_result(&capability, tool_call_id, tool_name);
         emit_stub_event(
             job,
             "event",
@@ -822,6 +821,7 @@ struct TurnTimeline {
     next_order: u64,
     revision: u64,
     previous_id: Option<String>,
+    positions: HashMap<String, Value>,
 }
 
 impl TurnTimeline {
@@ -831,25 +831,48 @@ impl TurnTimeline {
             next_order: 0,
             revision: 0,
             previous_id: None,
+            positions: HashMap::new(),
         }
     }
 
+    /// TS `TurnTimeline.position`: reuse the slot for a stable id.
     fn position(&mut self, id: &str) -> Value {
+        if let Some(existing) = self.positions.get(id) {
+            return existing.clone();
+        }
         self.revision += 1;
         let order = self.next_order;
         self.next_order += 1;
-        let mut position = json!({
-            "version": 1,
-            "turnId": self.turn_id,
-            "id": id,
-            "order": order,
-            "revision": self.revision,
-        });
-        if let Some(previous) = &self.previous_id {
-            position["previousId"] = json!(previous);
-        }
+        let position = if let Some(previous) = &self.previous_id {
+            json!({
+                "version": 1,
+                "turnId": self.turn_id,
+                "id": id,
+                "previousId": previous,
+                "order": order,
+                "revision": self.revision,
+            })
+        } else {
+            json!({
+                "version": 1,
+                "turnId": self.turn_id,
+                "id": id,
+                "order": order,
+                "revision": self.revision,
+            })
+        };
         self.previous_id = Some(id.to_string());
+        self.positions.insert(id.to_string(), position.clone());
         position
+    }
+
+    /// TS `TurnTimeline.update`: same coordinates, bumped revision.
+    fn update(&mut self, id: &str) -> Value {
+        let mut next = self.position(id);
+        self.revision += 1;
+        next["revision"] = json!(self.revision);
+        self.positions.insert(id.to_string(), next.clone());
+        next
     }
 }
 
@@ -996,16 +1019,10 @@ fn tool_call_block(
         "id": tool_call_id,
         "name": tool_name,
         "input": tool_input,
-        "timeline": timeline.position(&format!("tool:{tool_call_id}")),
+        "timeline": timeline.update(&format!("tool:{tool_call_id}")),
     });
     if let Some(raw) = call.get("raw") {
         block["raw"] = raw.clone();
-    } else {
-        block["raw"] = json!({
-            "id": tool_call_id,
-            "name": tool_name,
-            "input": tool_input,
-        });
     }
     block
 }
@@ -1017,7 +1034,7 @@ fn tool_result_block(result: &Value, tool_call_id: &str, timeline: &mut TurnTime
         "type": "tool_result",
         "toolCallId": tool_call_id,
         "content": result.get("content").cloned().unwrap_or_else(|| json!([])),
-        "timeline": timeline.position(&format!("result:{tool_call_id}")),
+        "timeline": timeline.update(&format!("result:{tool_call_id}")),
         "raw": sanitize_tool_result_raw(result),
     });
     if is_error {
@@ -1710,8 +1727,6 @@ fn normalize_tool_call(value: &Value) -> Option<Value> {
     let mut call = json!({ "id": id, "name": name, "input": input });
     if let Some(raw) = value.get("raw") {
         call["raw"] = raw.clone();
-    } else {
-        call["raw"] = value.clone();
     }
     Some(call)
 }
@@ -1798,33 +1813,55 @@ fn sanitize_tool_result_raw(result: &Value) -> Value {
             other => other,
         };
     }
+    if let Some(Value::Array(messages)) = raw.get("supplementalMessages").cloned() {
+        raw["supplementalMessages"] = json!(messages
+            .iter()
+            .map(|message| {
+                let mut next = message.clone();
+                if let Some(content) = next.get("content").cloned() {
+                    next["content"] = match content {
+                        Value::Array(blocks) => {
+                            json!(blocks.iter().map(sanitize_raw_content).collect::<Vec<_>>())
+                        }
+                        other => other,
+                    };
+                }
+                next
+            })
+            .collect::<Vec<_>>());
+    }
     raw
 }
 
-fn capability_result(response: &Value, tool_call_id: &str, tool_name: &str, started_at: &str) -> Value {
+/// Keep host result fields (`data`, `metadata`, timestamps if present).
+/// Do not invent `startedAt` / `completedAt` — native mock results omit them
+/// and `sanitizeToolResultRaw` is a spread of the host object.
+fn capability_result(response: &Value, tool_call_id: &str, tool_name: &str) -> Value {
     let payload = response.get("payload").cloned().unwrap_or(json!({}));
-    let result = payload.get("result").cloned().unwrap_or(payload);
+    let mut result = payload.get("result").cloned().unwrap_or(payload);
     let content = normalize_outbound_content(
         result.get("content"),
         "Tool completed with no output.",
     );
-    let completed_at = result
-        .get("completedAt")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(now_iso);
-    let mut value = json!({
-        "type": result.get("type").and_then(Value::as_str).unwrap_or("success"),
-        "toolCallId": result.get("toolCallId").and_then(Value::as_str).unwrap_or(tool_call_id),
-        "toolName": result.get("toolName").and_then(Value::as_str).unwrap_or(tool_name),
-        "content": content,
-        "startedAt": result.get("startedAt").and_then(Value::as_str).unwrap_or(started_at),
-        "completedAt": completed_at,
-    });
-    if let Some(error) = result.get("error") {
-        value["error"] = error.clone();
+    if let Some(object) = result.as_object_mut() {
+        if !object.contains_key("type") {
+            object.insert("type".into(), json!("success"));
+        }
+        if !object.contains_key("toolCallId") {
+            object.insert("toolCallId".into(), json!(tool_call_id));
+        }
+        if !object.contains_key("toolName") {
+            object.insert("toolName".into(), json!(tool_name));
+        }
+        object.insert("content".into(), content);
+        return result;
     }
-    value
+    json!({
+        "type": "success",
+        "toolCallId": tool_call_id,
+        "toolName": tool_name,
+        "content": content,
+    })
 }
 
 fn stub_session_id(request: &Value, payload: &Value, run_id: &str) -> String {
@@ -1950,6 +1987,44 @@ mod tests {
     use serde_json::json;
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn turn_timeline_reuses_id_and_update_bumps_revision() {
+        let mut timeline = TurnTimeline::new("turn-tl");
+        let first = timeline.position("tool:mock-call-0");
+        assert_eq!(first["order"], 0);
+        assert_eq!(first["revision"], 1);
+        assert!(first.get("previousId").is_none());
+        let reused = timeline.position("tool:mock-call-0");
+        assert_eq!(reused["order"], 0);
+        assert_eq!(reused["revision"], 1);
+        let updated = timeline.update("tool:mock-call-0");
+        assert_eq!(updated["order"], 0);
+        assert_eq!(updated["revision"], 2);
+        assert!(updated.get("previousId").is_none());
+        let result = timeline.update("result:mock-call-0");
+        assert_eq!(result["order"], 1);
+        assert_eq!(result["revision"], 4);
+        assert_eq!(result["previousId"], "tool:mock-call-0");
+    }
+
+    #[test]
+    fn model_tool_schema_keeps_input_schema_key_order() {
+        let schema: Value = serde_json::from_str(
+            r#"{"type":"object","required":["q"],"additionalProperties":false,"properties":{"q":{"type":"string"}}}"#,
+        )
+        .expect("schema");
+        let tool = model_tool_definition(&json!({
+            "name": "lookup",
+            "description": "Look up",
+            "inputSchema": schema,
+        }))
+        .expect("tool");
+        assert_eq!(
+            serde_json::to_string(&tool["inputSchema"]).expect("stringify"),
+            r#"{"type":"object","required":["q"],"additionalProperties":false,"properties":{"q":{"type":"string"}}}"#
+        );
+    }
 
     fn collect() -> (Sidecar, Arc<Mutex<Vec<Value>>>) {
         let sink = Arc::new(Mutex::new(Vec::new()));
@@ -2116,6 +2191,7 @@ mod tests {
                         "toolCallId": call.pointer("/payload/toolCallId"),
                         "toolName": name,
                         "content": [{ "type": "text", "text": format!("HOST_RESULT[{name}]: {prompt}") }],
+                        "data": { "q": prompt, "value": format!("HOST_RESULT[{name}]: {prompt}") },
                     }),
                 ))
             }
@@ -2440,6 +2516,18 @@ mod tests {
             format!("tool:{tool_call_id}")
         );
         assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["timeline"]["order"],
+            0
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["timeline"]["revision"],
+            2
+        );
+        assert!(terminal["payload"]["messages"][0]["content"][0]["timeline"]
+            .get("previousId")
+            .is_none());
+        assert!(terminal["payload"]["messages"][0]["content"][0].get("raw").is_none());
+        assert_eq!(
             terminal["payload"]["messages"][0]["metadata"]["model"],
             "pilotdeck-stub"
         );
@@ -2449,6 +2537,28 @@ mod tests {
             "tool_result"
         );
         assert!(terminal["payload"]["messages"][1]["content"][0].get("raw").is_some());
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"][0]["timeline"]["order"],
+            1
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"][0]["timeline"]["revision"],
+            4
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"][0]["timeline"]["previousId"],
+            format!("tool:{tool_call_id}")
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"][0]["raw"]["data"]["q"],
+            "Look up the status"
+        );
+        assert!(terminal["payload"]["messages"][1]["content"][0]["raw"]
+            .get("startedAt")
+            .is_none());
+        assert!(terminal["payload"]["messages"][1]["content"][0]["raw"]
+            .get("completedAt")
+            .is_none());
         assert_eq!(
             terminal["payload"]["messages"][2]["content"][0]["text"],
             "HOST[Look up the status]"
