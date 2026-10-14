@@ -17,3 +17,7 @@ Source note: the T-P1-03 row below is inlined from the rust-proposal-v2 task pla
 ## M1 (Payne-approved)
 
 - Real host `sidecarDefaultModuleDispatcher.ts:67-150` / `hostModelInvokerPort.ts` has no `operation: complete`. Sidecar mints `preparationId` and drives `prepare` → `stream` → `close_stream`. Model text / tool calls are assembled from `payload.events` (`text_delta`, `tool_call_end`), not `payload.message` / `choices`. Capability `execute` is unchanged.
+
+## M2 (Payne-approved)
+
+- Outbound `messages[].content` / `message.content` is always a Canonical block array `[{type:"text", text}]` (or `tool_call` / `tool_result` blocks). The former string content was only on the pure_text completed path (`emit_text_only_turn` → `emit_completed`). `capability_result` now wraps a host string `content` into a text block and keeps an array as-is. Cancelled / failed terminals emit `messages: []`.

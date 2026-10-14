@@ -109,9 +109,22 @@ fn g5_tcp_listen_real_client_payload_reaches_pure_text_and_single_tool() {
     );
     let text_message = text_lines
         .iter()
-        .find(|m| m.get("eventType") == Some(&json!("agent.message")))
-        .expect("pure_text agent.message");
-    assert_eq!(text_message["payload"]["text"], "HOST[What is the status?]");
+        .find(|m| m.get("eventType") == Some(&json!("agent.assistant_message")))
+        .expect("pure_text agent.assistant_message");
+    assert_eq!(
+        text_message["payload"]["message"]["content"][0]["text"],
+        "HOST[What is the status?]"
+    );
+    assert!(text_message["payload"]["message"]["content"].is_array());
+    let text_terminal = text_lines
+        .iter()
+        .find(|m| m.get("eventType") == Some(&json!("agent.execute.completed")))
+        .expect("pure_text completed");
+    assert!(text_terminal["payload"]["messages"][0]["content"].is_array());
+    assert_eq!(
+        text_terminal["payload"]["messages"][0]["content"][0]["type"],
+        "text"
+    );
 
     sidecar.send_json(&execute_request(
         "ex-tool",

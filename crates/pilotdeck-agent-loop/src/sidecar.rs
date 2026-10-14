@@ -560,7 +560,12 @@ fn run_stub_execute(job: StubJob) {
         if !emit_text_only_turn(&job, &text, &mut sequence) {
             return;
         }
-        emit_completed(&job, sequence, 1, json!([{ "role": "assistant", "content": text }]));
+        emit_completed(
+            &job,
+            sequence,
+            1,
+            json!([{ "role": "assistant", "content": text_content_blocks(&text) }]),
+        );
         return;
     }
 
@@ -631,19 +636,24 @@ fn finish_host_call(job: &StubJob, sequence: u64, result: HostCall) {
     }
 }
 
+fn text_content_blocks(text: &str) -> Value {
+    json!([{ "type": "text", "text": text }])
+}
+
 fn emit_text_only_turn(job: &StubJob, text: &str, sequence: &mut u64) -> bool {
     emit_stub_event(
         job,
         "event",
-        "agent.message",
+        "agent.assistant_message",
         *sequence,
         json!({
-            "type": "message",
-            "role": "assistant",
-            "text": text,
+            "type": "assistant_message",
             "sessionId": job.session_id,
             "turnId": job.turn_id,
-            "stub": true,
+            "message": {
+                "role": "assistant",
+                "content": text_content_blocks(text),
+            },
         }),
     );
     *sequence += 1;
@@ -1238,13 +1248,19 @@ fn normalize_tool_call(value: &Value) -> Option<Value> {
     Some(json!({ "id": id, "name": name, "input": input }))
 }
 
+fn normalize_outbound_content(content: Option<&Value>, fallback: &str) -> Value {
+    match content {
+        Some(Value::Array(blocks)) => Value::Array(blocks.clone()),
+        Some(Value::String(text)) => text_content_blocks(text),
+        Some(other) => text_content_blocks(&other.to_string()),
+        None => text_content_blocks(fallback),
+    }
+}
+
 fn capability_result(response: &Value, tool_call_id: &str, tool_name: &str, started_at: &str) -> Value {
     let payload = response.get("payload").cloned().unwrap_or(json!({}));
     let result = payload.get("result").cloned().unwrap_or(payload);
-    let content = result
-        .get("content")
-        .cloned()
-        .unwrap_or_else(|| json!([{ "type": "text", "text": result.to_string() }]));
+    let content = normalize_outbound_content(result.get("content"), &result.to_string());
     let completed_at = result
         .get("completedAt")
         .and_then(Value::as_str)
@@ -1745,10 +1761,27 @@ mod tests {
         assert!(validate_module_message(&lines[0]).is_ok());
         let message = events
             .iter()
-            .find(|m| m["eventType"] == "agent.message")
-            .expect("pure_text agent.message");
-        assert_eq!(message["payload"]["type"], "message");
-        assert_eq!(message["payload"]["text"], "HOST[What is the status?]");
+            .find(|m| m["eventType"] == "agent.assistant_message")
+            .expect("pure_text agent.assistant_message");
+        assert_eq!(message["payload"]["type"], "assistant_message");
+        assert_eq!(
+            message["payload"]["message"]["content"][0]["type"],
+            "text"
+        );
+        assert_eq!(
+            message["payload"]["message"]["content"][0]["text"],
+            "HOST[What is the status?]"
+        );
+        assert!(message["payload"]["message"]["content"].is_array());
+        assert!(terminal["payload"]["messages"][0]["content"].is_array());
+        assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["type"],
+            "text"
+        );
+        assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["text"],
+            "HOST[What is the status?]"
+        );
         assert_eq!(
             events
                 .iter()
@@ -1928,9 +1961,12 @@ mod tests {
         );
         let message = lines
             .iter()
-            .find(|m| m["eventType"] == "agent.message")
+            .find(|m| m["eventType"] == "agent.assistant_message")
             .expect("text path despite tools[] + scenario");
-        assert_eq!(message["payload"]["text"], "HOST[block-prompt]");
+        assert_eq!(
+            message["payload"]["message"]["content"][0]["text"],
+            "HOST[block-prompt]"
+        );
         assert!(lines
             .iter()
             .all(|m| m.get("eventType").and_then(Value::as_str) != Some("agent.tool_calls_detected")));
@@ -1969,10 +2005,201 @@ mod tests {
             .find(|m| m["kind"] == "event" && m["final"] == true)
             .unwrap();
         assert_eq!(terminal["requestId"], "second");
-        assert!(terminal["payload"]["messages"][0]["content"]
+        assert_eq!(
+            terminal["payload"]["messages"][0]["content"][0]["type"],
+            "text"
+        );
+        assert!(terminal["payload"]["messages"][0]["content"][0]["text"]
             .as_str()
             .unwrap()
             .contains('B'));
+    }
+
+    fn assert_content_is_block_array(content: &Value, where_: &str) {
+        let blocks = content.as_array().unwrap_or_else(|| {
+            panic!("{where_}: content must be a block array, have {content}")
+        });
+        assert!(
+            !blocks.is_empty(),
+            "{where_}: content blocks must not be empty"
+        );
+        for block in blocks {
+            assert!(
+                block.get("type").and_then(Value::as_str).is_some_and(|ty| !ty.is_empty()),
+                "{where_}: each block needs type, have {block}"
+            );
+        }
+    }
+
+    fn assert_outbound_contents_are_blocks(lines: &[Value]) {
+        for message in lines {
+            if let Some(messages) = message.pointer("/payload/messages").and_then(Value::as_array)
+            {
+                for (index, item) in messages.iter().enumerate() {
+                    if item.get("content").is_some() {
+                        assert_content_is_block_array(
+                            &item["content"],
+                            &format!("payload.messages[{index}] in {message}"),
+                        );
+                    }
+                }
+            }
+            if message.pointer("/payload/message/content").is_some() {
+                assert_content_is_block_array(
+                    &message["payload"]["message"]["content"],
+                    &format!("payload.message.content in {message}"),
+                );
+            }
+            if message.pointer("/payload/result/content").is_some() {
+                assert_content_is_block_array(
+                    &message["payload"]["result"]["content"],
+                    &format!("payload.result.content in {message}"),
+                );
+            }
+            if let Some(messages) = message
+                .pointer("/payload/request/messages")
+                .and_then(Value::as_array)
+            {
+                for (index, item) in messages.iter().enumerate() {
+                    if item.get("content").is_some() {
+                        assert_content_is_block_array(
+                            &item["content"],
+                            &format!("module_call request.messages[{index}] in {message}"),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn outbound_content_is_block_array_for_pure_text_and_single_tool() {
+        let (sidecar, sink) = collect_with_host(text_host);
+        sidecar.handle_line(&execute_line(
+            "ex-text",
+            "run-text",
+            "op-text",
+            "req-text",
+            &client_payload_json("What is the status?"),
+        ));
+        sidecar.join();
+        let text_lines = sink.lock().expect("sink").clone();
+        assert_outbound_contents_are_blocks(&text_lines);
+        let text_terminal = text_lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.execute.completed")
+            .expect("pure_text completed");
+        assert_content_is_block_array(
+            &text_terminal["payload"]["messages"][0]["content"],
+            "pure_text completed messages[0].content",
+        );
+        let text_event = text_lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.assistant_message")
+            .expect("pure_text assistant_message");
+        assert_content_is_block_array(
+            &text_event["payload"]["message"]["content"],
+            "pure_text assistant_message.content",
+        );
+
+        let (sidecar, sink) = collect_with_host(single_tool_host);
+        sidecar.handle_line(&execute_line(
+            "ex-tool",
+            "run-tool",
+            "op-tool",
+            "req-tool",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let tool_lines = sink.lock().expect("sink").clone();
+        assert_outbound_contents_are_blocks(&tool_lines);
+        let tool_terminal = tool_lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.execute.completed")
+            .expect("single_tool completed");
+        for (index, item) in tool_terminal["payload"]["messages"]
+            .as_array()
+            .expect("single_tool messages")
+            .iter()
+            .enumerate()
+        {
+            assert_content_is_block_array(
+                &item["content"],
+                &format!("single_tool completed messages[{index}].content"),
+            );
+        }
+        let tool_event = tool_lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.assistant_message")
+            .expect("single_tool assistant_message");
+        assert_content_is_block_array(
+            &tool_event["payload"]["message"]["content"],
+            "single_tool assistant_message.content",
+        );
+    }
+
+    fn capability_string_or_blocks_host(content: Value) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
+        move |call: &Value| match call.get("module").and_then(Value::as_str) {
+            Some("model") => single_tool_host(call),
+            Some("capability") => Some(host_ok(
+                call,
+                json!({
+                    "type": "success",
+                    "toolCallId": call.pointer("/payload/toolCallId"),
+                    "toolName": call.pointer("/payload/name"),
+                    "content": content,
+                }),
+            )),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn capability_result_wraps_host_string_content_as_text_block() {
+        let (sidecar, sink) =
+            collect_with_host(capability_string_or_blocks_host(json!("plain-host-text")));
+        sidecar.handle_line(&execute_line(
+            "ex-cap-s",
+            "run-cap-s",
+            "op-cap-s",
+            "req-cap-s",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_eq!(
+            tool_result["payload"]["result"]["content"],
+            json!([{ "type": "text", "text": "plain-host-text" }])
+        );
+        assert_outbound_contents_are_blocks(&lines);
+    }
+
+    #[test]
+    fn capability_result_keeps_host_content_block_array() {
+        let blocks = json!([
+            { "type": "text", "text": "block-one" },
+            { "type": "text", "text": "block-two" }
+        ]);
+        let (sidecar, sink) = collect_with_host(capability_string_or_blocks_host(blocks.clone()));
+        sidecar.handle_line(&execute_line(
+            "ex-cap-a",
+            "run-cap-a",
+            "op-cap-a",
+            "req-cap-a",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_eq!(tool_result["payload"]["result"]["content"], blocks);
+        assert_outbound_contents_are_blocks(&lines);
     }
 
     #[test]
