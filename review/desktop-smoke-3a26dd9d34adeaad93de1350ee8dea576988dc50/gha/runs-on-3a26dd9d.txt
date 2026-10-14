@@ -1,0 +1,3 @@
+command=gh run list --commit 3a26dd9d34adeaad93de1350ee8dea576988dc50 --limit 20
+stdout_bytes=0
+note=no Actions runs on this merge SHA
