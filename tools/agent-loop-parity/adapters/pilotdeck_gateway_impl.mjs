@@ -670,7 +670,8 @@ if (selectedTransport === "tcp") {
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH;
 } else if (selectedTransport === "stdio") {
   gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "stdio";
-  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND = process.execPath;
+  const stdioOverride = String(process.env.PARITY_STDIO_SIDECAR_COMMAND ?? "").trim();
+  gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND = stdioOverride || process.execPath;
   gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH = path.join(sidecarRoot, "dist/src/cli/pilotdeck-agent-loop-sidecar.js");
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_HOST;
   delete gatewayEnv.PILOTDECK_AGENT_LOOP_TCP_PORT;

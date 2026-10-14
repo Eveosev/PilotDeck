@@ -16,11 +16,18 @@ from pathlib import Path
 from typing import Any
 
 from trace import (
+    COMPARATOR_VERSION,
+    FORMAT_WARNING_CATEGORIES,
     Difference,
     compare_baseline_trace_details,
     compare_continuable_trace_details,
     compare_trace_details,
+    format_warning_note,
+    format_warning_taxonomy,
     load_trace,
+    model_view_format_is_envelope_only,
+    trace_digest,
+    trace_file_digest,
     validate_production_sidecar_proof,
     validate_trace_expectations,
     write_report,
@@ -762,6 +769,8 @@ def main() -> int:
     expected_extensions: list[str] = []
     not_applicable: list[str] = []
     warnings: list[str] = []
+    format_taxonomies: list[dict[str, int]] = []
+    run_records: list[dict[str, Any]] = []
     sidecar_ready = True
     try:
         if tcp_target is not None and tcp_target.start_command and tcp_sidecar_log is not None:
@@ -843,8 +852,47 @@ def main() -> int:
                             )
                             report = args.output / f"{sid}-{label.lower().replace(' ', '-')}.md"
                             write_report(report, f"{sid} {label}", traces[left_name], traces[right_name], comparison)
+                            taxonomy = format_warning_taxonomy(comparison.format_warnings)
+                            format_taxonomies.append(taxonomy)
+                            left_digest = {
+                                "file": trace_file_digest(traces[left_name]),
+                                "canonical": trace_digest(load_trace(traces[left_name])),
+                            }
+                            right_digest = {
+                                "file": trace_file_digest(traces[right_name]),
+                                "canonical": trace_digest(load_trace(traces[right_name])),
+                            }
+                            digest = {"left": left_digest, "right": right_digest}
+                            if not is_baseline:
+                                digest["ts"] = left_digest
+                                digest["rust"] = right_digest
+                            record = {
+                                "scenario": sid,
+                                "label": label,
+                                "baseline": is_baseline,
+                                "formatWarningCount": len(comparison.format_warnings),
+                                "formatWarningTaxonomy": taxonomy,
+                                "formatWarningNote": format_warning_note(taxonomy),
+                                "modelViewFormatEnvelopeOnly": model_view_format_is_envelope_only(
+                                    comparison.format_warnings,
+                                    comparison.semantic,
+                                ),
+                                "comparatorVersion": COMPARATOR_VERSION,
+                                "traceDigest": digest,
+                            }
+                            run_records.append(record)
+                            (args.output / f"{sid}-{label.lower().replace(' ', '-')}.format.json").write_text(
+                                json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+                                encoding="utf-8",
+                            )
                             if comparison.format_warnings:
-                                warnings.append(f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)")
+                                counted = ", ".join(
+                                    f"{name}={count}" for name, count in taxonomy.items() if count
+                                )
+                                warnings.append(
+                                    f"{sid}/{label}: {len(comparison.format_warnings)} warning(s)"
+                                    + (f" [{counted}]" if counted else "")
+                                )
                             if not is_baseline and same_version_contract.get("mode") == "extension":
                                 if declared_extension_matches(
                                     scenario,
@@ -901,6 +949,16 @@ def main() -> int:
         "expectedExtensions": expected_extensions,
         "notApplicable": not_applicable,
         "formatWarnings": warnings,
+        "formatWarningTaxonomy": {
+            name: sum(item.get(name, 0) for item in format_taxonomies)
+            for name in FORMAT_WARNING_CATEGORIES
+        },
+        "formatWarningNote": format_warning_note({
+            name: sum(item.get(name, 0) for item in format_taxonomies)
+            for name in FORMAT_WARNING_CATEGORIES
+        }),
+        "comparatorVersion": COMPARATOR_VERSION,
+        "runs": run_records,
         "output": str(args.output),
     }
     if args.scenario == "all" and args.suite == "all" and summary["scenarios"] != PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT:

@@ -1,11 +1,30 @@
 """Canonical trace normalization and semantic comparison for parity runs."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+# Bump when comparison rules or format-warning taxonomy change.
+# Offline recheck of a stored summary uses this plus per-run traceDigest.
+COMPARATOR_VERSION = "1.1.0"
+
+FORMAT_WARNING_CATEGORIES = (
+    "envelope",
+    "budget",
+    "modelView",
+    "request",
+    "requestEvidence",
+    "response",
+    "state",
+    "kind",
+    "source",
+    "attempt",
+)
 
 _VOLATILE_KEYS = {
     "timestamp", "startedAt", "completedAt", "createdAt", "updatedAt",
@@ -621,6 +640,92 @@ class Comparison:
     semantic: list[Difference]
     format_warnings: list[Difference]
     contract: str | None = None
+
+
+def classify_format_warning(path: str) -> str:
+    """Map a format-warning path to the #26 R1 vocabulary.
+
+    Categories are envelope + budget + modelView.* +
+    request/requestEvidence/response/state/kind/source/attempt.
+    Token match (not substring) so ``requestId`` is envelope, not request.
+    """
+    tokens = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", path or ""))
+    if "requestEvidence" in tokens:
+        return "requestEvidence"
+    if "modelView" in tokens:
+        return "modelView"
+    if tokens & {"budget", "breakdown", "displayUsed", "budgetUsed", "reservedOutputTokens"}:
+        return "budget"
+    if "request" in tokens:
+        return "request"
+    if "response" in tokens:
+        return "response"
+    if "state" in tokens:
+        return "state"
+    if "kind" in tokens:
+        return "kind"
+    if "source" in tokens:
+        return "source"
+    if "attempt" in tokens:
+        return "attempt"
+    return "envelope"
+
+
+def format_warning_taxonomy(warnings: list[Difference]) -> dict[str, int]:
+    counts = Counter(classify_format_warning(item.path) for item in warnings)
+    return {name: int(counts.get(name, 0)) for name in FORMAT_WARNING_CATEGORIES}
+
+
+def format_warning_note(taxonomy: dict[str, int] | None = None) -> str:
+    """Widen summary wording to the actual warning vocabulary (m1)."""
+    observed = [
+        f"{name}={int((taxonomy or {}).get(name, 0))}"
+        for name in FORMAT_WARNING_CATEGORIES
+        if int((taxonomy or {}).get(name, 0)) > 0
+    ]
+    observed_text = ", ".join(observed) if observed else "none"
+    return (
+        "Format warnings do not change exit status. "
+        "Categories cover envelope + budget + modelView.* + "
+        "request/requestEvidence/response/state/kind/source/attempt "
+        f"({', '.join(FORMAT_WARNING_CATEGORIES)}). "
+        f"This run: {observed_text}. "
+        "modelView format diffs are order/envelope "
+        "(canonicalize sorts keys); semantic modelView content remains a FAIL."
+    )
+
+
+def model_view_format_is_envelope_only(
+    warnings: list[Difference],
+    semantic: list[Difference],
+) -> bool:
+    """True when modelView format warnings are not semantic content diffs (m2)."""
+    semantic_model_view = [
+        item for item in semantic if "modelView" in (item.path or "")
+    ]
+    if semantic_model_view:
+        return False
+    return True
+
+
+def trace_digest(data: bytes | str | list[dict[str, Any]]) -> str:
+    """Stable sha256 so a summary can be rechecked without omitted raw traces (m4)."""
+    if isinstance(data, list):
+        payload = json.dumps(
+            canonicalize(data),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    elif isinstance(data, str):
+        payload = data.encode("utf-8")
+    else:
+        payload = data
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def trace_file_digest(path: Path) -> str:
+    return trace_digest(path.read_bytes())
 
 
 def compare_traces(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> list[Difference]:
@@ -1760,8 +1865,11 @@ def write_report(
         for diff in semantic[:50]:
             lines.extend(["", f"- `{diff.path}`", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
     if warnings:
+        taxonomy = format_warning_taxonomy(warnings)
         lines.append("\n## Format Warnings\n")
-        lines.append(f"{len(warnings)} envelope/serialization difference(s); these do not affect exit status.")
+        lines.append(format_warning_note(taxonomy))
+        lines.append(f"{len(warnings)} difference(s). taxonomy={json.dumps(taxonomy, ensure_ascii=False)}")
         for diff in warnings[:50]:
-            lines.extend(["", f"- `{diff.path}`", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
+            category = classify_format_warning(diff.path)
+            lines.extend(["", f"- `{diff.path}` ({category})", f"  - left: `{json.dumps(diff.left, ensure_ascii=False, sort_keys=True)}`", f"  - right: `{json.dumps(diff.right, ensure_ascii=False, sort_keys=True)}`"])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

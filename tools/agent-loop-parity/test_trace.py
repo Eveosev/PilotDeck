@@ -6,11 +6,19 @@ import unittest
 from pathlib import Path
 
 from trace import (
+    COMPARATOR_VERSION,
+    FORMAT_WARNING_CATEGORIES,
+    Difference,
     canonicalize,
+    classify_format_warning,
     compare_baseline_trace_details,
     compare_continuable_trace_details,
     compare_trace_details,
     compare_traces,
+    format_warning_note,
+    format_warning_taxonomy,
+    model_view_format_is_envelope_only,
+    trace_digest,
     validate_production_sidecar_proof,
     validate_trace_expectations,
 )
@@ -1580,6 +1588,56 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             ),
             [],
         )
+
+
+class FormatWarningTaxonomyTests(unittest.TestCase):
+    def test_classify_covers_reviewer_vocabulary_not_request_id(self) -> None:
+        self.assertEqual(classify_format_warning("trace[0].invocationId"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].sequence"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].agentScope"), "envelope")
+        self.assertEqual(classify_format_warning("trace[0].requestId"), "envelope")
+        self.assertEqual(classify_format_warning("trace[1].modelView.tools[0].name"), "modelView")
+        self.assertEqual(classify_format_warning("trace[2].breakdown.total"), "budget")
+        self.assertEqual(classify_format_warning("trace[2].displayUsed"), "budget")
+        self.assertEqual(classify_format_warning("trace[3].request.messages"), "request")
+        self.assertEqual(classify_format_warning("trace[3].requestEvidence.estimate"), "requestEvidence")
+        self.assertEqual(classify_format_warning("trace[4].response.content"), "response")
+        self.assertEqual(classify_format_warning("trace[5].state"), "state")
+        self.assertEqual(classify_format_warning("trace[6].kind"), "kind")
+        self.assertEqual(classify_format_warning("trace[7].source"), "source")
+        self.assertEqual(classify_format_warning("trace[8].attempt"), "attempt")
+
+    def test_note_lists_full_vocabulary_and_run_counts(self) -> None:
+        taxonomy = format_warning_taxonomy([
+            Difference("trace[0].sequence", 1, 2),
+            Difference("trace[1].modelView", {"a": 1}, {"a": 1}),
+            Difference("trace[2].attempt", 0, 1),
+        ])
+        note = format_warning_note(taxonomy)
+        for name in FORMAT_WARNING_CATEGORIES:
+            self.assertIn(name, note)
+        self.assertIn("envelope=1", note)
+        self.assertIn("modelView=1", note)
+        self.assertIn("attempt=1", note)
+        self.assertIn("request/requestEvidence/response/state/kind/source/attempt", note)
+
+    def test_model_view_format_is_envelope_when_semantic_content_matches(self) -> None:
+        warnings = [Difference("trace[0].modelView.provider", "p", "p")]
+        semantic = [Difference("trace[0].sequence", 1, 2)]
+        self.assertTrue(model_view_format_is_envelope_only(warnings, semantic))
+        semantic_content = [Difference("trace[0].modelView.messages", ["a"], ["b"])]
+        self.assertFalse(model_view_format_is_envelope_only(warnings, semantic_content))
+
+    def test_trace_digest_and_comparator_version_are_stable(self) -> None:
+        records = [{"kind": "terminal", "outcome": "completed", "messageId": "volatile-1"}]
+        same = [{"kind": "terminal", "outcome": "completed", "messageId": "volatile-2"}]
+        self.assertTrue(COMPARATOR_VERSION)
+        self.assertEqual(trace_digest(records), trace_digest(same))
+        self.assertNotEqual(
+            trace_digest(records),
+            trace_digest([{"kind": "terminal", "outcome": "failed"}]),
+        )
+        self.assertTrue(trace_digest(records).startswith("sha256:"))
 
 
 if __name__ == "__main__":

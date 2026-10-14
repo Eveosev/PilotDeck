@@ -110,10 +110,10 @@ harness 启动 TCP sidecar 时把 stdout/stderr **合并写入** `<output>/tcp-s
 
 ## Negative control
 
-以下两条路径都必须以 `BLOCKED` 结束（`PARITY_MODE=native` 无法提供 sidecar transport/handshake proof）：
+G3 names must match the transport/mode they exercise. Keep one spawn-mode native twin per transport (stdio / tcp). Do **not** also inject `PARITY_MODE=native` as `--pilotdeck-tcp-sidecar-cmd` under a reuse-looking name — that is the same TCP-native crash as the tcp spawn case.
 
 ```bash
-# stdio
+# g3-stdio-native-mode — stdio spawn + PARITY_MODE=native must BLOCKED
 python tools/agent-loop-parity/run.py \
   --pilotdeck-root "$PWD" \
   --comparison same-version \
@@ -123,15 +123,32 @@ python tools/agent-loop-parity/run.py \
   --pilotdeck-sidecar-cmd "env PARITY_MODE=native node tools/agent-loop-parity/adapters/pilotdeck_gateway_impl.mjs" \
   --output /tmp/pilotdeck-parity-negative-stdio
 
-# tcp
+# g3-tcp-native-mode — tcp spawn + PARITY_MODE=native must BLOCKED (listener never comes up)
 python tools/agent-loop-parity/run.py \
   --pilotdeck-root "$PWD" \
   --comparison same-version \
   --surface gateway \
   --scenario pure_text \
   --sidecar-transport tcp \
-  --pilotdeck-sidecar-cmd "env PARITY_MODE=native node tools/agent-loop-parity/adapters/pilotdeck_gateway_impl.mjs" \
+  --pilotdeck-tcp-sidecar-cmd "env PARITY_MODE=native node tools/agent-loop-parity/adapters/pilotdeck_gateway_impl.mjs" \
   --output /tmp/pilotdeck-parity-negative-tcp
+```
+
+Reuse-mode injection is a separate case: bind a fake sidecar on `127.0.0.1:0`, then connect-only. Names stay `g3-reuse-*`.
+
+```bash
+# g3-reuse-fake-sidecar — listen-then-connect against a malformed sidecar shape
+python3 tools/agent-loop-parity/fake_sidecar.py > /tmp/fake-sidecar.out &
+# fake_sidecar prints `listening 127.0.0.1:PORT`
+python tools/agent-loop-parity/run.py \
+  --pilotdeck-root "$PWD" \
+  --comparison same-version \
+  --surface gateway \
+  --scenario single_tool \
+  --sidecar-transport tcp \
+  --pilotdeck-tcp-host 127.0.0.1 \
+  --pilotdeck-tcp-port "$PORT" \
+  --output /tmp/pilotdeck-parity-negative-reuse-fake
 ```
 
 ## 比较和验收
@@ -141,4 +158,6 @@ python tools/agent-loop-parity/run.py \
 退出码：`0` 表示通过，`1` 表示 oracle 或语义差异，`2` 表示环境或 adapter 阻塞。trace、日志、SQLite 和 mock 记录应输出到临时目录，不提交到 Git。
 
 mock model/tool 只作为正式 host dispatcher 的确定性依赖，不代表真实 provider 或完整 deployment E2E。修改
-production proof 时必须同时运行 harness negative-control：fake runner 或缺少 handshake 证据必须得到 `BLOCKED`。stdio 与 tcp 都有等价的 CLI 负控制，见上文。
+production proof 时必须同时运行 harness negative-control：fake runner 或缺少 handshake 证据必须得到 `BLOCKED`。stdio 与 tcp 各保留一条 spawn-mode native 负控制；reuse 模式另用 `g3-reuse-fake-sidecar`（假 sidecar 占 listen 端口），不要再复制一条 TCP-native crash twin。
+
+比较摘要写入 `summary.json` 的 `comparatorVersion`、`formatWarningNote` / `formatWarningTaxonomy`（按 envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt 分类）以及每条 same-version 对拍的 `traceDigest.ts` / `traceDigest.rust`，便于在省略 raw traces 时离线复核。
