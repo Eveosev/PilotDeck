@@ -1,10 +1,11 @@
 {
   "listenPgrep": "pgrep -f 'pilotdeck-agent-loop --listen'",
   "hostPgrep": "pgrep -f 't-p1-02-harness/host.mjs'",
-  "collectHead": "8046ea2f405820697e51db3977fb66677f71f3d2",
+  "collectHead": "1874e5d48a73aeb5d2821531367c8825e01c90bd",
   "windowMs": 1000,
   "leftoverListen": 0,
   "leftoverHost": 0,
+  "grandchildren": 0,
   "runs": [
     {
       "name": "success-1",
@@ -73,9 +74,10 @@
       "exit": 130,
       "rustSeenMidRun": true,
       "hostSeenMidRun": true,
-      "signalToBaselineMs": 10,
+      "signalToBaselineMs": 6,
       "within1s": true,
-      "returnedToBaseline": true
+      "returnedToBaseline": true,
+      "interruptedBy": "SIGINT"
     },
     {
       "name": "sigterm",
@@ -88,9 +90,10 @@
       "exit": 143,
       "rustSeenMidRun": true,
       "hostSeenMidRun": true,
-      "signalToBaselineMs": 11,
+      "signalToBaselineMs": 6,
       "within1s": true,
-      "returnedToBaseline": true
+      "returnedToBaseline": true,
+      "interruptedBy": "SIGTERM"
     }
   ]
 }

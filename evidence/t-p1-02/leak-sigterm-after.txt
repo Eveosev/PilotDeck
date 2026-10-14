@@ -5,7 +5,7 @@ host_count=0
 listen_before=0
 host_before=0
 exit=143
-signal_to_baseline_ms=11
+signal_to_baseline_ms=6
 within_1s=true
 returned_to_baseline=true
 pgrep -f 'pilotdeck-agent-loop --listen'

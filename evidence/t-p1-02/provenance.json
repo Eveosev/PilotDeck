@@ -1,15 +1,15 @@
 {
   "task": "T-P1-02",
-  "slice": "R2-m1 + n1-n6 + extended G8",
-  "gitSha": "cf80abc7e165142e9354b486918a44c8ce6fc009",
-  "collectHead": "8046ea2f405820697e51db3977fb66677f71f3d2",
-  "evidenceContentTip": "cf80abc7e165142e9354b486918a44c8ce6fc009",
+  "slice": "R3 F1/F2 + n1-n6 + extended G8",
+  "gitSha": "1874e5d48a73aeb5d2821531367c8825e01c90bd",
+  "collectHead": "1874e5d48a73aeb5d2821531367c8825e01c90bd",
+  "evidenceContentTip": "1874e5d48a73aeb5d2821531367c8825e01c90bd",
   "gitDirty": false,
   "base": "1d15a13033aeb57f2740b3677e13281cc5f9036d",
   "branch": "cursor/t-p1-02-r2m1-ea2a",
   "target": "rust_standalone_alpha1",
   "pr": "Eveosev/PilotDeck#21",
-  "collectedAt": "2026-10-14T06:15:07Z",
+  "collectedAt": "2026-10-14T06:47:26Z",
   "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
   "node": "v22.14.0",
   "typescriptFunction": "validateModuleMessage",
@@ -30,6 +30,7 @@
   "pgrepListen": "pgrep -f 'pilotdeck-agent-loop --listen'",
   "pgrepHost": "pgrep -f 't-p1-02-harness/host.mjs'",
   "windowMs": 1000,
+  "canonicalLeakSummary": "evidence/t-p1-02/r2m1-leak-summary.json",
   "runs": {
     "harness1": "exit 0, listen 0→0, host 0→0, hostPid===host.pid",
     "harness2": "exit 0, listen 0→0, host 0→0, hostPid===host.pid",
@@ -37,8 +38,8 @@
     "negativeSidecarCommand": "exit 1, listen 0→0, host 0→0",
     "failBadBin": "exit 1, listen 0→0, host 0→0",
     "failHost": "exit 1, listen 0→0, host 0→0",
-    "sigint": "exit 130, mid listen=1 host=1, after 1s both 0 (10ms)",
-    "sigterm": "exit 143, mid listen=1 host=1, after 1s both 0 (11ms)"
+    "sigint": "exit 130, interruptedBy=SIGINT, mid listen=1 host=1, after 1s both 0 (6ms)",
+    "sigterm": "exit 143, interruptedBy=SIGTERM, mid listen=1 host=1, after 1s both 0 (6ms)"
   },
-  "note": "Collected on clean code tip 8046ea2f (gitDirty=false). Evidence files written after that tip. Extended G8: every run returned both pgrep counts to pre-run baseline. SIGINT/SIGTERM sent directly to run.mjs; both pgrep patterns back to baseline within 1s (observed 10ms / 11ms). hostPid equals host.report.pid on success (no spawnSync grandchild)."
+  "note": "Collected on clean code tip 1874e5d4 (gitDirty=false). Evidence files written after that tip. Extended G8: every run returned both pgrep counts to pre-run baseline. SIGINT/SIGTERM sent directly to run.mjs; both pgrep patterns back to baseline within 1s (observed 6ms / 6ms). hostPid equals host.report.pid on success (no spawnSync grandchild). Duplicate leak-summary.json removed; r2m1-leak-summary.json is canonical."
 }

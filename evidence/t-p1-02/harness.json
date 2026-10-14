@@ -2,14 +2,14 @@
   "ok": true,
   "task": "T-P1-02",
   "mode": "harness",
-  "listen": "127.0.0.1:45429",
+  "listen": "127.0.0.1:46375",
   "rustBin": "/workspace/target/debug/pilotdeck-agent-loop",
-  "rustPid": 4901,
-  "hostPid": 4902,
+  "rustPid": 3774,
+  "hostPid": 3775,
   "hostEnv": {
     "PILOTDECK_AGENT_LOOP_TRANSPORT": "tcp",
     "PILOTDECK_AGENT_LOOP_TCP_HOST": "127.0.0.1",
-    "PILOTDECK_AGENT_LOOP_TCP_PORT": "45429",
+    "PILOTDECK_AGENT_LOOP_TCP_PORT": "46375",
     "PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND": null,
     "PILOTDECK_AGENT_LOOP_SIDECAR_PATH": null
   },
@@ -24,7 +24,7 @@
     "sidecarPath": null,
     "transport": "tcp",
     "host": "127.0.0.1",
-    "port": 45429,
+    "port": 46375,
     "connect": "createConnection({ host, port }) + setNoDelay",
     "mirrorsFactory": "AgentLoopDeploymentProfile.ts:84-93 (createTcpAgentLoopSidecarConnectionFactory)",
     "connectFactoryUsed": false,
@@ -33,7 +33,7 @@
     "protocolVersion": "2.0",
     "moduleId": "pilotdeck-agent-loop",
     "executeAccepted": true,
-    "streamId": "stream-18de50c082924734-3-1325",
+    "streamId": "stream-18de527d3c3f005e-3-ebe",
     "statusOk": true,
     "statusState": "running",
     "statusOutcome": null,
@@ -50,7 +50,7 @@
     "tsAccept": 5,
     "mismatch": 0,
     "total": 5,
-    "pid": 4902
+    "pid": 3775
   },
-  "rustStderr": "listening 127.0.0.1:45429"
+  "rustStderr": "listening 127.0.0.1:46375"
 }

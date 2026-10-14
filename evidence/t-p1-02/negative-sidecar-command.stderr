@@ -1,9 +1,9 @@
-file:///workspace/tools/t-p1-02-harness/host.mjs:229
+file:///workspace/tools/t-p1-02-harness/host.mjs:227
     throw new Error(
           ^
 
 Error: T-P1-02 host is TCP connect-only; unset PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND.
-    at assertConnectOnly (file:///workspace/tools/t-p1-02-harness/host.mjs:229:11)
+    at assertConnectOnly (file:///workspace/tools/t-p1-02-harness/host.mjs:227:11)
     at file:///workspace/tools/t-p1-02-harness/host.mjs:37:1
     at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)

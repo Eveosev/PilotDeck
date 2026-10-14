@@ -2,19 +2,19 @@
   "ok": false,
   "task": "T-P1-02",
   "mode": "harness",
-  "listen": "127.0.0.1:34441",
+  "listen": "127.0.0.1:37945",
   "rustBin": "/workspace/target/debug/pilotdeck-agent-loop",
-  "rustPid": 4990,
-  "hostPid": 4991,
+  "rustPid": 3913,
+  "hostPid": 3914,
   "hostEnv": {
     "PILOTDECK_AGENT_LOOP_TRANSPORT": "tcp",
     "PILOTDECK_AGENT_LOOP_TCP_HOST": "127.0.0.1",
-    "PILOTDECK_AGENT_LOOP_TCP_PORT": "34441",
+    "PILOTDECK_AGENT_LOOP_TCP_PORT": "37945",
     "PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND": null,
     "PILOTDECK_AGENT_LOOP_SIDECAR_PATH": null
   },
-  "elapsedMs": 26,
+  "elapsedMs": 28,
   "host": null,
   "hostStderr": "file:///workspace/tools/t-p1-02-harness/host.mjs:39\n  throw new Error(\"T-P1-02 forced host failure (T_P1_02_FORCE_HOST_FAIL=1).\");\n        ^\n\nError: T-P1-02 forced host failure (T_P1_02_FORCE_HOST_FAIL=1).\n    at file:///workspace/tools/t-p1-02-harness/host.mjs:39:9\n    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)\n\nNode.js v22.14.0",
-  "rustStderr": "listening 127.0.0.1:34441"
+  "rustStderr": "listening 127.0.0.1:37945"
 }

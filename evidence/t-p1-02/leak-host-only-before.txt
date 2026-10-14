@@ -5,5 +5,5 @@ host_count=0
 pgrep -f 'pilotdeck-agent-loop --listen'
 pgrep -f 't-p1-02-harness/host.mjs'
 listen:
-4917 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
+3800 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
 host:

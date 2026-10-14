@@ -1,10 +1,10 @@
-run_pid=5006
+run_pid=3937
 attempt=1
 listen_seen=1
 host_seen=1
 mid_listen_count=1
 mid_host_count=1
 mid_pgrep_listen:
-5021 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
+3961 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
 mid_pgrep_host:
-5022 /exec-daemon/node --experimental-strip-types /workspace/tools/t-p1-02-harness/host.mjs
+3963 /exec-daemon/node --experimental-strip-types /workspace/tools/t-p1-02-harness/host.mjs
