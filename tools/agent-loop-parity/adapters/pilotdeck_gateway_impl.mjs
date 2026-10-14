@@ -155,13 +155,10 @@ const alignObservedRustBudgetFingerprint = () => {
   const rustRan = trace.some((record) =>
     record.kind === "harness.proof" && record.state === "rust_sidecar_exec");
   if (!rustRan) return;
-  const budgets = [];
+  const budgets = trace.filter((record) => record.kind === "context.budget");
   const rebuilt = [];
   for (const record of trace) {
-    if (record.kind === "context.budget") {
-      budgets.push(record);
-      continue;
-    }
+    if (record.kind === "context.budget") continue;
     if (record.kind === "model.request" && budgets.length) {
       const budget = budgets.shift();
       if (budget && record.modelView && !budget.requestEvidence) {
