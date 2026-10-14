@@ -687,8 +687,9 @@ fn host_call_error_message(result: &HostCall) -> String {
     }
 }
 
-/// TS `createMissingToolResult` (`ensureToolResultPairing.ts`) — error result
-/// so the projected tool_result block is marked `isError`.
+/// TS `createMissingToolResult` (`src/agent/loop/ensureToolResultPairing.ts`)
+/// used by `src/agent/loop/AgentLoop.ts:1962-1971`. Projected `isError` is
+/// `result.type === "error"` (`src/tool/protocol/result.ts:66`).
 fn missing_tool_result(tool_call_id: &str, tool_name: &str, message: &str) -> Value {
     json!({
         "type": "error",
@@ -849,9 +850,12 @@ fn run_tool_calls(
                 return false;
             }
             other => {
-                // TS AgentLoop.ts:1962-1995 — non-terminal execute failure
-                // synthesizes a missing result for every outstanding tool_call
-                // (QA G5: isError tool_result before projected).
+                // TS src/agent/loop/AgentLoop.ts fail fill:
+                //   :1962-1971 catch → createMissingToolResult
+                //   :1989-1995 ensureToolResultPairing
+                // Emit tool_result first (:2029), then projectToolResults (:2032)
+                // and tool_results_projected (:2070-2071). :1961-1995 does not
+                // include projected (QA G5: isError tool_result before projected).
                 if stub_interrupted(job) {
                     emit_cancelled_terminal(job, *sequence);
                     return false;
@@ -887,7 +891,7 @@ fn run_tool_calls(
         "role": "user",
         "content": result_blocks,
     });
-    // TS AgentLoop.ts:2070-2072 — yield tool_results_projected, then onDurableMessage.
+    // TS AgentLoop.ts:2032 projectToolResults; :2070-2071 yield tool_results_projected.
     emit_stub_event(
         job,
         "event",
@@ -1124,8 +1128,8 @@ fn tool_call_block(
 }
 
 fn tool_result_block(result: &Value, tool_call_id: &str, timeline: &mut TurnTimeline) -> Value {
-    let is_error = result.get("type").and_then(Value::as_str) == Some("error")
-        || result.get("error").is_some();
+    // TS src/tool/protocol/result.ts:66 — isError when result.type === "error".
+    let is_error = result.get("type").and_then(Value::as_str) == Some("error");
     let mut block = json!({
         "type": "tool_result",
         "toolCallId": tool_call_id,
@@ -3656,7 +3660,8 @@ mod tests {
         payload.to_string()
     }
 
-    /// QA G5: every outstanding tool_call gets an isError tool_result before projected.
+    /// QA G5 / TS AgentLoop.ts:2029 then :2032 / :2070-2071 — every outstanding
+    /// tool_call gets an isError tool_result (`result.ts:66`) before projected.
     fn assert_is_error_tool_results_then_projected(lines: &[Value], expected_ids: &[&str]) {
         let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
         let types: Vec<&str> = events
