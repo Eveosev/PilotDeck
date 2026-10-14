@@ -2642,6 +2642,30 @@ mod tests {
         let assistant_final = idx("agent.assistant_message", &|m| {
             m["payload"]["message"]["content"][0]["type"] == "text"
         });
+        assert_eq!(
+            events
+                .iter()
+                .filter(|m| m["eventType"] == "agent.tool_results_projected")
+                .count(),
+            1,
+            "one projected event for the merged results message"
+        );
+        let assistant_line = lines
+            .iter()
+            .position(|m| m["eventType"] == "agent.assistant_message")
+            .expect("assistant_message line");
+        let capability_line = lines
+            .iter()
+            .position(|m| {
+                m["kind"] == "request"
+                    && m["module"] == "capability"
+                    && m["payload"]["operation"] == "execute"
+            })
+            .expect("capability.execute");
+        assert!(
+            assistant_line < capability_line,
+            "assistant_message must precede capability.execute"
+        );
         assert!(
             assistant_tool < detected
                 && detected < tool_result
@@ -3439,6 +3463,14 @@ mod tests {
                 .filter(|m| m["eventType"] == "agent.tool_calls_detected")
                 .count(),
             1
+        );
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|m| m["eventType"] == "agent.tool_results_projected")
+                .count(),
+            1,
+            "merged results message emits one tool_results_projected"
         );
     }
 
