@@ -344,14 +344,22 @@ function killChild(child, signal) {
 function waitForExitOrKill(child, graceMs) {
   if (!childAlive(child)) return Promise.resolve();
   return new Promise((resolveWait) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(killWait);
+      resolveWait();
+    };
+    let killWait;
     const timer = setTimeout(() => {
       killChild(child, "SIGKILL");
-      resolveWait();
+      killWait = setTimeout(done, 100);
     }, graceMs);
-    child.once("exit", () => {
-      clearTimeout(timer);
-      resolveWait();
-    });
+    // Wait for 'close' (stdio flushed) so runHost/emit can finish before we
+    // consider the child reaped. 'exit' alone races n1 and drops --out.
+    child.once("close", done);
   });
 }
 
@@ -375,10 +383,13 @@ function installProcessGuards() {
     const codes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
     process.exitCode = codes[signal] ?? 1;
     stopChildren().finally(() => {
-      // Let the main path emit the report after runHost resolves, then exit.
-      setImmediate(() => {
+      // Do not process.exit() on the same tick as child 'exit': runHost waits
+      // for 'close' and still needs to emit. Backup exit is unref'd so a
+      // finished main path can exit with process.exitCode (130/143/129).
+      const timer = setTimeout(() => {
         process.exit(process.exitCode ?? 1);
-      });
+      }, 500);
+      if (typeof timer.unref === "function") timer.unref();
     });
   };
   process.on("SIGINT", () => onSignal("SIGINT"));
