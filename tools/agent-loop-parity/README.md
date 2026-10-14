@@ -58,6 +58,22 @@ proof 记录 module 与 operation；例如增量流场景必须实际出现 `mod
 `tcp` 模式下 host **只连接** `PILOTDECK_AGENT_LOOP_TCP_HOST` / `PILOTDECK_AGENT_LOOP_TCP_PORT`，不会再 spawn sidecar。
 因此 harness 必须自己启动（或复用）TCP listener。
 
+Rust sidecar over **stdio** (host spawns the crate via the wrapper; TS host still appends `SIDECAR_PATH`, which the wrapper drops):
+
+```bash
+cargo build -p pilotdeck-agent-loop --release
+python tools/agent-loop-parity/run.py \
+  --pilotdeck-root "$PWD" \
+  --comparison same-version \
+  --surface gateway \
+  --sidecar-transport stdio \
+  --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh \
+  --scenario pure_text \
+  --output /tmp/pilotdeck-agent-loop-parity-stdio-rust
+```
+
+`summary.json` then records `sidecarImplementation=rust` and `stdioSidecarCommand`. `traceDigest.rust` is written only in that case.
+
 选择 TCP（harness 在 loopback 上分配空闲端口并启动 TS sidecar）：
 
 ```bash

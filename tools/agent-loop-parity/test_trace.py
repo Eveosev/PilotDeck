@@ -27,6 +27,7 @@ from run import (
     REQUIRED_GATEWAY_SCENARIOS,
     ROOT,
     adapter_env,
+    rust_sidecar_configured,
     append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
     baseline_not_applicable_reason,
@@ -863,6 +864,27 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         self.assertEqual(env["PARITY_TCP_HOST"], "127.0.0.1")
         self.assertEqual(env["PARITY_TCP_PORT"], "9345")
         self.assertNotEqual(env.get("PILOTDECK_AGENT_LOOP_TRANSPORT"), "tcp")
+
+    def test_adapter_env_forwards_stdio_rust_sidecar_command(self) -> None:
+        scenario = {"scenarioId": "pure_text", "q": "status"}
+        wrapper = "tools/agent-loop-parity/rust-stdio-sidecar.sh"
+        env = adapter_env(
+            scenario, "sidecar", Path("/tmp/src"), "http://127.0.0.1:9",
+            Path("/tmp/out.jsonl"), "working-tree", "inv-1",
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+        )
+        self.assertEqual(env["PARITY_STDIO_SIDECAR_COMMAND"], wrapper)
+        self.assertTrue(rust_sidecar_configured(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+            tcp_target=None,
+        ))
+        self.assertFalse(rust_sidecar_configured(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=None,
+            tcp_target=None,
+        ))
 
     def test_wait_for_tcp_accepts_an_open_loopback_port(self) -> None:
         import socket

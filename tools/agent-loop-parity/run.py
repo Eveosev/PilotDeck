@@ -609,6 +609,7 @@ def adapter_env(
     invocation_id: str,
     sidecar_transport: str = "stdio",
     tcp_target: TcpSidecarTarget | None = None,
+    stdio_sidecar_command: str | None = None,
 ) -> dict[str, str]:
     env = os.environ.copy()
     env.update({
@@ -632,9 +633,30 @@ def adapter_env(
     if sidecar_transport == "tcp" and tcp_target is not None:
         env["PARITY_TCP_HOST"] = tcp_target.host
         env["PARITY_TCP_PORT"] = str(tcp_target.port)
+    override = (stdio_sidecar_command or "").strip()
+    if override:
+        env["PARITY_STDIO_SIDECAR_COMMAND"] = override
     if mode in {"native", "sidecar"}:
         env["PARITY_RUNTIME_ROOT"] = str(output.parent / ".runtime" / str(scenario["scenarioId"]))
     return env
+
+
+def rust_sidecar_configured(
+    *,
+    sidecar_transport: str,
+    stdio_sidecar_command: str | None,
+    tcp_target: TcpSidecarTarget | None,
+) -> bool:
+    """True only when the sidecar side is an explicit Rust binary / reuse listener."""
+    if sidecar_transport == "stdio":
+        command = (stdio_sidecar_command or os.environ.get("PARITY_STDIO_SIDECAR_COMMAND") or "").strip()
+        return "rust-stdio-sidecar" in command or command.endswith("pilotdeck-agent-loop")
+    if sidecar_transport == "tcp" and tcp_target is not None:
+        if tcp_target.start_command:
+            return "pilotdeck-agent-loop" in tcp_target.start_command and "rust-stdio" not in tcp_target.start_command
+        # reuse-mode listen-then-connect: caller already bound a Rust --listen
+        return True
+    return False
 
 
 def run_adapter(
@@ -649,6 +671,7 @@ def run_adapter(
     override: str | None,
     sidecar_transport: str = "stdio",
     tcp_target: TcpSidecarTarget | None = None,
+    stdio_sidecar_command: str | None = None,
 ) -> str:
     invocation_id = uuid.uuid4().hex
     if output.exists():
@@ -675,6 +698,7 @@ def run_adapter(
                 scenario, mode, source, mock, output, ref, invocation_id,
                 sidecar_transport=sidecar_transport,
                 tcp_target=tcp_target,
+                stdio_sidecar_command=stdio_sidecar_command,
             ),
             text=True,
             capture_output=True,
@@ -742,8 +766,17 @@ def main() -> int:
         ),
     )
     parser.add_argument("--adapter-timeout-seconds", type=float, default=30)
+    parser.add_argument(
+        "--pilotdeck-stdio-sidecar-cmd",
+        help=(
+            "Stdio sidecar executable. Sets PARITY_STDIO_SIDECAR_COMMAND so the "
+            "gateway host spawns this binary instead of the TS sidecar JS. "
+            "Use tools/agent-loop-parity/rust-stdio-sidecar.sh for the Rust crate."
+        ),
+    )
     args = parser.parse_args()
     sidecar_transport = resolve_sidecar_transport(args.sidecar_transport)
+    stdio_sidecar_command = (args.pilotdeck_stdio_sidecar_cmd or os.environ.get("PARITY_STDIO_SIDECAR_COMMAND") or "").strip() or None
     tcp_target: TcpSidecarTarget | None = None
     if sidecar_transport == "tcp":
         tcp_target = resolve_tcp_sidecar_target(
@@ -752,6 +785,11 @@ def main() -> int:
             command=args.pilotdeck_tcp_sidecar_cmd,
             source=args.pilotdeck_root,
         )
+    rust_sidecar = rust_sidecar_configured(
+        sidecar_transport=sidecar_transport,
+        stdio_sidecar_command=stdio_sidecar_command,
+        tcp_target=tcp_target,
+    )
 
     scenarios = load_scenarios(args.scenario_file, args.scenario, args.suite)
     args.output.mkdir(parents=True, exist_ok=True)
@@ -817,6 +855,7 @@ def main() -> int:
                                 args.adapter_timeout_seconds, override,
                                 sidecar_transport=sidecar_transport,
                                 tcp_target=tcp_target,
+                                stdio_sidecar_command=stdio_sidecar_command,
                             )
                             if status != "PASS":
                                 blocked.append(f"{sid}/{name}: {status}")
@@ -865,11 +904,13 @@ def main() -> int:
                             digest = {"left": left_digest, "right": right_digest}
                             if not is_baseline:
                                 digest["ts"] = left_digest
-                                digest["rust"] = right_digest
+                                if rust_sidecar:
+                                    digest["rust"] = right_digest
                             record = {
                                 "scenario": sid,
                                 "label": label,
                                 "baseline": is_baseline,
+                                "sidecarImplementation": "rust" if rust_sidecar else "ts",
                                 "formatWarningCount": len(comparison.format_warnings),
                                 "formatWarningTaxonomy": taxonomy,
                                 "formatWarningNote": format_warning_note(taxonomy),
@@ -934,6 +975,8 @@ def main() -> int:
         "scenarios": len(scenarios),
         "gateScenarioCount": PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT,
         "sidecarTransport": sidecar_transport,
+        "sidecarImplementation": "rust" if rust_sidecar else "ts",
+        "stdioSidecarCommand": stdio_sidecar_command,
         "tcpSidecarLog": str(tcp_sidecar_log) if tcp_sidecar_log is not None else None,
         "provenance": {
             "current": resolve_ref(args.pilotdeck_root, "HEAD"),

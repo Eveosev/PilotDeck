@@ -312,7 +312,7 @@ fn b3_comparison_table() -> Value {
         {
             "id": "1e400",
             "ts": { "parseOk": overflow_ts["parseOk"], "js": overflow_ts["jsAfterNumberParse"], "tsOk": overflow_ts["tsOk"] },
-            "rust": { "parseOk": overflow_rust.is_err(), "ok": false },
+            "rust": { "parseOk": overflow_rust.is_ok(), "parseError": overflow_rust.is_err(), "ok": false },
             "decision": "documented-divergence",
             "divergence": "TS JSON.parse → Infinity then validate reject; Rust serde_json parse error (no Infinity). Both reject; path differs."
         },

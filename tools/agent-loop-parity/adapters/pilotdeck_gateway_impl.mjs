@@ -678,7 +678,13 @@ if (selectedTransport === "tcp") {
 } else {
   gatewayEnv.PILOTDECK_AGENT_LOOP_TRANSPORT = "native";
 }
-push("harness.proof", { state: "transport_selected", transport: selectedTransport });
+push("harness.proof", {
+  state: "transport_selected",
+  transport: selectedTransport,
+  ...(selectedTransport === "stdio"
+    ? { sidecarCommand: gatewayEnv.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND }
+    : {}),
+});
 
 const observedPersistenceProvider = createObservedPersistenceProvider();
 const local = createLocalGateway({
