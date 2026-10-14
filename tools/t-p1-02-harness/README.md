@@ -33,7 +33,7 @@ Options:
 - `--host-only` — skip listen; require the TCP env above
 - `--fail-host` — after listen, force the host to fail (cleanup / leak evidence)
 
-Listen parse accepts a full `listening HOST:PORT` line only (`127.0.0.1` / `localhost` / `[::1]:PORT`). The harness never calls `process.exit()` until the Rust child is reaped; SIGINT/SIGTERM/`exit` kill the child.
+Listen parse accepts a full `listening HOST:PORT` line only (`127.0.0.1` / `localhost` / `[::1]:PORT`), LF or CRLF. `run.mjs` spawns the host with `--experimental-strip-types` so `host.mjs` does not `spawnSync`-re-exec. The harness never calls `process.exit()` until children are reaped; SIGINT/SIGTERM/SIGHUP/`exit` kill them (SIGTERM, then SIGKILL).
 
 The crate-local S4/B4 script (`crates/pilotdeck-agent-loop/scripts/b4-tcp-host.mjs`) stays the full cancel/resume/ack dialogue. This harness wraps the same `--listen` path into `tools/` as hello→execute→status only.
 

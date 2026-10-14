@@ -10,7 +10,9 @@
  *   PILOTDECK_AGENT_LOOP_TCP_PORT
  *
  * Cleanup: never process.exit() before the Rust child is reaped. SIGINT /
- * SIGTERM / process 'exit' all kill the child (SIGTERM then SIGKILL).
+ * SIGTERM / SIGHUP / process 'exit' all kill children (SIGTERM then SIGKILL).
+ * Host is spawned with --experimental-strip-types so host.mjs does not
+ * spawnSync-re-exec a grandchild that can outlive this process.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -31,18 +33,35 @@ let shuttingDown = false;
 installProcessGuards();
 
 if (args.hostOnly) {
-  const host = await runHost(process.env);
-  const report = {
-    ok: host.ok,
-    task: "T-P1-02",
-    mode: "host-only",
-    hostPid: host.pid,
-    elapsedMs: Date.now() - startedAt,
-    host: host.report,
-    hostStderr: host.stderr || undefined,
-  };
-  emit(report, args.out);
-  process.exitCode = host.ok ? 0 : 1;
+  try {
+    if (shuttingDown) {
+      throw new Error("shutting down before host start");
+    }
+    const host = await runHost(process.env);
+    const report = {
+      ok: host.ok,
+      task: "T-P1-02",
+      mode: "host-only",
+      hostPid: host.pid,
+      elapsedMs: Date.now() - startedAt,
+      host: host.report,
+      hostStderr: host.stderr || undefined,
+    };
+    emit(report, args.out);
+    if (!shuttingDown) process.exitCode = host.ok ? 0 : 1;
+  } catch (error) {
+    const report = {
+      ok: false,
+      task: "T-P1-02",
+      mode: "host-only",
+      error: String(error?.message ?? error),
+      elapsedMs: Date.now() - startedAt,
+    };
+    emit(report, args.out);
+    if (!shuttingDown) process.exitCode = 1;
+  } finally {
+    await stopChildren();
+  }
 } else {
   try {
     const bin = resolveBin(args.bin);
@@ -58,6 +77,9 @@ if (args.hostOnly) {
     delete hostEnv.PILOTDECK_AGENT_LOOP_SIDECAR_PATH;
     if (args.failHost) hostEnv.T_P1_02_FORCE_HOST_FAIL = "1";
 
+    if (shuttingDown) {
+      throw new Error("shutting down before host start");
+    }
     const host = await runHost(hostEnv);
     const report = {
       ok: host.ok,
@@ -117,7 +139,6 @@ function parseArgs(argv) {
   --out FILE     Write the combined JSON report
   --host-only    Skip Rust listen; require TCP env already set
   --fail-host    After listen, force the host to fail (cleanup evidence)`);
-      process.exitCode = 0;
       process.exit(0);
     } else {
       throw new Error(`unknown argument: ${arg}`);
@@ -179,7 +200,9 @@ function spawnFailure(bin, error) {
 
 async function runHost(env) {
   return new Promise((resolveWait) => {
-    const child = spawn(process.execPath, [hostScript], {
+    // Pass --experimental-strip-types so host.mjs skips its spawnSync re-exec
+    // (R2-m1). Without this flag the grandchild can outlive a signaled run.mjs.
+    const child = spawn(process.execPath, ["--experimental-strip-types", hostScript], {
       cwd: repoRoot,
       env: { ...env, NODE_NO_WARNINGS: "1" },
       stdio: ["ignore", "pipe", "pipe"],
@@ -195,7 +218,10 @@ async function runHost(env) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
     });
+    let finished = false;
     const finish = (status, errorMessage) => {
+      if (finished) return;
+      finished = true;
       if (hostChild === child) hostChild = null;
       let report = null;
       const text = stdout.trim();
@@ -215,7 +241,9 @@ async function runHost(env) {
       });
     };
     child.once("error", (error) => finish(1, error.message));
-    child.once("exit", (code, signal) => {
+    // n1: 'close' (after stdio flush), not 'exit'. Safe only because m1
+    // removed the spawnSync grandchild that could keep pipes open.
+    child.once("close", (code, signal) => {
       finish(signal ? 1 : (code ?? 1));
     });
   });
@@ -259,7 +287,8 @@ function waitForListen(proc) {
  * `listening [::1]:PORT`. Host must be loopback; port 1-65535.
  */
 function parseListenLine(buf) {
-  const match = buf.match(/(?:^|\n)listening[ \t]+(\S+)[ \t]*\n/);
+  // Accept LF or CRLF so `listening [::1]:PORT\r\n` reaches the IPv6 arm (n6).
+  const match = buf.match(/(?:^|\r?\n)listening[ \t]+(\S+)[ \t]*\r?\n/);
   if (!match) return null;
   const addr = match[1];
   let host;
@@ -309,39 +338,46 @@ function killChild(child, signal) {
   }
 }
 
-async function stopChild(child, label) {
-  if (!childAlive(child)) return;
-  killChild(child, "SIGTERM");
-  await new Promise((resolveWait) => {
+function waitForExitOrKill(child, graceMs) {
+  if (!childAlive(child)) return Promise.resolve();
+  return new Promise((resolveWait) => {
     const timer = setTimeout(() => {
       killChild(child, "SIGKILL");
       resolveWait();
-    }, 2_000);
+    }, graceMs);
     child.once("exit", () => {
       clearTimeout(timer);
       resolveWait();
     });
   });
-  if (label === "rust") rust = childAlive(child) ? child : null;
-  if (label === "host") hostChild = childAlive(child) ? child : null;
 }
 
 async function stopChildren() {
-  await stopChild(hostChild, "host");
-  await stopChild(rust, "rust");
+  const host = hostChild;
+  const rustChild = rust;
+  killChild(host, "SIGTERM");
+  killChild(rustChild, "SIGTERM");
+  await Promise.all([
+    waitForExitOrKill(host, 400),
+    waitForExitOrKill(rustChild, 400),
+  ]);
+  hostChild = childAlive(host) ? host : null;
+  rust = childAlive(rustChild) ? rustChild : null;
 }
 
 function installProcessGuards() {
   const onSignal = (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    process.exitCode = signal === "SIGINT" ? 130 : 143;
+    const codes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+    process.exitCode = codes[signal] ?? 1;
     stopChildren().finally(() => {
       process.exit(process.exitCode ?? 1);
     });
   };
   process.on("SIGINT", () => onSignal("SIGINT"));
   process.on("SIGTERM", () => onSignal("SIGTERM"));
+  process.on("SIGHUP", () => onSignal("SIGHUP"));
   process.on("exit", () => {
     killChild(hostChild, "SIGKILL");
     killChild(rust, "SIGKILL");
