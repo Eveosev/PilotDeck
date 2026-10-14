@@ -11,7 +11,7 @@ This is not T-P1-03/04/07, not a real model, and not resume/ack.
 
 ## Run
 
-From the repo root (Node ≥ 22, Rust 1.83, `cargo` on PATH):
+From the repo root (Node ≥ 22.6 required — `--experimental-strip-types`; Rust 1.83, `cargo` on PATH):
 
 ```bash
 node tools/t-p1-02-harness/run.mjs

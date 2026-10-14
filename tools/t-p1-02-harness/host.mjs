@@ -55,9 +55,7 @@ lines.on("line", (line) => {
   try {
     message = JSON.parse(line);
   } catch (error) {
-    for (const waiter of waiters.splice(0)) {
-      if (typeof waiter.reject === "function") waiter.reject(error);
-    }
+    failWaiters(error);
     return;
   }
   incoming.push(message);

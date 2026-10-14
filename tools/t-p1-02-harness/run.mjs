@@ -30,14 +30,15 @@ let rust = null;
 let rustPid = null;
 let hostChild = null;
 let shuttingDown = false;
+let interruptedBy = null;
 
 installProcessGuards();
 
 if (args.hostOnly) {
   try {
-    if (shuttingDown) {
-      throw new Error("shutting down before host start");
-    }
+    // F1: no pre-await shuttingDown check. This path has no listen wait, so
+    // the flag cannot be set before the first await (signals run on a later
+    // tick). The harness path checks after waitForListen, below.
     const host = await runHost(process.env);
     const report = {
       ok: host.ok,
@@ -48,7 +49,7 @@ if (args.hostOnly) {
       host: host.report,
       hostStderr: host.stderr || undefined,
     };
-    emit(report, args.out);
+    emit(withInterrupt(report), args.out);
     if (!shuttingDown) process.exitCode = host.ok ? 0 : 1;
   } catch (error) {
     const report = {
@@ -58,7 +59,7 @@ if (args.hostOnly) {
       error: String(error?.message ?? error),
       elapsedMs: Date.now() - startedAt,
     };
-    emit(report, args.out);
+    emit(withInterrupt(report), args.out);
     if (!shuttingDown) process.exitCode = 1;
   } finally {
     await stopChildren();
@@ -67,7 +68,13 @@ if (args.hostOnly) {
   try {
     const bin = resolveBin(args.bin);
     rust = await spawnRust(bin);
-    rustPid = rust?.pid ?? null;
+    // spawnRust resolves only after the 'spawn' event, so rust is a live
+    // ChildProcess here. Snapshot the pid for teardown after `rust` is
+    // nulled; fail loudly if the kernel never assigned one.
+    if (rust.pid == null) {
+      throw new Error("rust sidecar spawned without a pid");
+    }
+    rustPid = rust.pid;
     const listen = await waitForListen(rust);
     const hostEnv = {
       ...process.env,
@@ -103,7 +110,7 @@ if (args.hostOnly) {
       hostStderr: host.stderr || undefined,
       rustStderr: listen.stderr.trim() || undefined,
     };
-    emit(report, args.out);
+    emit(withInterrupt(report), args.out);
     if (!shuttingDown) process.exitCode = host.ok ? 0 : 1;
   } catch (error) {
     const report = {
@@ -114,7 +121,7 @@ if (args.hostOnly) {
       rustPid: rust?.pid ?? rustPid,
       elapsedMs: Date.now() - startedAt,
     };
-    emit(report, args.out);
+    emit(withInterrupt(report), args.out);
     if (!shuttingDown) process.exitCode = 1;
   } finally {
     await stopChildren();
@@ -290,8 +297,11 @@ function waitForListen(proc) {
  * `listening [::1]:PORT`. Host must be loopback; port 1-65535.
  */
 function parseListenLine(buf) {
-  // Accept LF or CRLF so `listening [::1]:PORT\r\n` reaches the IPv6 arm (n6).
-  const match = buf.match(/(?:^|\r?\n)listening[ \t]+(\S+)[ \t]*\r?\n/);
+  let text = String(buf);
+  if (text.includes("\r")) {
+    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+  const match = text.match(/(?:^|\n)listening[ \t]+(\S+)[ \t]*\n/);
   if (!match) return null;
   const addr = match[1];
   let host;
@@ -380,6 +390,7 @@ function installProcessGuards() {
   const onSignal = (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    interruptedBy = signal;
     const codes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
     process.exitCode = codes[signal] ?? 1;
     stopChildren().finally(() => {
@@ -399,6 +410,11 @@ function installProcessGuards() {
     killChild(hostChild, "SIGKILL");
     killChild(rust, "SIGKILL");
   });
+}
+
+function withInterrupt(report) {
+  if (interruptedBy) report.interruptedBy = interruptedBy;
+  return report;
 }
 
 function emit(report, out) {
