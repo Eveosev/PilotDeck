@@ -1,6 +1,7 @@
 # T-P1-02 evidence (TCP connect-only harness)
 
 Collected on clean tree `3a6fbffd0397006651c0c27073f36d1917822eea` (`gitDirty=false`).
+Evidence content tip: `fbdb5f65d2575efa6421bdf12acf7e439ec30367`.
 Base: `rust_standalone_alpha1@0db122b3b60b638b01edd45fe8650fcd9d4eeb8e` (merge #18).
 Draft PR: Eveosev/PilotDeck#20 → `rust_standalone_alpha1`.
 

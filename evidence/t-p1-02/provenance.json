@@ -1,9 +1,9 @@
 {
   "task": "T-P1-02",
   "slice": "TCP connect-only harness hello→execute→status",
-  "gitSha": "3a6fbffd0397006651c0c27073f36d1917822eea",
+  "gitSha": "fbdb5f65d2575efa6421bdf12acf7e439ec30367",
   "collectHead": "3a6fbffd0397006651c0c27073f36d1917822eea",
-  "evidenceContentTip": null,
+  "evidenceContentTip": "fbdb5f65d2575efa6421bdf12acf7e439ec30367",
   "gitDirty": false,
   "base": "0db122b3b60b638b01edd45fe8650fcd9d4eeb8e",
   "branch": "cursor/t-p1-02-harness-9da3",
