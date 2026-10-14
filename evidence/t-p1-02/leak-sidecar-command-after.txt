@@ -1,7 +1,8 @@
 name=sidecar-command
 when=after
-count=0
-before=0
-exit=1
-returned_to_baseline=true
+listen_count=0
+host_count=0
 pgrep -f 'pilotdeck-agent-loop --listen'
+pgrep -f 't-p1-02-harness/host.mjs'
+listen:
+host:

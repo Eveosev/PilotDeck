@@ -1,0 +1,20 @@
+{
+  "ok": false,
+  "task": "T-P1-02",
+  "mode": "harness",
+  "listen": "127.0.0.1:37837",
+  "rustBin": "/workspace/target/debug/pilotdeck-agent-loop",
+  "rustPid": 4031,
+  "hostPid": 4034,
+  "hostEnv": {
+    "PILOTDECK_AGENT_LOOP_TRANSPORT": "tcp",
+    "PILOTDECK_AGENT_LOOP_TCP_HOST": "127.0.0.1",
+    "PILOTDECK_AGENT_LOOP_TCP_PORT": "37837",
+    "PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND": null,
+    "PILOTDECK_AGENT_LOOP_SIDECAR_PATH": null
+  },
+  "elapsedMs": 42,
+  "host": null,
+  "rustStderr": "listening 127.0.0.1:37837",
+  "interruptedBy": "SIGTERM"
+}

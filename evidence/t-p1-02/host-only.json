@@ -2,8 +2,8 @@
   "ok": true,
   "task": "T-P1-02",
   "mode": "host-only",
-  "hostPid": 5194,
-  "elapsedMs": 180,
+  "hostPid": 3826,
+  "elapsedMs": 145,
   "host": {
     "ok": true,
     "task": "T-P1-02",
@@ -14,7 +14,7 @@
     "sidecarPath": null,
     "transport": "tcp",
     "host": "127.0.0.1",
-    "port": 41761,
+    "port": 40865,
     "connect": "createConnection({ host, port }) + setNoDelay",
     "mirrorsFactory": "AgentLoopDeploymentProfile.ts:84-93 (createTcpAgentLoopSidecarConnectionFactory)",
     "connectFactoryUsed": false,
@@ -23,7 +23,7 @@
     "protocolVersion": "2.0",
     "moduleId": "pilotdeck-agent-loop",
     "executeAccepted": true,
-    "streamId": "stream-18de482309e8b2e8-3-1433",
+    "streamId": "stream-18de527d4b943a08-3-ed8",
     "statusOk": true,
     "statusState": "running",
     "statusOutcome": null,
@@ -40,6 +40,6 @@
     "tsAccept": 5,
     "mismatch": 0,
     "total": 5,
-    "pid": 5205
+    "pid": 3826
   }
 }

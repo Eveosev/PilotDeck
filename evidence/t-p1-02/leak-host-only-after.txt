@@ -1,8 +1,9 @@
 name=host-only
 when=after
-count=1
-before=1
-exit=0
-returned_to_baseline=true
+listen_count=1
+host_count=0
 pgrep -f 'pilotdeck-agent-loop --listen'
-5171 target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
+pgrep -f 't-p1-02-harness/host.mjs'
+listen:
+3800 /workspace/target/debug/pilotdeck-agent-loop --listen 127.0.0.1:0
+host:

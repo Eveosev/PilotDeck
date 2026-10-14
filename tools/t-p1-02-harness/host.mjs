@@ -19,6 +19,9 @@ import { createInterface } from "node:readline";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// Fallback when invoked directly without --experimental-strip-types.
+// run.mjs always passes that flag (R2-m1), so this re-exec does not run
+// on the harness path and cannot leave a grandchild after a signal.
 if (!process.execArgv.some((flag) => flag.includes("strip-types"))) {
   const replayed = spawnSync(
     process.execPath,
@@ -52,9 +55,7 @@ lines.on("line", (line) => {
   try {
     message = JSON.parse(line);
   } catch (error) {
-    for (const waiter of waiters.splice(0)) {
-      if (typeof waiter.reject === "function") waiter.reject(error);
-    }
+    failWaiters(error);
     return;
   }
   incoming.push(message);
@@ -65,10 +66,17 @@ lines.on("line", (line) => {
     }
   }
 });
-socket.on("error", (error) => {
+function failWaiters(error) {
   for (const waiter of waiters.splice(0)) {
     if (typeof waiter.reject === "function") waiter.reject(error);
   }
+}
+
+socket.on("error", (error) => {
+  failWaiters(error);
+});
+socket.on("close", () => {
+  if (waiters.length) failWaiters(new Error("sidecar TCP socket closed"));
 });
 
 function send(message) {

@@ -1,0 +1,99 @@
+{
+  "listenPgrep": "pgrep -f 'pilotdeck-agent-loop --listen'",
+  "hostPgrep": "pgrep -f 't-p1-02-harness/host.mjs'",
+  "collectHead": "1874e5d48a73aeb5d2821531367c8825e01c90bd",
+  "windowMs": 1000,
+  "leftoverListen": 0,
+  "leftoverHost": 0,
+  "grandchildren": 0,
+  "runs": [
+    {
+      "name": "success-1",
+      "listenBefore": 0,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 0,
+      "returnedToBaseline": true
+    },
+    {
+      "name": "success-2",
+      "listenBefore": 0,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 0,
+      "returnedToBaseline": true
+    },
+    {
+      "name": "host-only",
+      "listenBefore": 1,
+      "listenAfter": 1,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 0,
+      "returnedToBaseline": true,
+      "note": "external rust listener owned by the collect script; harness did not add a child"
+    },
+    {
+      "name": "sidecar-command",
+      "listenBefore": 0,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 1,
+      "returnedToBaseline": true,
+      "note": "direct host.mjs with SIDECAR_COMMAND set"
+    },
+    {
+      "name": "fail-bad-bin",
+      "listenBefore": 0,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 1,
+      "returnedToBaseline": true
+    },
+    {
+      "name": "fail-host",
+      "listenBefore": 0,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostAfter": 0,
+      "exit": 1,
+      "returnedToBaseline": true
+    },
+    {
+      "name": "sigint",
+      "listenBefore": 0,
+      "listenMid": 1,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostMid": 1,
+      "hostAfter": 0,
+      "exit": 130,
+      "rustSeenMidRun": true,
+      "hostSeenMidRun": true,
+      "signalToBaselineMs": 6,
+      "within1s": true,
+      "returnedToBaseline": true,
+      "interruptedBy": "SIGINT"
+    },
+    {
+      "name": "sigterm",
+      "listenBefore": 0,
+      "listenMid": 1,
+      "listenAfter": 0,
+      "hostBefore": 0,
+      "hostMid": 1,
+      "hostAfter": 0,
+      "exit": 143,
+      "rustSeenMidRun": true,
+      "hostSeenMidRun": true,
+      "signalToBaselineMs": 6,
+      "within1s": true,
+      "returnedToBaseline": true,
+      "interruptedBy": "SIGTERM"
+    }
+  ]
+}
