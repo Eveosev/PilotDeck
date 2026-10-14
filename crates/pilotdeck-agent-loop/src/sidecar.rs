@@ -720,6 +720,36 @@ fn run_tool_calls(
             "timeline": timeline.update("text:pre-tool"),
         }));
     }
+    for call in calls {
+        let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
+        let tool_name = call.get("name").and_then(Value::as_str).unwrap_or("");
+        let tool_input = call.get("input").cloned().unwrap_or(json!({}));
+        assistant_blocks.push(tool_call_block(call, tool_call_id, tool_name, &tool_input, timeline));
+    }
+    let assistant_call = json!({
+        "role": "assistant",
+        "content": assistant_blocks,
+        "metadata": { "model": model_from_payload(&job.payload) },
+    });
+    // TS AgentLoop.ts:1384-1386 — yield assistant_message, then onDurableMessage.
+    emit_stub_event(
+        job,
+        "event",
+        "agent.assistant_message",
+        *sequence,
+        json!({
+            "type": "assistant_message",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "message": assistant_call,
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return false;
+    }
+
     let detected_calls: Vec<Value> = calls
         .iter()
         .map(|call| {
@@ -797,18 +827,30 @@ fn run_tool_calls(
             emit_cancelled_terminal(job, *sequence);
             return false;
         }
-        assistant_blocks.push(tool_call_block(call, tool_call_id, tool_name, &tool_input, timeline));
         result_blocks.push(tool_result_block(&result, tool_call_id, timeline));
     }
-    let assistant_call = json!({
-        "role": "assistant",
-        "content": assistant_blocks,
-        "metadata": { "model": model_from_payload(&job.payload) },
-    });
     let user_result = json!({
         "role": "user",
         "content": result_blocks,
     });
+    // TS AgentLoop.ts:2070-2072 — yield tool_results_projected, then onDurableMessage.
+    emit_stub_event(
+        job,
+        "event",
+        "agent.tool_results_projected",
+        *sequence,
+        json!({
+            "type": "tool_results_projected",
+            "sessionId": job.session_id,
+            "turnId": job.turn_id,
+            "message": user_result,
+        }),
+    );
+    *sequence += 1;
+    if stub_interrupted(job) {
+        emit_cancelled_terminal(job, *sequence);
+        return false;
+    }
     append_conversation(conversation, assistant_call.clone());
     append_conversation(conversation, user_result.clone());
     transcript.push(assistant_call);
@@ -2486,8 +2528,9 @@ mod tests {
 
         let assistant = events
             .iter()
+            .rev()
             .find(|m| m["eventType"] == "agent.assistant_message")
-            .expect("assistant_message");
+            .expect("final assistant_message");
         assert_eq!(assistant["payload"]["type"], "assistant_message");
         assert_eq!(
             assistant["payload"]["message"]["content"][0]["text"],
@@ -2570,6 +2613,112 @@ mod tests {
     }
 
     #[test]
+    fn single_tool_emits_durable_assistant_message_and_tool_results_projected() {
+        let (sidecar, sink) = collect_with_host(single_tool_host);
+        sidecar.handle_line(&format!(
+            r#"{{"kind":"request","messageId":"ex-dur","method":"execute","runId":"run-dur","operationId":"op-dur","requestId":"req-dur","sessionId":"sess-dur","turnId":"turn-dur","payload":{}}}"#,
+            client_payload_json("Look up the status")
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let events: Vec<_> = lines.iter().filter(|m| m["kind"] == "event").collect();
+        let types: Vec<&str> = events
+            .iter()
+            .filter_map(|m| m["eventType"].as_str())
+            .collect();
+        let idx = |event_type: &str, pred: &dyn Fn(&Value) -> bool| {
+            events
+                .iter()
+                .position(|m| m["eventType"] == event_type && pred(m))
+                .unwrap_or_else(|| panic!("missing {event_type} in {types:?}"))
+        };
+        let assistant_tool = idx("agent.assistant_message", &|m| {
+            m["payload"]["message"]["content"][0]["type"] == "tool_call"
+        });
+        let detected = idx("agent.tool_calls_detected", &|_| true);
+        let tool_result = idx("agent.tool_result", &|_| true);
+        let projected = idx("agent.tool_results_projected", &|_| true);
+        let continued = idx("agent.turn_continued", &|m| m["payload"]["reason"] == "next_turn");
+        let assistant_final = idx("agent.assistant_message", &|m| {
+            m["payload"]["message"]["content"][0]["type"] == "text"
+        });
+        assert!(
+            assistant_tool < detected
+                && detected < tool_result
+                && tool_result < projected
+                && projected < continued
+                && continued < assistant_final,
+            "durable order {types:?}"
+        );
+
+        let tool_msg = events[assistant_tool];
+        assert_eq!(tool_msg["payload"]["type"], "assistant_message");
+        assert_eq!(tool_msg["payload"]["sessionId"], "sess-dur");
+        assert_eq!(tool_msg["payload"]["turnId"], "turn-dur");
+        assert_eq!(tool_msg["payload"]["message"]["role"], "assistant");
+        assert!(tool_msg["payload"]["message"]["content"].is_array());
+        assert_eq!(tool_msg["payload"]["message"]["content"][0]["type"], "tool_call");
+        let tool_call_id = tool_msg["payload"]["message"]["content"][0]["id"]
+            .as_str()
+            .expect("tool call id");
+        assert_eq!(
+            tool_msg["payload"]["message"]["content"][0]["timeline"]["id"],
+            format!("tool:{tool_call_id}")
+        );
+        assert_eq!(
+            tool_msg["payload"]["message"]["content"][0]["timeline"]["order"],
+            0
+        );
+        assert_eq!(
+            tool_msg["payload"]["message"]["content"][0]["timeline"]["revision"],
+            2
+        );
+        assert!(tool_msg["payload"]["message"]["content"][0]
+            .get("raw")
+            .is_none());
+        assert_eq!(
+            tool_msg["payload"]["message"]["metadata"]["model"],
+            "pilotdeck-stub"
+        );
+        assert!(validate_module_message(tool_msg).is_ok());
+
+        let projected_msg = events[projected];
+        assert_eq!(projected_msg["payload"]["type"], "tool_results_projected");
+        assert_eq!(projected_msg["payload"]["sessionId"], "sess-dur");
+        assert_eq!(projected_msg["payload"]["turnId"], "turn-dur");
+        assert_eq!(projected_msg["payload"]["message"]["role"], "user");
+        assert!(projected_msg["payload"]["message"]["content"].is_array());
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["type"],
+            "tool_result"
+        );
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["toolCallId"],
+            tool_call_id
+        );
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["timeline"]["id"],
+            format!("result:{tool_call_id}")
+        );
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["timeline"]["order"],
+            1
+        );
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["timeline"]["revision"],
+            4
+        );
+        assert!(projected_msg["payload"]["message"]["content"][0]
+            .get("raw")
+            .is_some());
+        assert_eq!(
+            projected_msg["payload"]["message"]["content"][0]["raw"]["data"]["q"],
+            "Look up the status"
+        );
+        assert!(validate_module_message(projected_msg).is_ok());
+    }
+
+    #[test]
     fn execute_single_tool_prompt_mutation_changes_output() {
         let (sidecar, sink) = collect_with_host(single_tool_host);
         sidecar.handle_line(&execute_line(
@@ -2591,7 +2740,10 @@ mod tests {
         let lines = sink.lock().expect("sink").clone();
         let finals: Vec<_> = lines
             .iter()
-            .filter(|m| m["eventType"] == "agent.assistant_message")
+            .filter(|m| {
+                m["eventType"] == "agent.assistant_message"
+                    && m["payload"]["message"]["content"][0]["type"] == "text"
+            })
             .collect();
         assert_eq!(finals.len(), 2);
         let text_a = finals[0]["payload"]["message"]["content"][0]["text"]

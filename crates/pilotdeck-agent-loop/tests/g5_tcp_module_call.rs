@@ -180,11 +180,12 @@ fn g5_tcp_listen_real_client_payload_reaches_pure_text_and_single_tool() {
     }));
     let assistant = all
         .iter()
+        .rev()
         .find(|m| {
             m.get("eventType") == Some(&json!("agent.assistant_message"))
                 && m.get("requestId") == Some(&json!("req-tool"))
         })
-        .expect("single_tool assistant_message");
+        .expect("single_tool final assistant_message");
     assert_eq!(
         assistant["payload"]["message"]["content"][0]["text"],
         "HOST[Look up the status]"

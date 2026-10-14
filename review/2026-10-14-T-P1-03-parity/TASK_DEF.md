@@ -36,3 +36,7 @@ Source note: the T-P1-03 row below is inlined from the rust-proposal-v2 task pla
 
 - **budget tools estimate.** Host `estimateToolSchemas` tokenizes `name + description + JSON.stringify(inputSchema)` with JS insertion order (no key sort). Sidecar `serde_json` now uses `preserve_order` so prepare/budget/model requests keep the filtered tool set's field order and whitespace bytes. `fafbbcb3` was 20 tokens low (6717 vs 6697) from BTreeMap alphabetical rewrite.
 - **second-round raw/timeline.** `TurnTimeline` reuses coordinates by id and `update()` bumps revision (TS `TurnTimeline.ts`). `tool_call` does not invent `raw`. `capability_result` keeps host `data` / extra fields and does not invent `startedAt` / `completedAt` on raw.
+
+## M-1 (Payne-approved, Reviewer R3 @a4ec8312)
+
+- Tool-round durable events. TS yields `assistant_message` then `onDurableMessage` (`AgentLoop.ts:1384-1386`) before `tool_calls_detected`, and yields `tool_results_projected` then `onDurableMessage` (`:2070-2072`) after per-result `tool_result`. Rust `run_tool_calls` now emits `agent.assistant_message` (block array, timeline, `metadata.model`) and `agent.tool_results_projected` (tool_result blocks + raw) in that order.
