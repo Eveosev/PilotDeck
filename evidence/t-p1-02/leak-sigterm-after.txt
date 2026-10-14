@@ -1,0 +1,14 @@
+name=sigterm
+when=after_1s
+listen_count=0
+host_count=0
+listen_before=0
+host_before=0
+exit=143
+signal_to_baseline_ms=11
+within_1s=true
+returned_to_baseline=true
+pgrep -f 'pilotdeck-agent-loop --listen'
+pgrep -f 't-p1-02-harness/host.mjs'
+listen:
+host:

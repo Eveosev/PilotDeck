@@ -1,4 +1,8 @@
 name=fail-host
 when=before
-count=0
+listen_count=0
+host_count=0
 pgrep -f 'pilotdeck-agent-loop --listen'
+pgrep -f 't-p1-02-harness/host.mjs'
+listen:
+host:
