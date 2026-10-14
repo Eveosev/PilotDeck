@@ -26,6 +26,7 @@ from trace import (
     format_warning_taxonomy,
     load_trace,
     model_view_format_is_envelope_only,
+    observe_sidecar_implementation,
     trace_digest,
     trace_file_digest,
     validate_production_sidecar_proof,
@@ -636,9 +637,32 @@ def adapter_env(
     override = (stdio_sidecar_command or "").strip()
     if override:
         env["PARITY_STDIO_SIDECAR_COMMAND"] = override
+        rust_bin = (os.environ.get("PILOTDECK_RUST_SIDECAR_BIN") or "").strip()
+        if rust_bin:
+            env["PILOTDECK_RUST_SIDECAR_BIN"] = rust_bin
+        env["PARITY_RUST_SIDECAR_PROOF"] = str(Path(str(output) + ".rust-exec.jsonl"))
     if mode in {"native", "sidecar"}:
         env["PARITY_RUNTIME_ROOT"] = str(output.parent / ".runtime" / str(scenario["scenarioId"]))
     return env
+
+
+def rust_sidecar_intended(
+    *,
+    sidecar_transport: str,
+    stdio_sidecar_command: str | None,
+    tcp_target: TcpSidecarTarget | None,
+) -> bool:
+    """Intent only: caller asked for a Rust binary. Not an observation.
+
+    TCP reuse is not intended-rust by itself (a fake sidecar can occupy the
+    port). Labeling rust requires observe_sidecar_implementation().
+    """
+    if sidecar_transport == "stdio":
+        command = (stdio_sidecar_command or os.environ.get("PARITY_STDIO_SIDECAR_COMMAND") or "").strip()
+        return "rust-stdio-sidecar" in command or command.endswith("pilotdeck-agent-loop")
+    if sidecar_transport == "tcp" and tcp_target is not None and tcp_target.start_command:
+        return "pilotdeck-agent-loop" in tcp_target.start_command
+    return False
 
 
 def rust_sidecar_configured(
@@ -647,16 +671,12 @@ def rust_sidecar_configured(
     stdio_sidecar_command: str | None,
     tcp_target: TcpSidecarTarget | None,
 ) -> bool:
-    """True only when the sidecar side is an explicit Rust binary / reuse listener."""
-    if sidecar_transport == "stdio":
-        command = (stdio_sidecar_command or os.environ.get("PARITY_STDIO_SIDECAR_COMMAND") or "").strip()
-        return "rust-stdio-sidecar" in command or command.endswith("pilotdeck-agent-loop")
-    if sidecar_transport == "tcp" and tcp_target is not None:
-        if tcp_target.start_command:
-            return "pilotdeck-agent-loop" in tcp_target.start_command and "rust-stdio" not in tcp_target.start_command
-        # reuse-mode listen-then-connect: caller already bound a Rust --listen
-        return True
-    return False
+    """Backward-compatible alias for rust_sidecar_intended (command-string only)."""
+    return rust_sidecar_intended(
+        sidecar_transport=sidecar_transport,
+        stdio_sidecar_command=stdio_sidecar_command,
+        tcp_target=tcp_target,
+    )
 
 
 def run_adapter(
@@ -785,7 +805,7 @@ def main() -> int:
             command=args.pilotdeck_tcp_sidecar_cmd,
             source=args.pilotdeck_root,
         )
-    rust_sidecar = rust_sidecar_configured(
+    rust_intended = rust_sidecar_intended(
         sidecar_transport=sidecar_transport,
         stdio_sidecar_command=stdio_sidecar_command,
         tcp_target=tcp_target,
@@ -809,6 +829,7 @@ def main() -> int:
     warnings: list[str] = []
     format_taxonomies: list[dict[str, int]] = []
     run_records: list[dict[str, Any]] = []
+    scenario_sidecar_impl: dict[str, str] = {}
     sidecar_ready = True
     try:
         if tcp_target is not None and tcp_target.start_command and tcp_sidecar_log is not None:
@@ -864,6 +885,17 @@ def main() -> int:
                             oracle_scenario = scenario_for_adapter(scenario, name)
                             for failure in validate_trace_expectations(load_trace(trace_path), oracle_scenario, "pilotdeck", name):
                                 oracle_failures.append(f"{sid}/{name}: {failure.path} expected={failure.left!r} actual={failure.right!r}")
+                            if mode == "sidecar" and args.surface == "gateway":
+                                observed_impl, observe_errors = observe_sidecar_implementation(
+                                    load_trace(trace_path),
+                                    transport=sidecar_transport,
+                                    rust_intended=rust_intended,
+                                )
+                                if observe_errors:
+                                    blocked.append(f"{sid}/{name}: BLOCKED: {'; '.join(observe_errors)}")
+                                    del traces[name]
+                                    continue
+                                scenario_sidecar_impl[sid] = observed_impl
                         comparisons = [
                             ("PilotDeck", "pilotdeck-current-native", "pilotdeck-current-sidecar", False),
                             ("PilotDeck baseline drift", "pilotdeck-baseline-native", "pilotdeck-current-native", True),
@@ -902,15 +934,16 @@ def main() -> int:
                                 "canonical": trace_digest(load_trace(traces[right_name])),
                             }
                             digest = {"left": left_digest, "right": right_digest}
+                            observed_impl = scenario_sidecar_impl.get(sid, "ts")
                             if not is_baseline:
                                 digest["ts"] = left_digest
-                                if rust_sidecar:
+                                if observed_impl == "rust":
                                     digest["rust"] = right_digest
                             record = {
                                 "scenario": sid,
                                 "label": label,
                                 "baseline": is_baseline,
-                                "sidecarImplementation": "rust" if rust_sidecar else "ts",
+                                "sidecarImplementation": observed_impl,
                                 "formatWarningCount": len(comparison.format_warnings),
                                 "formatWarningTaxonomy": taxonomy,
                                 "formatWarningNote": format_warning_note(taxonomy),
@@ -975,7 +1008,13 @@ def main() -> int:
         "scenarios": len(scenarios),
         "gateScenarioCount": PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT,
         "sidecarTransport": sidecar_transport,
-        "sidecarImplementation": "rust" if rust_sidecar else "ts",
+        "sidecarImplementation": (
+            "rust"
+            if scenario_sidecar_impl and all(value == "rust" for value in scenario_sidecar_impl.values())
+            else "ts"
+        ),
+        "sidecarImplementationSource": "observed",
+        "rustSidecarIntended": rust_intended,
         "stdioSidecarCommand": stdio_sidecar_command,
         "tcpSidecarLog": str(tcp_sidecar_log) if tcp_sidecar_log is not None else None,
         "provenance": {

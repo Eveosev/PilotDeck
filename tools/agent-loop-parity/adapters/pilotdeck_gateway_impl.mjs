@@ -127,6 +127,25 @@ const push = (kind, extra = {}) => {
     linkRequestBudgetEvidence();
   }
 };
+const flushRustSidecarExecProofs = async () => {
+  const proofPath = String(process.env.PARITY_RUST_SIDECAR_PROOF ?? "").trim();
+  if (!proofPath) return;
+  try {
+    const text = await readFile(proofPath, "utf8");
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      const rec = JSON.parse(line);
+      push("harness.proof", {
+        state: "rust_sidecar_exec",
+        pid: rec.pid,
+        bin: rec.bin,
+        resolved: rec.resolved,
+      });
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+};
 const modelView = (request) => ({
   provider: request.provider,
   model: request.model,
@@ -905,6 +924,7 @@ try {
       usage: terminal?.usage,
       resultType: terminal?.result?.type,
     });
+    await flushRustSidecarExecProofs();
     await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
     await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   } else {
@@ -1169,6 +1189,7 @@ try {
     durableStopReason: durableTurnResult?.stopReason,
     durableErrorCode: durableTurnResult?.errors?.[0]?.code,
   });
+  await flushRustSidecarExecProofs();
   await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
   await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   }

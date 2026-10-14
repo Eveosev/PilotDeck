@@ -72,7 +72,12 @@ python tools/agent-loop-parity/run.py \
   --output /tmp/pilotdeck-agent-loop-parity-stdio-rust
 ```
 
-`summary.json` then records `sidecarImplementation=rust` and `stdioSidecarCommand`. `traceDigest.rust` is written only in that case.
+`sidecarImplementation` is **observed**, not inferred from the command string:
+
+- `rust-stdio-sidecar.sh` appends `pid` + resolved `$bin` to `PARITY_RUST_SIDECAR_PROOF` before `exec`; the adapter copies that into `harness.proof` / `rust_sidecar_exec`.
+- A Rust claim also requires the sidecar-trace fingerprint: first `context.budget` **before** first `model.request`.
+- If Rust was requested (`--pilotdeck-stdio-sidecar-cmd` / rust start command) but either observation is missing, the run is **BLOCKED** (it is not labeled rust).
+- `traceDigest.rust` is written only when the observed implementation is rust. TCP reuse (no start command) is not intended-rust by itself.
 
 选择 TCP（harness 在 loopback 上分配空闲端口并启动 TS sidecar）：
 

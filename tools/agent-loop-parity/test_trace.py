@@ -18,6 +18,8 @@ from trace import (
     format_warning_note,
     format_warning_taxonomy,
     model_view_format_is_envelope_only,
+    observe_sidecar_implementation,
+    rust_budget_precedes_model_request,
     trace_digest,
     validate_production_sidecar_proof,
     validate_trace_expectations,
@@ -28,6 +30,7 @@ from run import (
     ROOT,
     adapter_env,
     rust_sidecar_configured,
+    rust_sidecar_intended,
     append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
     baseline_not_applicable_reason,
@@ -875,6 +878,12 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             stdio_sidecar_command=wrapper,
         )
         self.assertEqual(env["PARITY_STDIO_SIDECAR_COMMAND"], wrapper)
+        self.assertTrue(env["PARITY_RUST_SIDECAR_PROOF"].endswith("out.jsonl.rust-exec.jsonl"))
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="stdio",
+            stdio_sidecar_command=wrapper,
+            tcp_target=None,
+        ))
         self.assertTrue(rust_sidecar_configured(
             sidecar_transport="stdio",
             stdio_sidecar_command=wrapper,
@@ -884,6 +893,30 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             sidecar_transport="stdio",
             stdio_sidecar_command=None,
             tcp_target=None,
+        ))
+
+    def test_tcp_reuse_is_not_intended_rust(self) -> None:
+        reuse = resolve_tcp_sidecar_target(
+            host="127.0.0.1",
+            port=9345,
+            command=None,
+            source=Path("/tmp/unused"),
+        )
+        self.assertFalse(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=reuse,
+        ))
+        started = resolve_tcp_sidecar_target(
+            host=None,
+            port=None,
+            command="./target/release/pilotdeck-agent-loop --listen 127.0.0.1:9345",
+            source=Path("/tmp/unused"),
+        )
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=started,
         ))
 
     def test_wait_for_tcp_accepts_an_open_loopback_port(self) -> None:
@@ -1660,6 +1693,81 @@ class FormatWarningTaxonomyTests(unittest.TestCase):
             trace_digest([{"kind": "terminal", "outcome": "failed"}]),
         )
         self.assertTrue(trace_digest(records).startswith("sha256:"))
+
+
+class ObserveSidecarImplementationTests(unittest.TestCase):
+    def test_rust_fingerprint_requires_budget_before_request(self) -> None:
+        rust_order = [
+            {"kind": "context.budget"},
+            {"kind": "model.request"},
+        ]
+        ts_order = [
+            {"kind": "model.request"},
+            {"kind": "model.response"},
+            {"kind": "context.budget"},
+        ]
+        self.assertTrue(rust_budget_precedes_model_request(rust_order))
+        self.assertFalse(rust_budget_precedes_model_request(ts_order))
+
+    def test_stdio_rust_requires_exec_proof_and_fingerprint(self) -> None:
+        records = [
+            {"kind": "context.budget"},
+            {"kind": "model.request"},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 4242,
+                "bin": "./target/release/pilotdeck-agent-loop",
+                "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+            },
+        ]
+        impl, errors = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "rust")
+        self.assertEqual(errors, [])
+
+    def test_intended_rust_stdio_without_fingerprint_is_blocked(self) -> None:
+        records = [
+            {"kind": "model.request"},
+            {"kind": "model.response"},
+            {"kind": "context.budget"},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 4242,
+                "bin": "./target/release/pilotdeck-agent-loop",
+                "resolved": "/workspace/target/release/pilotdeck-agent-loop",
+            },
+        ]
+        impl, errors = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertTrue(any("fingerprint" in item for item in errors))
+
+    def test_intended_rust_stdio_without_exec_proof_is_blocked(self) -> None:
+        records = [
+            {"kind": "context.budget"},
+            {"kind": "model.request"},
+        ]
+        impl, errors = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertTrue(any("exec proof" in item for item in errors))
+
+    def test_tcp_reuse_without_fingerprint_stays_ts(self) -> None:
+        records = [
+            {"kind": "model.request"},
+            {"kind": "model.response"},
+            {"kind": "context.budget"},
+        ]
+        impl, errors = observe_sidecar_implementation(
+            records, transport="tcp", rust_intended=False,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

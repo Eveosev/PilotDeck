@@ -294,6 +294,75 @@ def validate_production_sidecar_proof(
     return errors
 
 
+def rust_budget_precedes_model_request(records: list[dict[str, Any]]) -> bool:
+    """Rust fingerprint: first context.budget is emitted before first model.request."""
+    budget_index = next(
+        (index for index, record in enumerate(records) if record.get("kind") == "context.budget"),
+        None,
+    )
+    request_index = next(
+        (index for index, record in enumerate(records) if record.get("kind") == "model.request"),
+        None,
+    )
+    return (
+        budget_index is not None
+        and request_index is not None
+        and budget_index < request_index
+    )
+
+
+def rust_sidecar_exec_proofs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        record for record in records
+        if record.get("kind") == "harness.proof" and record.get("state") == "rust_sidecar_exec"
+    ]
+
+
+def _exec_proof_is_rust_bin(record: dict[str, Any]) -> bool:
+    path = str(record.get("resolved") or record.get("bin") or "")
+    try:
+        pid = int(record.get("pid"))
+    except (TypeError, ValueError):
+        return False
+    return pid > 0 and path.rstrip("/").endswith("pilotdeck-agent-loop")
+
+
+def observe_sidecar_implementation(
+    records: list[dict[str, Any]],
+    *,
+    transport: str,
+    rust_intended: bool,
+) -> tuple[str, list[str]]:
+    """Derive sidecarImplementation from observations, not command-string self-cert.
+
+    Rust is claimed only when the budget-before-request fingerprint holds, and
+    for stdio also when the wrapper recorded pid + resolved bin before exec.
+    If rust was intended and either observation is missing, return errors so
+    the run is BLOCKED instead of silently labeled rust.
+    """
+    fingerprint = rust_budget_precedes_model_request(records)
+    exec_ok = any(_exec_proof_is_rust_bin(record) for record in rust_sidecar_exec_proofs(records))
+    errors: list[str] = []
+    if transport == "stdio" and rust_intended:
+        if not exec_ok:
+            errors.append("rust sidecar exec proof is missing (wrapper did not record pid/bin)")
+        if not fingerprint:
+            errors.append(
+                "rust sidecar fingerprint missing: context.budget did not precede model.request"
+            )
+        if errors:
+            return "ts", errors
+        return "rust", []
+    if fingerprint:
+        return "rust", []
+    if rust_intended:
+        errors.append(
+            "rust sidecar fingerprint missing: context.budget did not precede model.request"
+        )
+        return "ts", errors
+    return "ts", []
+
+
 @dataclass(frozen=True)
 class Difference:
     path: str
