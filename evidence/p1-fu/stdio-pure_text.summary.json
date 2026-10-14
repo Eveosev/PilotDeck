@@ -1,0 +1,77 @@
+{
+  "scenarios": 1,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "stdio",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "98c882328c4d3cc87a3792502aba480507c754a5",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.23.3"
+  },
+  "blocked": [],
+  "failed": [],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [
+    "pure_text/PilotDeck: 16 warning(s) [envelope=16]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 16,
+    "budget": 0,
+    "modelView": 0,
+    "request": 0,
+    "requestEvidence": 0,
+    "response": 0,
+    "state": 0,
+    "kind": 0,
+    "source": 0,
+    "attempt": 0
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [
+    {
+      "scenario": "pure_text",
+      "label": "PilotDeck",
+      "baseline": false,
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
+          "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+        },
+        "right": {
+          "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
+          "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+        },
+        "ts": {
+          "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
+          "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+        },
+        "rust": {
+          "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
+          "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+        }
+      }
+    }
+  ],
+  "output": "/tmp/t-p1-fu-raw/stdio-pure_text"
+}

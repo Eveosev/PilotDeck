@@ -1,0 +1,239 @@
+{
+  "task": "T-P1-03-FU-A S4",
+  "gitSha": "98c882328c4d3cc87a3792502aba480507c754a5",
+  "gitDirty": false,
+  "collectedAt": "2026-10-14T16:45:58Z",
+  "listen": "listening 127.0.0.1:45751",
+  "ephemeralPort": 45751,
+  "hostConnectOnly": true,
+  "crateSuite": {
+    "shared": "crates/pilotdeck-agent-loop/tests/common/suite.rs",
+    "stdio": {
+      "file": "tests/sidecar_stdio.rs",
+      "passed": 6,
+      "failed": 0
+    },
+    "tcp": {
+      "file": "tests/sidecar_tcp.rs",
+      "passed": 7,
+      "failed": 0,
+      "listen": "127.0.0.1:0",
+      "includesTsHostB4": true
+    },
+    "sameScenarios": [
+      "s0_hello_capabilities_and_invalid_input",
+      "s0_non_utf8_line_is_invalid_json_and_keeps_serving",
+      "s1_execute_pure_text_events_and_final_outcome",
+      "s1_execute_rejects_forbidden_fields",
+      "s1_execute_rejects_step_id",
+      "s2_cancel_status_and_explicit_resume_ack_reject"
+    ],
+    "tcpOnly": [
+      "ts_host_b4_dialogue_over_tcp"
+    ],
+    "pass": true
+  },
+  "parity": {
+    "pure_text": {
+      "stdio": {
+        "exit": 0,
+        "pass": true,
+        "mismatch": 0,
+        "sidecarTransport": "stdio",
+        "tcpSidecarLog": null,
+        "formatWarningCount": 16,
+        "formatWarningTaxonomy": {
+          "envelope": 16,
+          "budget": 0,
+          "modelView": 0,
+          "request": 0,
+          "requestEvidence": 0,
+          "response": 0,
+          "state": 0,
+          "kind": 0,
+          "source": 0,
+          "attempt": 0
+        },
+        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+        "modelViewFormatEnvelopeOnly": true,
+        "comparatorVersion": "1.1.0",
+        "traceDigest": {
+          "left": {
+            "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
+            "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+          },
+          "right": {
+            "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
+            "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+          },
+          "ts": {
+            "file": "sha256:73b30d9342c61edd933b305a000642216e1c6a4d42a398d360d07bf86d9b3f8c",
+            "canonical": "sha256:af0b38186da44a3821caed23820270c06e96fa94d66fca73109714edc19e4215"
+          },
+          "rust": {
+            "file": "sha256:65706e7d6f5b0fb51934cbe392f2e89ea7f653ddc4a3e12e6c81087bbd169dbf",
+            "canonical": "sha256:af2e0d11ebec7a3fe59c1af3bb222ab82b5203ccb6a9c900388b7e0a87b87892"
+          }
+        },
+        "summary": {
+          "blocked": [],
+          "failed": [],
+          "oracleFailures": [],
+          "formatWarnings": [
+            "pure_text/PilotDeck: 16 warning(s) [envelope=16]"
+          ]
+        }
+      },
+      "tcp": {
+        "exit": 0,
+        "pass": true,
+        "mismatch": 0,
+        "sidecarTransport": "tcp",
+        "tcpSidecarLog": null,
+        "formatWarningCount": 58,
+        "formatWarningTaxonomy": {
+          "envelope": 28,
+          "budget": 6,
+          "modelView": 10,
+          "request": 2,
+          "requestEvidence": 1,
+          "response": 2,
+          "state": 2,
+          "kind": 3,
+          "source": 2,
+          "attempt": 2
+        },
+        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+        "modelViewFormatEnvelopeOnly": true,
+        "comparatorVersion": "1.1.0",
+        "traceDigest": {
+          "left": {
+            "file": "sha256:0e7be7ef57b035e9f158300c77df3968e54f10c40725e3329602f3496208b9e1",
+            "canonical": "sha256:bc7d7a69b8536d2974311214df2f5eed0f3f031baa89661e261293e3a3b82d10"
+          },
+          "right": {
+            "file": "sha256:c5d7abf31497f8986ccef8012aad9681a3124a59dd417ad4666a48e76aecfa6c",
+            "canonical": "sha256:b941a0c182baae2db47e57c363fbe452f4ca3acbc3a1aa07e419836128f07502"
+          },
+          "ts": {
+            "file": "sha256:0e7be7ef57b035e9f158300c77df3968e54f10c40725e3329602f3496208b9e1",
+            "canonical": "sha256:bc7d7a69b8536d2974311214df2f5eed0f3f031baa89661e261293e3a3b82d10"
+          },
+          "rust": {
+            "file": "sha256:c5d7abf31497f8986ccef8012aad9681a3124a59dd417ad4666a48e76aecfa6c",
+            "canonical": "sha256:b941a0c182baae2db47e57c363fbe452f4ca3acbc3a1aa07e419836128f07502"
+          }
+        },
+        "summary": {
+          "blocked": [],
+          "failed": [],
+          "oracleFailures": [],
+          "formatWarnings": [
+            "pure_text/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]"
+          ]
+        }
+      }
+    },
+    "single_tool": {
+      "stdio": {
+        "exit": 0,
+        "pass": true,
+        "mismatch": 0,
+        "sidecarTransport": "stdio",
+        "tcpSidecarLog": null,
+        "formatWarningCount": 40,
+        "formatWarningTaxonomy": {
+          "envelope": 40,
+          "budget": 0,
+          "modelView": 0,
+          "request": 0,
+          "requestEvidence": 0,
+          "response": 0,
+          "state": 0,
+          "kind": 0,
+          "source": 0,
+          "attempt": 0
+        },
+        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=40. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+        "modelViewFormatEnvelopeOnly": true,
+        "comparatorVersion": "1.1.0",
+        "traceDigest": {
+          "left": {
+            "file": "sha256:a59afd3119fdae38274fe9f9800605332cea778c67bd4ff5e07c5d7701c3c96d",
+            "canonical": "sha256:400cc6a5cc41bd13edb2736f63071c32f89e5b02b22f9bba5fd20f13c4f5ce6d"
+          },
+          "right": {
+            "file": "sha256:eef6c124b8e5292e744ed50f528da654b24e66c47bf18b0192530475707be60b",
+            "canonical": "sha256:0c98b6a63f9ca7141853843f91217b7592080066cdc10723e590103cd1a72c12"
+          },
+          "ts": {
+            "file": "sha256:a59afd3119fdae38274fe9f9800605332cea778c67bd4ff5e07c5d7701c3c96d",
+            "canonical": "sha256:400cc6a5cc41bd13edb2736f63071c32f89e5b02b22f9bba5fd20f13c4f5ce6d"
+          },
+          "rust": {
+            "file": "sha256:eef6c124b8e5292e744ed50f528da654b24e66c47bf18b0192530475707be60b",
+            "canonical": "sha256:0c98b6a63f9ca7141853843f91217b7592080066cdc10723e590103cd1a72c12"
+          }
+        },
+        "summary": {
+          "blocked": [],
+          "failed": [],
+          "oracleFailures": [],
+          "formatWarnings": [
+            "single_tool/PilotDeck: 40 warning(s) [envelope=40]"
+          ]
+        }
+      },
+      "tcp": {
+        "exit": 0,
+        "pass": true,
+        "mismatch": 0,
+        "sidecarTransport": "tcp",
+        "tcpSidecarLog": null,
+        "formatWarningCount": 134,
+        "formatWarningTaxonomy": {
+          "envelope": 75,
+          "budget": 12,
+          "modelView": 15,
+          "request": 4,
+          "requestEvidence": 2,
+          "response": 4,
+          "state": 4,
+          "kind": 8,
+          "source": 4,
+          "attempt": 6
+        },
+        "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=75, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+        "modelViewFormatEnvelopeOnly": true,
+        "comparatorVersion": "1.1.0",
+        "traceDigest": {
+          "left": {
+            "file": "sha256:a1a6e258259f39bd8f468f1c91ed06ac7402c5b0b0c3b91818da9b1022598604",
+            "canonical": "sha256:60e21bf726a6c1a7e25827ac4b7dc748d605a1727bbee72cf912e0f081c6f8d3"
+          },
+          "right": {
+            "file": "sha256:92bfc467fd2faa2ae1bb621e189ef5abf915871b2ac875a0f0e50c145cb14ea2",
+            "canonical": "sha256:05bab11c0e58242ceea22ef4ef0d38e874462e46f60fda3417c10403af4b3521"
+          },
+          "ts": {
+            "file": "sha256:a1a6e258259f39bd8f468f1c91ed06ac7402c5b0b0c3b91818da9b1022598604",
+            "canonical": "sha256:60e21bf726a6c1a7e25827ac4b7dc748d605a1727bbee72cf912e0f081c6f8d3"
+          },
+          "rust": {
+            "file": "sha256:92bfc467fd2faa2ae1bb621e189ef5abf915871b2ac875a0f0e50c145cb14ea2",
+            "canonical": "sha256:05bab11c0e58242ceea22ef4ef0d38e874462e46f60fda3417c10403af4b3521"
+          }
+        },
+        "summary": {
+          "blocked": [],
+          "failed": [],
+          "oracleFailures": [],
+          "formatWarnings": [
+            "single_tool/PilotDeck: 134 warning(s) [envelope=75, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]"
+          ]
+        }
+      }
+    }
+  },
+  "note": "Crate B1/B4 is the same suite.rs over stdio and TCP 127.0.0.1:0. T-P1-03 pure_text + single_tool were re-run over rust TCP listen-then-connect on the ephemeral port and over harness stdio (same scenes, side-by-side)."
+}

@@ -1,0 +1,44 @@
+{
+  "task": "T-P1-03-FU-A",
+  "gitSha": "98c882328c4d3cc87a3792502aba480507c754a5",
+  "gitDirty": false,
+  "collectHead": "98c882328c4d3cc87a3792502aba480507c754a5",
+  "base": "84c0a63cd2e088445d3f27046f433b1f7e782927",
+  "branch": "cursor/t-p1-03-fu-a-b3-s4-c891",
+  "target": "rust_standalone_alpha1",
+  "draftPr": "https://github.com/Eveosev/PilotDeck/pull/30",
+  "collectedAt": "2026-10-14T16:45:58Z",
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
+  "node": "v22.23.3",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "listen": "listening 127.0.0.1:45751",
+  "comparatorVersion": "1.1.0",
+  "cargoTest": {
+    "workspace": {
+      "passed": 85,
+      "failed": 0
+    },
+    "lib": 54,
+    "g5_tcp_module_call": 1,
+    "lock": 6,
+    "roundtrip": 2,
+    "serde_r2": 9,
+    "sidecar_stdio": 6,
+    "sidecar_tcp": 7,
+    "run1EqRun2": true
+  },
+  "clippy": {
+    "denyWarnings": true,
+    "exit": 0
+  },
+  "harnessUnittest": {
+    "passed": 78,
+    "failed": 0
+  },
+  "command": "cargo test --workspace -- --test-threads=1  # twice, 85/0\ncargo clippy --workspace --all-targets -- -D warnings\nT_P1_FU_B3_OUT=evidence/p1-fu/b3.json cargo test -p pilotdeck-agent-loop --test serde_r2 s3_seven_cases_record_explicit_decisions -- --exact\n./target/release/pilotdeck-agent-loop --listen 127.0.0.1:0  # bound 127.0.0.1:45751\npython3 tools/agent-loop-parity/run.py --sidecar-transport tcp --pilotdeck-tcp-host 127.0.0.1 --pilotdeck-tcp-port 45751 --scenario <pure_text|single_tool>\npython3 tools/agent-loop-parity/run.py --sidecar-transport stdio --scenario <pure_text|single_tool>\n# G3: g3-stdio-native-mode, g3-tcp-native-mode, g3-reuse-no-listener, g3-reuse-fake-sidecar",
+  "whitelist": [
+    "crates/pilotdeck-agent-loop/tests/serde_r2.rs",
+    "tools/agent-loop-parity/**",
+    "evidence/p1-fu/**"
+  ]
+}
