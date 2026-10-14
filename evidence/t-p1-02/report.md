@@ -1,6 +1,7 @@
 # T-P1-02 evidence (R3 F1/F2 + n1–n6 + extended G8)
 
 Collected on clean tree `1874e5d48a73aeb5d2821531367c8825e01c90bd` (`gitDirty=false`).
+Evidence content tip: `27596c7cb05ce5abe73db9ecdf9b652ef14101e4`.
 Base: `rust_standalone_alpha1@1d15a13033aeb57f2740b3677e13281cc5f9036d` (merge #20).
 Draft PR: Eveosev/PilotDeck#21 → `rust_standalone_alpha1`.
 
