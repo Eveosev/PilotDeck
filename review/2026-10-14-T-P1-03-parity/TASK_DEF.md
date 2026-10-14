@@ -21,3 +21,13 @@ Source note: the T-P1-03 row below is inlined from the rust-proposal-v2 task pla
 ## M2 (Payne-approved)
 
 - Outbound `messages[].content` / `message.content` is always a Canonical block array `[{type:"text", text}]` (or `tool_call` / `tool_result` blocks). The former string content was only on the pure_text completed path (`emit_text_only_turn` → `emit_completed`). `capability_result` now wraps a host string `content` into a text block and keeps an array as-is. Cancelled / failed terminals emit `messages: []`.
+
+## R2 / B3(a) (Payne-approved)
+
+- **budget.** Before each host model call, if `hostModules.budget` advertises `evaluate_request_budget`, sidecar calls that operation and emits `agent.context_budget` with the host snapshot (AgentLoop.ts:784-830). Host durable `context_budget` status follows from that event.
+- **modelView.** `model_request` sends `agent.maxOutputTokens`, `systemPrompt`, `stream`, `toolChoice` / `thinking` / `metadata` when present, and model tool schemas `{name,description,inputSchema}` (not the raw host manifest). Tool-call conversation messages carry `timeline` / `metadata.model`; tool results carry `raw`.
+- **next_turn.** After first-round tool results, emit `agent.turn_continued` with `reason: "next_turn"`.
+- **m-a.** `capability_result` keeps host `error`; the matching `tool_result` sets `isError`. `json` / `file` blocks are rewritten to text; empty arrays and plain string arrays are rejected (fallback text / string-to-text-block).
+- **m-b.** First-round text before tool calls is kept on the same assistant message. Multiple tool calls in one round become one assistant message and one results message. A second-round tool call fails with `UNEXPECTED_SECOND_TURN_TOOL_CALLS`.
+- **m-c.** Prepare interrupt and a host that never answers `stream` both send `close_stream`. Tests: `cancel_during_prepare_still_sends_close_stream`, `cancel_while_host_omits_stream_still_closes_stream`.
+- **n-b errata (append-only).** The F-9(a) sentence above keeps its `c5bed6c1` cites (`sidecar.rs:223-234` / test `:1251`). Those are baseline line numbers, not the current tip. TS `moduleRuntime.ts:30` is unchanged. Current rust check is `sidecar.rs` `OPERATION_RUN_MISMATCH` in `handle_execute` and test `execute_finished_run_mismatch_is_rejected`.

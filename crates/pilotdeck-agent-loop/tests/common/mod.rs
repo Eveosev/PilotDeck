@@ -384,6 +384,16 @@ pub fn mock_backend_reply(message: &Value) -> Option<Value> {
             Some("close_stream") => json!({ "closed": true }),
             _ => json!({}),
         },
+        Some("budget") => json!({
+            "snapshot": {
+                "tokens": 10,
+                "maxContextTokens": 128000,
+                "warningRatio": 0.8,
+                "blockingRatio": 0.9,
+                "state": "ok",
+                "ratio": 0.0
+            }
+        }),
         Some("capability") => {
             let name = message
                 .pointer("/payload/name")
