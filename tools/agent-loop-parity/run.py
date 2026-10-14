@@ -24,6 +24,7 @@ from trace import (
     compare_trace_details,
     format_warning_note,
     format_warning_taxonomy,
+    load_raw_trace,
     load_trace,
     model_view_format_is_envelope_only,
     observe_sidecar_implementation,
@@ -887,7 +888,7 @@ def main() -> int:
                                 oracle_failures.append(f"{sid}/{name}: {failure.path} expected={failure.left!r} actual={failure.right!r}")
                             if mode == "sidecar" and args.surface == "gateway":
                                 observed_impl, observe_errors = observe_sidecar_implementation(
-                                    load_trace(trace_path),
+                                    load_raw_trace(trace_path),
                                     transport=sidecar_transport,
                                     rust_intended=rust_intended,
                                 )

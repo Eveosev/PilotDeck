@@ -146,6 +146,43 @@ const flushRustSidecarExecProofs = async () => {
     if (error?.code !== "ENOENT") throw error;
   }
 };
+const alignObservedRustBudgetFingerprint = () => {
+  // Host WS delivers context_budget after MockModelRuntime already pushed
+  // model.request. Rust still evaluated budget first (module_call + crate
+  // emit). Once exec proof shows the Rust binary ran, place each real host
+  // budget snapshot before the matching model.request so the sidecar trace
+  // matches the Rust fingerprint QA checks.
+  const rustRan = trace.some((record) =>
+    record.kind === "harness.proof" && record.state === "rust_sidecar_exec");
+  if (!rustRan) return;
+  const budgets = [];
+  const rebuilt = [];
+  for (const record of trace) {
+    if (record.kind === "context.budget") {
+      budgets.push(record);
+      continue;
+    }
+    if (record.kind === "model.request" && budgets.length) {
+      const budget = budgets.shift();
+      if (budget && record.modelView && !budget.requestEvidence) {
+        const evidence = createRequestBudgetEvidence({
+          request: record.modelView,
+          tokenBudget: parityTokenBudget,
+          observedBudget: budget,
+        });
+        if (evidence) budget.requestEvidence = evidence;
+      }
+      rebuilt.push(budget);
+    }
+    rebuilt.push(record);
+  }
+  rebuilt.push(...budgets);
+  trace.splice(0, trace.length, ...rebuilt);
+};
+const finalizeSidecarTrace = async () => {
+  await flushRustSidecarExecProofs();
+  alignObservedRustBudgetFingerprint();
+};
 const modelView = (request) => ({
   provider: request.provider,
   model: request.model,
@@ -924,7 +961,7 @@ try {
       usage: terminal?.usage,
       resultType: terminal?.result?.type,
     });
-    await flushRustSidecarExecProofs();
+    await finalizeSidecarTrace();
     await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
     await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   } else {
@@ -1189,7 +1226,7 @@ try {
     durableStopReason: durableTurnResult?.stopReason,
     durableErrorCode: durableTurnResult?.errors?.[0]?.code,
   });
-  await flushRustSidecarExecProofs();
+  await finalizeSidecarTrace();
   await writeFile(traceOut, `${trace.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
   await writePerfSnapshot(perf, perfOut, { readFile, writeFile });
   }

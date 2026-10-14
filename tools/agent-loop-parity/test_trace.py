@@ -18,6 +18,7 @@ from trace import (
     format_warning_note,
     format_warning_taxonomy,
     model_view_format_is_envelope_only,
+    load_raw_trace,
     observe_sidecar_implementation,
     rust_budget_precedes_model_request,
     trace_digest,
@@ -1756,6 +1757,33 @@ class ObserveSidecarImplementationTests(unittest.TestCase):
         )
         self.assertEqual(impl, "ts")
         self.assertTrue(any("exec proof" in item for item in errors))
+
+    def test_raw_trace_keeps_exec_pid_for_observation(self) -> None:
+        import tempfile
+        records = [
+            {"kind": "context.budget", "scenarioId": "t", "q": "q", "sequence": 0},
+            {"kind": "model.request", "scenarioId": "t", "q": "q", "sequence": 1},
+            {
+                "kind": "harness.proof",
+                "state": "rust_sidecar_exec",
+                "pid": 9,
+                "bin": "/x/pilotdeck-agent-loop",
+                "resolved": "/x/pilotdeck-agent-loop",
+                "scenarioId": "t",
+                "q": "q",
+                "sequence": 2,
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "t.jsonl"
+            path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+            raw = load_raw_trace(path)
+            self.assertEqual(raw[-1]["pid"], 9)
+            impl, errors = observe_sidecar_implementation(
+                raw, transport="stdio", rust_intended=True,
+            )
+            self.assertEqual(impl, "rust")
+            self.assertEqual(errors, [])
 
     def test_tcp_reuse_without_fingerprint_stays_ts(self) -> None:
         records = [

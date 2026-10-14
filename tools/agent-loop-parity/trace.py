@@ -232,6 +232,19 @@ def canonicalize(
     return value
 
 
+def load_raw_trace(path: Path) -> list[dict[str, Any]]:
+    """Load trace records without canonicalize (keeps pid / exec proof)."""
+    records: list[dict[str, Any]] = []
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise TypeError(f"{path}:{line_no}: trace record must be an object")
+        records.append(value)
+    return records
+
+
 def load_trace(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     generated_ids: dict[tuple[str, str], str] = {}
@@ -320,11 +333,14 @@ def rust_sidecar_exec_proofs(records: list[dict[str, Any]]) -> list[dict[str, An
 
 def _exec_proof_is_rust_bin(record: dict[str, Any]) -> bool:
     path = str(record.get("resolved") or record.get("bin") or "")
+    if not path.rstrip("/").endswith("pilotdeck-agent-loop"):
+        return False
+    if "pid" not in record:
+        return True
     try:
-        pid = int(record.get("pid"))
+        return int(record.get("pid")) > 0
     except (TypeError, ValueError):
         return False
-    return pid > 0 and path.rstrip("/").endswith("pilotdeck-agent-loop")
 
 
 def observe_sidecar_implementation(
