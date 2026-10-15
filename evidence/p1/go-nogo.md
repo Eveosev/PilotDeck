@@ -31,6 +31,8 @@ T-P1-03 `summary.md` 曾把「TS native vs Rust sidecar TCP」叫 "TS-tcp"。**�
 | n | turn / model：**30** 次/路径/场景；流块 chars_50 另 30 次（native / TS-tcp 有间隔；Rust-tcp 见下） |
 | 百分位 | inclusive-rank，`rank = p/100 × (n−1)`，线性插值 |
 
+**披露（`provenance.baseSha`，数字不变，此处不修）：** `evidence/p1/perf-modelms200-*.json` 的 `provenance.baseSha` 记为 `f376b4a5`（`f376b4a5b6c487367a9671ddb47fd2fefe9eba8a`）。实际 base 是 `rust_standalone_alpha1` @ `b3399c14`（`b3399c141efaf6fc63daa739c580be7769e40a24`）。该陈旧值由采集 HEAD `df1d0cc9` 上的 `tools/agent-loop-perf/run.py:672` 写入（`base_branch, base_sha = resolve_base(source, args.base_branch)`）。对照表里的计时数字不受影响。本 PR 不改 `tools/**`。
+
 命令（均在仓库根、干净树、输出到 `/tmp` 再拷入本目录）：
 
 ```bash
@@ -123,7 +125,7 @@ Rust-tcp vs TS-tcp 净 P95：51.520 − 24.744 = **+26.776 ms**（参考）。
 | Rust-tcp | 326.814 | 341.974 | 126.814 | 141.974 | 30 | +96.788 | 5.000 | 19.358 |
 | TS-tcp | 260.594 | 277.166 | 60.593 | 77.166 | 30 | +31.980 | 5.000 | 6.396 |
 
-Rust-tcp 在 live-stream 上 model 净 P95 明显高于 native / TS-tcp。结合 §3：Gateway 侧只看到 **1** 个 `assistant_text_delta`（合并），model 窗包进了整段 mock 200ms + 未分块转发。
+Rust-tcp 在 live-stream 上 model 净 P95 明显高于 native / TS-tcp。`stream_chunk_ms=[]`、`perf_n_chunks=1`、`firstDeltaBeforeProviderCompletion` oracle FAIL 的根因（行号在 `b3399c14` 核对）：Rust sidecar 只调用 host 的一次性 `stream`，从不调用 `stream_next`，把多段 delta 合成一段。`crates/pilotdeck-agent-loop/src/sidecar.rs:1769-1777` 只发 `operation: "stream"`；`:1816-1832` 的 `assemble_canonical_events` 把全部 `text_delta` 拼进一个字符串。缺逐块 firstDelta 是 **crates 产品行为上的 A2 功能缺口**（T-P1-04 A2：首 delta 应早于 provider completion）。Payne 已接受为已披露的数据缺口，作为 **T-P1-06 输入** / 单独 crates 任务（**未解锁**）。本 PR 不修。
 
 ## 3. 流块
 
@@ -151,7 +153,7 @@ Rust-tcp：30 次 chars=50 的 `stream_chunk_ms=[]`。Gateway 每 turn 只观测
 | Rust-tcp | 50 | sidecar | rust-tcp | 否 | 22 | **1** | **0** | — | — | — | **false** |
 | Rust-tcp | 500 | sidecar | rust-tcp | 否 | 4 | **1** | **0** | — | — | — | **false** |
 
-Rust-tcp live：`outputContainsSTREAM_PREFIX=true`，但 `firstDeltaBeforeProviderCompletion=false`，`stream_chunk_ms` 为空。native / TS-tcp 的 `stream_chunk_ms` 非空，`source` 不是 gateway。
+Rust-tcp live：`outputContainsSTREAM_PREFIX=true`，但 `firstDeltaBeforeProviderCompletion=false`，`stream_chunk_ms` 为空。native / TS-tcp 的 `stream_chunk_ms` 非空，`source` 不是 gateway。根因与处置（A2 功能缺口，T-P1-06 输入 / 单独 crates 任务，未解锁，本 PR 不修）见上文 live-stream model 段。
 
 Rust-tcp vs native 流块：没有可比较的间隔样本（n=0）。Rust-tcp vs TS-tcp 同样。
 
@@ -163,13 +165,14 @@ Rust-tcp vs native 流块：没有可比较的间隔样本（n=0）。Rust-tcp v
 
 1. **未跑** 53 场景 live Gateway gate（本关只钉计数单测；`test_trace.py` 91/91，gate=53）。
 2. **未跑** 真模型、stdio、生产 TCP 认证（D7）。
-3. **Rust-tcp 流块间隔采不到**：Gateway 只见到 1 个 delta。C1「`stream_chunk_ms` 非空」在 native / TS-tcp 成立，Rust-tcp 不成立（合并，不是 harness 没开 `PARITY_PERF`）。
+3. **Rust-tcp 流块间隔采不到**：`stream_chunk_ms=[]`，`perf_n_chunks=1`，firstDelta oracle FAIL。C1「`stream_chunk_ms` 非空」在 native / TS-tcp 成立，Rust-tcp 不成立。根因是 sidecar 只调 unary `stream`、不调 `stream_next`（见 live-stream model 段），harness 已开 `PARITY_PERF`。
 4. live `--run-gateway` 的 **same-version 对拍不是 PASS**：
    - native / TS-tcp：sidecar 被误标 `rustSidecarIntended=true`（默认 TS 命令字符串含 `pilotdeck-agent-loop`），fingerprint 缺失 → exit 2。native/sidecar **trace 仍写出**，计时可用。
    - Rust-tcp：`firstDeltaBeforeProviderCompletion` oracle FAIL + 语义 diff（chars=1 时 98 处），exit 1。sidecar trace 仍写出。
 5. `collect_stream_chunks.py --run-gateway-arg --adapter-timeout-seconds` 这种空格写法会被 argparse 吃掉；要用 `--run-gateway-arg=--adapter-timeout-seconds`。
 6. 未把 chars=1 / 500 做成 30 次独立 turn（chars=500 一次只有 3 个间隔）。chars=50 的 30 次覆盖 native / TS-tcp 流块 P50/P95。
-7. 未改 `crates/**` / `Cargo.lock`；Rust 合并流是观测，不是本 PR 修的产品行为。
+7. 未改 `crates/**` / `Cargo.lock`。缺逐块 firstDelta 的 A2 功能缺口本 PR 不修（T-P1-06 输入 / 单独 crates 任务，未解锁）。
+8. **`provenance.baseSha` 陈旧**：JSON 为 `f376b4a5`，实际 base 为 `b3399c14`（见采集 provenance 披露）。数字不受影响；此处不修 `tools/**`。
 
 ## 产物
 
