@@ -1,0 +1,32 @@
+{
+  "output": "/tmp/t-p1-05/perf-rust-tcp",
+  "transports": [
+    "tcp"
+  ],
+  "scenarios": [
+    "pure_text",
+    "single_tool",
+    "sidecar_live_model_stream_chars_50"
+  ],
+  "iterations": 30,
+  "startedAt": "2026-10-15T06:17:43.014091+00:00",
+  "finishedAt": "2026-10-15T06:20:56.177809+00:00",
+  "provenance": {
+    "gitSha": "df1d0cc98ccb45a82e877dd28e1bf28211ee35cb",
+    "collectSha": "df1d0cc98ccb45a82e877dd28e1bf28211ee35cb",
+    "gitDirty": false,
+    "node": "v22.14.0",
+    "python": "3.12.3",
+    "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 --model-ms 200 --iterations 30 --adapter-timeout-seconds 120 --output /tmp/t-p1-05/perf-rust-tcp --transports tcp --pilotdeck-tcp-sidecar-cmd tools/agent-loop-parity/rust-tcp-sidecar.sh",
+    "pilotdeckRoot": "$PWD",
+    "iterationsRequested": 30,
+    "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+    "delayPolicy": "zero+modelMs:200",
+    "configuredModelMs": 200.0,
+    "metrics": "tools/agent-loop-perf/METRICS.md",
+    "productDefaultTransport": "native",
+    "baseBranch": "rust_standalone_alpha1",
+    "baseSha": "f376b4a5b6c487367a9671ddb47fd2fefe9eba8a"
+  }
+}
