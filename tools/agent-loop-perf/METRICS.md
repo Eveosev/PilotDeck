@@ -13,7 +13,8 @@
 | `turn_ms` | 从 turn 开始到 terminal 终态的 wall clock | 三种 transport 都报；**不含** Gateway 进程启动 |
 | `model_iter_ms` | 单次 model request→response（含流结束） | 多轮则逐次再汇总 |
 | `non_model_ms` | `turn_ms − sum(model_iter_ms)` | P1 对照时必须同时看这一项，避免把会话/sidecar 冷启动当成 model 开销 |
-| `stream_chunk_ms` | 相邻流块到达间隔 | 无流场景可空数组 |
+| `stream_chunk_ms` | 相邻流块到达间隔 | 无流或只有一块时为空数组 |
+| `n_chunks` | 本 turn 的 `assistant_text_delta` / harness `text_delta` 次数 | T-P1-04 写入 snapshot，供 T-P1-05 归因；无流为 0 |
 | `host_overhead_ms`（native） | native 无 sidecar；D4 锚仍是 `turn_ms(native)` | 含冷进程首次 in-process `try_auto_compact`；见构成说明 |
 | `rss_kb` | `/proc/self/status` 的 adapter/host Node `VmRSS` | 不含 sidecar 进程；macOS 为 `null`；不是本关门禁 |
 

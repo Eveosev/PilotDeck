@@ -530,9 +530,10 @@ def load_scenarios(path: Path, selected: str, suite: str) -> list[dict[str, Any]
         missing = sorted(REQUIRED_GATEWAY_SCENARIOS - actual)
         if missing:
             raise ValueError(f"required PilotDeck scenarios are missing: {', '.join(missing)}")
-        extra = sorted(actual - REQUIRED_GATEWAY_SCENARIOS)
-        if extra:
-            raise ValueError(f"unexpected PilotDeck gate scenarios: {', '.join(extra)}")
+        # T-P1-04 stream-chunk variants live in scenarios.json but are not
+        # part of the 53-scenario production gate. Select them by id or
+        # `--suite sidecar-stream-chunks`.
+        result = [item for item in result if str(item["scenarioId"]) in REQUIRED_GATEWAY_SCENARIOS]
         if len(result) != PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT:
             raise ValueError(
                 f"PilotDeck gate requires {PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT} scenarios, "

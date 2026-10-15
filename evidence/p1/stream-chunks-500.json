@@ -1,0 +1,25 @@
+{
+  "task": "T-P1-04",
+  "fieldPath": "scenarios[].streamChunkChars",
+  "unit": "chars",
+  "streamChunkChars": 500,
+  "scenarioId": "sidecar_live_model_stream_chars_500",
+  "suite": "sidecar-stream-chunks",
+  "n_chunks": 4,
+  "n_text_deltas": 4,
+  "n_body_chunks": 3,
+  "bodyChars": 1040,
+  "firstDelta": "STREAM_PREFIX::",
+  "stream_chunk_ms": [],
+  "perf_n_chunks": null,
+  "source": "planned-from-scenario",
+  "t_p1_05": "T-P1-05 consumes this artifact for Rust-tcp vs native / vs TS-tcp turn / model-iter / stream-chunk attribution. This PR does not write go-nogo.",
+  "notes": {
+    "one": "streamChunkChars=1 means one Unicode code point per post-prefix chunk, not the whole body.",
+    "fiveHundredShortBody": "If mock body length < 500, chars=500 yields STREAM_PREFIX + one remainder (same shape as the default omitted-field path). Variants pad q so body > 500.",
+    "defaultPath": "sidecar_live_model_stream omits streamChunkChars: STREAM_PREFIX + one whole-body remainder."
+  },
+  "firstDeltaBeforeProviderCompletion": true,
+  "outputContainsSTREAM_PREFIX": true,
+  "planned": true
+}

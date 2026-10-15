@@ -233,7 +233,8 @@ class MockHandler(BaseHTTPRequestHandler):
                 "content": "parity snapshot before\n",
             })]))
             return
-        if scenario == "pure_text" or scenario in {"image", "checkpoint_resume", "multimodal_image_and_text", "stale_event", "write_snapshot_resume", "duplicate_execute", "sop_scheduled_task", "sop_handoff_resume", "sidecar_elicitation", "sidecar_durable_compaction", "sidecar_full_request_compaction_budget", "sidecar_projected_request_compaction_budget", "sidecar_live_model_stream", "sidecar_model_metadata", "sidecar_empty_system_prompt", "sidecar_additional_working_directories"}:
+        live_stream_family = scenario == "sidecar_live_model_stream" or scenario.startswith("sidecar_live_model_stream_")
+        if scenario == "pure_text" or live_stream_family or scenario in {"image", "checkpoint_resume", "multimodal_image_and_text", "stale_event", "write_snapshot_resume", "duplicate_execute", "sop_scheduled_task", "sop_handoff_resume", "sidecar_elicitation", "sidecar_durable_compaction", "sidecar_full_request_compaction_budget", "sidecar_projected_request_compaction_budget", "sidecar_model_metadata", "sidecar_empty_system_prompt", "sidecar_additional_working_directories"}:
             content = f"MOCK_ANSWER[{scenario}]::{q}"
             if scenario == "image" and not image_present:
                 content = "MOCK_IMAGE_MISSING"

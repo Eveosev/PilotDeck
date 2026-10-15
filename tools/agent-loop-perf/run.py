@@ -271,6 +271,11 @@ def run_one(
         raise RuntimeError("perf snapshot is missing turn_ms")
     model_iter_ms = _float_list(snapshot.get("model_iter_ms"))
     stream_chunk_ms = _float_list(snapshot.get("stream_chunk_ms"))
+    n_chunks = snapshot.get("n_chunks")
+    if not isinstance(n_chunks, (int, float)) or isinstance(n_chunks, bool):
+        n_chunks = None
+    else:
+        n_chunks = int(n_chunks)
     rss_kb = snapshot.get("rss_kb")
     non_model_ms = snapshot.get("non_model_ms")
     if not isinstance(non_model_ms, (int, float)) or isinstance(non_model_ms, bool):
@@ -280,6 +285,7 @@ def run_one(
         "turn_ms": _round_ms(float(turn_ms)),
         "model_iter_ms": model_iter_ms,
         "stream_chunk_ms": stream_chunk_ms,
+        "n_chunks": n_chunks,
         "non_model_ms": _round_ms(float(non_model_ms)),
         "segments": {
             "first_gateway_event_ms": _optional_ms(segments.get("first_gateway_event_ms")),
@@ -367,6 +373,11 @@ def build_scenario_report(
     ]
     outside = [float(item["gateway_outside_turn_ms"]) for item in samples if item.get("gateway_outside_turn_ms") is not None]
     rss = [int(item["rss_kb"]) for item in samples if item.get("rss_kb") is not None]
+    n_chunks = [
+        int(item["n_chunks"])
+        for item in samples
+        if isinstance(item.get("n_chunks"), (int, float)) and not isinstance(item.get("n_chunks"), bool)
+    ]
     return {
         "scenarioId": scenario_id,
         "delay_injected": delay_injected,
@@ -377,6 +388,7 @@ def build_scenario_report(
         "model_iter_ms": summarize(model),
         "non_model_ms": summarize(non_model),
         "stream_chunk_ms": summarize(chunks),
+        "n_chunks": summarize(n_chunks),
         "segments": {
             "first_gateway_event_ms": summarize(first_event),
             "pre_model_ms": summarize(pre_model),
