@@ -1,0 +1,86 @@
+{
+  "baseSha": "b3399c141efaf6fc63daa739c580be7769e40a24",
+  "branch": "rust_standalone_alpha1",
+  "headAtRun": "b3399c141efaf6fc63daa739c580be7769e40a24",
+  "detachedHead": true,
+  "runner": {
+    "hostname": "cursor",
+    "uname": "Linux cursor 6.12.94+ #1 SMP PREEMPT_DYNAMIC Tue Oct 13 20:53:56 UTC 2026 x86_64 GNU/Linux",
+    "os": "Ubuntu 24.04.5 LTS",
+    "arch": "x86_64",
+    "nproc": 4,
+    "kind": "local cloud-agent VM; not a GitHub-hosted runner"
+  },
+  "versions": {
+    "node": "v22.14.0",
+    "nodePath": "/exec-daemon/node",
+    "pnpm": "10.32.1",
+    "electron": "42.11.1",
+    "chromeEmbeddedInElectron": "148.0.7778.280",
+    "electronBundledNode": "24.19.0",
+    "systemGoogleChrome": "154.0.8037.92",
+    "vite": "7.3.3",
+    "weston": "13.0.0"
+  },
+  "commandsRun": [
+    "gh api --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-smoke.yml/dispatches ref=b3399c141efaf6fc63daa739c580be7769e40a24",
+    "gh api --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches ref=b3399c141efaf6fc63daa739c580be7769e40a24",
+    "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+    "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland"
+  ],
+  "setupCommandsBeforeSmoke": [
+    "pnpm install --frozen-lockfile",
+    "pnpm --filter pilotdeck-desktop run compile",
+    "sudo apt-get install weston (weston was not preinstalled; xvfb and dbus-run-session already present)"
+  ],
+  "startUtc": "2026-10-15T07:13:05Z",
+  "endUtc": "2026-10-15T07:14:24Z",
+  "ghaDispatchUtc": "2026-10-15T07:10:55Z",
+  "gitDirty": false,
+  "gitStatusPorcelainBeforeEvidence": "",
+  "ghaDispatch": {
+    "desktop-smoke.yml": {
+      "httpStatus": 403,
+      "message": "Resource not accessible by integration",
+      "acceptedPermissions": "actions=write",
+      "workflowOnDefaultBranch": "listed as Desktop (id 381604437); workflow_dispatch exists in this SHA's desktop-smoke.yml",
+      "transcript": "gha/desktop-smoke.dispatch.http"
+    },
+    "desktop-linux.yml": {
+      "httpStatus": 403,
+      "message": "Resource not accessible by integration",
+      "note": "On the default branch, gh workflow view desktop-linux.yml returns HTTP 404 (workflow_call file, not a standalone dispatch target). The dispatch POST at this SHA also returned 403.",
+      "transcript": "gha/desktop-linux.dispatch.http"
+    },
+    "outcome": "403",
+    "localFallback": true
+  },
+  "n": {
+    "x11": 1,
+    "wayland": 1
+  },
+  "results": {
+    "x11": {
+      "exitCode": 0,
+      "wallSeconds": 24,
+      "passed": true,
+      "fileClickTimeoutCount": null,
+      "fileClickStableCount": null
+    },
+    "wayland": {
+      "exitCode": 0,
+      "wallSeconds": 21,
+      "passed": true,
+      "fileClickTimeoutCount": null,
+      "fileClickStableCount": null
+    }
+  },
+  "notes": [
+    "X11 wallSeconds includes the smoke script's own electron install.js download; the Electron binary was absent before that command and present after it.",
+    "Wayland wallSeconds is the same command with Electron already installed.",
+    "No --disable-gpu, no global throttle, and apps/desktop/src/main.ts was not edited (including line 536).",
+    "Issue #14 (Wayland hang) is not claimed fixed. N=1 is below the N=300 file-click gate threshold.",
+    "Weston runtime logs were removed by run-linux-chrome-smoke.sh's own cleanup trap; they were not retained.",
+    "PNGs match repo *.png Git LFS attributes."
+  ]
+}
