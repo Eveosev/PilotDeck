@@ -13,13 +13,17 @@
   "stream_chunk_ms": [],
   "perf_n_chunks": null,
   "source": "planned-from-scenario",
+  "transport": null,
   "t_p1_05": "T-P1-05 consumes this artifact for Rust-tcp vs native / vs TS-tcp turn / model-iter / stream-chunk attribution. This PR does not write go-nogo.",
   "notes": {
     "one": "streamChunkChars=1 means one Unicode code point per post-prefix chunk, not the whole body.",
     "fiveHundredShortBody": "If mock body length < 500, chars=500 yields STREAM_PREFIX + one remainder (same shape as the default omitted-field path). Variants pad q so body > 500.",
-    "defaultPath": "sidecar_live_model_stream omits streamChunkChars: STREAM_PREFIX + one whole-body remainder."
+    "defaultPath": "sidecar_live_model_stream omits streamChunkChars: STREAM_PREFIX + one whole-body remainder (2 deltas), including when the body is an empty string.",
+    "firstChunkInterval": "stream_chunk_ms[0] (prefix → first body chunk) includes mock model latency (live-stream modelMs: 200). Exclude interval[0] when attributing harness / Gateway / sidecar forwarding.",
+    "nChunksSources": "n_chunks is the harness yield count (model.stream state=chunks, or planned prefix+body slices). perf_n_chunks is the Gateway-observed assistant_text_delta count from the perf snapshot; observed n_text_deltas is user.output count. They may differ if Gateway/sidecar coalesces deltas.",
+    "plannedOracle": "In planned mode firstDeltaBeforeProviderCompletion and outputContainsSTREAM_PREFIX are null (not evaluated). Live --run-gateway fills them from the trace."
   },
-  "firstDeltaBeforeProviderCompletion": true,
-  "outputContainsSTREAM_PREFIX": true,
+  "firstDeltaBeforeProviderCompletion": null,
+  "outputContainsSTREAM_PREFIX": null,
   "planned": true
 }

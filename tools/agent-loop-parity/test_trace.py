@@ -29,6 +29,7 @@ from trace import (
 from run import (
     PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT,
     REQUIRED_GATEWAY_SCENARIOS,
+    STREAM_CHUNK_GATE_EXEMPT_SUITE,
     ROOT,
     adapter_env,
     rust_sidecar_intended,
@@ -1014,6 +1015,42 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         self.assertEqual({item["scenarioId"] for item in loaded}, set(REQUIRED_GATEWAY_SCENARIOS))
         self.assertNotIn("sidecar_live_model_stream_chars_1", {item["scenarioId"] for item in loaded})
 
+    def test_full_gateway_gate_raises_on_unregistered_non_exempt_scenario(self) -> None:
+        import tempfile
+        document = json.loads((ROOT / "scenarios.json").read_text(encoding="utf-8"))
+        document["scenarios"].append({
+            "scenarioId": "rogue_unregistered_gate_scenario",
+            "suite": "core-regression",
+            "pairs": ["pilotdeck"],
+            "q": "must not be silently dropped from the 53-scenario gate",
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "scenarios.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                r"unexpected PilotDeck gate scenarios: rogue_unregistered_gate_scenario",
+            ):
+                load_scenarios(path, "all", "all")
+
+    def test_full_gateway_gate_exempts_only_sidecar_stream_chunks_suite(self) -> None:
+        import tempfile
+        document = json.loads((ROOT / "scenarios.json").read_text(encoding="utf-8"))
+        document["scenarios"].append({
+            "scenarioId": "sidecar_live_model_stream_chars_extra",
+            "suite": STREAM_CHUNK_GATE_EXEMPT_SUITE,
+            "pairs": ["pilotdeck"],
+            "q": "exempt extra must not raise",
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "scenarios.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            loaded = load_scenarios(path, "all", "all")
+            self.assertEqual(len(loaded), 53)
+            ids = {item["scenarioId"] for item in loaded}
+            self.assertEqual(ids, set(REQUIRED_GATEWAY_SCENARIOS))
+            self.assertNotIn("sidecar_live_model_stream_chars_extra", ids)
+
     def test_stream_chunk_variants_are_selectable_outside_the_gate(self) -> None:
         from collect_stream_chunks import STREAM_CHUNK_CHARS, chunk_text_by_chars, mock_answer, planned_deltas
 
@@ -1049,6 +1086,8 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             default_body = mock_answer(default[0])
             self.assertEqual(chunk_text_by_chars(default_body, None), [default_body])
             self.assertEqual(len(["STREAM_PREFIX::", *chunk_text_by_chars(default_body, None)]), 2)
+            self.assertEqual(chunk_text_by_chars("", None), [""])
+            self.assertEqual(["STREAM_PREFIX::", *chunk_text_by_chars("", None)], ["STREAM_PREFIX::", ""])
 
     def test_sidecar_production_oracles_cover_durable_and_model_evidence(self) -> None:
         scenario = {

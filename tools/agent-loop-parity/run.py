@@ -37,6 +37,10 @@ from trace import (
 
 ROOT = Path(__file__).resolve().parent
 SIDECAR_TRANSPORTS = frozenset({"stdio", "tcp"})
+# T-P1-04 stream-chunk variants live in scenarios.json but are outside the
+# 53-scenario production gate. `--scenario all --suite all` exempts only this
+# suite; any other extra pairs:["pilotdeck"] scenario still raises.
+STREAM_CHUNK_GATE_EXEMPT_SUITE = "sidecar-stream-chunks"
 # The production Gateway suite is a release gate. Keep this count and the
 # required id set in lockstep so a full run cannot silently shrink or grow.
 PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT = 53
@@ -530,9 +534,19 @@ def load_scenarios(path: Path, selected: str, suite: str) -> list[dict[str, Any]
         missing = sorted(REQUIRED_GATEWAY_SCENARIOS - actual)
         if missing:
             raise ValueError(f"required PilotDeck scenarios are missing: {', '.join(missing)}")
-        # T-P1-04 stream-chunk variants live in scenarios.json but are not
-        # part of the 53-scenario production gate. Select them by id or
-        # `--suite sidecar-stream-chunks`.
+        extra_items = [
+            item for item in result
+            if str(item["scenarioId"]) not in REQUIRED_GATEWAY_SCENARIOS
+        ]
+        unexpected = sorted(
+            str(item["scenarioId"])
+            for item in extra_items
+            if item.get("suite") != STREAM_CHUNK_GATE_EXEMPT_SUITE
+        )
+        if unexpected:
+            raise ValueError(f"unexpected PilotDeck gate scenarios: {', '.join(unexpected)}")
+        # Exempt suite sidecar-stream-chunks (chars_1/50/500). Select those by
+        # id or `--suite sidecar-stream-chunks`; they stay outside the 53 gate.
         result = [item for item in result if str(item["scenarioId"]) in REQUIRED_GATEWAY_SCENARIOS]
         if len(result) != PILOTDECK_GATEWAY_GATE_SCENARIO_COUNT:
             raise ValueError(

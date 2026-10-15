@@ -50,7 +50,8 @@ export function liveStreamTextDeltas(content, streamChunkChars, prefix = STREAM_
 
 /**
  * Yield STREAM_PREFIX before `awaitProvider` resolves, then char-sliced body
- * deltas. Used by the gateway live-stream path and by unit tests.
+ * deltas. The gateway live-stream path (`pilotdeck_gateway_impl.mjs`) calls
+ * this generator; A2 unit tests cover the same helper (no inlined mirror).
  */
 export async function* yieldLiveModelStreamDeltas({
   prefix = STREAM_PREFIX,

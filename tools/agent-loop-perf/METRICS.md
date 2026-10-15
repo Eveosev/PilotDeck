@@ -13,8 +13,8 @@
 | `turn_ms` | 从 turn 开始到 terminal 终态的 wall clock | 三种 transport 都报；**不含** Gateway 进程启动 |
 | `model_iter_ms` | 单次 model request→response（含流结束） | 多轮则逐次再汇总 |
 | `non_model_ms` | `turn_ms − sum(model_iter_ms)` | P1 对照时必须同时看这一项，避免把会话/sidecar 冷启动当成 model 开销 |
-| `stream_chunk_ms` | 相邻流块到达间隔 | 无流或只有一块时为空数组 |
-| `n_chunks` | 本 turn 的 `assistant_text_delta` / harness `text_delta` 次数 | T-P1-04 写入 snapshot，供 T-P1-05 归因；无流为 0 |
+| `stream_chunk_ms` | 相邻流块到达间隔 | 无流或只有一块时为空数组。**first-chunk `stream_chunk_ms[0]`（prefix → 第一块 body）包含 mock 的完整 model 延迟**（live-stream 场景 `modelMs: 200`）；T-P1-05 归因时应排除 interval[0]，后续间隔才是 harness → Gateway → sidecar 转发开销。 |
+| `n_chunks` | 流块次数（两个来源，不可混用） | **harness `n_chunks`**：adapter 产出的 `text_delta` 次数（`model.stream state=chunks`；planned 产物按 char 切片）。**perf `n_chunks` / `perf_n_chunks`**：Gateway 客户端观测到的 `assistant_text_delta` 次数（`collector.mjs` `markStreamChunk`）。若 Gateway/sidecar 合并 delta，两者会不同。T-P1-04 写入 snapshot，供 T-P1-05 归因；无流为 0 |
 | `host_overhead_ms`（native） | native 无 sidecar；D4 锚仍是 `turn_ms(native)` | 含冷进程首次 in-process `try_auto_compact`；见构成说明 |
 | `rss_kb` | `/proc/self/status` 的 adapter/host Node `VmRSS` | 不含 sidecar 进程；macOS 为 `null`；不是本关门禁 |
 

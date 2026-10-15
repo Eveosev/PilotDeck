@@ -2,11 +2,11 @@
   "task": "T-P1-04",
   "fieldPath": "scenarios[].streamChunkChars",
   "unit": "chars",
-  "collectedAt": "2026-10-15T02:39:36.294761+00:00",
+  "collectedAt": "2026-10-15T04:56:37.879189+00:00",
   "t_p1_05": "T-P1-05 consumes evidence/p1/stream-chunks-{1,50,500}.json. This PR does not write go-nogo.",
   "variants": {
-    "1": "/workspace/evidence/p1/stream-chunks-1.json",
-    "50": "/workspace/evidence/p1/stream-chunks-50.json",
-    "500": "/workspace/evidence/p1/stream-chunks-500.json"
+    "1": "evidence/p1/stream-chunks-1.json",
+    "50": "evidence/p1/stream-chunks-50.json",
+    "500": "evidence/p1/stream-chunks-500.json"
   }
 }
