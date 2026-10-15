@@ -666,20 +666,6 @@ def rust_sidecar_intended(
     return False
 
 
-def rust_sidecar_configured(
-    *,
-    sidecar_transport: str,
-    stdio_sidecar_command: str | None,
-    tcp_target: TcpSidecarTarget | None,
-) -> bool:
-    """Backward-compatible alias for rust_sidecar_intended (command-string only)."""
-    return rust_sidecar_intended(
-        sidecar_transport=sidecar_transport,
-        stdio_sidecar_command=stdio_sidecar_command,
-        tcp_target=tcp_target,
-    )
-
-
 def run_adapter(
     mode: str,
     source: Path,

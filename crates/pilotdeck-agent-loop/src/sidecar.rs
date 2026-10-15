@@ -690,7 +690,19 @@ fn host_call_error_message(result: &HostCall) -> String {
 /// TS `createMissingToolResult` (`src/agent/loop/ensureToolResultPairing.ts`)
 /// used by `src/agent/loop/AgentLoop.ts:1962-1971`. Projected `isError` is
 /// `result.type === "error"` (`src/tool/protocol/result.ts:66`).
-fn missing_tool_result(tool_call_id: &str, tool_name: &str, message: &str) -> Value {
+///
+/// Content / `metadata.recovery` / timestamps follow `buildToolErrorRecovery`
+/// (`src/tool/execution/errorRecovery.ts`). `error.message` stays the raw
+/// host/timeout text (same as TS `error.message`).
+fn missing_tool_result(job: &StubJob, tool_call_id: &str, tool_name: &str, message: &str) -> Value {
+    let timestamp = now_iso();
+    let recovery = crate::error_recovery::build_tool_error_recovery(
+        "tool_execution_failed",
+        tool_name,
+        message,
+        &recovery_cwd(&job.payload),
+        &permission_mode(&job.payload),
+    );
     json!({
         "type": "error",
         "toolCallId": tool_call_id,
@@ -699,7 +711,12 @@ fn missing_tool_result(tool_call_id: &str, tool_name: &str, message: &str) -> Va
             "code": "tool_execution_failed",
             "message": message,
         },
-        "content": [{ "type": "text", "text": message }],
+        "content": [{ "type": "text", "text": recovery.message }],
+        "metadata": {
+            "recovery": recovery.advice.to_json(),
+        },
+        "startedAt": timestamp,
+        "completedAt": timestamp,
     })
 }
 
@@ -856,6 +873,18 @@ fn run_tool_calls(
                 // Emit tool_result first (:2029), then projectToolResults (:2032)
                 // and tool_results_projected (:2070-2071). :1961-1995 does not
                 // include projected (QA G5: isError tool_result before projected).
+                //
+                // Known-diff (T-P1-03-FU-B A1 / #28 R1 m-1):
+                // TS `executeAll` is whole-batch. A thrown error in the catch
+                // maps *every* toolCall to `createMissingToolResult`, so a
+                // mixed batch becomes `[error, error]` even if an earlier
+                // tool already succeeded inside the batch.
+                // Rust walks `capability.execute` sequentially. An ok-then-fail
+                // batch keeps the earlier success and only synthesizes the
+                // failing / remaining calls: `[success, error]`.
+                // fail-then-unstarted still fills every outstanding call
+                // (same shape as TS). Lock the Rust semantics with the
+                // ok-then-fail unit test; do not silently match TS here.
                 if stub_interrupted(job) {
                     emit_cancelled_terminal(job, *sequence);
                     return false;
@@ -864,7 +893,7 @@ fn run_tool_calls(
                 for outstanding in std::iter::once(call).chain(call_iter) {
                     let outstanding_id = outstanding.get("id").and_then(Value::as_str).unwrap_or("");
                     let outstanding_name = outstanding.get("name").and_then(Value::as_str).unwrap_or("");
-                    let result = missing_tool_result(outstanding_id, outstanding_name, &message);
+                    let result = missing_tool_result(job, outstanding_id, outstanding_name, &message);
                     emit_tool_result_event(job, sequence, &result);
                     if stub_interrupted(job) {
                         emit_cancelled_terminal(job, *sequence);
@@ -1128,7 +1157,8 @@ fn tool_call_block(
 }
 
 fn tool_result_block(result: &Value, tool_call_id: &str, timeline: &mut TurnTimeline) -> Value {
-    // TS src/tool/protocol/result.ts:66 — isError when result.type === "error".
+    // TS src/tool/protocol/result.ts:66 — isError only when result.type === "error".
+    // An `error` field without `type` must not set isError (FU-B A3 / #28 m-3).
     let is_error = result.get("type").and_then(Value::as_str) == Some("error");
     let mut block = json!({
         "type": "tool_result",
@@ -1503,6 +1533,19 @@ fn permission_mode(payload: &Value) -> String {
         payload.pointer("/agent/permissionMode"),
     ])
     .unwrap_or_else(|| "default".to_string())
+}
+
+/// Workspace cwd for synthesized recovery. Same source as
+/// `context_prepare_input`: `/agent/cwd`. Empty/missing uses `"."` at the
+/// TS `createMissingToolResult` boundary (`recoveryContext?.cwd ?? "."`),
+/// not an invented workspace path.
+fn recovery_cwd(payload: &Value) -> String {
+    payload
+        .pointer("/agent/cwd")
+        .and_then(Value::as_str)
+        .filter(|cwd| !cwd.is_empty())
+        .unwrap_or(".")
+        .to_string()
 }
 
 fn tool_requires_prompt(tool: &Value) -> bool {
@@ -3653,6 +3696,98 @@ mod tests {
         }
     }
 
+    /// First capability.execute succeeds; the second fails. Locks Rust
+    /// sequential `[success, error]` (known-diff vs TS whole-batch catch).
+    fn capability_execute_ok_then_fail_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") if !conversation_has_tool_result(call) => reply_model_ops(
+                call,
+                json!([
+                    { "type": "request_started", "provider": STUB_PROVIDER, "model": STUB_MODEL },
+                    { "type": "message_start", "role": "assistant" },
+                    {
+                        "type": "tool_call_end",
+                        "toolCall": { "id": "t1", "name": "lookup", "input": { "q": "one" } }
+                    },
+                    {
+                        "type": "tool_call_end",
+                        "toolCall": { "id": "t2", "name": "lookup", "input": { "q": "two" } }
+                    },
+                    { "type": "message_end", "finishReason": "tool_call" }
+                ]),
+            ),
+            Some("model") => text_host(call),
+            Some("capability") => {
+                let id = call
+                    .pointer("/payload/toolCallId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if id == "t1" {
+                    Some(host_ok(
+                        call,
+                        json!({
+                            "type": "success",
+                            "toolCallId": "t1",
+                            "toolName": "lookup",
+                            "content": [{ "type": "text", "text": "ok-one" }],
+                        }),
+                    ))
+                } else {
+                    Some(host_fail(call, "HOST_REJECTED"))
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn capability_error_without_type_host(call: &Value) -> Option<Value> {
+        match call.get("module").and_then(Value::as_str) {
+            Some("model") => single_tool_host(call),
+            Some("capability") => Some(host_ok(
+                call,
+                json!({
+                    "toolCallId": call.pointer("/payload/toolCallId"),
+                    "toolName": call.pointer("/payload/name"),
+                    "error": { "code": "tool_failed", "message": "lookup failed" },
+                    "content": [{ "type": "text", "text": "boom" }],
+                }),
+            )),
+            _ => None,
+        }
+    }
+
+    fn assert_synthesized_recovery_result(
+        result: &Value,
+        tool_name: &str,
+        raw_message: &str,
+        cwd: &str,
+        permission_mode: &str,
+    ) {
+        assert_eq!(result["type"], "error");
+        assert_eq!(result["error"]["code"], "tool_execution_failed");
+        assert_eq!(result["error"]["message"], raw_message);
+        let expected = crate::error_recovery::build_tool_error_recovery(
+            "tool_execution_failed",
+            tool_name,
+            raw_message,
+            cwd,
+            permission_mode,
+        );
+        assert_eq!(result["content"][0]["type"], "text");
+        assert_eq!(result["content"][0]["text"], expected.message);
+        assert_eq!(result["metadata"]["recovery"], expected.advice.to_json());
+        assert!(
+            result["startedAt"].as_str().is_some_and(|ts| parse_iso_ms(ts).is_some()),
+            "startedAt must be ISO-8601, got {}",
+            result["startedAt"]
+        );
+        assert!(
+            result["completedAt"].as_str().is_some_and(|ts| parse_iso_ms(ts).is_some()),
+            "completedAt must be ISO-8601, got {}",
+            result["completedAt"]
+        );
+    }
+
     fn client_payload_with_module_call_timeout(user_text: &str, timeout_ms: u64) -> String {
         let mut payload: Value =
             serde_json::from_str(&client_payload_json(user_text)).expect("payload");
@@ -3814,6 +3949,239 @@ mod tests {
             "failing executeAll must not start later tool_calls: {lines:?}"
         );
         assert_is_error_tool_results_then_projected(&lines, &["t1", "t2"]);
+    }
+
+    /// T-P1-03-FU-B A1 / #28 R1 m-1: lock Rust sequential ok-then-fail.
+    /// Known-diff: TS `executeAll` catch rewrites the whole batch to
+    /// `[error, error]`; Rust keeps the earlier success (`[success, error]`).
+    #[test]
+    fn capability_execute_ok_then_fail_keeps_success_then_synthesized_error() {
+        let (sidecar, sink) = collect_with_host(capability_execute_ok_then_fail_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-ok-fail",
+            "run-cap-ok-fail",
+            "op-cap-ok-fail",
+            "req-cap-ok-fail",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|m| {
+                    m["kind"] == "request"
+                        && m["module"] == "capability"
+                        && m["payload"]["operation"] == "execute"
+                })
+                .count(),
+            2,
+            "ok-then-fail must execute the first tool before the second fails: {lines:?}"
+        );
+        let results: Vec<&Value> = lines
+            .iter()
+            .filter(|m| m["eventType"] == "agent.tool_result")
+            .collect();
+        assert_eq!(results.len(), 2, "one tool_result per tool_call: {lines:?}");
+        assert_eq!(results[0]["payload"]["result"]["type"], "success");
+        assert_eq!(results[0]["payload"]["result"]["toolCallId"], "t1");
+        assert_eq!(results[0]["payload"]["result"]["content"][0]["text"], "ok-one");
+        assert_eq!(results[1]["payload"]["result"]["type"], "error");
+        assert_eq!(results[1]["payload"]["result"]["toolCallId"], "t2");
+        assert_synthesized_recovery_result(
+            &results[1]["payload"]["result"],
+            "lookup",
+            "host rejected module_call",
+            ".",
+            "default",
+        );
+        let projected = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_results_projected")
+            .expect("projected");
+        let blocks = projected["payload"]["message"]["content"]
+            .as_array()
+            .expect("projected content");
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0]["toolCallId"], "t1");
+        assert_ne!(blocks[0].get("isError"), Some(&json!(true)));
+        assert_eq!(blocks[1]["toolCallId"], "t2");
+        assert_eq!(blocks[1]["isError"], true);
+        assert!(
+            lines
+                .iter()
+                .any(|m| m["eventType"] == "agent.execute.completed"),
+            "ok-then-fail must continue the turn: {lines:?}"
+        );
+    }
+
+    /// T-P1-03-FU-B A2 / #28 R1 m-2: synthesized result content is
+    /// `buildToolErrorRecovery`-equivalent, with metadata.recovery + timestamps.
+    #[test]
+    fn capability_execute_fail_synthesizes_ts_recovery_result() {
+        let (sidecar, sink) = collect_with_host(capability_execute_fail_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-rec",
+            "run-cap-rec",
+            "op-cap-rec",
+            "req-cap-rec",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_synthesized_recovery_result(
+            &tool_result["payload"]["result"],
+            "lookup",
+            "host rejected module_call",
+            ".",
+            "default",
+        );
+        let projected = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_results_projected")
+            .expect("projected");
+        let raw = &projected["payload"]["message"]["content"][0]["raw"];
+        assert_eq!(raw["metadata"]["recovery"]["failureClass"], "environment_issue");
+        assert!(raw["content"][0]["text"]
+            .as_str()
+            .is_some_and(|text| text.starts_with("TOOL_ERROR[tool_execution_failed][lookup]")));
+    }
+
+    fn client_payload_with_recovery_context(user_text: &str, cwd: &str, mode: &str) -> String {
+        let mut payload: Value =
+            serde_json::from_str(&client_payload_json(user_text)).expect("payload");
+        payload["agent"]["cwd"] = json!(cwd);
+        payload["permissionContext"]["mode"] = json!(mode);
+        payload.to_string()
+    }
+
+    #[test]
+    fn recovery_cwd_reads_agent_cwd_same_as_context_prepare() {
+        assert_eq!(
+            recovery_cwd(&json!({ "agent": { "cwd": "/tmp/test-home" } })),
+            "/tmp/test-home"
+        );
+        assert_eq!(recovery_cwd(&json!({ "agent": { "cwd": "" } })), ".");
+        assert_eq!(recovery_cwd(&json!({})), ".");
+        assert_eq!(
+            permission_mode(&json!({ "permissionContext": { "mode": "bypassPermissions" } })),
+            "bypassPermissions"
+        );
+        assert_eq!(
+            permission_mode(&json!({ "agent": { "permissionMode": "plan" } })),
+            "plan"
+        );
+        assert_eq!(permission_mode(&json!({})), "default");
+    }
+
+    /// T-P1-03-FU-B R1 M2: fail-fill must not hardcode cwd="." / permissionMode=default.
+    #[test]
+    fn capability_execute_fail_uses_payload_cwd_and_permission_mode() {
+        let (sidecar, sink) = collect_with_host(capability_execute_fail_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-rec-ctx",
+            "run-cap-rec-ctx",
+            "op-cap-rec-ctx",
+            "req-cap-rec-ctx",
+            &client_payload_with_recovery_context(
+                "Look up the status",
+                "/tmp/test-home",
+                "bypassPermissions",
+            ),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        let result = &tool_result["payload"]["result"];
+        assert_synthesized_recovery_result(
+            result,
+            "lookup",
+            "host rejected module_call",
+            "/tmp/test-home",
+            "bypassPermissions",
+        );
+        let text = result["content"][0]["text"].as_str().expect("recovery text");
+        assert!(
+            text.contains("Current permission mode: bypassPermissions."),
+            "non-default permissionMode must appear in recovery text, got {text}"
+        );
+        assert!(
+            !text.contains("Current permission mode: default."),
+            "hardcoded default permissionMode must not appear, got {text}"
+        );
+    }
+
+    /// T-P1-03-FU-B A3 / #28 R1 m-3: `isError` only when `result.type === "error"`
+    /// (`src/tool/protocol/result.ts:66`). An `error` field without `type` must
+    /// not mark the projected block.
+    #[test]
+    fn tool_result_block_is_error_only_when_type_is_error() {
+        let mut timeline = TurnTimeline::new("turn-a3");
+        let without_type = json!({
+            "error": { "code": "tool_failed", "message": "lookup failed" },
+            "content": [{ "type": "text", "text": "boom" }],
+        });
+        let block = tool_result_block(&without_type, "t-a3", &mut timeline);
+        assert!(
+            block.get("isError").is_none(),
+            "error field without type must not set isError (result.ts:66), got {block}"
+        );
+        assert_eq!(block["type"], "tool_result");
+        assert_eq!(block["toolCallId"], "t-a3");
+
+        let mut typed = TurnTimeline::new("turn-a3-err");
+        let with_type = json!({
+            "type": "error",
+            "error": { "code": "tool_failed", "message": "lookup failed" },
+            "content": [{ "type": "text", "text": "boom" }],
+        });
+        let err_block = tool_result_block(&with_type, "t-a3-err", &mut typed);
+        assert_eq!(err_block["isError"], true, "type:error must still set isError");
+    }
+
+    #[test]
+    fn capability_result_error_field_without_type_does_not_mark_is_error() {
+        let (sidecar, sink) = collect_with_host(capability_error_without_type_host);
+        sidecar.handle_line(&execute_line(
+            "ex-err-notype",
+            "run-err-notype",
+            "op-err-notype",
+            "req-err-notype",
+            &client_payload_json("Look up the status"),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        assert_ne!(
+            tool_result["payload"]["result"]["type"],
+            "error",
+            "omitted type must not become type:error: {}",
+            tool_result["payload"]["result"]
+        );
+        assert_eq!(
+            tool_result["payload"]["result"]["error"]["message"],
+            "lookup failed"
+        );
+        let terminal = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.execute.completed")
+            .expect("completed");
+        let block = &terminal["payload"]["messages"][1]["content"][0];
+        assert_ne!(
+            block.get("isError"),
+            Some(&json!(true)),
+            "error field without type must not project isError: {block}"
+        );
     }
 
     #[test]

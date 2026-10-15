@@ -31,7 +31,6 @@ from run import (
     REQUIRED_GATEWAY_SCENARIOS,
     ROOT,
     adapter_env,
-    rust_sidecar_configured,
     rust_sidecar_intended,
     append_tcp_sidecar_exit_detail,
     baseline_comparison_mode,
@@ -886,12 +885,7 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             stdio_sidecar_command=wrapper,
             tcp_target=None,
         ))
-        self.assertTrue(rust_sidecar_configured(
-            sidecar_transport="stdio",
-            stdio_sidecar_command=wrapper,
-            tcp_target=None,
-        ))
-        self.assertFalse(rust_sidecar_configured(
+        self.assertFalse(rust_sidecar_intended(
             sidecar_transport="stdio",
             stdio_sidecar_command=None,
             tcp_target=None,
@@ -1754,6 +1748,7 @@ class ObserveSidecarImplementationTests(unittest.TestCase):
                 "q": "q",
             },
         ]
+        snapshot = json.dumps(records, sort_keys=True)
         before = [record.get("kind") for record in records]
         impl, errors, source = observe_sidecar_implementation(
             records, transport="stdio", rust_intended=True,
@@ -1764,13 +1759,51 @@ class ObserveSidecarImplementationTests(unittest.TestCase):
             [record.get("sequence") for record in records],
             [8, 9, 10, 17],
         )
+        self.assertEqual(json.dumps(records, sort_keys=True), snapshot)
         self.assertEqual(impl, "rust")
         self.assertEqual(errors, [])
+        self.assertEqual(source, "exec-proof")
         self.assertNotEqual(source, "fingerprint")
         self.assertFalse(rust_budget_precedes_model_request(records))
         adapter = (ROOT / "adapters" / "pilotdeck_gateway_impl.mjs").read_text(encoding="utf-8")
         self.assertNotIn("alignObservedRustBudgetFingerprint", adapter)
         self.assertNotIn("alignObservedRust", adapter)
+        self.assertNotIn("rust_handshake_capabilities_transport", adapter)
+        self.assertIn("flushRustSidecarExecProofs", adapter)
+        self.assertNotRegex(adapter, r"trace\.sort\(")
+        self.assertNotRegex(adapter, r"records\.sort\(")
+
+    def test_stdio_module_call_or_handshake_without_exec_proof_is_not_rust(self) -> None:
+        records = [
+            {
+                "kind": "harness.proof",
+                "state": "handshake_completed",
+                "capabilities": {"transport": "stdio"},
+            },
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "budget",
+                "operation": "evaluate_request_budget",
+                "sequence": 4,
+            },
+            {
+                "kind": "harness.proof",
+                "state": "module_call_received",
+                "module": "model",
+                "operation": "stream",
+                "sequence": 6,
+            },
+            {"kind": "model.request", "sequence": 8},
+            {"kind": "context.budget", "sequence": 10},
+        ]
+        impl, errors, source = observe_sidecar_implementation(
+            records, transport="stdio", rust_intended=True,
+        )
+        self.assertEqual(impl, "ts")
+        self.assertEqual(source, "none")
+        self.assertTrue(any("exec proof" in item for item in errors))
+        self.assertTrue(rust_module_budget_precedes_model_call(records))
 
     def test_intended_rust_stdio_without_exec_proof_is_blocked(self) -> None:
         records = [
