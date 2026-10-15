@@ -12,7 +12,19 @@ if [ -z "$bin" ]; then
   bin="$(cd "$(dirname "$0")/../.." && pwd)/target/release/pilotdeck-agent-loop"
 fi
 resolved="$bin"
-if command -v realpath >/dev/null 2>&1; then
+# PLAN R3: stdio exec proof accepts only a path ending in
+# `pilotdeck-agent-loop`. rust-core's binary is named
+# `pilotdeck-agent-loop-sidecar`, so the harness points
+# PILOTDECK_RUST_SIDECAR_BIN at a same-name symlink. Do not follow that
+# final symlink: `realpath` / `readlink -f` would rewrite the proof to
+# `*-sidecar` and the run would be BLOCKED. The kernel still follows the
+# symlink at exec. A real file with this basename (the in-repo probe) is
+# unchanged.
+if [ "$(basename "$bin")" = "pilotdeck-agent-loop" ]; then
+  if command -v realpath >/dev/null 2>&1; then
+    resolved="$(realpath -s "$bin" 2>/dev/null || printf '%s' "$bin")"
+  fi
+elif command -v realpath >/dev/null 2>&1; then
   resolved="$(realpath "$bin")"
 elif command -v readlink >/dev/null 2>&1; then
   resolved="$(readlink -f "$bin" 2>/dev/null || printf '%s' "$bin")"
