@@ -1,0 +1,10 @@
+{
+  "backend": "wayland",
+  "sha": "019a527aa1f986ed27de35f4e4f7092625a5f3fe",
+  "exit": 0,
+  "seconds": 25.751,
+  "start": "2026-10-15T09:52:22.584Z",
+  "end": "2026-10-15T09:52:48.334Z",
+  "screenshots": 9,
+  "passed": true
+}

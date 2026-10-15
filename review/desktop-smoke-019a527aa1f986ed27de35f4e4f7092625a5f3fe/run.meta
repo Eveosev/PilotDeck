@@ -1,0 +1,11 @@
+sha=019a527aa1f986ed27de35f4e4f7092625a5f3fe
+merged_pr=https://github.com/Eveosev/PilotDeck/pull/40
+N=1 per backend
+order=x11,wayland
+outer_timeout=600
+pre_step=pnpm install --frozen-lockfile; (cd apps/desktop && pnpm compile)  # dist required by smoke
+x11=exit 0 21.674s
+wayland=exit 0 25.751s
+banned_workarounds_used=none (no main.ts:536 change, no global throttle, no --disable-gpu)
+product_code_modified=no
+attempt0=pre-compile run failed both backends (firstWindow timeout, dist missing); kept in attempt0-precompile/, not counted
