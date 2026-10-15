@@ -2,6 +2,7 @@
 
 基线：`rust_standalone_alpha1` @ `1d7c806846386c16274e0549e156b142f4930a6f`。
 实现提交：`4ac1ca7076f65cace4f3b7ca7c5b013533b69373`。
+证据与报告提交：`107b18bbe1c68d44e0fccef3535fdc7d8b1202ce`。
 分支：`ft-1-stream-next`。Draft PR：https://github.com/Eveosev/PilotDeck/pull/40 ，目标分支 `rust_standalone_alpha1`。
 
 本任务只改 Rust sidecar 生产路径。未改 `src/**`、协议 schema、`ui/**`、`apps/**`、`tools/agent-loop-perf`。未覆盖 `evidence/p1/` 里已有的 json。未做 FT-2（model 迭代开销）。
