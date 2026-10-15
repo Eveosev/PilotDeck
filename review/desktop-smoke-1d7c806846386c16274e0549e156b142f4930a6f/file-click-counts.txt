@@ -1,25 +1,75 @@
-x11.fileClickTimeoutCount=null
-x11.fileClickStableCount=null
-wayland.fileClickTimeoutCount=null
-wayland.fileClickStableCount=null
+# Wayland / X11 File-click hang counts for official chrome smoke (N=1 per backend)
+# These are observed counts from this post-#37 merge evidence run only.
+#
+# Official entry (same as CI):
+#   bash apps/desktop/scripts/run-linux-chrome-smoke.sh {x11,wayland}
+#
+# File .click() sites in ui/e2e/desktop-chrome.smoke.mjs that a passing suite must complete:
+#   L161 caption File.click() (dark)
+#   L243 caption File.click() then New Project
+#   L339 caption File.click() (light)
+# Additional File menu openings (keyboard / data-menu) also completed on pass:
+#   L177 Alt+f
+#   L366 loop includes button[data-menu="menu-file"]
+#
+# Hang definition used here (same as PR #35, smoke @30883a13): suite passed AND no
+# Playwright locator.click / expect timeout on File AND the outer timeout did not
+# kill the process, then file_click_timeout=0, file_click_stable=1,
+# file_click_sites_completed=3. These counts are not computed from per-site log lines.
+# PR #35's wrapper was `timeout 300`. This run's wrapper was `timeout 600`. Neither
+# Playwright nor the outer timeout fired.
 
-unavailable_reason:
-The mandated commands were `bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11` and
-`bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland` (N=1 each). Those commands
-run ui/e2e/desktop-chrome.smoke.mjs. That script does not print file-click timeout or
-stable counters. Searched x11-smoke.out.txt, x11-smoke.err.txt, wayland-smoke.out.txt,
-and wayland-smoke.err.txt: no line contains "timeout", "stable", "trulyHung",
-"WAYLAND_FILE_CLICK_GATE", or "WAYLAND_FILE_DIAG_RELAUNCH_STATS".
+backend=x11
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=22.875
+timeoutCeilingSeconds=600
+log=x11-smoke.out.txt
+stderr=x11-smoke.err.txt
+basis: suite_pass=1 from x11-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and x11-smoke.out.txt:2 {"passed":true,...,"artifactDir":".../linux-x11"}; playwright_file_timeout=0 (x11-smoke.out.txt and x11-smoke.err.txt have no Playwright timeout; stderr is only org.a11y.Bus activation); outer_timeout_killed=0 (exit=0, wall 22.875s, wrapper `timeout 600` did not fire)
 
-Those counters are emitted only by ui/e2e/desktop-chrome.relaunch-gate.mjs
-(WAYLAND_FILE_DIAG_RELAUNCH_STATS / WAYLAND_FILE_CLICK_GATE), which this run did not
-execute. The desktop-smoke.yml file-click gate is a different job (Wayland N=300,
-X11 N=100). This task fixed N=1 on the chrome smoke scripts, so the gate counts are
-unavailable. null is the measured value, not a substitute number.
+backend=wayland
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=21.345
+timeoutCeilingSeconds=600
+log=wayland-smoke.out.txt
+stderr=wayland-smoke.err.txt
+westonLog=weston.log
+basis: suite_pass=1 from wayland-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and wayland-smoke.out.txt:2 {"passed":true,...,"artifactDir":".../linux-wayland"}; playwright_file_timeout=0 (wayland-smoke.out.txt and wayland-smoke.err.txt have no Playwright timeout; stderr is only org.a11y.Bus activation); outer_timeout_killed=0 (exit=0, wall 21.345s, wrapper `timeout 600` did not fire)
 
-observation_not_a_count:
-Both processes exited 0. The smoke source clicks the workspace Files button once and
-then continues through settings, theme, language, and onboarding screenshots. Later
-screenshots exist for both backends, so that single click did not throw before the
-rest of the suite. That is not a timeout/stable trial count. Issue #14 (Wayland
-File-click hang) is not claimed fixed.
+# Totals across official one-shot pair
+total_suite_runs=2
+total_file_click_timeout=0
+total_file_click_stable=2
+n_trial_diag=not_run
+associated_merge=https://github.com/Eveosev/PilotDeck/pull/37
+note=Post-#37 merge official one-shot on 1d7c806846386c16274e0549e156b142f4930a6f: timeout=0 / stable=1 / sites=3 per backend by the PR #35 suite-level definition. This is N=1, not the C-group N=300 gate. Does not claim the #14 diagnostic hang is resolved beyond this one-shot.
+
+# Per-site log evidence
+# Separate from the counts above. The counts do not use this section.
+# L161, L243, and L339 do not print their own lines. The suite PASS line
+# (desktop-chrome.smoke.mjs L230) and the final passed:true JSON (L501) are
+# suite-level lines already cited under basis. They are not per-site lines.
+
+backend=x11
+L161 per-site log line: absent
+L243 per-site log line: absent
+L339 per-site log line: absent
+
+backend=wayland
+L161 per-site log line: absent
+L243 per-site log line: absent
+L339 per-site log line: absent

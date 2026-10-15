@@ -60,6 +60,7 @@
   "notes": [
     "No --disable-gpu, no global throttle, and apps/desktop/src/main.ts was not edited (including line 536).",
     "Issue #14 (Wayland File-click hang) is not claimed fixed. N=1 chrome smoke is not the N=300 file-click gate.",
+    "file-click counts follow the PR #35 suite-level definition (suite pass, no Playwright File timeout, outer timeout did not kill): timeout=0, stable=1, sites=3 per backend. This run's outer wrapper was timeout 600, not 300, and it did not fire. Per-site log lines for L161, L243, and L339 are absent and are not an input to those counts.",
     "Electron 42.11.1 was already installed before these two smoke commands, so the wall times do not include an electron download.",
     "An outer `timeout 600` watchdog wrapped each smoke command so a stuck process could be recorded. Both commands exited 0 on their own; the watchdog did not fire.",
     "SHA256SUMS covers every file in this directory except itself."

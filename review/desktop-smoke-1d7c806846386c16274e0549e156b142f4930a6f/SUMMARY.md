@@ -6,12 +6,16 @@
 
 ## 结果
 
-| backend | exit | seconds | stdout passed | screenshots | file-click timeout | file-click stable |
-| --- | ---: | ---: | --- | ---: | --- | --- |
-| X11 | 0 | 22.875 | true | 9 | null | null |
-| Wayland | 0 | 21.345 | true | 9 | null | null |
+| backend | exit | seconds | stdout passed | screenshots | file-click timeout | file-click stable | sites |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| X11 | 0 | 22.875 | true | 9 | 0 | 1 | 3 |
+| Wayland | 0 | 21.345 | true | 9 | 0 | 1 | 3 |
 
-`file-click-counts.txt` 里的 timeout/stable 是 **null**。`run-linux-chrome-smoke.sh` 不输出这两项计数；stdout/stderr 里没有 `WAYLAND_FILE_CLICK_GATE`、`trulyHung`、`timeout` 或 `stable`。本次没有跑 relaunch gate。两次退出码为 0，只说明这一次 chrome 菜单/主题冒烟自己结束了，不能用来声称 #14 已修复。
+计数定义与 PR #35（smoke @30883a13，同一入口 `run-linux-chrome-smoke.sh`，N=1）相同，**不是**按每个 File.click 的日志行计算，也**不是** relaunch gate。套件通过，且 stdout/stderr 里没有 Playwright 对 File 的超时，且外层 timeout 没有杀掉进程，则 `file_click_timeout=0`、`file_click_stable=1`、`file_click_sites_completed=3`。#35 的外层是 `timeout 300`；这次外层是 `timeout 600`，两次都没触发（exit 0）。
+
+X11 `basis`：`x11-smoke.out.txt:1` 的 `PASS: compact caption and rich About dialog, version copy and project link`，以及 `:2` 的 `passed:true`。stderr 只有 `org.a11y.Bus` 激活，没有 Playwright timeout。Wayland 对应 `wayland-smoke.out.txt:1` 和 `:2`，stderr 同样只有 a11y。
+
+下面这一节**不参与**上面的计数。L161、L243、L339 三个 `File.click()` 都没有自己的日志行，所以 X11 和 Wayland 都是 `per-site log line: absent`。不能从 exit 0 反推某一站点的日志。N=1，不声称 #14 已修复。
 
 ## GHA
 

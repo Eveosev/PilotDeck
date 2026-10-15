@@ -7,9 +7,11 @@
   "startUtc": "2026-10-15T07:42:18.301632993Z",
   "endUtc": "2026-10-15T07:42:39.646916241Z",
   "passed": true,
-  "fileClickTimeoutCount": null,
-  "fileClickStableCount": null,
+  "fileClickTimeoutCount": 0,
+  "fileClickStableCount": 1,
+  "fileClickSitesCompleted": 3,
   "fileClickCountersEmitted": false,
+  "fileClickCountBasis": "PR #35 suite-level definition: suite pass, no Playwright File timeout, outer timeout did not kill. Not computed from per-site log lines.",
   "westonLog": "weston.log",
   "westonLogCopiedBeforeCleanup": true,
   "stdout": {
