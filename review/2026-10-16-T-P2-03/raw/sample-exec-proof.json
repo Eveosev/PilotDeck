@@ -1,0 +1,21 @@
+{
+  "scenarioId": "pure_text",
+  "iteration": 1,
+  "source": "raw/rust-stdio.json scenarios.pure_text.samples[0].execProof",
+  "execProof": {
+    "wrapper": [
+      {
+        "pid": 9854,
+        "bin": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop",
+        "resolved": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop"
+      }
+    ],
+    "trace": [
+      {
+        "pid": 9854,
+        "bin": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop",
+        "resolved": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop"
+      }
+    ]
+  }
+}

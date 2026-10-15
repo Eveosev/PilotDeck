@@ -61,6 +61,41 @@ python3 tools/agent-loop-perf/run.py \
 
 `--model-ms 200` 场景 `delay_injected=true`，不进 T-P0a-03 `primaryBaseline`；读 `comparisonBaseline` 以及 `*_net_of_model_ms`。D4 用净 P95。delay-0 的 `evidence/perf-baseline/*.json` 只作形态参考。
 
+T-P2-03 stdio（每 turn 拉起；**不要**对本二进制加 TCP 参数，rust-core 会 exit 2）：
+
+```bash
+# native，以及同样每 turn 拉起的 TS-stdio（不设 PARITY_STDIO_SIDECAR_COMMAND）
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports native \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p2-03/native
+
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports stdio \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p2-03/ts-stdio
+
+# rust-core：包装脚本写 exec proof；PILOTDECK_RUST_SIDECAR_BIN 必须是
+# 名为 pilotdeck-agent-loop 的符号链接，目标文件才是 pilotdeck-agent-loop-sidecar。
+export PILOTDECK_RUST_SIDECAR_BIN=/path/to/pilotdeck-agent-loop
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports stdio \
+  --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p2-03/rust-stdio
+```
+
+`--pilotdeck-stdio-sidecar-cmd` 与 `--pilotdeck-tcp-sidecar-cmd` / `--transports tcp` 同时出现会直接拒绝。Rust 身份看每轮 `execProof`（wrapper 文件与 trace 里的 `rust_sidecar_exec`），不看 `--version`。
+
 ## 抽样复跑（QA）
 
 ```bash

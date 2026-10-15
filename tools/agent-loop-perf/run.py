@@ -7,6 +7,7 @@ selects stdio/tcp for measurement.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import math
@@ -220,6 +221,135 @@ def resolve_collect_sha(root: Path, *, allow_dirty: bool) -> tuple[str, bool]:
     return collect_sha, dirty
 
 
+def refuse_tcp_with_stdio_sidecar(
+    transports: list[str],
+    stdio_cmd: str | None,
+    tcp_cmd: str | None,
+) -> None:
+    """rust-core exits 2 when a TCP port or factory is set. Never mix them."""
+    if not (stdio_cmd or "").strip():
+        return
+    if "tcp" in transports or (tcp_cmd or "").strip():
+        raise ValueError(
+            "refusing TCP sidecar flags while --pilotdeck-stdio-sidecar-cmd is set; "
+            "the rust-core binary exits 2 on TCP"
+        )
+
+
+def stdio_rust_intended(command: str | None) -> bool:
+    return _parity.rust_sidecar_intended(
+        sidecar_transport="stdio",
+        stdio_sidecar_command=command,
+        tcp_target=None,
+    )
+
+
+def prepare_rust_stdio_identity(command: str | None, rust_bin: str | None) -> dict[str, Any] | None:
+    """Fail before a long run if a Rust stdio command would measure the wrong binary.
+
+    The wrapper's exec proof accepts only a path ending in ``pilotdeck-agent-loop``.
+    rust-core's binary is ``pilotdeck-agent-loop-sidecar``, so the bin must be the
+    same-name symlink. ``realpath`` (which follows links) is used only to record
+    the target; the proof itself must keep the symlink path.
+    """
+    cmd = (command or "").strip()
+    if not cmd or not stdio_rust_intended(cmd):
+        return None
+    if "rust-stdio-sidecar" not in cmd:
+        raise RuntimeError(
+            "Rust stdio measurement must use tools/agent-loop-parity/rust-stdio-sidecar.sh "
+            "so the wrapper can write PARITY_RUST_SIDECAR_PROOF"
+        )
+    bin_text = (rust_bin or "").strip()
+    if not bin_text:
+        raise RuntimeError(
+            "PILOTDECK_RUST_SIDECAR_BIN is required with rust-stdio-sidecar.sh; "
+            "the wrapper otherwise falls back to the in-repo probe binary"
+        )
+    link = Path(bin_text)
+    if link.name != "pilotdeck-agent-loop" or not link.is_symlink():
+        raise RuntimeError(
+            "PILOTDECK_RUST_SIDECAR_BIN must be a symlink whose basename is "
+            f"pilotdeck-agent-loop, got {bin_text}"
+        )
+    target = Path(os.path.realpath(link))
+    if target.name != "pilotdeck-agent-loop-sidecar" or not target.is_file():
+        raise RuntimeError(
+            "symlink target must be the file pilotdeck-agent-loop-sidecar, "
+            f"got {target}"
+        )
+    digest = hashlib.sha256()
+    with target.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {
+        "command": cmd,
+        "bin": bin_text,
+        "target": str(target),
+        "sha256": digest.hexdigest(),
+        "proofEnv": "PARITY_RUST_SIDECAR_PROOF",
+        "proofPathPattern": "<trace>.rust-exec.jsonl",
+    }
+
+
+def exec_proof_path(trace_path: Path) -> Path:
+    return Path(str(trace_path) + ".rust-exec.jsonl")
+
+
+def _compact_exec_record(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "pid": payload.get("pid"),
+        "bin": payload.get("bin"),
+        "resolved": payload.get("resolved"),
+    }
+
+
+def load_wrapper_exec_proof(trace_path: Path) -> list[dict[str, Any]]:
+    path = exec_proof_path(trace_path)
+    if not path.is_file():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        payload = json.loads(line)
+        if isinstance(payload, dict):
+            records.append(_compact_exec_record(payload))
+    return records
+
+
+def load_trace_exec_proof(trace_path: Path) -> list[dict[str, Any]]:
+    if not trace_path.is_file():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        payload = json.loads(line)
+        if (
+            isinstance(payload, dict)
+            and payload.get("kind") == "harness.proof"
+            and payload.get("state") == "rust_sidecar_exec"
+        ):
+            records.append(_compact_exec_record(payload))
+    return records
+
+
+def proof_resolves_to_agent_loop(records: list[dict[str, Any]], expected_bin: str) -> bool:
+    for record in records:
+        resolved = str(record.get("resolved") or "")
+        if not resolved.rstrip("/").endswith("pilotdeck-agent-loop"):
+            continue
+        if str(record.get("bin") or "") != expected_bin:
+            continue
+        try:
+            if int(record.get("pid")) > 0:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def record_command(argv: list[str], root: Path) -> str:
     """Record the invocation without leaking an absolute --pilotdeck-root."""
     recorded = ["python3", "tools/agent-loop-perf/run.py"]
@@ -261,6 +391,8 @@ def run_one(
     output: Path,
     timeout_seconds: float,
     tcp_target: Any,
+    stdio_sidecar_command: str | None = None,
+    rust_sidecar_bin: str | None = None,
 ) -> dict[str, Any]:
     mode = "native" if transport == "native" else "sidecar"
     sidecar_transport = "stdio" if transport == "native" else transport
@@ -288,6 +420,7 @@ def run_one(
             None,
             sidecar_transport=sidecar_transport,
             tcp_target=tcp_target,
+            stdio_sidecar_command=stdio_sidecar_command if transport == "stdio" else None,
         )
     finally:
         if env_was is None:
@@ -317,7 +450,7 @@ def run_one(
     if not isinstance(non_model_ms, (int, float)) or isinstance(non_model_ms, bool):
         non_model_ms = _round_ms(float(turn_ms) - sum(model_iter_ms))
     segments = snapshot.get("segments") if isinstance(snapshot.get("segments"), dict) else {}
-    return {
+    result = {
         "turn_ms": _round_ms(float(turn_ms)),
         "model_iter_ms": model_iter_ms,
         "stream_chunk_ms": stream_chunk_ms,
@@ -341,6 +474,17 @@ def run_one(
         "harness_await_inside_turn": False,
         "marks": snapshot.get("marks") if isinstance(snapshot.get("marks"), list) else [],
     }
+    if transport == "stdio" and stdio_sidecar_command and stdio_rust_intended(stdio_sidecar_command):
+        expected_bin = rust_sidecar_bin or ""
+        wrapper_proof = load_wrapper_exec_proof(trace_path)
+        trace_proof = load_trace_exec_proof(trace_path)
+        if not proof_resolves_to_agent_loop(wrapper_proof, expected_bin) or not proof_resolves_to_agent_loop(trace_proof, expected_bin):
+            raise RuntimeError(
+                "stdio Rust exec proof missing or does not match PILOTDECK_RUST_SIDECAR_BIN "
+                f"(expected bin {expected_bin}; wrapper={wrapper_proof!r} trace={trace_proof!r})"
+            )
+        result["execProof"] = {"wrapper": wrapper_proof, "trace": trace_proof}
+    return result
 
 
 def _optional_ms(value: Any) -> float | None:
@@ -511,6 +655,30 @@ def delay_policy_label(*, zero_delays: bool, model_ms: float | None) -> str:
     return "zero" if zero_delays else "keep"
 
 
+def summarize_exec_proofs(reports: dict[str, Any]) -> dict[str, Any]:
+    resolved: set[str] = set()
+    bins: set[str] = set()
+    iterations_with_proof = 0
+    for report in reports.values():
+        for sample in report.get("samples") or []:
+            proof = sample.get("execProof")
+            if not isinstance(proof, dict):
+                continue
+            iterations_with_proof += 1
+            for side in ("wrapper", "trace"):
+                for record in proof.get(side) or []:
+                    if record.get("resolved"):
+                        resolved.add(str(record["resolved"]))
+                    if record.get("bin"):
+                        bins.add(str(record["bin"]))
+    return {
+        "iterationsWithProof": iterations_with_proof,
+        "bin": sorted(bins),
+        "resolved": sorted(resolved),
+        "acceptedBasename": "pilotdeck-agent-loop",
+    }
+
+
 def run_transport(
     *,
     transport: str,
@@ -525,6 +693,8 @@ def run_transport(
     tcp_sidecar_cmd: str | None,
     tcp_host: str | None,
     tcp_port: int | None,
+    stdio_sidecar_command: str | None = None,
+    rust_sidecar_bin: str | None = None,
 ) -> dict[str, Any]:
     tcp_target = None
     tcp_process = None
@@ -560,6 +730,8 @@ def run_transport(
                     output=trace_path,
                     timeout_seconds=timeout_seconds,
                     tcp_target=tcp_target,
+                    stdio_sidecar_command=stdio_sidecar_command,
+                    rust_sidecar_bin=rust_sidecar_bin,
                 )
                 sample["iteration"] = iteration
                 samples.append(sample)
@@ -589,10 +761,14 @@ def run_transport(
     }
     comparison = {sid: scenario_headline(report) for sid, report in reports.items()}
     excluded = [sid for sid, report in reports.items() if report["delay_injected"]]
+    stdio_active = transport == "stdio" and bool((stdio_sidecar_command or "").strip())
     return {
         "transport": transport,
         "sidecarTransport": sidecar_transport if transport != "native" else None,
         "tcpSidecarLog": str(tcp_log) if tcp_log is not None else None,
+        "stdioSidecarCommand": stdio_sidecar_command if stdio_active else None,
+        "stdioSidecarActive": stdio_active,
+        "execProof": summarize_exec_proofs(reports) if stdio_active and stdio_rust_intended(stdio_sidecar_command) else None,
         "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
         "delayPolicy": delay_policy_label(zero_delays=zero_delays, model_ms=model_ms),
         "configuredModelMs": float(model_ms) if model_ms is not None else 0.0,
@@ -645,6 +821,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pilotdeck-tcp-port", type=int)
     parser.add_argument("--pilotdeck-tcp-sidecar-cmd")
     parser.add_argument(
+        "--pilotdeck-stdio-sidecar-cmd",
+        help=(
+            "Stdio sidecar executable. Forwarded only for --transports stdio as "
+            "PARITY_STDIO_SIDECAR_COMMAND, and the parity adapter then sets a "
+            "per-turn PARITY_RUST_SIDECAR_PROOF. Use "
+            "tools/agent-loop-parity/rust-stdio-sidecar.sh with "
+            "PILOTDECK_RUST_SIDECAR_BIN pointing at a pilotdeck-agent-loop symlink. "
+            "Do not combine with TCP sidecar flags: rust-core exits 2."
+        ),
+    )
+    parser.add_argument(
         "--base-branch",
         default=os.environ.get("PERF_BASE_BRANCH", "rust_standalone_alpha1"),
         help="Branch used for provenance merge-base (default: rust_standalone_alpha1).",
@@ -661,6 +848,10 @@ def main(argv: list[str] | None = None) -> int:
     unknown = [item for item in transports if item not in DEFAULT_TRANSPORTS]
     if unknown:
         raise ValueError(f"unsupported transports: {', '.join(unknown)}")
+    stdio_sidecar_command = (args.pilotdeck_stdio_sidecar_cmd or "").strip() or None
+    refuse_tcp_with_stdio_sidecar(transports, stdio_sidecar_command, args.pilotdeck_tcp_sidecar_cmd)
+    rust_bin = (os.environ.get("PILOTDECK_RUST_SIDECAR_BIN") or "").strip() or None
+    rust_identity = prepare_rust_stdio_identity(stdio_sidecar_command, rust_bin)
     scenario_names = parse_csv(args.scenarios)
     scenarios = load_named_scenarios(args.scenario_file, scenario_names)
     source = args.pilotdeck_root.resolve()
@@ -688,6 +879,11 @@ def main(argv: list[str] | None = None) -> int:
         "productDefaultTransport": "native",
         "baseBranch": base_branch,
         "baseSha": base_sha,
+        "stdioSidecarCommand": stdio_sidecar_command,
+        "rustSidecarBin": rust_identity["bin"] if rust_identity else None,
+        "rustSidecarTarget": rust_identity["target"] if rust_identity else None,
+        "rustSidecarSha256": rust_identity["sha256"] if rust_identity else None,
+        "tcpSidecarCommand": (args.pilotdeck_tcp_sidecar_cmd or "").strip() or None,
     }
     mock_process, mock_url = start_mock()
     started = datetime.now(timezone.utc)
@@ -709,6 +905,8 @@ def main(argv: list[str] | None = None) -> int:
                     tcp_sidecar_cmd=args.pilotdeck_tcp_sidecar_cmd,
                     tcp_host=args.pilotdeck_tcp_host,
                     tcp_port=args.pilotdeck_tcp_port,
+                    stdio_sidecar_command=stdio_sidecar_command,
+                    rust_sidecar_bin=rust_bin,
                 )
                 provenance = {
                     **provenance_base,
