@@ -1,11 +1,13 @@
 # PR_LOG · rust_standalone_alpha1 已合并 PR
 
-来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `8cffa40d`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42/#43）不合并、不入表。
+来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `f44b3789`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42/#43/#45/#47）不合并、不入表。
 
-共 **26** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41。下表与 `git log --first-parent` 相同，新的在前。
+共 **28** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41、#44、#46。下表与 `git log --first-parent` 相同，新的在前。`8cffa40d` 之后的 first-parent 只有 #44（`4fe9bba1`）和 #46（`f44b3789`）。
 
 | PR | 任务 | 标题 | 合并 commit | 合并时间 | 一句话 | 详情 |
 |---|---|---|---|---|---|---|
+| [#46](https://github.com/Eveosev/PilotDeck/pull/46) | T-P2-01 A+B | T-P2-01: Rust AgentLoop real model path, thinking signature, stdio parity, TCP hello token | `f44b3789` | 2026-10-15 22:10 | 真 host 模型路径、thinking signature、stdio/TCP 对齐、TCP hello token | [PR-46](prs/PR-46.md) |
+| [#44](https://github.com/Eveosev/PilotDeck/pull/44) | —（docs） | docs: 补记 #40/#41，Q1 改为有条件 Go | `4fe9bba1` | 2026-10-15 21:10 | 补记 #40/#41；Q1 改为有条件 Go | [PR-44](prs/PR-44.md) |
 | [#41](https://github.com/Eveosev/PilotDeck/pull/41) | —（docs） | docs: rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | `8cffa40d` | 2026-10-15 19:27 | rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | [PR-41](prs/PR-41.md) |
 | [#40](https://github.com/Eveosev/PilotDeck/pull/40) | FT-1 | FT-1: pull stream_next and emit incremental text deltas | `019a527a` | 2026-10-15 17:46 | `stream_next` 增量拉流，未声明时回退一元 `stream` | [PR-40](prs/PR-40.md) |
 | [#37](https://github.com/Eveosev/PilotDeck/pull/37) | T-P1-05 | feat(t-p1-05): Rust-tcp vs native / TS-tcp comparison data (modelMs:200) | `1d7c8068` | 2026-10-15 15:31 | Rust-tcp vs native / TS-tcp 对照数据（modelMs:200） | [PR-37](prs/PR-37.md) |
@@ -36,6 +38,8 @@
 **注（#10、#16）**：`a1cf6d81` 与 `61ef1321` 都是普通双父 merge commit。`a1cf6d81` 的父为 `7d488a1b`、`55e867d9`；`61ef1321` 的父为 `008dcd16`、`a1a114bb`。第二父是 PR head。表中 SHA 即合并 commit。subject 带 `(#10)` / `(#16)`。
 
 **注（#40、#41）**：`019a527a` 的父为 `1d7c8068`、`d8366d7f`。`8cffa40d` 的父为 `019a527a`、`2733ecc2`。第二父是 PR head。表序与 `git log --first-parent` 相同，新的在前。
+
+**注（#44、#46）**：`4fe9bba1` 的父为 `8cffa40d`、`66465d39`。`f44b3789` 的父为 `4fe9bba1`、`b7ece5bf`。第二父是 PR head。#45（`4fe9bba1` 的桌面 smoke）和 #47（`f44b3789` 的桌面 smoke）仍是 open draft，不入表。
 
 ## 维护规则
 - 每合入一个 PR，在同一 PR 或紧随的文档 PR 中追加一行 + `prs/PR-<n>.md`。

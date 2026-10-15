@@ -4,8 +4,9 @@
 
 | 文件 | 内容 |
 |---|---|
-| [PLAN.md](PLAN.md) | 阶段、门禁、决议 |
+| [PLAN.md](PLAN.md) | 阶段、门禁、决议。2026-10-15 起含 rust-core 合流路径 |
 | [PR_LOG.md](PR_LOG.md) | `b243fa00` 之后 first-parent 主线上的已合并 PR |
+| [REVIEW-RustReview-2026-10-15.md](REVIEW-RustReview-2026-10-15.md) | 两条重构线的评审：报告论断的确认 / 修正 / 推翻，以及七问 |
 | `prs/PR-<n>.md` | 单个 PR 的详情 |
 
 证据类 draft PR 只在正文里引用，不进入 `PR_LOG` 表。未合并的 PR 不要写成已合并。
