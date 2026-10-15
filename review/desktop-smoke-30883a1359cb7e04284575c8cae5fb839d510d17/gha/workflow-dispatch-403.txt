@@ -1,0 +1,16 @@
+# gh workflow run attempts for Desktop / desktop-smoke.yml
+# SHA=30883a1359cb7e04284575c8cae5fb839d510d17
+# ref=rust_standalone_alpha1
+# capturedAtUtc=2026-10-15T03:45:41Z
+
+===== gh workflow run Desktop --ref rust_standalone_alpha1 =====
+could not create workflow dispatch event: HTTP 403: Resource not accessible by integration (https://api.github.com/repos/Eveosev/PilotDeck/actions/workflows/381604437/dispatches)
+exit=1
+
+===== gh workflow run desktop-smoke.yml --ref rust_standalone_alpha1 =====
+could not create workflow dispatch event: HTTP 403: Resource not accessible by integration (https://api.github.com/repos/Eveosev/PilotDeck/actions/workflows/381604437/dispatches)
+exit=1
+
+===== gh workflow run desktop-smoke.yml --ref 30883a1359cb7e04284575c8cae5fb839d510d17 =====
+could not create workflow dispatch event: HTTP 403: Resource not accessible by integration (https://api.github.com/repos/Eveosev/PilotDeck/actions/workflows/381604437/dispatches)
+exit=1

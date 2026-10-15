@@ -1,0 +1,61 @@
+===== meta =====
+backend=wayland
+command=bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland
+wrapper=timeout --preserve-status --signal=TERM --kill-after=30s 300
+startUtc=2026-10-15T03:47:28Z
+endUtc=2026-10-15T03:47:50Z
+exitCode=0
+seconds=22
+nodeBinary=/home/ubuntu/.nvm/versions/node/v22.23.3/bin/node
+wrapperTimeout=0
+
+===== stdout =====
+PASS: compact caption and rich About dialog, version copy and project link
+{"passed":true,"geometry":{"x":6,"border":"1px","radius":"14px"},"unmappedFixtureEndpoints":["/api/taskmaster/installation-status","/api/agents/runtime-config","/api/commands/list","/api/v1/providers"],"artifactDir":"/workspace/outputs/desktop-chrome-review/linux-wayland"}
+
+===== stderr =====
+dbus-daemon[4584]: [session uid=1000 pid=4584] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=4607 comm="/workspace/node_modules/.pnpm/electron@42.11.1/nod" label="kernel")
+dbus-daemon[4584]: [session uid=1000 pid=4584] Successfully activated service 'org.a11y.Bus'
+
+===== vite =====
+
+  VITE v7.3.3  ready in 161 ms
+
+  ➜  Local:   http://127.0.0.1:5187/
+
+===== weston =====
+Date: 2026-10-15 UTC
+[03:47:29.204] weston 13.0.0
+               https://wayland.freedesktop.org
+               Bug reports to: https://gitlab.freedesktop.org/wayland/weston/issues/
+               Build: 13.0.0
+[03:47:29.205] Command line: weston --backend=headless-backend.so --socket=wayland-pilotdeck-chrome --no-config --idle-time=0 --width=1440 --height=900
+[03:47:29.205] OS: Linux, 6.12.94+, #1 SMP PREEMPT_DYNAMIC Tue Oct 13 20:53:56 UTC 2026, x86_64
+[03:47:29.205] Flight recorder: enabled
+[03:47:29.205] Starting with no config file.
+[03:47:29.205] Output repaint window is 7 ms maximum.
+[03:47:29.205] Loading module '/usr/lib/x86_64-linux-gnu/libweston-13/headless-backend.so'
+[03:47:29.209] Registered plugin API 'weston_windowed_output_api_v2' of size 16
+[03:47:29.209] Color manager: no-op
+[03:47:29.209] Output 'headless' attempts EOTF mode: SDR
+[03:47:29.209] Output 'headless' using color profile: stock sRGB color profile
+[03:47:29.209] Output 'headless' enabled with head(s) headless
+[03:47:29.209] Compositor capabilities:
+               arbitrary surface rotation: no
+               screen capture uses y-flip: no
+               cursor planes: no
+               arbitrary resolutions: no
+               view mask clipping: no
+               explicit sync: no
+               color operations: no
+               presentation clock: CLOCK_MONOTONIC_RAW, id 4
+               presentation clock resolution: 0.000000001 s
+[03:47:29.209] Loading module '/usr/lib/x86_64-linux-gnu/weston/desktop-shell.so'
+[03:47:29.209] launching '/usr/libexec/weston-keyboard'
+[03:47:29.210] launching '/usr/libexec/weston-desktop-shell'
+could not load cursor 'dnd-move'
+could not load cursor 'dnd-copy'
+could not load cursor 'dnd-none'
+could not load cursor 'dnd-move'
+could not load cursor 'dnd-copy'
+could not load cursor 'dnd-none'
