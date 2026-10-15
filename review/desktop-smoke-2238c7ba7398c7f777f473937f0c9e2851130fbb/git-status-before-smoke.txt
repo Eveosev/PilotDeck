@@ -1,0 +1,7 @@
+HEAD detached at 2238c7ba
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	review/desktop-smoke-2238c7ba7398c7f777f473937f0c9e2851130fbb/
+	wt-pr7-14b1a71e/
+
+nothing added to commit but untracked files present (use "git add" to track)

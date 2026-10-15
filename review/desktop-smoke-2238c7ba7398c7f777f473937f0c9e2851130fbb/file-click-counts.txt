@@ -1,0 +1,61 @@
+# Wayland / X11 File-click hang counts for official chrome smoke (N=1 per backend)
+# Observed counts from this post-#50+#51 merge evidence run only.
+#
+# Official entry: bash apps/desktop/scripts/run-linux-chrome-smoke.sh {x11,wayland}
+# File .click() sites in ui/e2e/desktop-chrome.smoke.mjs: L161 (dark), L243 (then New Project), L339 (light)
+#
+# Hang definition (same as PR #35, smoke @30883a13): suite passed AND no Playwright
+# locator.click / expect timeout on File AND the outer timeout did not kill the process,
+# then file_click_timeout=0, file_click_stable=1, file_click_sites_completed=3.
+# Not computed from per-site log lines.
+# Outer timeout disclosure: PR #35 wrapper was `timeout 300`; this run's wrapper was `timeout 600`. Neither fired.
+
+backend=x11
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=25.523
+timeoutCeilingSeconds=600
+log=x11-smoke.out.txt
+stderr=x11-smoke.err.txt
+basis: suite_pass=1 from x11-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and x11-smoke.out.txt:2 {"passed":true,...}; playwright_file_timeout=0 (x11-smoke.out.txt and x11-smoke.err.txt have no Playwright timeout; stderr is only org.a11y.Bus activation); outer_timeout_killed=0 (exit=0, wall 25.523s, wrapper `timeout 600` did not fire)
+
+backend=wayland
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=25.138
+timeoutCeilingSeconds=600
+log=wayland-smoke.out.txt
+stderr=wayland-smoke.err.txt
+westonLog=weston.log
+basis: suite_pass=1 from wayland-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and wayland-smoke.out.txt:2 {"passed":true,...}; playwright_file_timeout=0 (wayland-smoke.out.txt and wayland-smoke.err.txt have no Playwright timeout; stderr is only org.a11y.Bus activation); outer_timeout_killed=0 (exit=0, wall 25.138s, wrapper `timeout 600` did not fire)
+
+# Totals
+total_suite_runs=2
+total_file_click_timeout=0
+total_file_click_stable=2
+n_trial_diag=not_run
+associated_merges=https://github.com/Eveosev/PilotDeck/pull/50 https://github.com/Eveosev/PilotDeck/pull/51
+note=Post-#50+#51 merge official one-shot on 2238c7ba7398c7f777f473937f0c9e2851130fbb: timeout=0 / stable=1 / sites=3 per backend by the PR #35 suite-level definition. N=1, not the N=300 gate. Does not claim #14 is resolved.
+
+# Per-site log evidence (not used by counts above). L161/L243/L339 print no own lines.
+backend=x11
+L161 per-site log line: absent
+L243 per-site log line: absent
+L339 per-site log line: absent
+
+backend=wayland
+L161 per-site log line: absent
+L243 per-site log line: absent
+L339 per-site log line: absent
