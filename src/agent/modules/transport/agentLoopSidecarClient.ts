@@ -139,6 +139,11 @@ export type AgentLoopSidecarRuntimeFactoryOptions = {
   capabilityResultObserver?: SidecarCapabilityResultObserver;
   /** Optional host composition for turn-scoped policy and module callbacks. */
   turnComposition?: SidecarTurnCompositionFactory;
+  /**
+   * Production TCP shared secret. Sent only on hello `payload.token`.
+   * The module protocol has no separate auth frame; this matches Gateway hello.token.
+   */
+  tcpAuthToken?: string;
   uuid?: () => string;
 };
 
@@ -254,6 +259,7 @@ export function createAgentLoopSidecarRuntimeFactory(
     moduleHandlers: options.moduleHandlers,
     capabilityResultObserver: options.capabilityResultObserver,
     turnComposition: options.turnComposition,
+    tcpAuthToken: options.tcpAuthToken?.trim() || undefined,
     uuid: options.uuid ?? randomUUID,
   });
 }
@@ -277,6 +283,7 @@ class AgentLoopSidecarRunner implements AgentLoopRunner {
     moduleHandlers?: SidecarModuleHandlerFactory;
     capabilityResultObserver?: SidecarCapabilityResultObserver;
     turnComposition?: SidecarTurnCompositionFactory;
+    tcpAuthToken?: string;
     uuid: () => string;
   }) {
     this.seedState = cloneSeedState(options.seedState);
@@ -374,6 +381,7 @@ class AgentLoopSidecarRunner implements AgentLoopRunner {
         transportObserver: this.options.transportObserver,
         moduleHandlers: Object.freeze({ ...dispatcher.handlers, ...moduleHandlers }),
         projectTerminal: (terminal) => hostEventProjector.projectTerminal(terminal),
+        tcpAuthToken: this.options.tcpAuthToken,
       });
       const iterator = protocol.execute(connection);
       const drainHostEvents = (): AgentEvent[] => hostEventProjector.drain(this.options.modules.event?.drain?.() ?? []);
@@ -514,6 +522,7 @@ class SidecarTurnProtocol {
     transportObserver?: AgentLoopSidecarTransportObserver;
     moduleHandlers: SidecarModuleHandlerRegistry;
     projectTerminal?: (terminal: SidecarTerminal) => SidecarTerminal;
+    tcpAuthToken?: string;
   }) {
     this.hostToolCheckpoint = options.checkpoint;
     this.helloMessageId = `hello-${options.uuid()}`;
@@ -730,11 +739,12 @@ class SidecarTurnProtocol {
       if (method === "hello") this.helloMessageId = messageId;
       else this.capabilitiesMessageId = messageId;
     }
+    const token = method === "hello" ? this.options.tcpAuthToken?.trim() : undefined;
     return {
       kind: "request",
       messageId,
       method,
-      payload: {},
+      payload: token ? { token } : {},
     };
   }
 

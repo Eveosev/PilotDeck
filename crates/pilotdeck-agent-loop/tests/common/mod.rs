@@ -135,6 +135,10 @@ fn spawn_line_reader<R: Read + Send + 'static>(reader: R, tx: mpsc::Sender<Value
     });
 }
 
+pub fn wait_listen_addr(stderr: impl Read + Send + 'static) -> std::net::SocketAddr {
+    wait_for_listen_addr(stderr)
+}
+
 fn wait_for_listen_addr(stderr: impl Read + Send + 'static) -> std::net::SocketAddr {
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {

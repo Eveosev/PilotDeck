@@ -26,11 +26,19 @@ pub fn serve_tcp(addr: SocketAddr) -> io::Result<()> {
     Ok(())
 }
 
+/// Same env both sides already use for deployment config. Unset = open loopback.
+fn tcp_auth_token_from_env() -> Option<String> {
+    std::env::var("PILOTDECK_AGENT_LOOP_TCP_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 fn serve_tcp_stream(stream: TcpStream) -> io::Result<()> {
     stream.set_nodelay(true)?;
     let writer_stream = stream.try_clone()?;
     let writer = Arc::new(Mutex::new(writer_stream));
-    let sidecar = Sidecar::with_transport(
+    let sidecar = Sidecar::with_transport_and_auth(
         Arc::new({
             let writer = Arc::clone(&writer);
             move |message| {
@@ -42,6 +50,7 @@ fn serve_tcp_stream(stream: TcpStream) -> io::Result<()> {
             }
         }),
         "tcp",
+        tcp_auth_token_from_env(),
     );
 
     let mut reader = BufReader::new(stream);

@@ -25,6 +25,8 @@ export type AgentLoopDeploymentProfile =
       host: string;
       port: number;
       connectTimeoutMs: number | undefined;
+      /** Production TCP hello secret. Absent keeps the existing open loopback path. */
+      authToken?: string;
     }>;
 
 export type ResolveAgentLoopDeploymentProfileInput = {
@@ -50,11 +52,13 @@ export function resolveAgentLoopDeploymentProfile(
   const transport = readTransport(env.PILOTDECK_AGENT_LOOP_TRANSPORT);
   if (transport === "native") return Object.freeze({ transport });
   if (transport === "tcp") {
+    const authToken = optionalTcpAuthToken(env.PILOTDECK_AGENT_LOOP_TCP_TOKEN);
     return Object.freeze({
       transport,
       host: requiredText(env.PILOTDECK_AGENT_LOOP_TCP_HOST ?? "127.0.0.1", "PILOTDECK_AGENT_LOOP_TCP_HOST"),
       port: requiredPort(env.PILOTDECK_AGENT_LOOP_TCP_PORT),
       connectTimeoutMs: optionalPositiveInteger(env.PILOTDECK_AGENT_LOOP_CONNECT_TIMEOUT_MS),
+      ...(authToken ? { authToken } : {}),
     });
   }
 
@@ -67,6 +71,7 @@ export function resolveAgentLoopDeploymentProfile(
   // TCP listener just because its parent has a TCP deployment configuration.
   delete childEnv.PILOTDECK_AGENT_LOOP_TCP_HOST;
   delete childEnv.PILOTDECK_AGENT_LOOP_TCP_PORT;
+  delete childEnv.PILOTDECK_AGENT_LOOP_TCP_TOKEN;
   return Object.freeze({
     transport,
     command: requiredText(env.PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND ?? process.execPath, "PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND"),
@@ -88,6 +93,7 @@ export function createAgentLoopDeploymentFactory(
         port: profile.port,
         ...(profile.connectTimeoutMs === undefined ? {} : { connectTimeoutMs: profile.connectTimeoutMs }),
       }),
+      ...(profile.authToken ? { tcpAuthToken: profile.authToken } : {}),
       expectedModuleId: options.expectedModuleId,
       transportObserver: options.transportObserver,
     });
@@ -111,11 +117,13 @@ export function createAgentLoopBindingFactory(
   if (!isExternalAgentLoopBinding(binding)) return undefined;
   const bindingOptions = { ...options, expectedModuleId: binding.implementationId };
   if (binding.transport === "module-tcp-v2") {
+    const authToken = optionalTcpAuthToken(process.env.PILOTDECK_AGENT_LOOP_TCP_TOKEN);
     return createAgentLoopDeploymentFactory({
       transport: "tcp",
       host: binding.host!,
       port: binding.port!,
       connectTimeoutMs: binding.connectTimeoutMs,
+      ...(authToken ? { authToken } : {}),
     }, bindingOptions);
   }
   return createAgentLoopDeploymentFactory({
@@ -148,6 +156,11 @@ function requiredPort(value: string | undefined): number {
     throw new Error("PILOTDECK_AGENT_LOOP_TCP_PORT must be an integer between 1 and 65535.");
   }
   return parsed;
+}
+
+function optionalTcpAuthToken(value: string | undefined): string | undefined {
+  const token = value?.trim();
+  return token ? token : undefined;
 }
 
 function optionalPositiveInteger(value: string | undefined): number | undefined {

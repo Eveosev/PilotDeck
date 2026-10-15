@@ -52,6 +52,51 @@ fn s2_cancel_status_and_explicit_resume_ack_reject() {
 }
 
 #[test]
+fn tcp_auth_token_rejects_anonymous_hello() {
+    let bin = env!("CARGO_BIN_EXE_pilotdeck-agent-loop");
+    let mut child = Command::new(bin)
+        .arg("--listen")
+        .arg("127.0.0.1:0")
+        .env("PILOTDECK_AGENT_LOOP_TCP_TOKEN", "production-token")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn authed sidecar");
+    let stderr = child.stderr.take().expect("stderr");
+    let addr = common::wait_listen_addr(stderr);
+    let mut stream = std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(2))
+        .expect("connect");
+    stream.set_nodelay(true).expect("nodelay");
+    use std::io::{BufRead, BufReader, Write};
+    let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+    writeln!(
+        stream,
+        r#"{{"kind":"request","messageId":"hello-bad","method":"hello","payload":{{}}}}"#
+    )
+    .expect("write");
+    stream.flush().expect("flush");
+    let mut line = String::new();
+    reader.read_line(&mut line).expect("read");
+    let rejected: Value = serde_json::from_str(line.trim()).expect("json");
+    assert_eq!(rejected["ok"], false);
+    assert_eq!(rejected["code"], "UNAUTHENTICATED");
+    writeln!(
+        stream,
+        r#"{{"kind":"request","messageId":"hello-ok","method":"hello","payload":{{"token":"production-token"}}}}"#
+    )
+    .expect("write");
+    stream.flush().expect("flush");
+    line.clear();
+    reader.read_line(&mut line).expect("read");
+    let accepted: Value = serde_json::from_str(line.trim()).expect("json");
+    assert_eq!(accepted["ok"], true, "{accepted}");
+    assert_eq!(accepted["inReplyTo"], "hello-ok");
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+#[test]
 fn ts_host_b4_dialogue_over_tcp() {
     let script = repo_root().join("crates/pilotdeck-agent-loop/scripts/b4-tcp-host.mjs");
     let bin = env!("CARGO_BIN_EXE_pilotdeck-agent-loop");

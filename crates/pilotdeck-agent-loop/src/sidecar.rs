@@ -69,6 +69,9 @@ struct Inner {
     connection_generation: String,
     capabilities_version: String,
     transport: String,
+    /// Production TCP shared secret. `None` keeps loopback tests unauthenticated.
+    tcp_auth_token: Option<String>,
+    authenticated: AtomicBool,
     token: AtomicU64,
     operations: Mutex<Operations>,
     pending_calls: Mutex<HashMap<String, mpsc::Sender<Value>>>,
@@ -94,9 +97,20 @@ impl Sidecar {
     }
 
     pub fn with_transport(emit: Arc<dyn Fn(Value) + Send + Sync>, transport: &str) -> Self {
+        Self::with_transport_and_auth(emit, transport, None)
+    }
+
+    /// `tcp_auth_token` is the production TCP hello secret. Empty means off.
+    pub fn with_transport_and_auth(
+        emit: Arc<dyn Fn(Value) + Send + Sync>,
+        transport: &str,
+        tcp_auth_token: Option<String>,
+    ) -> Self {
         let token = AtomicU64::new(0);
         let module_instance_id = format!("{MODULE_ID}-instance-{}", next_token_from(&token));
         let connection_generation = format!("{}-{}", module_instance_id, next_token_from(&token));
+        let tcp_auth_token = tcp_auth_token.filter(|value| !value.is_empty());
+        let authenticated = AtomicBool::new(tcp_auth_token.is_none());
         Self {
             inner: Arc::new(Inner {
                 emit,
@@ -105,6 +119,8 @@ impl Sidecar {
                 connection_generation,
                 capabilities_version: CAPABILITIES_VERSION.to_string(),
                 transport: transport.to_string(),
+                tcp_auth_token,
+                authenticated,
                 token,
                 operations: Mutex::new(Operations {
                     by_id: HashMap::new(),
@@ -164,6 +180,9 @@ impl Sidecar {
     fn dispatch(&self, value: Value) {
         let kind = value.get("kind").and_then(Value::as_str).unwrap_or("");
         if kind == "response" {
+            if !self.inner.authenticated.load(Ordering::SeqCst) {
+                return;
+            }
             self.handle_host_response(value);
             return;
         }
@@ -171,7 +190,11 @@ impl Sidecar {
             return;
         }
         let message_id = value.get("messageId").and_then(Value::as_str).unwrap_or("");
-        match value.get("method").and_then(Value::as_str).unwrap_or("") {
+        let method = value.get("method").and_then(Value::as_str).unwrap_or("");
+        if !self.allow_request(&value, method) {
+            return;
+        }
+        match method {
             "hello" => self.emit(self.handshake(message_id, "hello", None)),
             "capabilities" => {
                 self.emit(self.handshake(
@@ -453,6 +476,42 @@ impl Sidecar {
             request_id,
             outcome,
         );
+    }
+
+    /// Production TCP auth uses the existing hello payload, same comparison as
+    /// Gateway `hello.token`. Unset token keeps the current open loopback path.
+    fn allow_request(&self, value: &Value, method: &str) -> bool {
+        let Some(expected) = &self.inner.tcp_auth_token else {
+            return true;
+        };
+        if self.inner.authenticated.load(Ordering::SeqCst) {
+            return true;
+        }
+        if method != "hello" {
+            self.emit_error(
+                "auth",
+                "UNAUTHENTICATED",
+                "TCP sidecar requires an authenticated hello.",
+            );
+            return false;
+        }
+        let provided = value
+            .pointer("/payload/token")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !constant_time_eq(expected, provided) {
+            let message_id = value.get("messageId").and_then(Value::as_str).unwrap_or("");
+            self.emit(json!({
+                "kind": "response",
+                "messageId": self.next_id("hello"),
+                "inReplyTo": message_id,
+                "ok": false,
+                "code": "UNAUTHENTICATED",
+            }));
+            return false;
+        }
+        self.inner.authenticated.store(true, Ordering::SeqCst);
+        true
     }
 
     fn handshake(&self, in_reply_to: &str, method: &str, payload: Option<Value>) -> Value {
@@ -740,12 +799,39 @@ fn text_content_blocks(text: &str) -> Value {
     json!([text_content_block(text, None)])
 }
 
-fn thinking_content_block(text: &str, block_id: Option<&str>) -> Value {
+fn thinking_content_block(
+    text: &str,
+    block_id: Option<&str>,
+    signature: Option<&str>,
+    reasoning_content: &str,
+) -> Value {
     let mut block = json!({ "type": "thinking", "text": text });
     if let Some(block_id) = block_id.filter(|id| !id.is_empty()) {
         block["blockId"] = json!(block_id);
     }
+    // Last non-empty signature only. Do not persist or invent an empty one.
+    if let Some(signature) = signature.filter(|value| !value.is_empty()) {
+        block["signature"] = json!(signature);
+    }
+    if !reasoning_content.is_empty() {
+        block["reasoningContent"] = json!(reasoning_content);
+    }
     block
+}
+
+fn durable_thinking_present(model: &AssembledModel) -> bool {
+    !model.thinking.is_empty()
+        || !model.thinking_reasoning_content.is_empty()
+        || model.thinking_signature.is_some()
+}
+
+fn durable_thinking_block(model: &AssembledModel) -> Value {
+    thinking_content_block(
+        &model.thinking,
+        model.thinking_block_id.as_deref(),
+        model.thinking_signature.as_deref(),
+        &model.thinking_reasoning_content,
+    )
 }
 
 /// Durable assistant content. A pull-stream thinking block reuses the id from
@@ -753,11 +839,8 @@ fn thinking_content_block(text: &str, block_id: Option<&str>) -> Value {
 /// (`streamState: closed`) instead of leaving the thinking stream open.
 fn assembled_message_content(model: &AssembledModel) -> Vec<Value> {
     let mut blocks = Vec::new();
-    if !model.thinking.is_empty() {
-        blocks.push(thinking_content_block(
-            &model.thinking,
-            model.thinking_block_id.as_deref(),
-        ));
+    if durable_thinking_present(model) {
+        blocks.push(durable_thinking_block(model));
     }
     if !model.text.is_empty() || blocks.is_empty() {
         blocks.push(text_content_block(
@@ -813,8 +896,8 @@ fn run_tool_calls(
 ) -> bool {
     let calls = &first.tool_calls;
     let mut assistant_blocks = Vec::new();
-    if !first.thinking.is_empty() {
-        let mut block = thinking_content_block(&first.thinking, first.thinking_block_id.as_deref());
+    if durable_thinking_present(first) {
+        let mut block = durable_thinking_block(first);
         block["timeline"] = timeline.update("thinking:pre-tool");
         assistant_blocks.push(block);
     }
@@ -1549,6 +1632,10 @@ struct AssembledModel {
     text_block_id: Option<String>,
     /// Same role as `text_block_id` for `thinking_delta` events.
     thinking_block_id: Option<String>,
+    /// Last non-empty `thinking_delta.signature` (TS `assembleModelMessage`).
+    thinking_signature: Option<String>,
+    /// Concatenated `thinking_delta.reasoningContent` when the buffer is non-empty.
+    thinking_reasoning_content: String,
 }
 
 fn model_tool_definition(tool: &Value) -> Option<Value> {
@@ -1803,7 +1890,7 @@ fn call_host_model(
 ) -> Result<AssembledModel, HostCall> {
     let preparation_id = next_id(&job.inner, "prepared");
     let context = model_execution_context(job);
-    match call_host_module(
+    let prepared_request = match call_host_module(
         job,
         "model",
         json!({
@@ -1813,19 +1900,19 @@ fn call_host_model(
             "context": context,
         }),
     ) {
-        HostCall::Ok(_) => {}
+        HostCall::Ok(response) => prepared_model_request(&response, request),
         HostCall::Interrupted => {
             let _ = close_host_stream(job, &preparation_id);
             return Err(HostCall::Interrupted);
         }
         other => return Err(other),
-    }
+    };
     if stub_interrupted(job) {
         let _ = close_host_stream(job, &preparation_id);
         return Err(HostCall::Interrupted);
     }
     if host_supports_pull_stream(&job.payload) {
-        return pull_host_model_stream(job, request, &preparation_id, &context, sequence);
+        return pull_host_model_stream(job, &prepared_request, &preparation_id, &context, sequence);
     }
     let stream = call_host_module(
         job,
@@ -1833,7 +1920,7 @@ fn call_host_model(
         json!({
             "operation": "stream",
             "preparationId": preparation_id,
-            "request": request,
+            "request": prepared_request,
             "context": context,
         }),
     );
@@ -1876,6 +1963,18 @@ fn host_model_methods(payload: &Value) -> Vec<&str> {
 }
 
 /// `createHostModelInvokerPort`: `methods.includes("stream_next")`.
+/// Host `prepare` may rewrite the canonical request (routing, prompts, caps).
+/// Later `stream` / `stream_next` calls must send that prepared request.
+/// TS `hostModelInvokerPort` streams `prepared.request`, and the host
+/// dispatcher replaces the stored request with the stream payload.
+fn prepared_model_request(response: &Value, fallback: &Value) -> Value {
+    response
+        .pointer("/payload/prepared/request")
+        .filter(|request| request.is_object())
+        .cloned()
+        .unwrap_or_else(|| fallback.clone())
+}
+
 fn host_supports_pull_stream(payload: &Value) -> bool {
     host_model_methods(payload).iter().any(|method| *method == "stream_next")
 }
@@ -2071,7 +2170,7 @@ fn pull_host_model_stream(
     if !assembled.text.is_empty() {
         assembled.text_block_id = text_block_id;
     }
-    if !assembled.thinking.is_empty() {
+    if durable_thinking_present(&assembled) {
         assembled.thinking_block_id = thinking_block_id;
     }
     Ok(assembled)
@@ -2100,6 +2199,8 @@ fn assemble_from_host_response(response: &Value) -> AssembledModel {
 fn assemble_canonical_events(events: &[Value]) -> AssembledModel {
     let mut text = String::new();
     let mut thinking = String::new();
+    let mut thinking_signature: Option<String> = None;
+    let mut thinking_reasoning_content = String::new();
     let mut tool_calls = Vec::new();
     for event in events {
         match event.get("type").and_then(Value::as_str) {
@@ -2109,8 +2210,20 @@ fn assemble_canonical_events(events: &[Value]) -> AssembledModel {
                 }
             }
             Some("thinking_delta") => {
+                // TS `applyModelEventToAssembler`: append text, append
+                // reasoningContent when present, keep the last non-empty signature.
                 if let Some(delta) = event.get("text").and_then(Value::as_str) {
                     thinking.push_str(delta);
+                }
+                if let Some(reasoning) = event.get("reasoningContent").and_then(Value::as_str) {
+                    thinking_reasoning_content.push_str(reasoning);
+                }
+                if let Some(signature) = event
+                    .get("signature")
+                    .and_then(Value::as_str)
+                    .filter(|signature| !signature.is_empty())
+                {
+                    thinking_signature = Some(signature.to_string());
                 }
             }
             Some("tool_call_end") => {
@@ -2127,6 +2240,8 @@ fn assemble_canonical_events(events: &[Value]) -> AssembledModel {
         tool_calls,
         text_block_id: None,
         thinking_block_id: None,
+        thinking_signature,
+        thinking_reasoning_content,
     }
 }
 
@@ -2387,6 +2502,19 @@ fn cancel_response(
         }
     }
     message
+}
+
+fn constant_time_eq(expected: &str, provided: &str) -> bool {
+    let expected = expected.as_bytes();
+    let provided = provided.as_bytes();
+    let mut diff = expected.len() ^ provided.len();
+    let len = expected.len().max(provided.len());
+    for index in 0..len {
+        let left = expected.get(index).copied().unwrap_or(0);
+        let right = provided.get(index).copied().unwrap_or(0);
+        diff |= usize::from(left ^ right);
+    }
+    diff == 0
 }
 
 fn string_field(value: &Value, field: &str) -> String {
@@ -5949,6 +6077,227 @@ mod tests {
                 .expect("terminal")["outcome"],
             "completed"
         );
+    }
+
+    #[test]
+    fn thinking_signature_round_trip_keeps_last_non_empty_signature() {
+        let (sidecar, sink) = collect_with_host(|call: &Value| {
+            match (
+                call.get("module").and_then(Value::as_str),
+                call.pointer("/payload/operation").and_then(Value::as_str),
+            ) {
+                (Some("model"), Some("prepare")) => Some(host_prepared(call)),
+                (Some("model"), Some("stream_next")) => {
+                    let payload = if conversation_has_tool_result(call) {
+                        json!({
+                            "events": [{ "type": "text_delta", "text": "done" }],
+                            "done": true
+                        })
+                    } else {
+                        json!({
+                            "events": [
+                                { "type": "thinking_delta", "text": "plan", "signature": "", "reasoningContent": "r1" },
+                                { "type": "thinking_delta", "text": " more", "signature": "sig-a", "reasoningContent": "r2" },
+                                { "type": "thinking_delta", "text": "", "signature": "sig-b" },
+                                { "type": "thinking_delta", "text": "", "signature": "" },
+                                {
+                                    "type": "tool_call_end",
+                                    "toolCall": { "id": "host-tool-1", "name": "lookup", "input": { "q": "status" } }
+                                }
+                            ],
+                            "done": true
+                        })
+                    };
+                    Some(host_ok(call, payload))
+                }
+                (Some("model"), Some("close_stream")) => Some(host_ok(call, json!({ "closed": true }))),
+                (Some("capability"), Some("execute")) => single_tool_host(call),
+                _ => None,
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-sig",
+            "run-sig",
+            "op-sig",
+            "req-sig",
+            &pull_methods_payload("status", &["prepare", "stream_next", "close_stream"]),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let assistant = lines
+            .iter()
+            .find(|message| message["eventType"] == "agent.assistant_message")
+            .expect("durable assistant");
+        let thinking = &assistant["payload"]["message"]["content"][0];
+        assert_eq!(thinking["type"], "thinking");
+        assert_eq!(thinking["text"], "plan more");
+        assert_eq!(thinking["signature"], "sig-b");
+        assert_eq!(thinking["reasoningContent"], "r1r2");
+        let second_prepare = lines
+            .iter()
+            .filter(|message| {
+                message["kind"] == "request"
+                    && message["module"] == "model"
+                    && message["payload"]["operation"] == "prepare"
+            })
+            .nth(1)
+            .expect("second prepare");
+        let replayed = second_prepare["payload"]["request"]["messages"]
+            .as_array()
+            .expect("messages")
+            .iter()
+            .find(|message| message["role"] == "assistant")
+            .expect("assistant replay");
+        let replayed_thinking = &replayed["content"][0];
+        assert_eq!(replayed_thinking["type"], "thinking");
+        assert_eq!(replayed_thinking["signature"], "sig-b");
+        assert_eq!(replayed_thinking["reasoningContent"], "r1r2");
+        assert_eq!(replayed_thinking["text"], "plan more");
+        assert!(lines.iter().any(|message| {
+            message["final"] == true && message["outcome"] == "completed"
+        }));
+    }
+
+    #[test]
+    fn empty_thinking_signature_is_not_invented() {
+        let (sidecar, sink) = collect_with_host(|call: &Value| {
+            match call.pointer("/payload/operation").and_then(Value::as_str) {
+                Some("prepare") => Some(host_prepared(call)),
+                Some("stream") => Some(host_ok(
+                    call,
+                    json!({
+                        "events": [
+                            { "type": "thinking_delta", "text": "x", "signature": "" },
+                            { "type": "text_delta", "text": "ok" }
+                        ]
+                    }),
+                )),
+                Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                _ => None,
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-empty-sig",
+            "run-empty-sig",
+            "op-empty-sig",
+            "req-empty-sig",
+            &pull_methods_payload("status", &["prepare", "stream", "close_stream"]),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let assistant = lines
+            .iter()
+            .find(|message| message["eventType"] == "agent.assistant_message")
+            .expect("assistant");
+        let thinking = &assistant["payload"]["message"]["content"][0];
+        assert_eq!(thinking["type"], "thinking");
+        assert_eq!(thinking["text"], "x");
+        assert!(thinking.get("signature").is_none());
+        assert!(thinking.get("reasoningContent").is_none());
+    }
+
+    #[test]
+    fn stream_uses_host_prepared_request() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let seen_stream = Arc::clone(&seen);
+        let (sidecar, sink) = collect_with_host(move |call: &Value| {
+            match call.pointer("/payload/operation").and_then(Value::as_str) {
+                Some("prepare") => {
+                    let mut request = call
+                        .pointer("/payload/request")
+                        .cloned()
+                        .unwrap_or_else(|| json!({}));
+                    request["systemPrompt"] = json!("FROM_HOST_PROVIDER");
+                    request["provider"] = json!("openai");
+                    request["model"] = json!("live-fixture");
+                    Some(host_ok(
+                        call,
+                        json!({
+                            "prepared": {
+                                "request": request,
+                                "provider": "openai",
+                                "model": "live-fixture"
+                            }
+                        }),
+                    ))
+                }
+                Some("stream_next") => {
+                    seen_stream
+                        .lock()
+                        .expect("seen")
+                        .push(call.pointer("/payload/request").cloned().unwrap_or(json!({})));
+                    Some(host_ok(
+                        call,
+                        json!({
+                            "events": [{ "type": "text_delta", "text": "FROM_PROVIDER" }],
+                            "done": true
+                        }),
+                    ))
+                }
+                Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                _ => None,
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-prepared",
+            "run-prepared",
+            "op-prepared",
+            "req-prepared",
+            &pull_methods_payload("status", &["prepare", "stream_next", "close_stream"]),
+        ));
+        sidecar.join();
+        let streamed = seen.lock().expect("seen").clone();
+        assert_eq!(streamed.len(), 1);
+        assert_eq!(streamed[0]["systemPrompt"], "FROM_HOST_PROVIDER");
+        assert_eq!(streamed[0]["provider"], "openai");
+        assert_eq!(streamed[0]["model"], "live-fixture");
+        let lines = sink.lock().expect("sink").clone();
+        let assistant = lines
+            .iter()
+            .find(|message| message["eventType"] == "agent.assistant_message")
+            .expect("assistant");
+        assert_eq!(assistant["payload"]["message"]["content"][0]["text"], "FROM_PROVIDER");
+        assert_eq!(
+            lines.iter().find(|message| message["final"] == true).expect("terminal")["outcome"],
+            "completed"
+        );
+    }
+
+    #[test]
+    fn tcp_auth_token_gates_hello_and_later_methods() {
+        let (tx, rx) = mpsc::channel();
+        let sidecar = Sidecar::with_transport_and_auth(
+            Arc::new(move |message| {
+                let _ = tx.send(message);
+            }),
+            "tcp",
+            Some("secret-token".to_string()),
+        );
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"caps-early","method":"capabilities","payload":{}}"#,
+        );
+        let denied = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(denied["code"], "UNAUTHENTICATED");
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"hello-bad","method":"hello","payload":{"token":"nope"}}"#,
+        );
+        let rejected = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(rejected["ok"], false);
+        assert_eq!(rejected["code"], "UNAUTHENTICATED");
+        assert_eq!(rejected["inReplyTo"], "hello-bad");
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"hello-ok","method":"hello","payload":{"token":"secret-token"}}"#,
+        );
+        let accepted = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(accepted["ok"], true);
+        assert_eq!(accepted["inReplyTo"], "hello-ok");
+        assert!(accepted.get("payload").and_then(|payload| payload.get("token")).is_none());
+        sidecar.handle_line(
+            r#"{"kind":"request","messageId":"caps-ok","method":"capabilities","payload":{}}"#,
+        );
+        let caps = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(caps["ok"], true);
+        assert_eq!(caps["payload"]["transport"], "tcp");
     }
 
     #[test]
