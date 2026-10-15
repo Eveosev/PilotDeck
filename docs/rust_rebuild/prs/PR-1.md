@@ -39,6 +39,7 @@ parity 工具支持 TCP 目标（adapter/trace/run 负对照）。（摘自 PR �
 **QA**
 - `8d8cc8f9`（r1-qa/VERDICT.md）：**PASS**。tcp pure_text 正向 exit 0、sidecarTransport=tcp；stdio/tcp 负对照均 BLOCKED（exit 2），关闭 Reviewer R1 要求的三项产物。
 - `8b132c1f`（r2-qa-smoke/VERDICT.md）：**PASS**。`test_trace` 67/67；tcp 正向 exit 0；neg-stdio / neg-tcp 均 exit 2。
+- **QA 未覆盖合并 head**：合并 head `38bacf0a` 没有 QA 覆盖。
 **Reviewer**
 - R1（base `b243fa00`）：**conditional_pass**，0 blocker / 2 major / 7 minor（R3–R9）。
   - R1 major：A1/A3 只有云端 agent 自述、无原始产物 → QA 在 `8d8cc8f9` 补齐 r1-qa 三项产物关闭。
@@ -54,6 +55,7 @@ parity 工具支持 TCP 目标（adapter/trace/run 负对照）。（摘自 PR �
 |---|---|---|
 | `8d8cc8f9` | PASS | `review/2026-10-10-T-P0a-00-parity-tcp/evidence/r1-qa/VERDICT.md`（本地证据，未入库） |
 | `8b132c1f` | PASS | `review/2026-10-10-T-P0a-00-parity-tcp/evidence/r2-qa-smoke/VERDICT.md`（本地证据，未入库） |
+| `38bacf0a`（合并 head） | 无 QA 覆盖 | — |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

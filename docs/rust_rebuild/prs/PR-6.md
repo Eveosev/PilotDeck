@@ -60,9 +60,9 @@
 |---|---|---|
 | `524cb673` | GATE PASS (code) | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-524cb673/SUMMARY.md`（本地证据，未入库） |
 | `46ca9718` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-46ca9718/SUMMARY.md`（本地证据，未入库） |
-| `c1eab0d5` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-c1eab0d5/SUMMARY.md`（本地证据，未入库） |
-| `918594b1` | merge gate PASS；CI 未全绿 | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-918594b1/SUMMARY.md`（本地证据，未入库） |
-| `12395bbe` | merge gate PASS；CI 未全绿（仅 CI-3） | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-12395bbe/SUMMARY.md`（本地证据，未入库） |
+| `c1eab0d5` | PASS | `/workspace/pilotdeck-rust/review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-c1eab0d5/SUMMARY.md` |
+| `918594b1` | merge gate PASS；CI 未全绿 | `/workspace/pilotdeck-rust/review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-918594b1/SUMMARY.md` |
+| `12395bbe` | merge gate PASS；CI 未全绿（仅 CI-3） | `/workspace/pilotdeck-rust/review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-12395bbe/SUMMARY.md` |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

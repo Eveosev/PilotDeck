@@ -61,9 +61,9 @@ Module Protocol 变更同步门禁（文档）。（摘自 PR 标题/任务清�
 |---|---|---|
 | `3b5cf763` | PASS | `review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-3b5cf763/SUMMARY.md`（本地证据，未入库） |
 | `9da4ee1d` | PASS | `review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-9da4ee1d/SUMMARY.md`（本地证据，未入库） |
-| `7bcee318` | PASS（CI pending） | `review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-7bcee318/SUMMARY.md`（本地证据，未入库） |
-| `bbb88cb7` | PASS（structure） | `review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-bbb88cb7/SUMMARY.md`（本地证据，未入库） |
-| `f6d46add` | merge gate PASS | `review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-f6d46add/SUMMARY.md`（本地证据，未入库） |
+| `7bcee318` | PASS（CI pending） | `/workspace/pilotdeck-rust/review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-7bcee318/SUMMARY.md` |
+| `bbb88cb7` | PASS（structure） | `/workspace/pilotdeck-rust/review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-bbb88cb7/SUMMARY.md` |
+| `f6d46add` | merge gate PASS | `/workspace/pilotdeck-rust/review/2026-10-12-T-P0a-07-protocol-change-gate/qa-gate-f6d46add/SUMMARY.md` |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

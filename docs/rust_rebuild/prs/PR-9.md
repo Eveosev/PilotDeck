@@ -43,7 +43,7 @@
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `8d36b967` | G1/G2 PASS | `review/2026-10-12-desktop-no-drag-h1/qa-gate-8d36b967/SUMMARY.md`（本地证据，未入库） |
+| `8d36b967` | G1/G2 PASS | `/workspace/pilotdeck-rust/review/2026-10-12-desktop-no-drag-h1/qa-gate-8d36b967/SUMMARY.md` |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

@@ -84,7 +84,7 @@ Rust agent-loop crate（S0–S2 stdio）。（摘自 PR 标题/任务清单；�
   - F-3 major：emitted 证据不能用仓内测试复现，completed 路径没覆盖 → 改由测试再生成，覆盖 completed；字节级确定性按 QA PARTIAL 处理。
   - F-4 major：没有运行期 deadline，ISO 解析过窄 → 在 `fce2463c` 补上，变异 101。
   - F-5 major（前瞻）：stub 的 final payload 不能被 TS host 消费 → 按 DECISION 延到 PR-B（B4 前置）。
-- R2：原始文件缺失。R2b 原文写明挡 ready 的两个 major 是 R2-1（future/attempt/min 只锁了单侧）和 R2-2（仓内 evidence 过期）。
+- R2（tip `fce2463c`）：**conditional_pass**。Round-2 的 14 条标准全部成立；F-5 延到 PR-B。新问题：2 major（R2-1：F-4 锁定只覆盖一侧；R2-2：`evidence/t-p1-01/` 是过期快照），3 minor（R2-3..R2-5），5 nit（R2-6..R2-10）。放行条件：修好 R2-1 与 R2-2，且 QA 重跑 S1–S3 变异，每条 exit 101。来源 `.review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT_R2.md`（本地证据，未入库）。
 - R2b（`d43acb9e` / content `16b274aa`）：**pass**，建议 ready。R2-1、R2-2 关闭；新增 R2b-1 minor 和 R2b-2…5 nit。
 **遗留**
 - F-5 → PR-B（#18），作为 B4 前置必过项。
@@ -103,17 +103,17 @@ Rust agent-loop crate（S0–S2 stdio）。（摘自 PR 标题/任务清单；�
 | `16b274aa` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-16b274aa/SUMMARY.md`（本地证据，未入库） |
 | `d43acb9e` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-d43acb9e/SUMMARY.md`（本地证据，未入库） |
 | `82b5644d` | PASS（CI web 失败未关） | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-82b5644d/SUMMARY.md`（本地证据，未入库） |
-| `e190eda1` | merge gate PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-e190eda1/SUMMARY.md`（本地证据，未入库） |
+| `e190eda1` | merge gate PASS | `/workspace/pilotdeck-rust/review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-e190eda1/SUMMARY.md` |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
 | R1 | fail | [review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT.md](../../../review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT.md) |
-| R2 | 原始文件不在本机，待补 | REVIEW_RESULT_R2.md（R2b 原文引用） |
+| R2（`fce2463c`） | conditional_pass | `.review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT_R2.md`（本地证据，未入库） |
 | R2b | pass | `review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT_R2b.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
-待补
+R2 放行条件：修好 R2-1 与 R2-2，且 QA 重跑 S1–S3 变异，每条 exit 101。R2-3..R2-5 为 minor，R2-6..R2-10 为 nit。
 
 ## 合并后桌面 smoke
 无

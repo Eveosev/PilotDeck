@@ -76,7 +76,7 @@ Desktop 打包 hello Rust 二进制（extraResources / PKG-14）。（摘自 PR 
 |---|---|---|
 | `3f53c5ad` | PASS | `review/2026-10-12-T-P0a-05-desktop-hello/evidence/qa-gate-3f53c5ad/SUMMARY.md`（本地证据，未入库） |
 | `6304160c` | PASS | `review/2026-10-12-T-P0a-05-desktop-hello/evidence/qa-gate-6304160c/SUMMARY.md`（本地证据，未入库） |
-| `a54a0ae2` | PASS | `review/2026-10-12-T-P0a-05-desktop-hello/evidence/qa-gate-a54a0ae2/SUMMARY.md`（本地证据，未入库） |
+| `a54a0ae2` | PASS | `/workspace/pilotdeck-rust/review/2026-10-12-T-P0a-05-desktop-hello/evidence/qa-gate-a54a0ae2/SUMMARY.md` |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
