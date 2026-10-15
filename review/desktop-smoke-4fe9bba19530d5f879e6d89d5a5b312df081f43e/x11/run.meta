@@ -1,0 +1,8 @@
+backend=x11
+sha=4fe9bba19530d5f879e6d89d5a5b312df081f43e
+command=timeout 600 bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11
+exit=0
+seconds=28.406
+start_utc=2026-10-15T13:15:41.474Z
+end_utc=2026-10-15T13:16:09.880Z
+screenshots=9

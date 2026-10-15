@@ -1,0 +1,14 @@
+head=4fe9bba19530d5f879e6d89d5a5b312df081f43e
+subject=Merge pull request #44 from Eveosev/docs-rust-rebuild-fu
+parents=8cffa40d61da84215ff8776ac2ef25002f2d3b11 66465d3977a93aa280bfc7a20c8d6b3211c9a89b
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+commit_date=2026-10-15T21:10:31+08:00
+pr44_reviewed_tip=66465d39; pr44_merged_head=66465d39 (docs-only FU)
+branch=rust_standalone_alpha1 (detached worktree at merge SHA)
+remote=https://github.com/Eveosev/PilotDeck.git
+merged_pr=https://github.com/Eveosev/PilotDeck/pull/44
+diff_vs_prev_mainline_8cffa40d=6 files, all docs/rust_rebuild/**
+smoke_script_sha256=3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825
+smoke_mjs_sha256=89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130
+worktree_dirty_tracked=0
