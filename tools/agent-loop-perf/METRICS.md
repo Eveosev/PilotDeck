@@ -103,6 +103,7 @@ host `AgentLoopSidecarRunner.run` 里的 `Promise.race([iterator.next(), sleep(5
 - 默认 **关闭** 人为 `delays` / `toolDelays`（全部覆写为 `0`），测基础设施而非注入延迟。
 - 无法关闭的场景：`delay_injected=true`，不进入主基线表（`primaryBaseline` / `excludedFromPrimary`）。
 - `--keep-delays` 保留场景原值；此时若仍有正延迟，该场景同样标 `delay_injected=true`。
+- **T-P1-05** 用 `--model-ms 200`：三条路径（native / TS-tcp / Rust-tcp）同一套 mock，`delays.modelMs=200`。对照写 **raw** 与 **net-of-delay**（`total − configuredModelMs × 该样本 model 次数`；流块只从 interval[0] 扣）。D4 = `max(native 净 P95×10%, 5ms)`，**只看净数**。delay-0 的 `evidence/perf-baseline/tcp.json` 只作形态参考，不直接比。`--model-ms` 场景 `delay_injected=true`，不进 T-P0a-03 `primaryBaseline`；对照读 `comparisonBaseline`。
 
 `pure_text` 与 `single_tool` 本身没有 delays，零化后 `delay_injected=false`，进入主基线表。
 

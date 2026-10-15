@@ -30,6 +30,37 @@ python3 tools/agent-loop-perf/run.py \
 
 默认场景：`pure_text,single_tool`。默认会把 `delays.*` / `toolDelays.*` 置 0。提交证据前必须在干净工作树上采集（`gitDirty=false`，`gitSha`/`collectSha` = 当时 HEAD）；脏树会直接拒绝，除非 `--allow-dirty`。
 
+T-P1-05 对照（三条路径同一套 `modelMs:200`，同时报 raw 与 net-of-delay）：
+
+```bash
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports native \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p1-05/native
+
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports tcp \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p1-05/ts-tcp
+
+python3 tools/agent-loop-perf/run.py \
+  --pilotdeck-root "$PWD" \
+  --transports tcp \
+  --pilotdeck-tcp-sidecar-cmd tools/agent-loop-parity/rust-tcp-sidecar.sh \
+  --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 \
+  --model-ms 200 \
+  --iterations 30 \
+  --output /tmp/t-p1-05/rust-tcp
+```
+
+`--model-ms 200` 场景 `delay_injected=true`，不进 T-P0a-03 `primaryBaseline`；读 `comparisonBaseline` 以及 `*_net_of_model_ms`。D4 用净 P95。delay-0 的 `evidence/perf-baseline/*.json` 只作形态参考。
+
 ## 抽样复跑（QA）
 
 ```bash

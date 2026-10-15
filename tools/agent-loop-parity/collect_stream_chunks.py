@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Collect T-P1-04 stream-chunk artifacts for 1 / 50 / 500 Unicode chars.
+"""Collect T-P1-04/05 stream-chunk artifacts for 1 / 50 / 500 Unicode chars.
 
 Parameter entry is only `scenarios[].streamChunkChars` (not env, not tokens).
-T-P1-05 consumes `evidence/p1/stream-chunks-{1,50,500}.json`. This helper does
-not write a go-nogo decision.
+Planned mode writes `evidence/p1/stream-chunks-{1,50,500}.json`. Live
+`--run-gateway` writes `stream-chunks-live-{transport}-{chars}.json` with
+`source=sidecar|native` (never `gateway`) and net-of-delay intervals.
+This helper does not write a go-nogo decision.
 """
 from __future__ import annotations
 
@@ -112,29 +114,52 @@ def perf_path_for(trace: Path) -> Path:
     return Path(str(trace) + ".perf.json")
 
 
-def select_run_gateway_trace(raw: Path, scenario_id: str) -> dict[str, Any]:
-    """Pick the trace that actually exists. `source=gateway` only for sidecar.
+def select_run_gateway_trace(
+    raw: Path,
+    scenario_id: str,
+    *,
+    prefer: str = "sidecar",
+) -> dict[str, Any]:
+    """Pick the trace that actually exists. Sidecar traces are `source=sidecar`.
 
     Native-only traces are kept (source=native) with their own perf snapshot.
-    Missing both is an error: the caller must not write a gateway-labelled artifact.
+    Missing the preferred trace is an error: do not mislabel sidecar as native
+    (or the reverse). Missing both is also an error.
     """
+    if prefer not in {"sidecar", "native"}:
+        raise ValueError(f"prefer must be sidecar or native, got {prefer!r}")
     sidecar = sidecar_trace_path(raw, scenario_id)
     native = native_trace_path(raw, scenario_id)
-    if sidecar.is_file():
-        return {
-            "trace_summary": summarize_trace(sidecar),
-            "perf": load_perf_snapshot(perf_path_for(sidecar)),
-            "source": "gateway",
-        }
+    if prefer == "sidecar":
+        if sidecar.is_file():
+            return {
+                "trace_summary": summarize_trace(sidecar),
+                "perf": load_perf_snapshot(perf_path_for(sidecar)),
+                "source": "sidecar",
+            }
+        if native.is_file():
+            raise FileNotFoundError(
+                f"no sidecar trace for {scenario_id} under {raw} "
+                f"(native-only {native.name}; pass --trace-source native)"
+            )
+        raise FileNotFoundError(
+            f"no sidecar or native trace for {scenario_id} under {raw}: "
+            f"missing {sidecar.name} and {native.name}"
+        )
     if native.is_file():
         return {
             "trace_summary": summarize_trace(native),
             "perf": load_perf_snapshot(perf_path_for(native)),
             "source": "native",
         }
+    if sidecar.is_file():
+        raise FileNotFoundError(
+            f"no native trace for {scenario_id} under {raw} "
+            f"(sidecar-only {sidecar.name}; pass --trace-source sidecar)"
+        )
     raise FileNotFoundError(
-        f"no gateway/sidecar or native trace for {scenario_id} under {raw}: "
-        f"missing {sidecar.name} and {native.name}"
+        f"no native or sidecar trace for {scenario_id} under {raw}: "
+        f"missing {native.name} and {sidecar.name}"
     )
 
 
@@ -169,7 +194,34 @@ def looks_like_rust_tcp_sidecar(command: str | None) -> bool:
     lowered = command.lower()
     if "node " in lowered or lowered.endswith(".js"):
         return False
-    return any(token in lowered for token in ("/target/", "pilotdeck-agent-loop-sidecar", "rust"))
+    return any(token in lowered for token in ("/target/", "pilotdeck-agent-loop-sidecar", "rust-tcp-sidecar", "rust"))
+
+
+def configured_model_ms(scenario: dict[str, Any]) -> float:
+    delays = scenario.get("delays")
+    if not isinstance(delays, dict):
+        return 0.0
+    try:
+        return float(delays.get("modelMs") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def net_stream_chunk_ms(intervals: list[Any], model_ms: float) -> list[float]:
+    """Subtract configured modelMs from interval[0] only (C4)."""
+    raw = [
+        float(item)
+        for item in intervals
+        if isinstance(item, (int, float)) and not isinstance(item, bool)
+    ]
+    if not raw:
+        return []
+    return [round(raw[0] - float(model_ms), 3), *[round(item, 3) for item in raw[1:]]]
+
+
+def live_artifact_path(output: Path, chars: int, transport: str | None) -> Path:
+    label = transport or "unknown"
+    return output / f"stream-chunks-live-{label}-{chars}.json"
 
 
 def infer_transport(
@@ -213,6 +265,17 @@ def artifact_notes() -> dict[str, str]:
             "count from the perf snapshot; observed n_text_deltas is user.output count. "
             "They may differ if Gateway/sidecar coalesces deltas."
         ),
+        "sourceLabels": (
+            "source=sidecar is a sidecar trace (Rust-tcp / TS-tcp / stdio). "
+            "source=native is the native Gateway adapter. source=planned-from-scenario "
+            "is fixture-derived and not a live run. Sidecar traces are never labelled gateway."
+        ),
+        "netOfDelay": (
+            "stream_chunk_ms is raw Gateway-observed intervals. "
+            "stream_chunk_ms_net_of_model_ms subtracts configured delays.modelMs "
+            "from interval[0] only (later intervals are forwarding). "
+            "T-P1-05 D4 is judged on the net-of-delay number."
+        ),
         "plannedOracle": (
             "In planned mode firstDeltaBeforeProviderCompletion and "
             "outputContainsSTREAM_PREFIX are null (not evaluated). Live --run-gateway "
@@ -232,8 +295,10 @@ def artifact_for(
 ) -> dict[str, Any]:
     deltas = planned_deltas(scenario)
     body = mock_answer(scenario)
+    raw_intervals = list((perf or {}).get("stream_chunk_ms") or [])
+    model_ms = configured_model_ms(scenario)
     payload = {
-        "task": "T-P1-04",
+        "task": "T-P1-05" if source != "planned-from-scenario" else "T-P1-04",
         "fieldPath": STREAM_CHUNK_FIELD_PATH,
         "unit": "chars",
         "streamChunkChars": chars,
@@ -244,7 +309,9 @@ def artifact_for(
         "n_body_chunks": len(deltas) - 1,
         "bodyChars": len(list(body)),
         "firstDelta": STREAM_PREFIX,
-        "stream_chunk_ms": (perf or {}).get("stream_chunk_ms") or [],
+        "stream_chunk_ms": raw_intervals,
+        "stream_chunk_ms_net_of_model_ms": net_stream_chunk_ms(raw_intervals, model_ms),
+        "configuredModelMs": model_ms,
         "perf_n_chunks": (perf or {}).get("n_chunks"),
         "source": source,
         "transport": transport,
@@ -283,7 +350,24 @@ def run_gateway(chars: int, output: Path, pilotdeck_root: Path, extra_args: list
         "--output", str(dest),
         *extra_args,
     ]
-    subprocess.run(command, check=True, env=env)
+    completed = subprocess.run(command, check=False, env=env)
+    sidecar = sidecar_trace_path(dest, scenario_id)
+    native = native_trace_path(dest, scenario_id)
+    if not sidecar.is_file() and not native.is_file():
+        raise FileNotFoundError(
+            f"run.py exited {completed.returncode} without sidecar or native traces "
+            f"for {scenario_id} under {dest}"
+        )
+    if completed.returncode != 0:
+        print(
+            json.dumps({
+                "event": "run-gateway-nonzero",
+                "scenarioId": scenario_id,
+                "returncode": completed.returncode,
+                "note": "traces exist; comparison/oracle failure does not block live collect",
+            }, ensure_ascii=False),
+            file=sys.stderr,
+        )
     return dest
 
 
@@ -327,6 +411,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="run_gateway_args",
         help="Extra raw arg forwarded to run.py (repeatable).",
     )
+    parser.add_argument(
+        "--trace-source",
+        choices=("sidecar", "native"),
+        default="sidecar",
+        help=(
+            "Which --run-gateway trace to label. sidecar traces are source=sidecar "
+            "(never gateway). native traces are source=native. Missing the chosen "
+            "trace exits 1 without writing artifacts."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -349,7 +443,11 @@ def collect_prepared(args: argparse.Namespace) -> list[tuple[int, dict[str, Any]
         selected: dict[str, Any] | None = None
         if args.run_gateway:
             raw = run_gateway(chars, args.output, args.pilotdeck_root, extra_args)
-            selected = select_run_gateway_trace(raw, scenario["scenarioId"])
+            selected = select_run_gateway_trace(
+                raw,
+                scenario["scenarioId"],
+                prefer=args.trace_source,
+            )
         prepared.append((chars, scenario, selected))
     return prepared
 
@@ -358,14 +456,15 @@ def write_collected(
     args: argparse.Namespace,
     prepared: list[tuple[int, dict[str, Any], dict[str, Any] | None]],
 ) -> None:
+    live = any(selected is not None for _, _, selected in prepared)
     collected: dict[str, Any] = {
-        "task": "T-P1-04",
+        "task": "T-P1-05" if live else "T-P1-04",
         "fieldPath": STREAM_CHUNK_FIELD_PATH,
         "unit": "chars",
         "collectedAt": datetime.now(timezone.utc).isoformat(),
         "t_p1_05": (
-            "T-P1-05 consumes evidence/p1/stream-chunks-{1,50,500}.json. "
-            "This PR does not write go-nogo."
+            "T-P1-05 consumes live stream-chunks-live-*.json plus turn/model JSON. "
+            "This collector does not write a go-nogo decision."
         ),
         "variants": {},
     }
@@ -392,14 +491,23 @@ def write_collected(
             source=source,
             transport=transport,
         )
-        dest = args.output / f"stream-chunks-{chars}.json"
+        dest = (
+            live_artifact_path(args.output, chars, transport)
+            if live
+            else args.output / f"stream-chunks-{chars}.json"
+        )
         dest.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         collected["variants"][str(chars)] = str(dest)
         print(json.dumps(
             {"wrote": str(dest), "n_chunks": artifact["n_chunks"], "source": source, "transport": transport},
             ensure_ascii=False,
         ))
-    index = args.output / "stream-chunks-index.json"
+    index_name = (
+        f"stream-chunks-live-{transport or 'unknown'}-index.json"
+        if live
+        else "stream-chunks-index.json"
+    )
+    index = args.output / index_name
     index.write_text(json.dumps(collected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 

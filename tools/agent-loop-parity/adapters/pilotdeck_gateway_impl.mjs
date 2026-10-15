@@ -6,9 +6,8 @@ import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
 import {
   isLiveModelStreamScenario,
-  liveStreamTextDeltas,
   resolveStreamChunkChars,
-  yieldLiveModelStreamDeltas,
+  yieldAdapterLiveModelStream,
 } from "../stream-chunks.mjs";
 
 function createNoopPerfCollector() {
@@ -327,16 +326,16 @@ class MockModelRuntime {
     };
     if (isLiveModelStreamScenario(scenario)) {
       const streamChunkChars = resolveStreamChunkChars(scenario);
-      yield { type: "request_started", provider: request.provider, model: request.model };
-      yield { type: "message_start", role: "assistant" };
       let message;
-      for await (const event of yieldLiveModelStreamDeltas({
+      const stream = yieldAdapterLiveModelStream({
         awaitProvider: async () => {
           const response = await awaitModelResponse();
           message = response.choices[0].message;
           return message.content ?? "";
         },
         streamChunkChars,
+        provider: request.provider,
+        model: request.model,
         onFirstDelta: () => {
           push("model.stream", { agentScope, state: "first_delta", streamChunkChars });
         },
@@ -344,19 +343,22 @@ class MockModelRuntime {
           push("model.stream", { agentScope, state: "provider_completed" });
           push("model.response", { agentScope, attempt, modelView: message, response: message });
         },
-      })) {
-        yield event;
-      }
-      const deltas = liveStreamTextDeltas(message?.content ?? "", streamChunkChars);
-      push("model.stream", {
-        agentScope,
-        state: "chunks",
-        n_chunks: deltas.length,
-        streamChunkChars,
-        stream_chunk_unit: "chars",
-        streamChunkFieldPath: "scenarios[].streamChunkChars",
+        onChunks: (deltas) => {
+          push("model.stream", {
+            agentScope,
+            state: "chunks",
+            n_chunks: deltas.length,
+            streamChunkChars,
+            stream_chunk_unit: "chars",
+            streamChunkFieldPath: "scenarios[].streamChunkChars",
+          });
+        },
       });
-      yield { type: "message_end", finishReason: "stop" };
+      let next = await stream.next();
+      while (!next.done) {
+        yield next.value;
+        next = await stream.next();
+      }
       return;
     }
     const response = await awaitModelResponse();
