@@ -1,0 +1,12 @@
+head=019a527aa1f986ed27de35f4e4f7092625a5f3fe
+subject=Merge pull request #40 from Eveosev/ft-1-stream-next
+parents=1d7c806846386c16274e0549e156b142f4930a6f d8366d7f9543282c1545d00b233cb63e79d9c06c
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+commit_date=2026-10-15T17:46:26+08:00
+branch=rust_standalone_alpha1 (detached worktree at merge SHA)
+remote=https://github.com/Eveosev/PilotDeck.git
+merged_pr=https://github.com/Eveosev/PilotDeck/pull/40
+smoke_script_sha256=3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825
+smoke_mjs_sha256=89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130
+worktree_dirty_tracked=0

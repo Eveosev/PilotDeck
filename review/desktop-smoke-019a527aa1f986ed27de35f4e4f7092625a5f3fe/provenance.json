@@ -1,0 +1,31 @@
+{
+  "sha": "019a527aa1f986ed27de35f4e4f7092625a5f3fe",
+  "repo": "https://github.com/Eveosev/PilotDeck",
+  "branch": "rust_standalone_alpha1",
+  "merged_pr": 40,
+  "parents": [
+    "1d7c806846386c16274e0549e156b142f4930a6f",
+    "d8366d7f9543282c1545d00b233cb63e79d9c06c"
+  ],
+  "runner": "Grok Bot shared box, local run (no CloudAgent tool available to this executor; GHA disabled)",
+  "entry": "apps/desktop/scripts/run-linux-chrome-smoke.sh (unmodified)",
+  "script_sha256": "3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825",
+  "smoke_mjs_sha256": "89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130",
+  "weston_log_capture": "20ms poller copying /tmp/tmp.*/weston.log before EXIT trap rm -rf (weston-copy-trace.txt)",
+  "runs": {
+    "x11": {
+      "exit": 0,
+      "seconds": 21.674,
+      "start": "2026-10-15T09:52:00.890Z",
+      "end": "2026-10-15T09:52:22.564Z",
+      "screenshots": 9
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 25.751,
+      "start": "2026-10-15T09:52:22.584Z",
+      "end": "2026-10-15T09:52:48.334Z",
+      "screenshots": 9
+    }
+  }
+}
