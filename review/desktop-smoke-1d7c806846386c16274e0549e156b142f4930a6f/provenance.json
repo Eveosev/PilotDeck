@@ -1,0 +1,67 @@
+{
+  "sha": "1d7c806846386c16274e0549e156b142f4930a6f",
+  "branch": "rust_standalone_alpha1",
+  "evidenceBranch": "cursor/desktop-smoke-post-37-e1cf",
+  "gitDirty": false,
+  "gitDirtyNote": "Product paths were clean at checkout of 1d7c806846386c16274e0549e156b142f4930a6f. At smoke start the only porcelain was this untracked evidence directory.",
+  "gitStatusPorcelainAtCheckout": "",
+  "gitStatusPorcelainAtSmokeStart": "?? review/desktop-smoke-1d7c806846386c16274e0549e156b142f4930a6f/",
+  "timestamps": {
+    "ghaVerboseDispatchUtc": "2026-10-15T07:41:08Z",
+    "x11StartUtc": "2026-10-15T07:41:55.405964321Z",
+    "x11EndUtc": "2026-10-15T07:42:18.280624081Z",
+    "waylandStartUtc": "2026-10-15T07:42:18.301632993Z",
+    "waylandEndUtc": "2026-10-15T07:42:39.646916241Z"
+  },
+  "commands": [
+    "gh workflow run desktop-smoke.yml --ref 1d7c806846386c16274e0549e156b142f4930a6f",
+    "gh workflow run desktop-linux.yml --ref 1d7c806846386c16274e0549e156b142f4930a6f",
+    "gh api --verbose --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-smoke.yml/dispatches -f ref=1d7c806846386c16274e0549e156b142f4930a6f",
+    "gh api --verbose --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches -f ref=1d7c806846386c16274e0549e156b142f4930a6f",
+    "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+    "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland"
+  ],
+  "setupCommandsBeforeSmoke": [
+    "pnpm install --frozen-lockfile",
+    "pnpm --filter pilotdeck-desktop run compile",
+    "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y weston inotify-tools libgl1-mesa-dri dbus-x11 xvfb xauth x11-utils"
+  ],
+  "westonLogCopy": {
+    "productScriptModified": false,
+    "method": "External copier polled /tmp/tmp.*/weston.log every 20ms and copied it to weston.log while the smoke script was still running. The script itself was not edited. Its EXIT trap still deletes the temp directory.",
+    "sourcePath": "/tmp/tmp.GA4LLj4t3Z/weston.log",
+    "retainedPath": "weston.log",
+    "lastCopyUtc": "2026-10-15T07:42:39.615144304Z",
+    "bytes": 1973,
+    "sha256": "64ff50bf3f6b596d776e91c408038ecb6ad4c9440f21a42c6a47562ef182c988",
+    "includesSigtermShutdown": true,
+    "deleteWatcherLine": "not recorded; inotifywait was started on the live file but did not flush a delete line into weston-copy-trace.txt. The retained log still contains weston's 'caught signal 15' shutdown lines, copied at 07:42:39.615Z, before the script's rm -rf."
+  },
+  "ghaDispatch": {
+    "desktop-smoke.yml": {
+      "httpStatus": 403,
+      "message": "Resource not accessible by integration",
+      "acceptedPermissions": "actions=write",
+      "transcript": "gha/desktop-smoke.dispatch.http",
+      "workflowRunStderr": "gha/desktop-smoke.dispatch.err"
+    },
+    "desktop-linux.yml": {
+      "httpStatus": 403,
+      "message": "Resource not accessible by integration",
+      "transcript": "gha/desktop-linux.dispatch.http",
+      "note": "gh workflow run desktop-linux.yml first returned HTTP 404 because that file is workflow_call and is not registered on the default branch. The dispatch POST for this SHA returned HTTP 403. Both transcripts are saved.",
+      "workflowRunStderr": "gha/desktop-linux.dispatch.err"
+    },
+    "outcome": "403",
+    "localFallback": true
+  },
+  "n": { "x11": 1, "wayland": 1 },
+  "bannedWorkaroundsUsed": [],
+  "notes": [
+    "No --disable-gpu, no global throttle, and apps/desktop/src/main.ts was not edited (including line 536).",
+    "Issue #14 (Wayland File-click hang) is not claimed fixed. N=1 chrome smoke is not the N=300 file-click gate.",
+    "Electron 42.11.1 was already installed before these two smoke commands, so the wall times do not include an electron download.",
+    "An outer `timeout 600` watchdog wrapped each smoke command so a stuck process could be recorded. Both commands exited 0 on their own; the watchdog did not fire.",
+    "SHA256SUMS covers every file in this directory except itself."
+  ]
+}

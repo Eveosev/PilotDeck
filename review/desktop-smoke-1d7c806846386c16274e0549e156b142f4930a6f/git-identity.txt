@@ -1,0 +1,14 @@
+HEAD=1d7c806846386c16274e0549e156b142f4930a6f
+HEAD_starts_with_1d7c8068=yes
+subject=Merge pull request #37 from Eveosev/cursor/t-p1-05-go-nogo-8ffb
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+author_date=2026-10-15T15:31:18+08:00
+committer=GitHub <noreply@github.com>
+committer_date=2026-10-15T15:31:18+08:00
+checked_out_branch_at_verification=rust_standalone_alpha1
+evidence_branch=cursor/desktop-smoke-post-37-e1cf
+base_branch=rust_standalone_alpha1
+product_git_dirty_at_checkout=no
+porcelain_at_checkout=
+porcelain_at_smoke_start=?? review/desktop-smoke-1d7c806846386c16274e0549e156b142f4930a6f/
+note=At smoke start the only porcelain was this untracked evidence directory. No product path was modified. apps/desktop/src/main.ts was not edited.

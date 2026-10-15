@@ -1,0 +1,53 @@
+COMMAND: gh api --verbose --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches -f ref=1d7c806846386c16274e0549e156b142f4930a6f
+* Request at 2026-10-15 07:41:08.654900058 +0000 UTC m=+0.046696778
+* Request to https://api.github.com/repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches
+> POST /repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches HTTP/1.1
+> Host: api.github.com
+> Accept: */*
+> Authorization: token ████████████████████
+> Content-Length: 50
+> Content-Type: application/json; charset=utf-8
+> Time-Zone: Etc/UTC
+> User-Agent: GitHub CLI 2.102.0 Agent/cursor-cli
+> X-Github-Api-Version: 2022-11-28
+
+{
+  "ref": "1d7c806846386c16274e0549e156b142f4930a6f"
+}
+
+< HTTP/2.0 403 Forbidden
+< Access-Control-Allow-Origin: *
+< Access-Control-Expose-Headers: ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+< Content-Security-Policy: default-src 'none'
+< Content-Type: application/json; charset=utf-8
+< Date: Thu, 15 Oct 2026 07:41:08 GMT
+< Deprecation: Tue, 10 Mar 2026 00:00:00 GMT
+< Link: <https://docs.github.com/en/rest/about-the-rest-api/api-versions>; rel="deprecation"; type="text/html"
+< Referrer-Policy: origin-when-cross-origin, strict-origin-when-cross-origin
+< Server: github.com
+< Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+< Sunset: Fri, 10 Mar 2028 00:00:00 GMT
+< Vary: Accept-Encoding, Accept, X-Requested-With
+< X-Accepted-Github-Permissions: actions=write
+< X-Content-Type-Options: nosniff
+< X-Frame-Options: deny
+< X-Github-Api-Version-Selected: 2022-11-28
+< X-Github-Edge-Region: iad
+< X-Github-Media-Type: github.v3; format=json
+< X-Github-Request-Id: 68BC:2E2A0C:2163640:6D3A410:6AD08394
+< X-Ratelimit-Limit: 5000
+< X-Ratelimit-Remaining: 4984
+< X-Ratelimit-Reset: 1792052726
+< X-Ratelimit-Resource: core
+< X-Ratelimit-Used: 16
+< X-Xss-Protection: 0
+
+{
+  "message": "Resource not accessible by integration",
+  "documentation_url": "https://docs.github.com/rest/actions/workflows#create-a-workflow-dispatch-event",
+  "status": "403"
+}
+
+* Request took 172.536776ms
+gh: Resource not accessible by integration (HTTP 403)
+EXIT:1

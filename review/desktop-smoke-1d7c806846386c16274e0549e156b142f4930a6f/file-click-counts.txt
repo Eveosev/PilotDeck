@@ -1,0 +1,25 @@
+x11.fileClickTimeoutCount=null
+x11.fileClickStableCount=null
+wayland.fileClickTimeoutCount=null
+wayland.fileClickStableCount=null
+
+unavailable_reason:
+The mandated commands were `bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11` and
+`bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland` (N=1 each). Those commands
+run ui/e2e/desktop-chrome.smoke.mjs. That script does not print file-click timeout or
+stable counters. Searched x11-smoke.out.txt, x11-smoke.err.txt, wayland-smoke.out.txt,
+and wayland-smoke.err.txt: no line contains "timeout", "stable", "trulyHung",
+"WAYLAND_FILE_CLICK_GATE", or "WAYLAND_FILE_DIAG_RELAUNCH_STATS".
+
+Those counters are emitted only by ui/e2e/desktop-chrome.relaunch-gate.mjs
+(WAYLAND_FILE_DIAG_RELAUNCH_STATS / WAYLAND_FILE_CLICK_GATE), which this run did not
+execute. The desktop-smoke.yml file-click gate is a different job (Wayland N=300,
+X11 N=100). This task fixed N=1 on the chrome smoke scripts, so the gate counts are
+unavailable. null is the measured value, not a substitute number.
+
+observation_not_a_count:
+Both processes exited 0. The smoke source clicks the workspace Files button once and
+then continues through settings, theme, language, and onboarding screenshots. Later
+screenshots exist for both backends, so that single click did not throw before the
+rest of the suite. That is not a timeout/stable trial count. Issue #14 (Wayland
+File-click hang) is not claimed fixed.
