@@ -1,0 +1,10 @@
+capturedAtUtc=2026-10-15T01:50:21Z
+gitRevParseHead=f4e40243533b6db423fe8da03e2475ee82c8e51d
+gitRevParseFull=f4e40243533b6db423fe8da03e2475ee82c8e51d
+gitLog1=f4e40243533b6db423fe8da03e2475ee82c8e51d f376b4a5b6c487367a9671ddb47fd2fefe9eba8a bbe50045c3270abc3c153bc6dd2dfa480889c68a Merge pull request #32 from Eveosev/cursor/t-p1-03-fu-b-37eb
+gitStatusPorcelainBytes=0
+gitStatusPorcelain=
+branch=cursor/desktop-smoke-f4e40243-97b1
+origin/rust_standalone_alpha1=f4e40243533b6db423fe8da03e2475ee82c8e51d
+gitDirty=false
+note=Identity captured on the merge commit before any evidence files were written.
