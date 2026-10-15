@@ -64,26 +64,26 @@ Rust agent-loop crate（S0–S2 stdio）。（摘自 PR 标题/任务清单；�
 ## 影响面
 涉及顶层目录：`Cargo.lock`、`Cargo.toml`、`crates`、`evidence`、`review`。产品代码/仅工具证据的判断：含产品代码（src/、apps/、ui/ 或 crates/）。
 
-> 原文路径相对本机审阅目录 `/workspace/pilotdeck-rust/`（部分目录也随 PR 入库到仓库 `review/`）；入库前需核对仓库内是否存在。
+> QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `5ea8d3ce` | PASS（2 个覆盖缺口给 Reviewer） | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-5ea8d3ce/SUMMARY.md` |
-| `804b9ed5` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-804b9ed5/SUMMARY.md` |
-| `846402ac` | CONDITIONAL PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-846402ac/SUMMARY.md` |
-| `fce2463c` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-fce2463c/SUMMARY.md` |
-| `16b274aa` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-16b274aa/SUMMARY.md` |
-| `d43acb9e` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-d43acb9e/SUMMARY.md` |
-| `82b5644d` | PASS（CI web 失败未关） | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-82b5644d/SUMMARY.md` |
-| `e190eda1` | merge gate PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-e190eda1/SUMMARY.md` |
+| `5ea8d3ce` | PASS（2 个覆盖缺口给 Reviewer） | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-5ea8d3ce/SUMMARY.md`（本地证据，未入库） |
+| `804b9ed5` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-804b9ed5/SUMMARY.md`（本地证据，未入库） |
+| `846402ac` | CONDITIONAL PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-846402ac/SUMMARY.md`（本地证据，未入库） |
+| `fce2463c` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-fce2463c/SUMMARY.md`（本地证据，未入库） |
+| `16b274aa` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-16b274aa/SUMMARY.md`（本地证据，未入库） |
+| `d43acb9e` | PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-d43acb9e/SUMMARY.md`（本地证据，未入库） |
+| `82b5644d` | PASS（CI web 失败未关） | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-82b5644d/SUMMARY.md`（本地证据，未入库） |
+| `e190eda1` | merge gate PASS | `review/2026-10-12-T-P1-01-rust-agent-loop/qa-gate-e190eda1/SUMMARY.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
-| R1 | fail | `review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT.md` |
+| R1 | fail | [review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT.md](../../../review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT.md) |
 | R2 | 原始文件不在本机，待补 | REVIEW_RESULT_R2.md（R2b 原文引用） |
-| R2b | pass | `review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT_R2b.md` |
+| R2b | pass | `review/2026-10-12-T-P1-01-rust-agent-loop/REVIEW_RESULT_R2b.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
 待补

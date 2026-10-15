@@ -25,12 +25,12 @@
 ## 影响面
 涉及顶层目录：`ui`。产品代码/仅工具证据的判断：含产品代码（src/、apps/、ui/ 或 crates/）。
 
-> 原文路径相对本机审阅目录 `/workspace/pilotdeck-rust/`（部分目录也随 PR 入库到仓库 `review/`）；入库前需核对仓库内是否存在。
+> QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `8d36b967` | G1/G2 PASS | `review/2026-10-12-desktop-no-drag-h1/qa-gate-8d36b967/SUMMARY.md` |
+| `8d36b967` | G1/G2 PASS | `review/2026-10-12-desktop-no-drag-h1/qa-gate-8d36b967/SUMMARY.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

@@ -37,23 +37,23 @@
 ## 影响面
 涉及顶层目录：`apps`、`review`。产品代码/仅工具证据的判断：含产品代码（src/、apps/、ui/ 或 crates/）。
 
-> 原文路径相对本机审阅目录 `/workspace/pilotdeck-rust/`（部分目录也随 PR 入库到仓库 `review/`）；入库前需核对仓库内是否存在。
+> QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `524cb673` | GATE PASS (code) | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-524cb673/SUMMARY.md` |
-| `46ca9718` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-46ca9718/SUMMARY.md` |
-| `c1eab0d5` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-c1eab0d5/SUMMARY.md` |
-| `918594b1` | merge gate PASS；CI 未全绿 | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-918594b1/SUMMARY.md` |
-| `12395bbe` | merge gate PASS；CI 未全绿（仅 CI-3） | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-12395bbe/SUMMARY.md` |
+| `524cb673` | GATE PASS (code) | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-524cb673/SUMMARY.md`（本地证据，未入库） |
+| `46ca9718` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-46ca9718/SUMMARY.md`（本地证据，未入库） |
+| `c1eab0d5` | PASS | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-c1eab0d5/SUMMARY.md`（本地证据，未入库） |
+| `918594b1` | merge gate PASS；CI 未全绿 | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-918594b1/SUMMARY.md`（本地证据，未入库） |
+| `12395bbe` | merge gate PASS；CI 未全绿（仅 CI-3） | `review/2026-10-12-desktop-sdk-runtime-fix/qa-gate-12395bbe/SUMMARY.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
-| R1 | conditionally yes（条件：Desktop dist / rust-hello CI 绿） | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT.md` |
-| R2 | conditional_pass | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT_R2.md` |
-| R3 | conditional_pass（R3-1 文档项 + CI） | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT_R3.md` |
+| R1 | conditionally yes（条件：Desktop dist / rust-hello CI 绿） | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT.md`（本地证据，未入库） |
+| R2 | conditional_pass | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT_R2.md`（本地证据，未入库） |
+| R3 | conditional_pass（R3-1 文档项 + CI） | `review/2026-10-12-desktop-sdk-runtime-fix/REVIEW_RESULT_R3.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
 R2 原文：F-5（映射/物化无单测）nit open；合并时 CI 未全绿

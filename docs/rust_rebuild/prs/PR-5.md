@@ -39,20 +39,20 @@
 ## 影响面
 涉及顶层目录：`evidence`、`scripts`。产品代码/仅工具证据的判断：仅工具/证据/文档/CI，无产品运行时代码。
 
-> 原文路径相对本机审阅目录 `/workspace/pilotdeck-rust/`（部分目录也随 PR 入库到仓库 `review/`）；入库前需核对仓库内是否存在。
+> QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `754bb192` | PASS（2 个非阻塞 follow-up） | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-754bb192/SUMMARY.md` |
-| `89ddfc66` | PASS | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-89ddfc66/SUMMARY.md` |
-| `34767840` | PASS | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-34767840/SUMMARY.md` |
+| `754bb192` | PASS（2 个非阻塞 follow-up） | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-754bb192/SUMMARY.md`（本地证据，未入库） |
+| `89ddfc66` | PASS | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-89ddfc66/SUMMARY.md`（本地证据，未入库） |
+| `34767840` | PASS | `review/2026-10-12-T-P0a-01-protocol-schema/evidence/qa-gate-34767840/SUMMARY.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
-| R1 | conditional_pass | `review/2026-10-12-T-P0a-01-protocol-schema/REVIEW_RESULT.md` |
-| R2 | pass | `review/2026-10-12-T-P0a-01-protocol-schema/REVIEW_RESULT_R2.md` |
+| R1 | conditional_pass | `review/2026-10-12-T-P0a-01-protocol-schema/REVIEW_RESULT.md`（本地证据，未入库） |
+| R2 | pass | `review/2026-10-12-T-P0a-01-protocol-schema/REVIEW_RESULT_R2.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
 QA 754bb192 列 2 个非阻塞 follow-up

@@ -37,7 +37,7 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 ## 影响面
 涉及顶层目录：`src`、`tests`、`tools`。产品代码/仅工具证据的判断：含产品代码（src/、apps/、ui/ 或 crates/）。
 
-> 原文路径相对本机审阅目录 `/workspace/pilotdeck-rust/`（部分目录也随 PR 入库到仓库 `review/`）；入库前需核对仓库内是否存在。
+> QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
 ## QA 结论
 | tip | 结论 | 原文 |
@@ -47,10 +47,10 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
-| R1 | fail（1 blocker/2 major/4 minor） | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT.md` |
-| R2 | pass | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R2.md` |
+| R1 | fail（1 blocker/2 major/4 minor） | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT.md`（本地证据，未入库） |
+| R2 | pass | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R2.md`（本地证据，未入库） |
 | R3–R6 | 原始文件不在本机，待补 | — |
-| R7 | pass | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md` |
+| R7 | pass | `review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
 待补（见各轮原文 minor）
