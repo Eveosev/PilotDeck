@@ -39,10 +39,31 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 
 > QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
+## 结论（据本地证据整理）
+
+**QA**
+- `57a43158`（qa-verify/VERDICT.md）：**PASS**（单测 57 OK、matrix-53 exit 0）；后因 Reviewer R1 fail 被标 **VOID**。
+- `c57b5261`（qa-verify-r1r3/VERDICT.md）：**PASS**。R1–R3 静态检查通过，cancel 20/20、matrix-53 exit 0。
+- `2223c8b7`（r7-lock-smoke + r7-full-ts）：**PASS**（R7 锁定范围）。三条锁 HEAD PASS / base FAIL；`sidecar-client.spec.js` 52/53，失败项为已知 tool-progress flake。
+**Reviewer**
+- R1（`57a43158`）：**fail**，1 blocker / 2 major / 4 minor。
+  - R1 blocker：比较器可交错通道远超 5 类 → 收紧为 5 类 + 严格 per-actor `core`，R2 轮关闭。
+  - R2 major：cancel 不稳定、靠放宽掩盖 → 恢复 `abortSignal`、`abort_turn` 失败记 `cancel.error`、mock 等产品 abort，R2 轮关闭。
+  - R3 major：「两侧 cancelled 即忽略 `turn_aborted`」放宽 → 已删除并加反向单测，R2 轮关闭。
+- R2（`c57b5261`）：**pass**，0 blocker / 0 major；新增 minor R2-1…R2-6；R4/R5/R7 仍开，R6 只能部分核实。R7 需 Payne 明确接受 `AgentLoop.ts` 对 stdio 所有 status 文案的改动。
+- R3–R6：原始文件缺失。
+- R7（`2223c8b7`）：**pass**，0 blocker / 0 major；三条锁与方案 A 一致，commit 只改测试；新增 minor R7-1…R7-3。
+**遗留**
+- R2-1（PR 正文对 durable 重排说法过宽）、R2-2、R2-3、R2-4/R4（`requireObservedDifferences` 死配置）、R5（summary 不记两侧 transport）、R6。
+- R2-5 / R2-6 / R7-2 / R7-3：证据补齐（probe 文件、test_trace stdout、base 上 tool-progress 结果、PR 正文 53/53 应改为与 QA 一致的 52/53）。
+- R7-1：在 HEAD 上跑一遍完整 TS 单测，确认没有其他测试锁住旧的 B0 形状。
+
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| — | 原始文件不在本机，待补 | — |
+| `57a43158` | PASS（后因 Reviewer R1 fail 被标 VOID） | `evidence/qa-verify/VERDICT.md`（本地证据，未入库） |
+| `c57b5261` | PASS | `evidence/qa-verify-r1r3/VERDICT.md`（本地证据，未入库） |
+| `2223c8b7` | PASS（R7 锁定范围） | `evidence/r7-lock-smoke/VERDICT.md`、`evidence/r7-full-ts/VERDICT.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

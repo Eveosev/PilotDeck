@@ -27,6 +27,19 @@
 
 > QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
+## 结论（据本地证据整理）
+
+**QA**
+- `8d36b967`（base `1da663a2`）：**PASS**（G1–G4）。
+  - diff 只有 `MainAreaV2.tsx` 新增 1 行，内容与 `f2b0ac60` 的同一行一致。
+  - `MainAreaV2.test.tsx:131` 在 base 上 FAIL、在 PR 上 PASS；删掉这行后又 FAIL。
+  - 参考 e2e：`:237` 通过，随后在 `:251` 失败（新的下游失败）。
+  - CI：Desktop 和 web 红。其中 DEB x64 的失败是 runtime 依赖不同步（base 漂移，由 #6 修复），与这一行无关。
+**Reviewer**
+- 所有轮次：原始文件缺失。
+**遗留**
+- `:251` 失败转由 #10 处理（e2e 缺 `/api/modules/runtime` mock）。
+
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|

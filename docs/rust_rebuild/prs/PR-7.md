@@ -38,6 +38,24 @@ Module Protocol 变更同步门禁（文档）。（摘自 PR 标题/任务清�
 
 > QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
+## 结论（据本地证据整理）
+
+**QA**
+- `3b5cf763`：**PASS**。G1–G7 通过：G2 抓到 stale 并重生成，G3 时 replay 以 exit 1 报出 53 个错配；范围只有 docs/evidence/review。
+- `9da4ee1d`（R2 增量）：**PASS**。按原文用 `bash -e` 连跑 exit 0；旧顺序对照 exit 2；Node 20 下 replay exit 9。F-5 只核了文档，没有实测改坏锚点。
+- `7bcee318`：**PASS**（CI pending）。R2-1…R2-7 通过；F-7 的 79 个删除文件 sha256 核对 0 不符。
+- `bbb88cb7`（同步 M=`7d488a1b`）：**PASS（结构）**。CI web 失败仍开（合并前就已失败）。
+- `f6d46add`（同步 M=`2c4420b4`）：**merge gate PASS**，CI 当时 pending。
+- **QA 未覆盖合并 head**：合并 head 是 `54e9d8b7`，比 QA 最后验过的 `f6d46add` 多了几个文档提交，本机没有对应记录。
+**Reviewer**
+- R1（`3b5cf763`）：**conditional_pass**，0 blocker / 2 major / 4 minor。
+  - F-1 major：replay 会改写已跟踪的报告，按 2→3→7 照抄执行时第二次 exit 2 → 改为「一次 replay → 拷贝 → restore → 只读副本」，R2 轮关闭。
+  - F-2 major：触发范围只写了 `protocol.ts`，漏了 lib 映射和语料源 → 补全适用范围，R2 轮关闭。
+- R2（`9da4ee1d`）：**conditional_pass**，R1 的 10 条里 9 条 closed，F-7 partially。新增 R2-1（CI `paths:` 列表漏了 schema 产物和依赖，ready 前修）、R2-2…R2-4 minor。R2-1…R2-7 在 `7bcee318` 经 QA 核为 PASS。
+**遗留**
+- F-5：锚点改坏时 exit 1 只做了文档核对 → 建议在 T-P0a-04 做 CI 时补负控制。
+- CI `paths:` 按 R2-1 补全后的列表落地，归 T-P0a-04。
+
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|

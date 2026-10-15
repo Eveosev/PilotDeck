@@ -47,6 +47,30 @@ Desktop 打包 hello Rust 二进制（extraResources / PKG-14）。（摘自 PR 
 
 > QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
+## 结论（据本地证据整理）
+
+**QA**
+- `3f53c5ad`：**PASS**。A1 cargo release、A2 `--rust-only`、A4 verify（hello→capabilities，transport=stdio）。
+- `6304160c`：**PASS**。默认不 opt-in 时跳过 cargo（R1），verify 断言 sidecar exit=0（R3）；rust-hello CI run 38181084640 success（1.83.0）。
+- `a54a0ae2`（合并 6304160c + 8a6d9b1a）：**PASS**。14 个文件均在 T-P0a-05 范围内；CI rust-hello success。Linux DEB x64 失败属 R2′ 旧债，不阻塞。
+**Reviewer**
+- R1（`3f53c5ad`）：**conditional_pass**，3 项 ready 前必修（R1/R2 中、R3 低-中），R4–R10 低/信息。
+  - R1：只要 PATH 上有 cargo 就自动 build，波及全平台（Windows `.exe`、arch、mac 签名、离线）→ 改为显式 opt-in，并修 `.exe` 命名，R2 轮关闭。
+  - R2：CI 结果缺失，`unstable` 原因不明 → R2 轮只关一半（见 R2′）。
+  - R3：verify 不断言 sidecar 干净退出 → 加 `exit.code===0` 断言，R2 轮关闭。
+- R2（`6304160c`）：**conditional_pass**，代码层无阻塞；唯一前置 R2′：贴出 check-runs 终态并说明非绿项。
+- 合并 head `a54a0ae2` 的 Reviewer 轮：原始文件缺失（本机只有 QA re-gate）。
+**遗留**
+- R1′：opt-in 后仍只按 host arch 编译，S1/S2 需要 `--target`。
+- R5′：PKG-14「随包存在」无 job 覆盖，排到 S3。
+- R6：`signIgnore` 断言偏严。
+- R7：PKG.md 路径偏差。
+- R8：toolchain 1.83.0 需 Arch 书面确认。
+- R11：两个 env 等价。
+- R12：verify 复用已 staged 的旧二进制。
+- R13：rust-hello 没有 push 触发。
+- 证据卫生：CLAIMS.md 需刷新。
+
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|

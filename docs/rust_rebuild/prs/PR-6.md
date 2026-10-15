@@ -39,6 +39,22 @@
 
 > QA / Reviewer 原文路径曾相对本机审阅目录 `/workspace/pilotdeck-rust/`。已按 `1d7c8068` 核对：仓库中存在的改为相对链接；不存在的保留原文并标「本地证据，未入库」。标「原始文件不在本机，待补」的行不补结论。
 
+## 结论（据本地证据整理）
+
+**QA**
+- `524cb673`（R2 gate）：**GATE PASS（代码）**。D1–D7 通过：base 上 manifest 失败、head 上通过；独立 resolver 结果 0 missing；staged runtime 启动 200。DEB x64/arm64 在 `desktop-chrome.smoke.mjs:237` 仍红，判为基线遗留。
+- `46ca9718`（R3 gate）：**PASS**。R2-1/R2-2/F-7 通过，删除的 37 个文件都有 sha256 记录。CI 当时还在排队。
+- `c1eab0d5`：**PASS**（CI pending）。只改 review/ 文档，R3-1 的 ID 冲突已拆开。
+- `918594b1`（主线同步后）：**merge gate PASS；CI 未全绿**。DEB x64/arm64 在 `:251` 失败，归因于 e2e mock 缺 `/api/modules/runtime`，不是产品 bug。
+- `12395bbe`（同步 #10，M=`a1cf6d81`）：**merge gate PASS；CI 只剩 CI-3（web）红**。CI-4（`:251`）已由 #10 关闭；CI-3 是基线既有问题。
+**Reviewer**
+- R1（`d60aee42`）：**conditional_pass**，0 blocker / 0 major / 4 minor / 3 nit。唯一合并条件是 F-3：mac/Win/DEB/RPM 的 CI 确认。
+- R2（`524cb673`）：**conditional_pass**，0 blocker / 0 major。`.mjs` 改写和构建内校验正确；DEB 红归因于 base merge `e07d451f`。新增 R2-1（测试复制逻辑而非 import）、R2-2（main guard），均为 minor。
+- R3（`46ca9718`）：**conditional_pass**，0 blocker / 0 major。R2-1、R2-2、F-7 关闭；新增 R3-1（PROGRESS 里 ID 冲突，只改文档）。
+**遗留**
+- 跟进项：R1 的 F-2（`rmSync` guard）、F-5（映射单测）、F-6；R2-3、R2-4；R3-2…R3-6；macOS/Windows 的 UI-server 启动冒烟（F-3 残余）。
+- CI-3（Web Regression）是基线技术债，合并时仍红，需要修复、排除或豁免。
+
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
