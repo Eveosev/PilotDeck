@@ -111,7 +111,7 @@ r2 四次 sidecar trace 的第一条预算事件和第一条 model.request（行
 - `review/2026-10-15-FT-1/live-logs/r2-chars-500/`
 - `review/2026-10-15-FT-1/live-logs/r2-default/`
 
-每个目录有 `tcp-sidecar.log`（二进制只打 `listening HOST:PORT`，见 `crates/pilotdeck-agent-loop/src/tcp.rs` 第 17 行 `eprintln!("listening {local}")`）、`model-stream-next.jsonl`（`harness.proof` / `module_call_received` / `model` / `stream_next`）、`fingerprint.json`。r2 的 stdout 没有路径和 pid：进程已经退出，harness 也没有记 `/proc/<pid>/exe`。`stream_next` 次数是 chars=1 为 102、50 为 26、500 为 8、默认为 6。
+每个目录有 `tcp-sidecar-listening.txt`（仓库 `.gitignore` 忽略 `*.log`，所以同内容的 `tcp-sidecar.log` 没有进 git）、`model-stream-next.jsonl`（`harness.proof` / `module_call_received` / `model` / `stream_next`）、`fingerprint.json`。二进制只打 `listening HOST:PORT`，见 `crates/pilotdeck-agent-loop/src/tcp.rs` 第 17 行 `eprintln!("listening {local}")`。r2 的 stdout 没有路径和 pid：进程已经退出，harness 也没有记 `/proc/<pid>/exe`。`stream_next` 次数是 chars=1 为 102、50 为 26、500 为 8、默认为 6。
 
 为补上路径和进程，重跑了被标成 ts 的两个变体。重跑时进程仍活着，读了 `/proc/<pid>/exe` 和 cmdline。没有覆盖 r2。
 
