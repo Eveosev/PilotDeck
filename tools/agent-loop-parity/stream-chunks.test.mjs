@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   STREAM_CHUNK_CHARS_VALUES,
@@ -80,6 +81,34 @@ test("A4 short bodies under 500 chars stay STREAM_PREFIX + one remainder (docume
   const deltas = liveStreamTextDeltas(short, 500);
   assert.equal(deltas.length, 2);
   assert.equal(deltas[1], short);
+});
+
+test("default path empty body still emits STREAM_PREFIX + one remainder (n_chunks 2)", async () => {
+  const defaultScenario = { scenarioId: "sidecar_live_model_stream" };
+  const streamChunkChars = resolveStreamChunkChars(defaultScenario);
+  assert.equal(streamChunkChars, null);
+  const deltas = liveStreamTextDeltas("", streamChunkChars);
+  assert.deepEqual(deltas, [STREAM_PREFIX, ""]);
+  assert.equal(deltas.length, 2);
+
+  const events = [];
+  for await (const event of yieldLiveModelStreamDeltas({
+    awaitProvider: async () => "",
+    streamChunkChars,
+  })) {
+    events.push(event);
+  }
+  assert.equal(events.length, 2);
+  assert.deepEqual(events.map((item) => item.text), [STREAM_PREFIX, ""]);
+  assert.equal(events[1].text, "");
+});
+
+test("gateway adapter live-stream path calls yieldLiveModelStreamDeltas and liveStreamTextDeltas", async () => {
+  const source = await readFile(new URL("./adapters/pilotdeck_gateway_impl.mjs", import.meta.url), "utf8");
+  assert.match(source, /yieldLiveModelStreamDeltas\(/);
+  assert.match(source, /liveStreamTextDeltas\(/);
+  assert.doesNotMatch(source, /chunkTextByChars\(/);
+  assert.doesNotMatch(source, /text: STREAM_PREFIX/);
 });
 
 test("A2 first text_delta is yielded before provider completion", async () => {

@@ -5,10 +5,10 @@ import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
 import {
-  STREAM_PREFIX,
-  chunkTextByChars,
   isLiveModelStreamScenario,
+  liveStreamTextDeltas,
   resolveStreamChunkChars,
+  yieldLiveModelStreamDeltas,
 } from "../stream-chunks.mjs";
 
 function createNoopPerfCollector() {
@@ -329,20 +329,29 @@ class MockModelRuntime {
       const streamChunkChars = resolveStreamChunkChars(scenario);
       yield { type: "request_started", provider: request.provider, model: request.model };
       yield { type: "message_start", role: "assistant" };
-      push("model.stream", { agentScope, state: "first_delta", streamChunkChars });
-      yield { type: "text_delta", text: STREAM_PREFIX };
-      const response = await awaitModelResponse();
-      push("model.stream", { agentScope, state: "provider_completed" });
-      const message = response.choices[0].message;
-      push("model.response", { agentScope, attempt, modelView: message, response: message });
-      const bodyChunks = chunkTextByChars(message.content ?? "", streamChunkChars);
-      for (const text of bodyChunks) {
-        yield { type: "text_delta", text };
+      let message;
+      for await (const event of yieldLiveModelStreamDeltas({
+        awaitProvider: async () => {
+          const response = await awaitModelResponse();
+          message = response.choices[0].message;
+          return message.content ?? "";
+        },
+        streamChunkChars,
+        onFirstDelta: () => {
+          push("model.stream", { agentScope, state: "first_delta", streamChunkChars });
+        },
+        onProviderCompleted: () => {
+          push("model.stream", { agentScope, state: "provider_completed" });
+          push("model.response", { agentScope, attempt, modelView: message, response: message });
+        },
+      })) {
+        yield event;
       }
+      const deltas = liveStreamTextDeltas(message?.content ?? "", streamChunkChars);
       push("model.stream", {
         agentScope,
         state: "chunks",
-        n_chunks: 1 + bodyChunks.length,
+        n_chunks: deltas.length,
         streamChunkChars,
         stream_chunk_unit: "chars",
         streamChunkFieldPath: "scenarios[].streamChunkChars",

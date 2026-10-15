@@ -151,8 +151,12 @@ values **`1 | 50 | 500`**. There is no env overlay and no tokenizer.
 | `sidecar_live_model_stream_chars_500` | `streamChunkChars: 500` | prefix + body sliced every 500 chars. If a body is shorter than 500 chars this collapses to prefix + one remainder; the `chars_500` variant pads `q` so the mock body is >500. |
 
 Variants live in `scenarios.json` under suite `sidecar-stream-chunks` and are
-**outside** the 53-scenario production gate. `run.py --scenario all` still
-loads exactly those 53. Select variants by id or `--suite sidecar-stream-chunks`.
+**outside** the 53-scenario production gate. `run.py --scenario all --suite all`
+loads exactly those 53 and **raises** `unexpected PilotDeck gate scenarios` for
+any extra `pairs:["pilotdeck"]` scenario that is not in suite
+`sidecar-stream-chunks`. Select variants by id or `--suite sidecar-stream-chunks`.
+Default `sidecar_live_model_stream` (field omitted) stays **STREAM_PREFIX + one
+body remainder = 2 deltas**, including an empty body (`n_chunks: 2`).
 
 Reproducible collect (writes `evidence/p1/stream-chunks-{1,50,500}.json`):
 
@@ -161,12 +165,24 @@ Reproducible collect (writes `evidence/p1/stream-chunks-{1,50,500}.json`):
 python3 tools/agent-loop-parity/collect_stream_chunks.py \
   --output evidence/p1
 
-# Optional live Gateway collect (needs `pnpm build`, fills stream_chunk_ms)
+# Optional live Gateway collect (needs `pnpm build`, fills stream_chunk_ms).
+# T-P1-04-FU does not run this; it is deferred to T-P1-05.
 PARITY_PERF=1 python3 tools/agent-loop-parity/collect_stream_chunks.py \
   --pilotdeck-root "$PWD" \
   --output evidence/p1 \
-  --run-gateway
+  --run-gateway \
+  --sidecar-transport tcp \
+  --pilotdeck-tcp-sidecar-cmd ./target/release/pilotdeck-agent-loop-sidecar \
+  --transport rust-tcp
 ```
+
+`--run-gateway` forwards `--sidecar-transport` / `--pilotdeck-tcp-*` /
+`--pilotdeck-stdio-sidecar-cmd` to `run.py`. Invalid `--transport` exits 2.
+`source=gateway` only when a sidecar trace exists; native-only traces keep
+`source=native`; missing both exits with error and writes no artifact.
+Planned-mode `firstDeltaBeforeProviderCompletion` /
+`outputContainsSTREAM_PREFIX` are `null` (not evaluated). Each artifact has a
+`transport` field (`native` | `ts-tcp` | `rust-tcp` | `stdio`, or `null` when planned).
 
 Equivalent `run.py` commands:
 
@@ -203,7 +219,9 @@ Unit / smoke:
 ```bash
 cd tools/agent-loop-parity
 python3 -m unittest -v test_trace.SubagentTraceNormalizationTests.test_full_gateway_gate_counts_53_scenarios
+python3 -m unittest -v test_trace.SubagentTraceNormalizationTests.test_full_gateway_gate_raises_on_unregistered_non_exempt_scenario
 python3 -m unittest -v test_trace.SubagentTraceNormalizationTests.test_stream_chunk_variants_are_selectable_outside_the_gate
+python3 -m unittest -v test_collect_stream_chunks.py
 node --test stream-chunks.test.mjs
 node --test ../agent-loop-perf/collector.test.mjs
 ```
