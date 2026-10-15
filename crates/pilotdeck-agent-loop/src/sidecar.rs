@@ -558,7 +558,7 @@ fn run_stub_execute(job: StubJob) {
     if !emit_context_budget_if_advertised(&job, &first_request, &mut sequence) {
         return;
     }
-    let first = match call_host_model(&job, &first_request) {
+    let first = match call_host_model(&job, &first_request, &mut sequence) {
         Ok(assembled) => assembled,
         Err(other) => {
             finish_host_call(&job, sequence, other);
@@ -566,8 +566,9 @@ fn run_stub_execute(job: StubJob) {
         }
     };
     if first.tool_calls.is_empty() {
+        let text_block_id = first.text_block_id.clone();
         let text = first.text;
-        if !emit_text_only_turn(&job, &text, &mut sequence) {
+        if !emit_text_only_turn(&job, &text, &mut sequence, text_block_id.as_deref()) {
             return;
         }
         emit_completed(
@@ -603,7 +604,7 @@ fn run_stub_execute(job: StubJob) {
     if !emit_context_budget_if_advertised(&job, &second_request, &mut sequence) {
         return;
     }
-    let second = match call_host_model(&job, &second_request) {
+    let second = match call_host_model(&job, &second_request, &mut sequence) {
         Ok(assembled) => assembled,
         Err(other) => {
             finish_host_call(&job, sequence, other);
@@ -619,6 +620,7 @@ fn run_stub_execute(job: StubJob) {
         );
         return;
     }
+    let text_block_id = second.text_block_id.clone();
     let text = second.text;
     if stub_interrupted(&job) {
         emit_cancelled_terminal(&job, sequence);
@@ -635,7 +637,7 @@ fn run_stub_execute(job: StubJob) {
             "turnId": job.turn_id,
             "message": {
                 "role": "assistant",
-                "content": [{ "type": "text", "text": text }],
+                "content": [text_content_block(&text, text_block_id.as_deref())],
             },
         }),
     );
@@ -737,10 +739,26 @@ fn emit_tool_result_event(job: &StubJob, sequence: &mut u64, result: &Value) {
 }
 
 fn text_content_blocks(text: &str) -> Value {
-    json!([{ "type": "text", "text": text }])
+    json!([text_content_block(text, None)])
 }
 
-fn emit_text_only_turn(job: &StubJob, text: &str, sequence: &mut u64) -> bool {
+/// Durable text block. `block_id` is set only after incremental `text_delta`
+/// events were already emitted, so the host timeline can project
+/// `assistant_block` instead of a second `assistant_text_delta`.
+fn text_content_block(text: &str, block_id: Option<&str>) -> Value {
+    let mut block = json!({ "type": "text", "text": text });
+    if let Some(block_id) = block_id.filter(|id| !id.is_empty()) {
+        block["blockId"] = json!(block_id);
+    }
+    block
+}
+
+fn emit_text_only_turn(
+    job: &StubJob,
+    text: &str,
+    sequence: &mut u64,
+    text_block_id: Option<&str>,
+) -> bool {
     emit_stub_event(
         job,
         "event",
@@ -752,7 +770,7 @@ fn emit_text_only_turn(job: &StubJob, text: &str, sequence: &mut u64) -> bool {
             "turnId": job.turn_id,
             "message": {
                 "role": "assistant",
-                "content": text_content_blocks(text),
+                "content": [text_content_block(text, text_block_id)],
             },
         }),
     );
@@ -775,11 +793,9 @@ fn run_tool_calls(
     let calls = &first.tool_calls;
     let mut assistant_blocks = Vec::new();
     if !first.text.is_empty() {
-        assistant_blocks.push(json!({
-            "type": "text",
-            "text": first.text,
-            "timeline": timeline.update("text:pre-tool"),
-        }));
+        let mut block = text_content_block(&first.text, first.text_block_id.as_deref());
+        block["timeline"] = timeline.update("text:pre-tool");
+        assistant_blocks.push(block);
     }
     for call in calls {
         let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
@@ -1500,6 +1516,10 @@ fn append_conversation(conversation: &mut Value, message: Value) {
 struct AssembledModel {
     text: String,
     tool_calls: Vec<Value>,
+    /// Present when each `text_delta` was already emitted as `model_event`.
+    /// The durable assistant text block reuses it so the host does not project
+    /// a second `assistant_text_delta` for the concatenated message.
+    text_block_id: Option<String>,
 }
 
 fn model_tool_definition(tool: &Value) -> Option<Value> {
@@ -1741,8 +1761,17 @@ fn model_execution_context(job: &StubJob) -> Value {
 
 /// Real host (`sidecarDefaultModuleDispatcher.ts:67-150`,
 /// `hostModelInvokerPort.ts`) has no `complete`. Sidecar mints
-/// `preparationId`, then `prepare` → `stream` → `close_stream`.
-fn call_host_model(job: &StubJob, request: &Value) -> Result<AssembledModel, HostCall> {
+/// `preparationId`, then `prepare` → pull or unary stream.
+///
+/// When `hostModules.model.methods` includes `stream_next`
+/// (`supportsPullStream` in `hostModelInvokerPort.ts`), pull one frame at a
+/// time and emit each `text_delta` before the next pull. Otherwise keep the
+/// unary `stream` call and merge deltas in `assemble_canonical_events`.
+fn call_host_model(
+    job: &StubJob,
+    request: &Value,
+    sequence: &mut u64,
+) -> Result<AssembledModel, HostCall> {
     let preparation_id = next_id(&job.inner, "prepared");
     let context = model_execution_context(job);
     match call_host_module(
@@ -1765,6 +1794,9 @@ fn call_host_model(job: &StubJob, request: &Value) -> Result<AssembledModel, Hos
     if stub_interrupted(job) {
         let _ = close_host_stream(job, &preparation_id);
         return Err(HostCall::Interrupted);
+    }
+    if host_supports_pull_stream(&job.payload) {
+        return pull_host_model_stream(job, request, &preparation_id, &context, sequence);
     }
     let stream = call_host_module(
         job,
@@ -1789,6 +1821,203 @@ fn call_host_model(job: &StubJob, request: &Value) -> Result<AssembledModel, Hos
     };
     if let HostCall::Interrupted = close_host_stream(job, &preparation_id) {
         return Err(HostCall::Interrupted);
+    }
+    Ok(assembled)
+}
+
+/// Upper bound so a host that never sets `done` cannot spin the execute thread.
+const MAX_STREAM_NEXT_PULLS: usize = 8_192;
+
+fn host_model_methods(payload: &Value) -> Vec<&str> {
+    payload
+        .pointer("/hostModules/model/methods")
+        .and_then(Value::as_array)
+        .map(|methods| methods.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default()
+}
+
+/// `createHostModelInvokerPort`: `methods.includes("stream_next")`.
+fn host_supports_pull_stream(payload: &Value) -> bool {
+    host_model_methods(payload).iter().any(|method| *method == "stream_next")
+}
+
+fn host_supports_close_stream(payload: &Value) -> bool {
+    host_model_methods(payload).iter().any(|method| *method == "close_stream")
+}
+
+fn invalid_model_response(message: &str) -> HostCall {
+    HostCall::Failed(json!({
+        "ok": false,
+        "code": "INVALID_MODEL_RESPONSE",
+        "error": {
+            "code": "INVALID_MODEL_RESPONSE",
+            "message": message,
+        },
+    }))
+}
+
+fn read_stream_next_frame(response: &Value) -> Result<(Vec<Value>, bool), HostCall> {
+    let payload = response.get("payload");
+    let events = payload
+        .and_then(|payload| payload.get("events"))
+        .and_then(Value::as_array)
+        .cloned();
+    let done = payload
+        .and_then(|payload| payload.get("done"))
+        .and_then(Value::as_bool);
+    match (events, done) {
+        (Some(events), Some(done)) => Ok((events, done)),
+        _ => Err(invalid_model_response(
+            "Model stream_next response must contain events and done.",
+        )),
+    }
+}
+
+fn canonical_stream_error(event: &Value) -> HostCall {
+    let code = event
+        .pointer("/error/code")
+        .and_then(Value::as_str)
+        .filter(|code| !code.is_empty())
+        .unwrap_or("MODEL_STREAM_ERROR");
+    let message = event
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .filter(|message| !message.is_empty())
+        .unwrap_or("Model stream returned an error frame.");
+    HostCall::Failed(json!({
+        "ok": false,
+        "code": code,
+        "error": { "code": code, "message": message },
+    }))
+}
+
+fn stream_event_block_id<'a>(
+    job: &StubJob,
+    event: &Value,
+    text_block_id: &'a mut Option<String>,
+    thinking_block_id: &'a mut Option<String>,
+) -> Option<&'a str> {
+    match event.get("type").and_then(Value::as_str) {
+        Some("text_delta") => {
+            if text_block_id.is_none() {
+                *text_block_id = Some(next_id(&job.inner, "text-block"));
+            }
+            text_block_id.as_deref()
+        }
+        Some("thinking_delta") => {
+            if thinking_block_id.is_none() {
+                *thinking_block_id = Some(next_id(&job.inner, "thinking-block"));
+            }
+            thinking_block_id.as_deref()
+        }
+        _ => None,
+    }
+}
+
+/// Host projects `agent.model_event` + `text_delta` to `assistant_text_delta`
+/// (`GatewayAgentEventProjector.mapModelEvent`). Emit before the next pull so
+/// the prefix delta is visible before provider completion.
+fn emit_model_event(job: &StubJob, sequence: &mut u64, event: &Value, block_id: Option<&str>) {
+    let mut payload = json!({
+        "type": "model_event",
+        "sessionId": job.session_id,
+        "turnId": job.turn_id,
+        "event": event,
+    });
+    if let Some(block_id) = block_id {
+        payload["blockId"] = json!(block_id);
+    }
+    emit_stub_event(job, "event", "agent.model_event", *sequence, payload);
+    *sequence += 1;
+}
+
+fn pull_host_model_stream(
+    job: &StubJob,
+    request: &Value,
+    preparation_id: &str,
+    context: &Value,
+    sequence: &mut u64,
+) -> Result<AssembledModel, HostCall> {
+    let mut events = Vec::new();
+    let mut done = false;
+    let mut text_block_id: Option<String> = None;
+    let mut thinking_block_id: Option<String> = None;
+    let mut failure: Option<HostCall> = None;
+    let mut pulls = 0usize;
+
+    loop {
+        if pulls >= MAX_STREAM_NEXT_PULLS {
+            failure = Some(invalid_model_response(
+                "Model stream_next did not finish.",
+            ));
+            break;
+        }
+        pulls += 1;
+        if stub_interrupted(job) {
+            failure = Some(HostCall::Interrupted);
+            break;
+        }
+        let response = match call_host_module(
+            job,
+            "model",
+            json!({
+                "operation": "stream_next",
+                "preparationId": preparation_id,
+                "request": request,
+                "context": context,
+            }),
+        ) {
+            HostCall::Ok(response) => response,
+            other => {
+                failure = Some(other);
+                break;
+            }
+        };
+        if stub_interrupted(job) {
+            failure = Some(HostCall::Interrupted);
+            break;
+        }
+        let (frame_events, frame_done) = match read_stream_next_frame(&response) {
+            Ok(frame) => frame,
+            Err(error) => {
+                failure = Some(error);
+                break;
+            }
+        };
+        done = frame_done;
+        let mut stop_for_error = false;
+        for event in frame_events {
+            let block_id = stream_event_block_id(
+                job,
+                &event,
+                &mut text_block_id,
+                &mut thinking_block_id,
+            );
+            emit_model_event(job, sequence, &event, block_id);
+            let is_error = event.get("type").and_then(Value::as_str) == Some("error");
+            if is_error {
+                failure = Some(canonical_stream_error(&event));
+                stop_for_error = true;
+                break;
+            }
+            events.push(event);
+        }
+        if stop_for_error || done {
+            break;
+        }
+    }
+
+    if !done && host_supports_close_stream(&job.payload) {
+        if let HostCall::Interrupted = close_host_stream(job, preparation_id) {
+            return Err(HostCall::Interrupted);
+        }
+    }
+    if let Some(failure) = failure {
+        return Err(failure);
+    }
+    let mut assembled = assemble_canonical_events(&events);
+    if !assembled.text.is_empty() {
+        assembled.text_block_id = text_block_id;
     }
     Ok(assembled)
 }
@@ -1831,7 +2060,11 @@ fn assemble_canonical_events(events: &[Value]) -> AssembledModel {
             _ => {}
         }
     }
-    AssembledModel { text, tool_calls }
+    AssembledModel {
+        text,
+        tool_calls,
+        text_block_id: None,
+    }
 }
 
 fn module_call_timeout_ms(payload: &Value) -> u64 {
@@ -2128,6 +2361,7 @@ mod tests {
     use super::*;
     use crate::time::format_unix_ms;
     use serde_json::json;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc;
     use std::time::Instant;
 
@@ -4800,6 +5034,405 @@ mod tests {
         let lines = sink.lock().expect("sink").clone();
         assert_eq!(lines[0]["code"], "UNKNOWN_OPERATION");
         assert_eq!(lines[1]["code"], "UNKNOWN_REQUEST");
+    }
+
+    fn pull_methods_payload(user_text: &str, methods: &[&str]) -> String {
+        let mut payload: Value =
+            serde_json::from_str(&client_payload_json(user_text)).expect("payload");
+        payload["hostModules"]["model"] = json!({ "methods": methods });
+        payload.to_string()
+    }
+
+    fn model_operations(lines: &[Value]) -> Vec<&str> {
+        lines
+            .iter()
+            .filter(|message| {
+                message["kind"] == "request" && message["method"] == "module_call"
+            })
+            .map(|message| message["payload"]["operation"].as_str().unwrap_or(""))
+            .collect()
+    }
+
+    fn text_delta_events(lines: &[Value]) -> Vec<&Value> {
+        lines
+            .iter()
+            .filter(|message| {
+                message["eventType"] == "agent.model_event"
+                    && message["payload"]["event"]["type"] == "text_delta"
+            })
+            .collect()
+    }
+
+    #[test]
+    fn stream_next_emits_each_text_delta_before_the_next_pull() {
+        let pulls = Arc::new(AtomicUsize::new(0));
+        let host_pulls = Arc::clone(&pulls);
+        let (sidecar, sink) = collect_with_host(move |call: &Value| {
+            if call.get("module").and_then(Value::as_str) != Some("model") {
+                return None;
+            }
+            match call.pointer("/payload/operation").and_then(Value::as_str) {
+                Some("prepare") => Some(host_prepared(call)),
+                Some("stream") => Some(host_ok(
+                    call,
+                    json!({ "events": [{ "type": "text_delta", "text": "UNARY" }], "done": true }),
+                )),
+                Some("stream_next") => {
+                    let n = host_pulls.fetch_add(1, Ordering::SeqCst);
+                    let payload = match n {
+                        0 => json!({
+                            "events": [{ "type": "text_delta", "text": "AB" }],
+                            "done": false
+                        }),
+                        1 => json!({
+                            "events": [{ "type": "text_delta", "text": "C" }],
+                            "done": false
+                        }),
+                        _ => json!({
+                            "events": [{ "type": "message_end", "finishReason": "stop" }],
+                            "done": true
+                        }),
+                    };
+                    Some(host_ok(call, payload))
+                }
+                Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                _ => None,
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-pull",
+            "run-pull",
+            "op-pull",
+            "req-pull",
+            &pull_methods_payload(
+                "stream incrementally",
+                &["prepare", "stream", "stream_next", "close_stream"],
+            ),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream_next", "stream_next", "stream_next"]
+        );
+        let deltas = text_delta_events(&lines);
+        assert_eq!(deltas.len(), 2);
+        assert_eq!(deltas[0]["payload"]["type"], "model_event");
+        assert_eq!(deltas[0]["payload"]["event"]["text"], "AB");
+        assert_eq!(deltas[1]["payload"]["event"]["text"], "C");
+        assert_eq!(deltas[0]["payload"]["sessionId"], "run-pull");
+        assert_eq!(deltas[0]["payload"]["turnId"], "op-pull");
+        let block_id = deltas[0]["payload"]["blockId"]
+            .as_str()
+            .expect("text block id");
+        assert!(!block_id.is_empty());
+        assert_eq!(deltas[1]["payload"]["blockId"], block_id);
+        let first_delta = lines
+            .iter()
+            .position(|message| message["eventType"] == "agent.model_event")
+            .expect("first model_event");
+        let second_pull = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, message)| {
+                message["kind"] == "request"
+                    && message["payload"]["operation"] == "stream_next"
+            })
+            .nth(1)
+            .expect("second stream_next")
+            .0;
+        assert!(
+            first_delta < second_pull,
+            "text_delta must be emitted before the next stream_next, have {lines:?}"
+        );
+        let assistant = lines
+            .iter()
+            .find(|message| message["eventType"] == "agent.assistant_message")
+            .expect("assistant_message");
+        assert_eq!(
+            assistant["payload"]["message"]["content"][0]["text"],
+            "ABC"
+        );
+        assert_eq!(
+            assistant["payload"]["message"]["content"][0]["blockId"],
+            block_id
+        );
+        let terminal = lines
+            .iter()
+            .find(|message| message["final"] == true)
+            .expect("terminal");
+        assert_eq!(terminal["outcome"], "completed");
+        assert_eq!(pulls.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn stream_next_falls_back_to_unary_stream_when_host_does_not_advertise_it() {
+        let (sidecar, sink) = collect_with_host(|call: &Value| {
+            if call.get("module").and_then(Value::as_str) != Some("model") {
+                return None;
+            }
+            match call.pointer("/payload/operation").and_then(Value::as_str) {
+                Some("prepare") => Some(host_prepared(call)),
+                Some("stream") => Some(host_ok(
+                    call,
+                    json!({
+                        "events": [
+                            { "type": "text_delta", "text": "ONE" },
+                            { "type": "text_delta", "text": "TWO" }
+                        ],
+                        "done": true
+                    }),
+                )),
+                Some("stream_next") => Some(host_ok(
+                    call,
+                    json!({ "events": [{ "type": "text_delta", "text": "PULLED" }], "done": true }),
+                )),
+                Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                _ => None,
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-unary",
+            "run-unary",
+            "op-unary",
+            "req-unary",
+            &pull_methods_payload("fallback", &["prepare", "stream", "close_stream"]),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream", "close_stream"]
+        );
+        assert!(text_delta_events(&lines).is_empty());
+        let assistant = lines
+            .iter()
+            .find(|message| message["eventType"] == "agent.assistant_message")
+            .expect("assistant_message");
+        assert_eq!(
+            assistant["payload"]["message"]["content"][0]["text"],
+            "ONETWO"
+        );
+        assert!(assistant["payload"]["message"]["content"][0]
+            .get("blockId")
+            .is_none());
+        assert_eq!(
+            lines
+                .iter()
+                .find(|message| message["final"] == true)
+                .expect("terminal")["outcome"],
+            "completed"
+        );
+    }
+
+    #[test]
+    fn stream_next_error_frame_is_emitted_then_the_unfinished_stream_is_closed() {
+        let (sidecar, sink) = collect_with_host({
+            let pulls = AtomicUsize::new(0);
+            move |call: &Value| {
+                if call.get("module").and_then(Value::as_str) != Some("model") {
+                    return None;
+                }
+                match call.pointer("/payload/operation").and_then(Value::as_str) {
+                    Some("prepare") => Some(host_prepared(call)),
+                    Some("stream_next") => {
+                        let n = pulls.fetch_add(1, Ordering::SeqCst);
+                        if n == 0 {
+                            Some(host_ok(
+                                call,
+                                json!({
+                                    "events": [{ "type": "text_delta", "text": "partial" }],
+                                    "done": false
+                                }),
+                            ))
+                        } else {
+                            Some(host_ok(
+                                call,
+                                json!({
+                                    "events": [{
+                                        "type": "error",
+                                        "error": {
+                                            "code": "stream_interrupted",
+                                            "message": "provider dropped the stream"
+                                        }
+                                    }],
+                                    "done": false
+                                }),
+                            ))
+                        }
+                    }
+                    Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                    Some("stream") => Some(host_ok(
+                        call,
+                        json!({ "events": [{ "type": "text_delta", "text": "UNARY" }], "done": true }),
+                    )),
+                    _ => None,
+                }
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-err",
+            "run-err",
+            "op-err",
+            "req-err",
+            &pull_methods_payload(
+                "error frame",
+                &["prepare", "stream_next", "close_stream"],
+            ),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream_next", "stream_next", "close_stream"]
+        );
+        let deltas = text_delta_events(&lines);
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0]["payload"]["event"]["text"], "partial");
+        let error = lines
+            .iter()
+            .find(|message| {
+                message["eventType"] == "agent.model_event"
+                    && message["payload"]["event"]["type"] == "error"
+            })
+            .expect("error model_event");
+        assert_eq!(error["payload"]["event"]["error"]["code"], "stream_interrupted");
+        let delta_at = lines
+            .iter()
+            .position(|message| {
+                message["eventType"] == "agent.model_event"
+                    && message["payload"]["event"]["type"] == "text_delta"
+            })
+            .expect("delta");
+        let error_at = lines
+            .iter()
+            .position(|message| {
+                message["eventType"] == "agent.model_event"
+                    && message["payload"]["event"]["type"] == "error"
+            })
+            .expect("error event");
+        let close_at = lines
+            .iter()
+            .position(|message| message["payload"]["operation"] == "close_stream")
+            .expect("close_stream");
+        assert!(delta_at < error_at && error_at < close_at);
+        let terminal = lines
+            .iter()
+            .find(|message| message["final"] == true)
+            .expect("terminal");
+        assert_eq!(terminal["outcome"], "failed");
+        assert_eq!(terminal["code"], "stream_interrupted");
+        assert!(lines
+            .iter()
+            .all(|message| message["eventType"] != "agent.assistant_message"));
+    }
+
+    #[test]
+    fn stream_next_end_frame_completes_and_malformed_frame_fails() {
+        let (sidecar, sink) = collect_with_host({
+            let pulls = AtomicUsize::new(0);
+            move |call: &Value| {
+                if call.get("module").and_then(Value::as_str) != Some("model") {
+                    return None;
+                }
+                match call.pointer("/payload/operation").and_then(Value::as_str) {
+                    Some("prepare") => Some(host_prepared(call)),
+                    Some("stream_next") => {
+                        let n = pulls.fetch_add(1, Ordering::SeqCst);
+                        let payload = if n == 0 {
+                            json!({
+                                "events": [{ "type": "text_delta", "text": "done-with" }],
+                                "done": false
+                            })
+                        } else {
+                            json!({ "events": [], "done": true })
+                        };
+                        Some(host_ok(call, payload))
+                    }
+                    Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                    _ => None,
+                }
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-end",
+            "run-end",
+            "op-end",
+            "req-end",
+            &pull_methods_payload("end frame", &["prepare", "stream_next", "close_stream"]),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream_next", "stream_next"]
+        );
+        assert_eq!(text_delta_events(&lines)[0]["payload"]["event"]["text"], "done-with");
+        assert_eq!(
+            lines
+                .iter()
+                .find(|message| message["eventType"] == "agent.assistant_message")
+                .expect("assistant")["payload"]["message"]["content"][0]["text"],
+            "done-with"
+        );
+        assert_eq!(
+            lines
+                .iter()
+                .find(|message| message["final"] == true)
+                .expect("terminal")["outcome"],
+            "completed"
+        );
+
+        let (sidecar, sink) = collect_with_host({
+            let pulls = AtomicUsize::new(0);
+            move |call: &Value| {
+                if call.get("module").and_then(Value::as_str) != Some("model") {
+                    return None;
+                }
+                match call.pointer("/payload/operation").and_then(Value::as_str) {
+                    Some("prepare") => Some(host_prepared(call)),
+                    Some("stream_next") => {
+                        let n = pulls.fetch_add(1, Ordering::SeqCst);
+                        if n == 0 {
+                            Some(host_ok(
+                                call,
+                                json!({
+                                    "events": [{ "type": "text_delta", "text": "kept" }],
+                                    "done": false
+                                }),
+                            ))
+                        } else {
+                            Some(host_ok(call, json!({ "events": [] })))
+                        }
+                    }
+                    Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                    _ => None,
+                }
+            }
+        });
+        sidecar.handle_line(&execute_line(
+            "ex-bad",
+            "run-bad",
+            "op-bad",
+            "req-bad",
+            &pull_methods_payload(
+                "malformed frame",
+                &["prepare", "stream_next", "close_stream"],
+            ),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream_next", "stream_next", "close_stream"]
+        );
+        assert_eq!(text_delta_events(&lines)[0]["payload"]["event"]["text"], "kept");
+        let terminal = lines
+            .iter()
+            .find(|message| message["final"] == true)
+            .expect("terminal");
+        assert_eq!(terminal["outcome"], "failed");
+        assert_eq!(terminal["code"], "INVALID_MODEL_RESPONSE");
     }
 
     #[test]
