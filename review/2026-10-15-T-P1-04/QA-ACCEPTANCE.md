@@ -3,6 +3,8 @@
 Gate: clean tree; draft PR into `rust_standalone_alpha1`; do not merge evidence PRs.
 Locked 2026-10-15 Arch 1:1: chunk unit = **chars**; parameter entry = **`scenarios[].streamChunkChars`** only (`1 | 50 | 500`). No env entry. No token slicing.
 
+**Whitelist:** `tools/agent-loop-parity/**` ; B1 allows `tools/agent-loop-perf/**` (`n_chunks` / `stream_chunk_ms` only, no unrelated refactor); `evidence/p1/**` ; `review/2026-10-15-T-P1-04/**`.
+
 ## Track A
 
 - **A1** Scenario (or `sidecar_live_model_stream_chars_{1,50,500}` variants) sets top-level `streamChunkChars` to 1 / 50 / 500. Field path is `scenarios[].streamChunkChars`, not nested. Default gate scene `sidecar_live_model_stream` omits the field.
@@ -12,7 +14,7 @@ Locked 2026-10-15 Arch 1:1: chunk unit = **chars**; parameter entry = **`scenari
 
 ## Track B
 
-- **B1** Artifacts / perf snapshot expose `n_chunks` and fill `stream_chunk_ms` when `PARITY_PERF=1` (collector no longer returns a forever-empty stub on a live stream).
+- **B1** Artifacts / perf snapshot expose `n_chunks` and fill `stream_chunk_ms` when `PARITY_PERF=1` (collector no longer returns a forever-empty stub on a live stream). **Gate note:** any `tools/agent-loop-perf/**` diff is only for that `n_chunks` / `stream_chunk_ms` alignment.
 - **B2** T-P1-05 consumes `evidence/p1/stream-chunks-{1,50,500}.json` for Rust-tcp vs native / vs TS-tcp. **This PR does not write go-nogo.**
 
 ## Commands

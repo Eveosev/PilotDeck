@@ -2,7 +2,8 @@
 
 **Base：** `rust_standalone_alpha1` @ `f4e40243`（#32 FU-B 已合）  
 **状态：** unlocked；**钉死** chunk 单位=`chars`；参数入口仅 **`scenarios[].streamChunkChars`**（`1 | 50 | 500`）。不要 env，不要 token 切片。  
-**QA Formal：** `review/2026-10-15-T-P1-04/QA-ACCEPTANCE.md`
+**QA Formal：** `review/2026-10-15-T-P1-04/QA-ACCEPTANCE.md`  
+**Whitelist：** `tools/agent-loop-parity/**` ; B1 allows `tools/agent-loop-perf/**` (`n_chunks` / `stream_chunk_ms` only, no unrelated refactor); `evidence/p1/**` ; `review/2026-10-15-T-P1-04/**`.
 
 ## 目标
 
@@ -23,7 +24,7 @@
 
 | ID | 项 | 验收 |
 |---|---|---|
-| B1 | 计时/计数 | 产物含 `n_chunks`；`PARITY_PERF=1` 时填充 `stream_chunk_ms` |
+| B1 | 计时/计数 | 产物含 `n_chunks`；`PARITY_PERF=1` 时填充 `stream_chunk_ms`。**Gate note：** `tools/agent-loop-perf/**` diff 仅用于该 `n_chunks` / `stream_chunk_ms` alignment，不做无关重构。 |
 | B2 | T-P1-05 接口 | 产物注明 T-P1-05 用于 Rust-tcp vs native / vs TS-tcp；**本 PR 不写 go-nogo** |
 
 ## Out
