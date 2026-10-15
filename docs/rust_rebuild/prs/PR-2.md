@@ -61,9 +61,9 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `57a43158` | PASS（后因 Reviewer R1 fail 被标 VOID） | `evidence/qa-verify/VERDICT.md`（本地证据，未入库） |
-| `c57b5261` | PASS | `evidence/qa-verify-r1r3/VERDICT.md`（本地证据，未入库） |
-| `2223c8b7` | PASS（R7 锁定范围） | `evidence/r7-lock-smoke/VERDICT.md`、`evidence/r7-full-ts/VERDICT.md`（本地证据，未入库） |
+| `57a43158` | PASS（后因 Reviewer R1 fail 被标 VOID） | `review/2026-10-10-T-P0a-02-comparator/evidence/qa-verify/VERDICT.md`（本地证据，未入库） |
+| `c57b5261` | PASS | `review/2026-10-10-T-P0a-02-comparator/evidence/qa-verify-r1r3/VERDICT.md`（本地证据，未入库） |
+| `2223c8b7` | PASS（R7 锁定范围） | `review/2026-10-10-T-P0a-02-comparator/evidence/r7-lock-smoke/VERDICT.md`、`review/2026-10-10-T-P0a-02-comparator/evidence/r7-full-ts/VERDICT.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

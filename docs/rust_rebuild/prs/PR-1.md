@@ -52,8 +52,8 @@ parity 工具支持 TCP 目标（adapter/trace/run 负对照）。（摘自 PR �
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `8d8cc8f9` | PASS | `evidence/r1-qa/VERDICT.md`（本地证据，未入库） |
-| `8b132c1f` | PASS | `evidence/r2-qa-smoke/VERDICT.md`（本地证据，未入库） |
+| `8d8cc8f9` | PASS | `review/2026-10-10-T-P0a-00-parity-tcp/evidence/r1-qa/VERDICT.md`（本地证据，未入库） |
+| `8b132c1f` | PASS | `review/2026-10-10-T-P0a-00-parity-tcp/evidence/r2-qa-smoke/VERDICT.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |

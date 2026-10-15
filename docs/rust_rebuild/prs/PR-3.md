@@ -62,9 +62,9 @@ AgentLoop 性能基线 harness + native/stdio/tcp 证据。（摘自 PR 标题/�
 ## QA 结论
 | tip | 结论 | 原文 |
 |---|---|---|
-| `da859d43` | PASS | `evidence/qa-rerun/VERDICT.md`（本地证据，未入库） |
-| `c3b1a275` | PASS | `evidence/qa-r1-verify/VERDICT.md`（本地证据，未入库） |
-| `812b8da3` | GATE PASS | `evidence/qa-gate-812b8da3/VERDICT.md`（本地证据，未入库） |
+| `da859d43` | PASS | `review/2026-10-12-T-P0a-03-perf-baseline/evidence/qa-rerun/VERDICT.md`（本地证据，未入库） |
+| `c3b1a275` | PASS | `review/2026-10-12-T-P0a-03-perf-baseline/evidence/qa-r1-verify/VERDICT.md`（本地证据，未入库） |
+| `812b8da3` | GATE PASS | `review/2026-10-12-T-P0a-03-perf-baseline/evidence/qa-gate-812b8da3/VERDICT.md`（本地证据，未入库） |
 
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
