@@ -14,6 +14,7 @@ describe("createPerfCollector", () => {
     assert.equal(snapshot.turn_ms, null);
     assert.deepEqual(snapshot.model_iter_ms, []);
     assert.deepEqual(snapshot.stream_chunk_ms, []);
+    assert.equal(snapshot.n_chunks, 0);
     assert.equal(snapshot.non_model_ms, null);
   });
 
@@ -31,6 +32,7 @@ describe("createPerfCollector", () => {
     assert.ok(snapshot.turn_ms > 8);
     assert.equal(snapshot.model_iter_ms.length, 1);
     assert.ok(snapshot.model_iter_ms[0] > 8);
+    assert.equal(snapshot.n_chunks, 2);
     assert.equal(snapshot.stream_chunk_ms.length, 1);
     assert.ok(snapshot.stream_chunk_ms[0] > 3);
     assert.ok(snapshot.non_model_ms != null);

@@ -1012,6 +1012,43 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         loaded = load_scenarios(ROOT / "scenarios.json", "all", "all")
         self.assertEqual(len(loaded), 53)
         self.assertEqual({item["scenarioId"] for item in loaded}, set(REQUIRED_GATEWAY_SCENARIOS))
+        self.assertNotIn("sidecar_live_model_stream_chars_1", {item["scenarioId"] for item in loaded})
+
+    def test_stream_chunk_variants_are_selectable_outside_the_gate(self) -> None:
+        from collect_stream_chunks import STREAM_CHUNK_CHARS, chunk_text_by_chars, mock_answer, planned_deltas
+
+        default = load_scenarios(ROOT / "scenarios.json", "sidecar_live_model_stream", "all")
+        self.assertEqual(len(default), 1)
+        self.assertNotIn("streamChunkChars", default[0])
+        suite = load_scenarios(ROOT / "scenarios.json", "all", "sidecar-stream-chunks")
+        self.assertEqual({item["scenarioId"] for item in suite}, {
+            "sidecar_live_model_stream_chars_1",
+            "sidecar_live_model_stream_chars_50",
+            "sidecar_live_model_stream_chars_500",
+        })
+        for chars in STREAM_CHUNK_CHARS:
+            scenario = load_scenarios(
+                ROOT / "scenarios.json",
+                f"sidecar_live_model_stream_chars_{chars}",
+                "all",
+            )[0]
+            self.assertEqual(scenario["streamChunkChars"], chars)
+            deltas = planned_deltas(scenario)
+            self.assertEqual(deltas[0], "STREAM_PREFIX::")
+            self.assertTrue("".join(deltas).startswith("STREAM_PREFIX::"))
+            self.assertIn("STREAM_PREFIX", "".join(deltas))
+            body = mock_answer(scenario)
+            self.assertEqual("".join(deltas[1:]), body)
+            if chars == 1:
+                self.assertGreater(len(deltas), 2)
+                self.assertEqual(len(deltas), 1 + len(list(body)))
+                self.assertTrue(all(len(list(chunk)) == 1 for chunk in deltas[1:]))
+            else:
+                self.assertGreaterEqual(len(deltas), 3, f"chars={chars} should split the padded body")
+                self.assertTrue(all(len(list(chunk)) <= chars for chunk in deltas[1:]))
+            default_body = mock_answer(default[0])
+            self.assertEqual(chunk_text_by_chars(default_body, None), [default_body])
+            self.assertEqual(len(["STREAM_PREFIX::", *chunk_text_by_chars(default_body, None)]), 2)
 
     def test_sidecar_production_oracles_cover_durable_and_model_evidence(self) -> None:
         scenario = {

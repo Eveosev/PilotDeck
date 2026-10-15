@@ -137,6 +137,77 @@ Rust sidecar 必须遵守与 TS `pilotdeck-agent-loop-sidecar` 相同的 Module 
 
 harness 启动 TCP sidecar 时把 stdout/stderr **合并写入** `<output>/tcp-sidecar.log`，并在 `summary.json` 的 `tcpSidecarLog` 记录该路径。不要用 PIPE 捕获长期 sidecar 输出，以免管道缓冲区填满后死锁。启动失败或因 listener 退出而 BLOCKED 时，错误信息会带上该日志末尾约 16 行。正常 `stop_process` 只结束进程，日志留在磁盘上供检查。
 
+## T-P1-04 stream chunk size (`scenarios[].streamChunkChars`)
+
+Chunk unit is **Unicode code points (chars)**, not tokens. The only parameter
+entry is the top-level scenario field **`scenarios[].streamChunkChars`** with
+values **`1 | 50 | 500`**. There is no env overlay and no tokenizer.
+
+| Path | Field | Adapter yields |
+|---|---|---|
+| Default gate `sidecar_live_model_stream` | field **omitted** | `STREAM_PREFIX::` (before provider completion) + **one** remainder `text_delta` for the whole mock body (today’s 2-delta shape) |
+| `sidecar_live_model_stream_chars_1` | `streamChunkChars: 1` | prefix + **one code point per** post-provider chunk. `1` is **not** “one chunk of the whole body”. |
+| `sidecar_live_model_stream_chars_50` | `streamChunkChars: 50` | prefix + body sliced every 50 chars (≥2 body deltas; variant `q` is padded) |
+| `sidecar_live_model_stream_chars_500` | `streamChunkChars: 500` | prefix + body sliced every 500 chars. If a body is shorter than 500 chars this collapses to prefix + one remainder; the `chars_500` variant pads `q` so the mock body is >500. |
+
+Variants live in `scenarios.json` under suite `sidecar-stream-chunks` and are
+**outside** the 53-scenario production gate. `run.py --scenario all` still
+loads exactly those 53. Select variants by id or `--suite sidecar-stream-chunks`.
+
+Reproducible collect (writes `evidence/p1/stream-chunks-{1,50,500}.json`):
+
+```bash
+# Planned n_chunks from the scenario fixtures (no Gateway / dist required)
+python3 tools/agent-loop-parity/collect_stream_chunks.py \
+  --output evidence/p1
+
+# Optional live Gateway collect (needs `pnpm build`, fills stream_chunk_ms)
+PARITY_PERF=1 python3 tools/agent-loop-parity/collect_stream_chunks.py \
+  --pilotdeck-root "$PWD" \
+  --output evidence/p1 \
+  --run-gateway
+```
+
+Equivalent `run.py` commands:
+
+```bash
+python tools/agent-loop-parity/run.py \
+  --pilotdeck-root "$PWD" \
+  --comparison same-version \
+  --surface gateway \
+  --scenario sidecar_live_model_stream_chars_1 \
+  --output /tmp/p1-stream-chunks-1
+
+python tools/agent-loop-parity/run.py \
+  --pilotdeck-root "$PWD" \
+  --comparison same-version \
+  --surface gateway \
+  --scenario sidecar_live_model_stream_chars_50 \
+  --output /tmp/p1-stream-chunks-50
+
+python tools/agent-loop-parity/run.py \
+  --pilotdeck-root "$PWD" \
+  --comparison same-version \
+  --surface gateway \
+  --scenario sidecar_live_model_stream_chars_500 \
+  --output /tmp/p1-stream-chunks-500
+```
+
+Each artifact records `n_chunks` / `n_text_deltas` and, when `PARITY_PERF=1`,
+`stream_chunk_ms` from the existing collector. **T-P1-05** consumes these files
+for Rust-tcp vs native / vs TS-tcp attribution. This task does **not** write
+go-nogo.
+
+Unit / smoke:
+
+```bash
+cd tools/agent-loop-parity
+python3 -m unittest -v test_trace.SubagentTraceNormalizationTests.test_full_gateway_gate_counts_53_scenarios
+python3 -m unittest -v test_trace.SubagentTraceNormalizationTests.test_stream_chunk_variants_are_selectable_outside_the_gate
+node --test stream-chunks.test.mjs
+node --test ../agent-loop-perf/collector.test.mjs
+```
+
 ## Negative control
 
 G3 names must match the transport/mode they exercise. Keep one spawn-mode native twin per transport (stdio / tcp). Do **not** also inject `PARITY_MODE=native` as `--pilotdeck-tcp-sidecar-cmd` under a reuse-looking name — that is the same TCP-native crash as the tcp spawn case.

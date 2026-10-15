@@ -67,6 +67,7 @@ export function createPerfCollector({ enabled = process.env.PARITY_PERF === "1" 
         turn_ms: turnMs,
         model_iter_ms: modelDurations,
         stream_chunk_ms: intervals,
+        n_chunks: streamChunks.length,
         non_model_ms: turnMs == null ? null : roundMs(turnMs - modelSum),
         segments: {
           first_gateway_event_ms:

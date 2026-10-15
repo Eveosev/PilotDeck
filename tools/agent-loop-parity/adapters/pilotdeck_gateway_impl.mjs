@@ -4,6 +4,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequestBudgetEvidence } from "./budget_evidence.mjs";
 import { compactReplacementMessages } from "../compact-snapshot.mjs";
+import {
+  STREAM_PREFIX,
+  chunkTextByChars,
+  isLiveModelStreamScenario,
+  resolveStreamChunkChars,
+} from "../stream-chunks.mjs";
 
 function createNoopPerfCollector() {
   const noop = () => {};
@@ -18,7 +24,7 @@ function createNoopPerfCollector() {
     markToolEnd: noop,
     markFirstGatewayEvent: noop,
     mark: noop,
-    snapshot: () => ({ turn_ms: null, model_iter_ms: [], stream_chunk_ms: [] }),
+    snapshot: () => ({ turn_ms: null, model_iter_ms: [], stream_chunk_ms: [], n_chunks: 0 }),
   };
 }
 
@@ -319,16 +325,28 @@ class MockModelRuntime {
         throw error;
       }
     };
-    if (scenario.scenarioId === "sidecar_live_model_stream") {
+    if (isLiveModelStreamScenario(scenario)) {
+      const streamChunkChars = resolveStreamChunkChars(scenario);
       yield { type: "request_started", provider: request.provider, model: request.model };
       yield { type: "message_start", role: "assistant" };
-      push("model.stream", { agentScope, state: "first_delta" });
-      yield { type: "text_delta", text: "STREAM_PREFIX::" };
+      push("model.stream", { agentScope, state: "first_delta", streamChunkChars });
+      yield { type: "text_delta", text: STREAM_PREFIX };
       const response = await awaitModelResponse();
       push("model.stream", { agentScope, state: "provider_completed" });
       const message = response.choices[0].message;
       push("model.response", { agentScope, attempt, modelView: message, response: message });
-      yield { type: "text_delta", text: message.content ?? "" };
+      const bodyChunks = chunkTextByChars(message.content ?? "", streamChunkChars);
+      for (const text of bodyChunks) {
+        yield { type: "text_delta", text };
+      }
+      push("model.stream", {
+        agentScope,
+        state: "chunks",
+        n_chunks: 1 + bodyChunks.length,
+        streamChunkChars,
+        stream_chunk_unit: "chars",
+        streamChunkFieldPath: "scenarios[].streamChunkChars",
+      });
       yield { type: "message_end", finishReason: "stop" };
       return;
     }
