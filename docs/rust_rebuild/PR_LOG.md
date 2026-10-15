@@ -1,6 +1,6 @@
 # PR_LOG · rust_standalone_alpha1 已合并 PR
 
-来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `8cffa40d`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42）不合并、不入表。
+来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `8cffa40d`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42/#43）不合并、不入表。
 
 共 **26** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41。下表与 `git log --first-parent` 相同，新的在前。
 
