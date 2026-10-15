@@ -46,7 +46,7 @@ Module Protocol 变更同步门禁（文档）。（摘自 PR 标题/任务清�
 - `7bcee318`：**PASS**（CI pending）。R2-1…R2-7 通过；F-7 的 79 个删除文件 sha256 核对 0 不符。
 - `bbb88cb7`（同步 M=`7d488a1b`）：**PASS（结构）**。CI web 失败仍开（合并前就已失败）。
 - `f6d46add`（同步 M=`2c4420b4`）：**merge gate PASS**，CI 当时 pending。
-- **QA 未覆盖合并 head**：合并 head 是 `54e9d8b7`，比 QA 最后验过的 `f6d46add` 多了几个文档提交，本机没有对应记录。
+- **QA 未覆盖合并 head**：合并 head 是 `54e9d8b7`，比 QA 最后验过的 `f6d46add` 多了 2 个主线同步 merge（#8、#12）加 2 个 PROGRESS 提交，本机没有对应记录。
 **Reviewer**
 - R1（`3b5cf763`）：**conditional_pass**，0 blocker / 2 major / 4 minor。
   - F-1 major：replay 会改写已跟踪的报告，按 2→3→7 照抄执行时第二次 exit 2 → 改为「一次 replay → 拷贝 → restore → 只读副本」，R2 轮关闭。

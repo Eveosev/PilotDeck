@@ -1,7 +1,7 @@
 # PilotDeck Rust 重构 · 总体计划与进度
 
 > 计划原文：`review/2026-10-09-rust-proposal-v2/TASK_PLAN.md`（本地证据，未入库；v2.1，基线 OpenBMB/PilotDeck @ `b243fa00`）、同目录 `DECISION.md`（本地证据，未入库）。本文只做摘要与状态，冲突时以原文为准。
-> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`（本稿核对 tip `1d7c8068`，2026-10-15）。已合并 PR 见 [PR_LOG.md](PR_LOG.md)。
+> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`（本稿核对 tip `8cffa40d`，2026-10-15）。已合并 PR 见 [PR_LOG.md](PR_LOG.md)。
 
 ## 终局目标
 - **D0 = G3**（2026-10-10 暂定）：完整可运行的 Rust 核心，约在 **P5** 后达成。G3 终验：除未覆盖 provider 外 module_call≈0；P95 ≤ native+5%；RSS ≤ native+10%（TASK_PLAN T-G3-01）。
@@ -39,17 +39,17 @@
 | T-P1-04 流块 1/50/500 | #34、#36 | 已合 |
 | T-P1-05 对照数据 | #37（[evidence/p1/go-nogo.md](../../evidence/p1/go-nogo.md)） | 已合 |
 | T-P1-06 决议 | — | **已决议（2026-10-15）**，见下 |
-| FT-1 Rust sidecar 改用 `stream_next` 增量拉流 | #40 | **open，未合并**（draft，head `d8366d7f`，QA delta 门进行中） |
+| FT-1 Rust sidecar 改用 `stream_next` 增量拉流 | #40 | **已合**（`019a527a`，2026-10-15 17:46 UTC+8；head `d8366d7f`） |
 | FT-2a model 迭代开销调查 | — | 2026-10-15 18:01（UTC+8）取消为下一步；改为 P2 入口待办 |
 
 ## T-P1-06 决议（2026-10-15，Payne）
 
 本决议只记在 `docs/rust_rebuild/`。本 PR 不修改 [evidence/p1/go-nogo.md](../../evidence/p1/go-nogo.md)。该文件在 `1d7c8068` 仍只给对照数据，没有本节，也没有签字行。
 
-- **Q1**：Go。
+- **Q1**：有条件 Go。出处：真人 Payne 1:1 2026-10-15 19:27 (UTC+8)。
 - **Q2**：mock 阶段，单次 model 迭代开销阈值 `max(native 净 P95 的 10%, 100ms)`；整 turn 仍为 `max(10%, 5ms)`。P2 接上真模型之后，只要求正常返回。
 - **Q3**：53 场景 live 门禁留在 P1；真模型、stdio、D7 认证移到 P2 入口。
-- **Q4**：先 FT-1（PR #40，open，未合并），再 FT-2a。
+- **Q4**：先 FT-1（PR #40，已合并 `019a527a`，2026-10-15 17:46 UTC+8），再 FT-2a。#41 已合并 `8cffa40d`。
 - **2026-10-15 18:01（UTC+8）**：Payne 取消 FT-2a，直接进入 P2。FT-2a 改为 P2 入口待办；接上真模型后，若开销仍超过阈值再触发。
 
 ## 维护

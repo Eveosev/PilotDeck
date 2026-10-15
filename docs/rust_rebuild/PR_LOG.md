@@ -1,11 +1,13 @@
 # PR_LOG · rust_standalone_alpha1 已合并 PR
 
-来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `1d7c8068`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39）不合并、不入表。
+来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `8cffa40d`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42）不合并、不入表。
 
-共 **24** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37。下表与 `git log --first-parent` 相同，新的在前。
+共 **26** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41。下表与 `git log --first-parent` 相同，新的在前。
 
 | PR | 任务 | 标题 | 合并 commit | 合并时间 | 一句话 | 详情 |
 |---|---|---|---|---|---|---|
+| [#41](https://github.com/Eveosev/PilotDeck/pull/41) | —（docs） | docs: rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | `8cffa40d` | 2026-10-15 19:27 | rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | [PR-41](prs/PR-41.md) |
+| [#40](https://github.com/Eveosev/PilotDeck/pull/40) | FT-1 | FT-1: pull stream_next and emit incremental text deltas | `019a527a` | 2026-10-15 17:46 | `stream_next` 增量拉流，未声明时回退一元 `stream` | [PR-40](prs/PR-40.md) |
 | [#37](https://github.com/Eveosev/PilotDeck/pull/37) | T-P1-05 | feat(t-p1-05): Rust-tcp vs native / TS-tcp comparison data (modelMs:200) | `1d7c8068` | 2026-10-15 15:31 | Rust-tcp vs native / TS-tcp 对照数据（modelMs:200） | [PR-37](prs/PR-37.md) |
 | [#36](https://github.com/Eveosev/PilotDeck/pull/36) | T-P1-04-FU | fix(t-p1-04-fu): R1 m1–m6 stream-chunk gate, adapter helpers, collector | `b3399c14` | 2026-10-15 13:48 | R1 m1–m6：流块 gate、adapter helper、collector | [PR-36](prs/PR-36.md) |
 | [#34](https://github.com/Eveosev/PilotDeck/pull/34) | T-P1-04 | T-P1-04: streamChunkChars 1/50/500 Unicode live-stream slicing | `30883a13` | 2026-10-15 11:18 | streamChunkChars 1/50/500 Unicode 流块切分 | [PR-34](prs/PR-34.md) |
@@ -33,6 +35,8 @@
 
 **注（#10、#16）**：`a1cf6d81` 与 `61ef1321` 都是普通双父 merge commit。`a1cf6d81` 的父为 `7d488a1b`、`55e867d9`；`61ef1321` 的父为 `008dcd16`、`a1a114bb`。第二父是 PR head。表中 SHA 即合并 commit。subject 带 `(#10)` / `(#16)`。
 
+**注（#40、#41）**：`019a527a` 的父为 `1d7c8068`、`d8366d7f`。`8cffa40d` 的父为 `019a527a`、`2733ecc2`。第二父是 PR head。表序与 `git log --first-parent` 相同，新的在前。
+
 ## 维护规则
 - 每合入一个 PR，在同一 PR 或紧随的文档 PR 中追加一行 + `prs/PR-<n>.md`。
-- 只记 GitHub 显示 merged 且出现在 first-parent 主线上的 PR；open/draft（如 #40 FT-1）不写。
+- 只记 GitHub 显示 merged 且出现在 first-parent 主线上的 PR。证据类 draft（如 #42）不入表。
