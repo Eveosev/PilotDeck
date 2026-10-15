@@ -1,0 +1,25 @@
+{
+  "sha": "f44b37898429e6a05a2adc5e551acc9148cbfba8",
+  "merged_pr": 46,
+  "x11": {
+    "exit": 0,
+    "seconds": 28.005,
+    "passed": true,
+    "screenshots": 9,
+    "file_click_timeout": 0,
+    "file_click_stable": 1,
+    "sites": 3
+  },
+  "wayland": {
+    "exit": 0,
+    "seconds": 33.078,
+    "passed": true,
+    "screenshots": 9,
+    "file_click_timeout": 0,
+    "file_click_stable": 1,
+    "sites": 3
+  },
+  "issue14_fixed_claimed": false,
+  "gha": "422 Actions disabled; local smoke",
+  "do_not_merge": true
+}

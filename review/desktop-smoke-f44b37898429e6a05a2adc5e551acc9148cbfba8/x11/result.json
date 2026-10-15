@@ -1,0 +1,10 @@
+{
+  "backend": "x11",
+  "sha": "f44b37898429e6a05a2adc5e551acc9148cbfba8",
+  "exit": 0,
+  "seconds": 28.005,
+  "start": "2026-10-15T14:14:31.155Z",
+  "end": "2026-10-15T14:14:59.163Z",
+  "screenshots": 9,
+  "passed": true
+}

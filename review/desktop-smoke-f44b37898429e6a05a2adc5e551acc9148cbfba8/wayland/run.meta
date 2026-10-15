@@ -1,0 +1,8 @@
+backend=wayland
+sha=f44b37898429e6a05a2adc5e551acc9148cbfba8
+command=timeout 600 bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland
+exit=0
+seconds=33.078
+start_utc=2026-10-15T14:15:12.543Z
+end_utc=2026-10-15T14:15:45.624Z
+screenshots=9
