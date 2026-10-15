@@ -79,6 +79,102 @@ class ScenarioFixtureTests(unittest.TestCase):
             self.assertFalse(injected)
 
 
+class StdioSidecarTests(unittest.TestCase):
+    def test_refuses_tcp_transport_with_stdio_command(self) -> None:
+        with self.assertRaises(ValueError):
+            perf.refuse_tcp_with_stdio_sidecar(
+                ["stdio", "tcp"],
+                "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+                None,
+            )
+
+    def test_refuses_tcp_flag_with_stdio_command(self) -> None:
+        with self.assertRaises(ValueError):
+            perf.refuse_tcp_with_stdio_sidecar(
+                ["stdio"],
+                "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+                "tools/agent-loop-parity/rust-tcp-sidecar.sh",
+            )
+
+    def test_stdio_only_is_allowed(self) -> None:
+        perf.refuse_tcp_with_stdio_sidecar(
+            ["native", "stdio"],
+            "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+            None,
+        )
+
+    def test_main_refuses_before_collection(self) -> None:
+        with self.assertRaises(ValueError):
+            perf.main([
+                "--pilotdeck-root", "/tmp",
+                "--transports", "tcp",
+                "--pilotdeck-stdio-sidecar-cmd", "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+                "--pilotdeck-tcp-sidecar-cmd", "tools/agent-loop-parity/rust-tcp-sidecar.sh",
+                "--iterations", "1",
+            ])
+
+    def test_prepare_requires_same_name_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "pilotdeck-agent-loop-sidecar"
+            target.write_bytes(b"rust-bin")
+            link = root / "pilotdeck-agent-loop"
+            link.symlink_to(target.name)
+            identity = perf.prepare_rust_stdio_identity(
+                "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+                str(link),
+            )
+            assert identity is not None
+            self.assertEqual(identity["bin"], str(link))
+            self.assertEqual(identity["target"], str(target.resolve()))
+            self.assertEqual(len(identity["sha256"]), 64)
+            direct = root / "pilotdeck-agent-loop-sidecar"
+            with self.assertRaises(RuntimeError):
+                perf.prepare_rust_stdio_identity(
+                    "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+                    str(direct),
+                )
+
+    def test_proof_must_match_symlink_not_sidecar_name(self) -> None:
+        expected = "/tmp/release/pilotdeck-agent-loop"
+        good = [{"pid": 9, "bin": expected, "resolved": expected}]
+        self.assertTrue(perf.proof_resolves_to_agent_loop(good, expected))
+        followed = [{
+            "pid": 9,
+            "bin": expected,
+            "resolved": "/tmp/release/pilotdeck-agent-loop-sidecar",
+        }]
+        self.assertFalse(perf.proof_resolves_to_agent_loop(followed, expected))
+
+    def test_wrapper_and_trace_proof_loaders(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            trace = Path(temporary) / "turn.jsonl"
+            trace.write_text(
+                "\n".join([
+                    json.dumps({"kind": "harness.proof", "state": "transport_selected"}),
+                    json.dumps({
+                        "kind": "harness.proof",
+                        "state": "rust_sidecar_exec",
+                        "pid": 4,
+                        "bin": "/tmp/pilotdeck-agent-loop",
+                        "resolved": "/tmp/pilotdeck-agent-loop",
+                    }),
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            proof = perf.exec_proof_path(trace)
+            proof.write_text(
+                json.dumps({
+                    "pid": 4,
+                    "bin": "/tmp/pilotdeck-agent-loop",
+                    "resolved": "/tmp/pilotdeck-agent-loop",
+                }) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(perf.load_wrapper_exec_proof(trace)[0]["pid"], 4)
+            self.assertEqual(perf.load_trace_exec_proof(trace)[0]["resolved"], "/tmp/pilotdeck-agent-loop")
+
+
 class ReportTests(unittest.TestCase):
     def test_primary_baseline_excludes_injected_delay(self) -> None:
         samples = [{
