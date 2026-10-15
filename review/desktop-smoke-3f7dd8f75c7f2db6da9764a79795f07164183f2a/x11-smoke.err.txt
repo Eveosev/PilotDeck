@@ -1,0 +1,2 @@
+dbus-daemon[2685315]: [session uid=1000 pid=2685315 pidfd=4] Activating service name='org.a11y.Bus' requested by ':1.1' (uid=1000 pid=2685340 comm="/workspace/pilotdeck-rust/repo/node_modules/.pnpm/" label="kernel")
+dbus-daemon[2685315]: [session uid=1000 pid=2685315 pidfd=4] Successfully activated service 'org.a11y.Bus'
