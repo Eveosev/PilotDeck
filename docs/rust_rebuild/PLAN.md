@@ -72,7 +72,7 @@
    - supervisor 能拉起 listener，并在进程退出后续上。UDS / mTLS 仍按 D7 原文留到生产默认之前，不作为 P2 出口。
 4. **G-P2-ADOPT（T-P2-04）**
    - 只在 1 和 2 的快速门都过之后引进 crate。全量 53 的红场景进 T-P2-01 C，不阻塞「把源码放进仓库」，但阻塞「把产品默认路径指过去」。
-   - 引进时工具链跟 rust-core：可编译下限 1.93，CI 钉它文档写明的 1.99；`unsafe_code = "forbid"`；依赖精确版本；clippy `-D warnings`。edition / resolver 以引进时的 `Cargo.toml` 为准（调查写了 edition 2024、resolver 3，附件 DEVELOPMENT 没有这两句，见评审意见）。
+   - 引进时工具链跟 rust-core 的 workspace 清单：`resolver = "3"`，`edition = "2024"`，`rust-version = "1.93"`，CI 钉 `rust-toolchain.toml` 的 1.99；`unsafe_code = "forbid"`；依赖精确 `=` 版本；clippy `-D warnings`。不降到本仓探针的 2021 / 1.83。
 5. **G-CI（T-P2-08）**
    - 触及 `evidence/protocol-sync-gate.md` 所列路径的 PR，CI 跑 schema replay（检查清单 1–3 的可脚本化部分）。
    - sidecar 行为 PR 至少跑 parity 快速门。全量 53 仍可以 nightly，不在每个 PR 的路径过滤里假装已经在跑。
@@ -109,7 +109,7 @@
 | # | 风险 | 处置 |
 |---|---|---|
 | R1 | 继续在 `run_stub_execute` 上补场景，会把 rust-core 已经拆开的 turn / recovery / compaction 重写一遍 | D-CORE：探针冻结功能面。新行为只进四 crate |
-| R2 | rust-core 约 30 处 `profile_gap` 里，预算终局文案、progress pump、live seed、metadata、recovery 决策表会打在 53 场景的一小撮上（评审意见第 2 问）。这是 P2 的真实工作量 | T-P2-02 先分类。禁止用「单测 696 项」代替这 53 个 |
+| R2 | `turn.rs` 有 29 处 `profile_gap` 调用（索引里 token 30 次，含 `:3966` 的定义）。已展开的字符串集中在 open projection、压缩预览、model-error 形状。注释里的预算文案 / progress / live seed 没有同名调用点。哪些 53 场景会撞上，见评审意见第 2 问，那是预测 | T-P2-02 先分类。禁止用「单测 696 项」代替这 53 个 |
 | R3 | 对拍身份检查要求解析后的路径以 `pilotdeck-agent-loop` 结尾。rust-core 二进制名是 `pilotdeck-agent-loop-sidecar`，直接填命令会被判 BLOCKED | T-P2-02 用现有包装脚本加一个同名符号链接。不改产品协议 |
 | R4 | rust-core 设了 TCP 端口或 factory 就 exit 2。`agent-loop-perf` 的 TCP 开关因此跑不了它；stdio 数字含每 turn 进程启动，和 #37 的常驻 TCP 不是同一形态 | 性能分两轮，写在 G-P2-PERF |
 | R5 | 探针 PC2（model 净 P95 比 native 多 13–21ms）相对同机 TS-tcp 是实现开销，但 10ms 轮询不是充分解释：`recv_timeout` 在回复到达时立刻返回。#40 之后没有重采 model 迭代 | T-P2-03 实测。在那之前不把 PC2 写成「换 rust-core 就会过」 |
