@@ -694,14 +694,14 @@ fn host_call_error_message(result: &HostCall) -> String {
 /// Content / `metadata.recovery` / timestamps follow `buildToolErrorRecovery`
 /// (`src/tool/execution/errorRecovery.ts`). `error.message` stays the raw
 /// host/timeout text (same as TS `error.message`).
-fn missing_tool_result(tool_call_id: &str, tool_name: &str, message: &str) -> Value {
+fn missing_tool_result(job: &StubJob, tool_call_id: &str, tool_name: &str, message: &str) -> Value {
     let timestamp = now_iso();
     let recovery = crate::error_recovery::build_tool_error_recovery(
         "tool_execution_failed",
         tool_name,
         message,
-        ".",
-        "default",
+        &recovery_cwd(&job.payload),
+        &permission_mode(&job.payload),
     );
     json!({
         "type": "error",
@@ -893,7 +893,7 @@ fn run_tool_calls(
                 for outstanding in std::iter::once(call).chain(call_iter) {
                     let outstanding_id = outstanding.get("id").and_then(Value::as_str).unwrap_or("");
                     let outstanding_name = outstanding.get("name").and_then(Value::as_str).unwrap_or("");
-                    let result = missing_tool_result(outstanding_id, outstanding_name, &message);
+                    let result = missing_tool_result(job, outstanding_id, outstanding_name, &message);
                     emit_tool_result_event(job, sequence, &result);
                     if stub_interrupted(job) {
                         emit_cancelled_terminal(job, *sequence);
@@ -1533,6 +1533,19 @@ fn permission_mode(payload: &Value) -> String {
         payload.pointer("/agent/permissionMode"),
     ])
     .unwrap_or_else(|| "default".to_string())
+}
+
+/// Workspace cwd for synthesized recovery. Same source as
+/// `context_prepare_input`: `/agent/cwd`. Empty/missing uses `"."` at the
+/// TS `createMissingToolResult` boundary (`recoveryContext?.cwd ?? "."`),
+/// not an invented workspace path.
+fn recovery_cwd(payload: &Value) -> String {
+    payload
+        .pointer("/agent/cwd")
+        .and_then(Value::as_str)
+        .filter(|cwd| !cwd.is_empty())
+        .unwrap_or(".")
+        .to_string()
 }
 
 fn tool_requires_prompt(tool: &Value) -> bool {
@@ -3743,7 +3756,13 @@ mod tests {
         }
     }
 
-    fn assert_synthesized_recovery_result(result: &Value, tool_name: &str, raw_message: &str) {
+    fn assert_synthesized_recovery_result(
+        result: &Value,
+        tool_name: &str,
+        raw_message: &str,
+        cwd: &str,
+        permission_mode: &str,
+    ) {
         assert_eq!(result["type"], "error");
         assert_eq!(result["error"]["code"], "tool_execution_failed");
         assert_eq!(result["error"]["message"], raw_message);
@@ -3751,8 +3770,8 @@ mod tests {
             "tool_execution_failed",
             tool_name,
             raw_message,
-            ".",
-            "default",
+            cwd,
+            permission_mode,
         );
         assert_eq!(result["content"][0]["type"], "text");
         assert_eq!(result["content"][0]["text"], expected.message);
@@ -3973,6 +3992,8 @@ mod tests {
             &results[1]["payload"]["result"],
             "lookup",
             "host rejected module_call",
+            ".",
+            "default",
         );
         let projected = lines
             .iter()
@@ -4016,6 +4037,8 @@ mod tests {
             &tool_result["payload"]["result"],
             "lookup",
             "host rejected module_call",
+            ".",
+            "default",
         );
         let projected = lines
             .iter()
@@ -4026,6 +4049,73 @@ mod tests {
         assert!(raw["content"][0]["text"]
             .as_str()
             .is_some_and(|text| text.starts_with("TOOL_ERROR[tool_execution_failed][lookup]")));
+    }
+
+    fn client_payload_with_recovery_context(user_text: &str, cwd: &str, mode: &str) -> String {
+        let mut payload: Value =
+            serde_json::from_str(&client_payload_json(user_text)).expect("payload");
+        payload["agent"]["cwd"] = json!(cwd);
+        payload["permissionContext"]["mode"] = json!(mode);
+        payload.to_string()
+    }
+
+    #[test]
+    fn recovery_cwd_reads_agent_cwd_same_as_context_prepare() {
+        assert_eq!(
+            recovery_cwd(&json!({ "agent": { "cwd": "/tmp/test-home" } })),
+            "/tmp/test-home"
+        );
+        assert_eq!(recovery_cwd(&json!({ "agent": { "cwd": "" } })), ".");
+        assert_eq!(recovery_cwd(&json!({})), ".");
+        assert_eq!(
+            permission_mode(&json!({ "permissionContext": { "mode": "bypassPermissions" } })),
+            "bypassPermissions"
+        );
+        assert_eq!(
+            permission_mode(&json!({ "agent": { "permissionMode": "plan" } })),
+            "plan"
+        );
+        assert_eq!(permission_mode(&json!({})), "default");
+    }
+
+    /// T-P1-03-FU-B R1 M2: fail-fill must not hardcode cwd="." / permissionMode=default.
+    #[test]
+    fn capability_execute_fail_uses_payload_cwd_and_permission_mode() {
+        let (sidecar, sink) = collect_with_host(capability_execute_fail_host);
+        sidecar.handle_line(&execute_line(
+            "ex-cap-rec-ctx",
+            "run-cap-rec-ctx",
+            "op-cap-rec-ctx",
+            "req-cap-rec-ctx",
+            &client_payload_with_recovery_context(
+                "Look up the status",
+                "/tmp/test-home",
+                "bypassPermissions",
+            ),
+        ));
+        sidecar.join();
+        let lines = sink.lock().expect("sink").clone();
+        let tool_result = lines
+            .iter()
+            .find(|m| m["eventType"] == "agent.tool_result")
+            .expect("tool_result");
+        let result = &tool_result["payload"]["result"];
+        assert_synthesized_recovery_result(
+            result,
+            "lookup",
+            "host rejected module_call",
+            "/tmp/test-home",
+            "bypassPermissions",
+        );
+        let text = result["content"][0]["text"].as_str().expect("recovery text");
+        assert!(
+            text.contains("Current permission mode: bypassPermissions."),
+            "non-default permissionMode must appear in recovery text, got {text}"
+        );
+        assert!(
+            !text.contains("Current permission mode: default."),
+            "hardcoded default permissionMode must not appear, got {text}"
+        );
     }
 
     /// T-P1-03-FU-B A3 / #28 R1 m-3: `isError` only when `result.type === "error"`

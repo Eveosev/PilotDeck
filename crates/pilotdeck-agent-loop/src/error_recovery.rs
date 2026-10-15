@@ -48,16 +48,14 @@ pub fn build_tool_error_recovery(
     code: &str,
     tool_name: &str,
     message: &str,
-    _cwd: &str,
+    cwd: &str,
     permission_mode: &str,
 ) -> ToolErrorRecoveryResult {
     let evidence = extract_salient_evidence(message);
     let advice = ToolErrorRecoveryAdvice {
         summary: summarize_error(code, tool_name, message, &evidence),
         failure_class: classify_error(code, tool_name, message).to_string(),
-        next_actions: vec![format!(
-            "Inspect the evidence, change the approach, then retry only with corrected inputs. Current permission mode: {permission_mode}."
-        )],
+        next_actions: next_actions_for(code, cwd, permission_mode),
         avoid_retry_reason: None,
         salient_evidence: evidence,
         original_error: format_original_error(message),
@@ -96,6 +94,18 @@ fn format_recovery_message(code: &str, tool_name: &str, advice: &ToolErrorRecove
         }
     }
     lines.join("\n")
+}
+
+fn next_actions_for(code: &str, cwd: &str, permission_mode: &str) -> Vec<String> {
+    if code == "path_not_allowed" {
+        return vec![
+            format!("Use a path inside the workspace root: {cwd}."),
+            "If the outside path is essential, explain why and ask the user for access.".to_string(),
+        ];
+    }
+    vec![format!(
+        "Inspect the evidence, change the approach, then retry only with corrected inputs. Current permission mode: {permission_mode}."
+    )]
 }
 
 fn summarize_error(code: &str, tool_name: &str, raw_message: &str, evidence: &[String]) -> String {
@@ -180,13 +190,13 @@ fn format_original_error(raw_message: &str) -> Option<String> {
     if cleaned.is_empty() {
         return None;
     }
-    if cleaned.len() <= ORIGINAL_ERROR_MAX_CHARS {
+    if char_len(&cleaned) <= ORIGINAL_ERROR_MAX_CHARS {
         return Some(cleaned);
     }
     Some(format!(
         "{}\n... [original error truncated; {} chars total]",
-        cleaned[..ORIGINAL_ERROR_MAX_CHARS].trim_end(),
-        cleaned.len()
+        truncate_chars(&cleaned, ORIGINAL_ERROR_MAX_CHARS).trim_end(),
+        char_len(&cleaned)
     ))
 }
 
@@ -201,10 +211,10 @@ fn first_meaningful_line(value: &str) -> String {
 
 fn trim_sentence(value: &str) -> String {
     let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if compact.len() <= 220 {
+    if char_len(&compact) <= 220 {
         return compact;
     }
-    format!("{}...", compact[..217].trim_end())
+    format!("{}...", truncate_chars(&compact, 217).trim_end())
 }
 
 fn unique_strings(values: Vec<String>) -> Vec<String> {
@@ -223,7 +233,22 @@ fn contains_any(hay: &str, needles: &[&str]) -> bool {
 }
 
 fn starts_with_ignore_ascii_case(value: &str, prefix: &str) -> bool {
-    value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix)
+    let value_bytes = value.as_bytes();
+    let prefix_bytes = prefix.as_bytes();
+    value_bytes.len() >= prefix_bytes.len()
+        && value_bytes[..prefix_bytes.len()].eq_ignore_ascii_case(prefix_bytes)
+}
+
+fn char_len(value: &str) -> usize {
+    value.chars().count()
+}
+
+/// Truncate to `max_chars` Unicode scalars. Never splits a UTF-8 character.
+fn truncate_chars(value: &str, max_chars: usize) -> &str {
+    match value.char_indices().nth(max_chars) {
+        None => value,
+        Some((idx, _)) => &value[..idx],
+    }
 }
 
 /// TS `/timed? ?out/i` — `time` + optional `d` + optional space + `out`.
@@ -300,6 +325,79 @@ mod tests {
         assert_eq!(
             recovered.advice.summary,
             "Host module_call timed out."
+        );
+    }
+
+    #[test]
+    fn cjk_prefix_uses_byte_compare_and_does_not_panic() {
+        // Each CJK scalar is 3 bytes. A UTF-8 prefix of `TOOL_ERROR[` (11 bytes)
+        // would land mid-character and panic on `&str` slicing.
+        let cjk = "你好世界测试文字更多内容";
+        assert!(cjk.len() > "TOOL_ERROR[".len());
+        assert!(!cjk.is_char_boundary("TOOL_ERROR[".len()));
+        assert!(!starts_with_ignore_ascii_case(cjk, "TOOL_ERROR["));
+        assert!(starts_with_ignore_ascii_case(
+            "TOOL_ERROR[tool_execution_failed] 中文",
+            "TOOL_ERROR[",
+        ));
+        let recovered = build_tool_error_recovery(
+            "tool_execution_failed",
+            "lookup",
+            cjk,
+            ".",
+            "default",
+        );
+        assert!(recovered.message.contains("你好世界"));
+        assert_eq!(recovered.advice.original_error.as_deref(), Some(cjk));
+    }
+
+    #[test]
+    fn overlong_cjk_truncates_on_char_boundary() {
+        let long: String = std::iter::repeat('字').take(230).collect();
+        let trimmed = trim_sentence(&long);
+        assert!(trimmed.ends_with("..."));
+        assert!(trimmed.is_char_boundary(trimmed.len()));
+        assert_eq!(char_len(&trimmed), 220);
+        assert_eq!(truncate_chars(&long, 217).chars().count(), 217);
+
+        let original: String = std::iter::repeat('误').take(2_010).collect();
+        let formatted = format_original_error(&original).expect("original");
+        assert!(formatted.contains("original error truncated; 2010 chars total"));
+        let head = formatted
+            .split("\n... [original error truncated")
+            .next()
+            .expect("head");
+        assert!(head.is_char_boundary(head.len()));
+        assert_eq!(char_len(head), ORIGINAL_ERROR_MAX_CHARS);
+
+        let recovered = build_tool_error_recovery(
+            "tool_execution_failed",
+            "lookup",
+            &original,
+            ".",
+            "bypassPermissions",
+        );
+        assert!(recovered
+            .message
+            .contains("Current permission mode: bypassPermissions."));
+        assert!(recovered.message.contains("original error truncated"));
+    }
+
+    #[test]
+    fn path_not_allowed_mentions_real_cwd() {
+        let recovered = build_tool_error_recovery(
+            "path_not_allowed",
+            "read_file",
+            "path not allowed",
+            "/tmp/test-home",
+            "bypassPermissions",
+        );
+        assert!(recovered
+            .message
+            .contains("Use a path inside the workspace root: /tmp/test-home."));
+        assert_eq!(
+            recovered.advice.next_actions[0],
+            "Use a path inside the workspace root: /tmp/test-home."
         );
     }
 }
