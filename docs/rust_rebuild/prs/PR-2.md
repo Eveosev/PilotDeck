@@ -46,12 +46,17 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 - `c57b5261`（qa-verify-r1r3/VERDICT.md）：**PASS**。R1–R3 静态检查通过，cancel 20/20、matrix-53 exit 0。
 - `2223c8b7`（r7-lock-smoke + r7-full-ts）：**PASS**（R7 锁定范围）。三条锁 HEAD PASS / base FAIL；`sidecar-client.spec.js` 52/53，失败项为已知 tool-progress flake。
 **Reviewer**
-- R1：**fail**，已在 `c57b5261` 修复。来源 `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT.md`（本地证据，未入库）。发现项正文：原始文件缺失。
-- R2：文件为 `REVIEW_RESULT_R2.md`。QA 在 `c57b5261` **PASS**。R2 结论：原始文件缺失。来源 `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R2.md`（本地证据，未入库）。
-- 第 3 轮（tip `2223c8b7`，文件 `REVIEW_RESULT_R7.md`）：**pass**。新问题仅 minor（条目：原始文件缺失）。`R7` 是发现编号（锁定测试），不是轮次。来源 `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md`（本地证据，未入库）。
+- R1（`57a43158`）：**fail**，1 blocker / 2 major / 4 minor。
+  - R1 blocker：比较器可交错通道远超 5 类 → 收紧为 5 类 + 严格 per-actor `core`，R2 轮关闭。
+  - R2 major：cancel 不稳定、靠放宽掩盖 → 恢复 `abortSignal`、`abort_turn` 失败记 `cancel.error`、mock 等产品 abort，R2 轮关闭。
+  - R3 major：「两侧 cancelled 即忽略 `turn_aborted`」放宽 → 已删除并加反向单测，R2 轮关闭。
+- R2（`c57b5261`）：**pass**，0 blocker / 0 major；新增 minor R2-1…R2-6；R4/R5/R7 仍开，R6 只能部分核实。R7 需 Payne 明确接受 `AgentLoop.ts` 对 stdio 所有 status 文案的改动。
+- 第 3 轮（R7 lock tests，`2223c8b7`，`REVIEW_RESULT_R7.md`）：**pass**，0 blocker / 0 major；三条锁与方案 A 一致，commit 只改测试；新增 minor R7-1…R7-3。来源 `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md`（本地证据，未入库）。
 - 计划审阅（`REVIEW_RESULT_AGENTLOOP_PLAN.md`）：**revise_plan**（小修，方向不变）。来源 `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_AGENTLOOP_PLAN.md`（本地证据，未入库）。
 **遗留**
-- 第 3 轮新问题仅 minor；具体条目：原始文件缺失。
+- R2-1（PR 正文对 durable 重排说法过宽）、R2-2、R2-3、R2-4/R4（`requireObservedDifferences` 死配置）、R5（summary 不记两侧 transport）、R6。
+- R2-5 / R2-6 / R7-2 / R7-3：证据补齐（probe 文件、test_trace stdout、base 上 tool-progress 结果、PR 正文 53/53 应改为与 QA 一致的 52/53）。
+- R7-1：在 HEAD 上跑一遍完整 TS 单测，确认没有其他测试锁住旧的 B0 形状。
 
 ## QA 结论
 | tip | 结论 | 原文 |
@@ -63,13 +68,15 @@ comparator：通道序比较(R5)+budget 文案(R6)+cancel 确定性(R7)，含 TS
 ## Reviewer 结论（逐轮）
 | 轮次 | 结论 | 原文 |
 |---|---|---|
-| R1 | fail（修复于 `c57b5261`） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT.md`（本地证据，未入库） |
-| R2 | 原始文件缺失（QA 在 `c57b5261` 为 PASS） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R2.md`（本地证据，未入库） |
-| 第 3 轮 | pass（新问题仅 minor；`R7` 是锁定测试的发现编号，不是轮次） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md`（本地证据，未入库） |
+| R1 | fail（1 blocker/2 major/4 minor） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT.md`（本地证据，未入库） |
+| R2 | pass | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R2.md`（本地证据，未入库） |
+| 第 3 轮（R7 lock tests） | pass（新增 R7-1…R7-3） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_R7.md`（本地证据，未入库） |
 | 计划审阅 | revise_plan（小修，方向不变） | `.review/2026-10-10-T-P0a-02-comparator/REVIEW_RESULT_AGENTLOOP_PLAN.md`（本地证据，未入库） |
 
 ## 遗留 minor / 已披露缺口
-第 3 轮新问题仅 minor；条目：原始文件缺失。
+- R2-1（PR 正文对 durable 重排说法过宽）、R2-2、R2-3、R2-4/R4（`requireObservedDifferences` 死配置）、R5（summary 不记两侧 transport）、R6。
+- R2-5 / R2-6 / R7-2 / R7-3：证据补齐（probe 文件、test_trace stdout、base 上 tool-progress 结果、PR 正文 53/53 应改为与 QA 一致的 52/53）。
+- R7-1：在 HEAD 上跑一遍完整 TS 单测，确认没有其他测试锁住旧的 B0 形状。
 
 ## 合并后桌面 smoke
 无
