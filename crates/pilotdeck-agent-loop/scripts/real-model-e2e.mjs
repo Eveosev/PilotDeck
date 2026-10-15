@@ -21,19 +21,31 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-if (!process.execArgv.some((flag) => flag.includes("strip-types"))) {
-  const replayed = spawnSync(
-    process.execPath,
-    ["--experimental-strip-types", ...process.argv.slice(1)],
-    { stdio: "inherit" },
-  );
+const here = dirname(fileURLToPath(import.meta.url));
+// Production model sources use TypeScript parameter properties. Node's
+// strip-only loader cannot load them. `tsx` is already a repo devDependency
+// and rewrites `.js` specifiers onto the `.ts` sources.
+if (process.env.PILOTDECK_REAL_MODEL_E2E_TSX !== "1") {
+  let tsxCli;
+  try {
+    tsxCli = createRequire(import.meta.url).resolve("tsx/cli");
+  } catch (error) {
+    console.error(
+      "real-model-e2e needs the repo devDependency tsx (and runtime deps jsonrepair, undici, @google/genai). Install them with the repo package manager before running this script.",
+    );
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+  const replayed = spawnSync(process.execPath, [tsxCli, ...process.argv.slice(1)], {
+    stdio: "inherit",
+    env: { ...process.env, PILOTDECK_REAL_MODEL_E2E_TSX: "1" },
+  });
   process.exit(replayed.status ?? 1);
 }
-
-const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..", "..");
 const { createModelRuntime } = await import(pathToFileURL(resolve(repoRoot, "src/model/ModelRuntime.ts")).href);
 const { parseModelConfig } = await import(pathToFileURL(resolve(repoRoot, "src/model/config/parseModelConfig.ts")).href);

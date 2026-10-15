@@ -268,6 +268,26 @@ pub fn s2_cancel_status_and_explicit_resume_ack_reject(sidecar: &mut SidecarProc
 
 const G5_WAIT: Duration = Duration::from_secs(3);
 
+fn execute_request(
+    message_id: &str,
+    run_id: &str,
+    operation_id: &str,
+    request_id: &str,
+    user_text: &str,
+) -> Value {
+    json!({
+        "kind": "request",
+        "messageId": message_id,
+        "method": "execute",
+        "runId": run_id,
+        "operationId": operation_id,
+        "requestId": request_id,
+        "sessionId": format!("sess-{run_id}"),
+        "turnId": format!("turn-{operation_id}"),
+        "payload": client_execute_payload(user_text),
+    })
+}
+
 /// G5 real-client payload over whichever transport spawned `sidecar`.
 pub fn g5_real_client_payload(sidecar: &mut SidecarProcess) {
     sidecar.send_json(&json!({

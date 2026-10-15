@@ -1,0 +1,29 @@
+{
+  "task": "T-P2-01",
+  "base": "4fe9bba19530d5f879e6d89d5a5b312df081f43e",
+  "branch": "cursor/t-p2-01-agent-loop-f8ea",
+  "target": "rust_standalone_alpha1",
+  "kind": "fixture-not-billed-provider",
+  "liveKeysPresent": false,
+  "mockModelMs": false,
+  "toolchain": "rustc 1.83.0 (90b35a623 2024-11-26)",
+  "node": "v22.14.0",
+  "command": "node crates/pilotdeck-agent-loop/scripts/real-model-e2e.mjs --bin target/debug/pilotdeck-agent-loop",
+  "note": "No OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY was set. The script still calls production createModelRuntime/streamModel. The fetch implementation is an in-process OpenAI SSE fixture. This is not a billed provider call and is not an A8/FT-2a measurement.",
+  "report": {
+    "ok": true,
+    "task": "T-P2-01",
+    "transport": "stdio",
+    "outcome": "completed",
+    "code": null,
+    "mockModelMs": false,
+    "providerPath": "host module_call prepare/stream_next -> createModelRuntime/streamModel",
+    "credential": "absent",
+    "provider": "openai",
+    "model": "p2-fixture",
+    "protocol": "openai",
+    "assistantText": "pong",
+    "prepareCount": 1,
+    "streamNextCount": 5
+  }
+}
