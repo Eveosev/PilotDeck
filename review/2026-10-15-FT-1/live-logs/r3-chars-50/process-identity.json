@@ -1,0 +1,6 @@
+{
+  "pid": 8152,
+  "exe": "/workspace/target/release/pilotdeck-agent-loop",
+  "cmdline": "/workspace/target/release/pilotdeck-agent-loop --listen 127.0.0.1:48395",
+  "log": "sidecar-exec bin=/workspace/target/release/pilotdeck-agent-loop pid=8152 argv=--listen 127.0.0.1:48395\nlistening 127.0.0.1:48395\n"
+}

@@ -1,0 +1,12 @@
+{
+  "task": "FT-1",
+  "base": "1d7c806846386c16274e0549e156b142f4930a6f",
+  "impl": "4ac1ca7076f65cace4f3b7ca7c5b013533b69373",
+  "files": [
+    "evidence/p1/stream-chunks-live-rust-tcp-1-r2.json",
+    "evidence/p1/stream-chunks-live-rust-tcp-50-r2.json",
+    "evidence/p1/stream-chunks-live-rust-tcp-500-r2.json",
+    "evidence/p1/stream-chunks-live-rust-tcp-default-r2.json",
+    "evidence/p1/stream-chunks-live-rust-tcp-compare-r2.json"
+  ]
+}

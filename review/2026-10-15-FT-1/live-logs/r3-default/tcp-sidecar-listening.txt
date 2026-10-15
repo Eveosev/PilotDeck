@@ -1,0 +1,2 @@
+sidecar-exec bin=/workspace/target/release/pilotdeck-agent-loop pid=8213 argv=--listen 127.0.0.1:45815
+listening 127.0.0.1:45815

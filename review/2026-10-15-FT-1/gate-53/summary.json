@@ -1,0 +1,395 @@
+{
+  "scenarios": 53,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "tcp",
+  "sidecarImplementation": "ts",
+  "sidecarImplementationSource": "none",
+  "rustFingerprint": "missing",
+  "rustSidecarIntended": false,
+  "stdioSidecarCommand": null,
+  "tcpSidecarLog": "/tmp/ft1-gate-53/tcp-sidecar.log",
+  "provenance": {
+    "current": "5d743e17743ca1503d38d10316922d233feab5ad",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  },
+  "blocked": [
+    "plan_mode_host_policy/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: capability:execute_batch",
+    "plan_mode_bypass_host_policy/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: capability:execute_batch",
+    "sidecar_elicitation_execution/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: capability:execute_batch",
+    "sidecar_sdk_tool_progress/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: capability:execute_batch",
+    "sidecar_live_steer/pilotdeck-current-sidecar: BLOCKED: production sidecar module proof is missing: turn",
+    "sidecar_durable_compaction/pilotdeck-current-sidecar: BLOCKED: production sidecar module proof is missing: turn",
+    "sidecar_full_request_compaction_budget/pilotdeck-current-sidecar: BLOCKED: production sidecar module proof is missing: turn",
+    "sidecar_projected_request_compaction_budget/pilotdeck-current-sidecar: BLOCKED: production sidecar module proof is missing: turn; production sidecar operation proof is missing: context:try_auto_compact",
+    "sidecar_model_metadata/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: model:get_metadata",
+    "sidecar_empty_system_prompt/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: model:get_metadata",
+    "sidecar_additional_working_directories/pilotdeck-current-sidecar: BLOCKED: production sidecar operation proof is missing: model:get_metadata"
+  ],
+  "failed": [
+    "multiple_tool/PilotDeck: 15 semantic difference(s)",
+    "max_turns/PilotDeck: 15 semantic difference(s)",
+    "deadline/PilotDeck: transport contract mismatch (2 semantic difference(s))",
+    "image/PilotDeck: 1 semantic difference(s)",
+    "checkpoint_resume/PilotDeck: 1 semantic difference(s)",
+    "multi_tool_ordered/PilotDeck: 15 semantic difference(s)",
+    "multi_tool_mixed_permission/PilotDeck: 9 semantic difference(s)",
+    "multi_tool_mixed_error/PilotDeck: 13 semantic difference(s)",
+    "large_tool_result/PilotDeck: 10 semantic difference(s)",
+    "model_retryable_error/PilotDeck: 7 semantic difference(s)",
+    "model_non_retryable_error/PilotDeck: 7 semantic difference(s)",
+    "malformed_model_response/PilotDeck: 7 semantic difference(s)",
+    "stream_interruption/PilotDeck: 7 semantic difference(s)",
+    "write_snapshot_resume/PilotDeck: 1 semantic difference(s)",
+    "auto_compact/PilotDeck: 22 semantic difference(s)",
+    "sidecar_budget_limit/PilotDeck: 31 semantic difference(s)",
+    "sidecar_continuable_followup_live/PilotDeck: transport contract mismatch (18 semantic difference(s))",
+    "sidecar_continuable_followup_cold/PilotDeck: transport contract mismatch (18 semantic difference(s))",
+    "sidecar_one_shot_subagent_success/PilotDeck: 1 semantic difference(s)"
+  ],
+  "oracleFailures": [
+    "multiple_tool/pilotdeck-current-sidecar: toolCalls expected=['lookup', 'summarize'] actual=['lookup']",
+    "max_turns/pilotdeck-current-sidecar: terminal.outcome expected='failed' actual='completed'",
+    "max_turns/pilotdeck-current-sidecar: terminal.code expected='agent_max_turns_reached' actual=None",
+    "max_turns/pilotdeck-current-sidecar: terminal.stopReason expected='max_turns' actual='completed'",
+    "deadline/pilotdeck-current-sidecar: operationOutcome expected='result_unknown' actual='failed'",
+    "multi_tool_ordered/pilotdeck-current-sidecar: toolCalls expected=['lookup', 'summarize'] actual=['lookup']",
+    "multi_tool_mixed_permission/pilotdeck-current-sidecar: permissionAllowed expected=False actual=True",
+    "multi_tool_mixed_error/pilotdeck-current-sidecar: toolCalls expected=['lookup', 'lookup_error'] actual=['lookup']",
+    "multi_tool_mixed_error/pilotdeck-current-sidecar: toolErrorCode expected='MOCK_TOOL_ERROR' actual=None",
+    "large_tool_result/pilotdeck-current-sidecar: terminal.outcome expected='completed' actual='failed'",
+    "auto_compact/pilotdeck-current-sidecar: terminal.outcome expected='failed' actual='completed'",
+    "auto_compact/pilotdeck-current-sidecar: terminal.stopReason expected='prompt_too_long' actual='completed'",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: terminal.outcome expected='failed' actual='completed'",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: terminal.code expected='agent_max_budget_reached' actual=None",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: terminal.stopReason expected='max_budget' actual='completed'",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: modelAttempts expected=1 actual=2",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: sideEffectCount expected=0 actual=1",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: turnSpentUsd expected=1 actual=None",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: durableStatusCount expected=1 actual=0",
+    "sidecar_budget_limit/pilotdeck-current-sidecar: replayedStatusCount expected=1 actual=0",
+    "sidecar_continuable_followup_live/pilotdeck-current-sidecar: terminal.outcome expected='completed' actual='failed'",
+    "sidecar_continuable_followup_live/pilotdeck-current-sidecar: toolCalls expected=['subagent', 'send_message'] actual=['subagent']",
+    "sidecar_continuable_followup_live/pilotdeck-current-sidecar: outputContains expected=True actual=False",
+    "sidecar_continuable_followup_cold/pilotdeck-current-sidecar: terminal.outcome expected='completed' actual='failed'",
+    "sidecar_continuable_followup_cold/pilotdeck-current-sidecar: toolCalls expected=['subagent', 'send_message'] actual=['subagent']",
+    "sidecar_continuable_followup_cold/pilotdeck-current-sidecar: outputContains expected=True actual=False"
+  ],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [
+    "pure_text/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "single_tool/PilotDeck: 134 warning(s) [envelope=75, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "multiple_tool/PilotDeck: 198 warning(s) [envelope=139, budget=9, modelView=14, request=4, requestEvidence=2, response=3, state=3, kind=16, source=3, attempt=5]",
+    "tool_error/PilotDeck: 134 warning(s) [envelope=75, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "permission_denial/PilotDeck: 126 warning(s) [envelope=67, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "max_turns/PilotDeck: 80 warning(s) [envelope=64, budget=3, modelView=2, request=1, response=1, state=1, kind=5, source=1, attempt=2]",
+    "deadline/PilotDeck: 47 warning(s) [envelope=28, budget=6, modelView=2, request=2, requestEvidence=1, state=2, kind=2, source=2, attempt=2]",
+    "cancel/PilotDeck: 16 warning(s) [envelope=16]",
+    "image/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "checkpoint_resume/PilotDeck: 66 warning(s) [envelope=36, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "permission_allow/PilotDeck: 90 warning(s) [envelope=63, budget=6, modelView=4, request=2, response=2, state=2, kind=5, source=2, attempt=4]",
+    "permission_ask_approve/PilotDeck: 136 warning(s) [envelope=77, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "permission_ask_deny/PilotDeck: 114 warning(s) [envelope=69, budget=12, modelView=6, request=2, response=4, state=4, kind=7, source=4, attempt=6]",
+    "can_prompt_false/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "multi_tool_ordered/PilotDeck: 154 warning(s) [envelope=127, budget=3, modelView=3, request=2, response=1, state=1, kind=13, source=1, attempt=3]",
+    "multi_tool_mixed_permission/PilotDeck: 120 warning(s) [envelope=85, budget=6, modelView=10, request=2, response=2, state=2, kind=9, source=2, attempt=2]",
+    "multi_tool_mixed_error/PilotDeck: 165 warning(s) [envelope=110, budget=9, modelView=14, request=4, requestEvidence=2, response=3, state=3, kind=12, source=3, attempt=5]",
+    "large_tool_result/PilotDeck: 105 warning(s) [envelope=64, budget=6, modelView=13, request=3, requestEvidence=1, response=3, state=2, kind=7, source=2, attempt=4]",
+    "tool_retryable_error/PilotDeck: 137 warning(s) [envelope=74, budget=12, modelView=21, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=4]",
+    "tool_non_retryable_error/PilotDeck: 134 warning(s) [envelope=75, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "model_retryable_error/PilotDeck: 81 warning(s) [envelope=57, budget=6, modelView=2, request=2, requestEvidence=1, state=2, kind=7, source=2, attempt=2]",
+    "model_non_retryable_error/PilotDeck: 81 warning(s) [envelope=57, budget=6, modelView=2, request=2, requestEvidence=1, state=2, kind=7, source=2, attempt=2]",
+    "malformed_model_response/PilotDeck: 72 warning(s) [envelope=49, budget=6, modelView=2, request=2, requestEvidence=1, state=2, kind=6, source=2, attempt=2]",
+    "stream_interruption/PilotDeck: 78 warning(s) [envelope=54, budget=6, modelView=2, request=2, requestEvidence=1, state=2, kind=7, source=2, attempt=2]",
+    "cancel_during_tool/PilotDeck: 71 warning(s) [envelope=40, budget=6, modelView=11, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "deadline_during_tool/PilotDeck: 69 warning(s) [envelope=38, budget=6, modelView=11, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "multimodal_image_and_text/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "allowed_read_files/PilotDeck: 130 warning(s) [envelope=71, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "denied_read_files/PilotDeck: 130 warning(s) [envelope=71, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=8, source=4, attempt=6]",
+    "write_snapshot_resume/PilotDeck: 72 warning(s) [envelope=42, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "auto_compact/PilotDeck: 77 warning(s) [envelope=57, budget=3, modelView=2, request=1, requestEvidence=1, response=1, state=1, kind=8, source=1, attempt=2]",
+    "sidecar_budget_limit/PilotDeck: 113 warning(s) [envelope=76, budget=6, modelView=11, request=2, requestEvidence=1, response=2, state=2, kind=9, source=2, attempt=2]",
+    "sidecar_elicitation/PilotDeck: 58 warning(s) [envelope=28, budget=6, modelView=10, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]",
+    "sidecar_seed_read_state/PilotDeck: 86 warning(s) [envelope=59, budget=6, modelView=4, request=2, response=2, state=2, kind=5, source=2, attempt=4]",
+    "sidecar_live_model_stream/PilotDeck: 75 warning(s) [envelope=50, budget=6, modelView=2, request=2, requestEvidence=1, state=5, kind=5, source=2, attempt=2]",
+    "sidecar_continuable_followup_live/PilotDeck: 196 warning(s) [envelope=116, budget=9, modelView=25, request=9, response=4, state=4, kind=15, source=3, attempt=11]",
+    "sidecar_continuable_followup_cold/PilotDeck: 225 warning(s) [envelope=121, budget=12, modelView=33, request=11, requestEvidence=1, response=9, state=5, kind=17, source=4, attempt=12]",
+    "sidecar_parent_close_after_admission/PilotDeck: 608 warning(s) [envelope=70, budget=12, modelView=256, request=247, requestEvidence=1, response=2, state=4, kind=7, source=4, attempt=5]",
+    "sidecar_one_shot_subagent_success/PilotDeck: 164 warning(s) [envelope=102, budget=12, modelView=15, request=4, requestEvidence=2, response=4, state=4, kind=11, source=4, attempt=6]",
+    "sidecar_one_shot_subagent_failure/PilotDeck: 118 warning(s) [envelope=87, budget=6, modelView=4, request=2, requestEvidence=1, response=2, state=2, kind=8, source=2, attempt=4]",
+    "sidecar_one_shot_parent_abort_after_admission/PilotDeck: 60 warning(s) [envelope=42, budget=6, modelView=2, response=2, state=2, kind=2, source=2, attempt=2]",
+    "sidecar_one_shot_parent_close_after_admission/PilotDeck: 71 warning(s) [envelope=40, budget=6, modelView=11, request=2, requestEvidence=1, response=2, state=2, kind=3, source=2, attempt=2]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 2683,
+    "budget": 318,
+    "modelView": 659,
+    "request": 362,
+    "requestEvidence": 44,
+    "response": 99,
+    "state": 111,
+    "kind": 284,
+    "source": 106,
+    "attempt": 157
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=2683, budget=318, modelView=659, request=362, requestEvidence=44, response=99, state=111, kind=284, source=106, attempt=157. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "output": "/tmp/ft1-gate-53",
+  "runs": [
+    {
+      "scenario": "pure_text",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 58
+    },
+    {
+      "scenario": "single_tool",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 134
+    },
+    {
+      "scenario": "multiple_tool",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 198
+    },
+    {
+      "scenario": "tool_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 134
+    },
+    {
+      "scenario": "permission_denial",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 126
+    },
+    {
+      "scenario": "max_turns",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 80
+    },
+    {
+      "scenario": "deadline",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 47
+    },
+    {
+      "scenario": "cancel",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 16
+    },
+    {
+      "scenario": "image",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 58
+    },
+    {
+      "scenario": "checkpoint_resume",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 66
+    },
+    {
+      "scenario": "permission_allow",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 90
+    },
+    {
+      "scenario": "permission_ask_approve",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 136
+    },
+    {
+      "scenario": "permission_ask_deny",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 114
+    },
+    {
+      "scenario": "can_prompt_false",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 58
+    },
+    {
+      "scenario": "multi_tool_ordered",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 154
+    },
+    {
+      "scenario": "multi_tool_mixed_permission",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 120
+    },
+    {
+      "scenario": "multi_tool_mixed_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 165
+    },
+    {
+      "scenario": "large_tool_result",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 105
+    },
+    {
+      "scenario": "tool_retryable_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 137
+    },
+    {
+      "scenario": "tool_non_retryable_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 134
+    },
+    {
+      "scenario": "model_retryable_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 81
+    },
+    {
+      "scenario": "model_non_retryable_error",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 81
+    },
+    {
+      "scenario": "malformed_model_response",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 72
+    },
+    {
+      "scenario": "stream_interruption",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 78
+    },
+    {
+      "scenario": "cancel_during_tool",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 71
+    },
+    {
+      "scenario": "deadline_during_tool",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 69
+    },
+    {
+      "scenario": "multimodal_image_and_text",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 58
+    },
+    {
+      "scenario": "allowed_read_files",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 130
+    },
+    {
+      "scenario": "denied_read_files",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 130
+    },
+    {
+      "scenario": "write_snapshot_resume",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 72
+    },
+    {
+      "scenario": "auto_compact",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 77
+    },
+    {
+      "scenario": "sidecar_budget_limit",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 113
+    },
+    {
+      "scenario": "sidecar_elicitation",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 58
+    },
+    {
+      "scenario": "sidecar_seed_read_state",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 86
+    },
+    {
+      "scenario": "sidecar_live_model_stream",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 75
+    },
+    {
+      "scenario": "sidecar_continuable_followup_live",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 196
+    },
+    {
+      "scenario": "sidecar_continuable_followup_cold",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 225
+    },
+    {
+      "scenario": "sidecar_parent_close_after_admission",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 608
+    },
+    {
+      "scenario": "sidecar_one_shot_subagent_success",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 164
+    },
+    {
+      "scenario": "sidecar_one_shot_subagent_failure",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 118
+    },
+    {
+      "scenario": "sidecar_one_shot_parent_abort_after_admission",
+      "sidecarImplementation": "ts",
+      "sidecarImplementationSource": "none",
+      "formatWarningCount": 60
+    },
+    {
+      "scenario": "sidecar_one_shot_parent_close_after_admission",
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "fingerprint",
+      "formatWarningCount": 71
+    }
+  ]
+}

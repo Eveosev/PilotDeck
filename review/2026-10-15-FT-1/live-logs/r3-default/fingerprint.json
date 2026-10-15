@@ -1,0 +1,26 @@
+{
+  "scenarioId": "sidecar_live_model_stream",
+  "streamChunkChars": null,
+  "listeningAndExec": "sidecar-exec bin=/workspace/target/release/pilotdeck-agent-loop pid=8213 argv=--listen 127.0.0.1:45815\nlistening 127.0.0.1:45815",
+  "process": {
+    "pid": 8213,
+    "exe": "/workspace/target/release/pilotdeck-agent-loop",
+    "cmdline": "/workspace/target/release/pilotdeck-agent-loop --listen 127.0.0.1:45815"
+  },
+  "streamNextCount": 6,
+  "firstContextBudget": {
+    "line": 10,
+    "sequence": 9,
+    "state": "ok"
+  },
+  "firstModelRequest": {
+    "line": 9,
+    "sequence": 8,
+    "state": null
+  },
+  "summarySidecarImplementation": "ts",
+  "summarySidecarImplementationSource": "none",
+  "summaryRustSidecarIntended": false,
+  "failed": [],
+  "oracleFailures": []
+}

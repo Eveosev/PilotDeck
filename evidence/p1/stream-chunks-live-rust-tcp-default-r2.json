@@ -1,0 +1,41 @@
+{
+  "task": "FT-1",
+  "scenarioId": "sidecar_live_model_stream",
+  "streamChunkChars": null,
+  "n_chunks": 2,
+  "n_text_deltas": 2,
+  "perf_n_chunks": 2,
+  "stream_chunk_ms": [
+    188.225
+  ],
+  "stream_chunk_ms_len": 1,
+  "firstDeltaBeforeProviderCompletion": true,
+  "outputContainsSTREAM_PREFIX": true,
+  "deltaTexts": [
+    "STREAM_PREFIX::",
+    "MOCK_ANSWER[sidecar_live_model_stream]::Stream the first delta before provider completion"
+  ],
+  "deltaCharCounts": [
+    15,
+    89
+  ],
+  "equalToNative": true,
+  "nativeNTextDeltas": 2,
+  "nativeNChunks": 2,
+  "modelStreamNextCount": 6,
+  "source": "sidecar",
+  "transport": "rust-tcp",
+  "ft1": {
+    "task": "FT-1",
+    "base": "1d7c806846386c16274e0549e156b142f4930a6f",
+    "impl": "4ac1ca7076f65cace4f3b7ca7c5b013533b69373",
+    "note": "Recollected Rust-tcp live stream. Does not replace existing evidence/p1/*.json."
+  },
+  "parity": {
+    "failed": [],
+    "oracleFailures": [],
+    "blocked": [],
+    "sidecarImplementation": "ts",
+    "exit": 0
+  }
+}
