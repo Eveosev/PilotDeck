@@ -51,7 +51,8 @@ export function liveStreamTextDeltas(content, streamChunkChars, prefix = STREAM_
 /**
  * Yield STREAM_PREFIX before `awaitProvider` resolves, then char-sliced body
  * deltas. The gateway live-stream path (`pilotdeck_gateway_impl.mjs`) calls
- * this generator; A2 unit tests cover the same helper (no inlined mirror).
+ * this via `yieldAdapterLiveModelStream`; A2 / test #8 cover the same helper
+ * (no inlined mirror). Breaking this generator must fail those tests.
  */
 export async function* yieldLiveModelStreamDeltas({
   prefix = STREAM_PREFIX,
@@ -69,4 +70,42 @@ export async function* yieldLiveModelStreamDeltas({
   for (const text of chunkTextByChars(body, streamChunkChars)) {
     yield { type: "text_delta", text };
   }
+}
+
+/**
+ * Adapter live-stream sequence: request_started → message_start → prefix
+ * (before provider) → body deltas → message_end. Yields incrementally so the
+ * first `text_delta` is visible before `awaitProvider` resolves.
+ *
+ * Returns `{ body, deltas }` after the generator finishes (caller uses
+ * `deltas.length` for harness `n_chunks`). Test #8 drives this helper; a
+ * broken `yieldLiveModelStreamDeltas` / `liveStreamTextDeltas` goes red.
+ */
+export async function* yieldAdapterLiveModelStream({
+  awaitProvider,
+  streamChunkChars,
+  onFirstDelta,
+  onProviderCompleted,
+  onChunks,
+  provider,
+  model,
+} = {}) {
+  yield { type: "request_started", provider, model };
+  yield { type: "message_start", role: "assistant" };
+  let body = "";
+  for await (const event of yieldLiveModelStreamDeltas({
+    awaitProvider: async () => {
+      body = (await awaitProvider()) ?? "";
+      return body;
+    },
+    streamChunkChars,
+    onFirstDelta,
+    onProviderCompleted,
+  })) {
+    yield event;
+  }
+  const deltas = liveStreamTextDeltas(body, streamChunkChars);
+  onChunks?.(deltas);
+  yield { type: "message_end", finishReason: "stop" };
+  return { body, deltas };
 }

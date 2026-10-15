@@ -63,12 +63,18 @@ HOST_OVERHEAD_DEFINITION = (
 )
 
 
-def apply_delay_policy(scenario: dict[str, Any], *, zero: bool = True) -> tuple[dict[str, Any], bool]:
+def apply_delay_policy(
+    scenario: dict[str, Any],
+    *,
+    zero: bool = True,
+    model_ms: float | None = None,
+) -> tuple[dict[str, Any], bool]:
     """Zero scenario mock delays unless the caller keeps them.
 
     Returns the (possibly copied) scenario and delay_injected. After the
     default zeroing policy, delay_injected is true only when a positive delay
-    remains (hard-coded and not overridable).
+    remains. `--model-ms` overlays `delays.modelMs` after zeroing (T-P1-05
+    uses 200 on every transport).
     """
     prepared = deepcopy(scenario)
     if zero:
@@ -76,6 +82,10 @@ def apply_delay_policy(scenario: dict[str, Any], *, zero: bool = True) -> tuple[
             value = prepared.get(key)
             if isinstance(value, dict):
                 prepared[key] = {name: 0 for name in value}
+    if model_ms is not None:
+        delays = dict(prepared.get("delays") or {})
+        delays["modelMs"] = float(model_ms)
+        prepared["delays"] = delays
     return prepared, has_nonzero_delay(prepared)
 
 
@@ -122,6 +132,32 @@ def summarize(samples: list[float]) -> dict[str, Any]:
         "p95": percentile(samples, 95),
         "raw": [_round_ms(item) for item in samples],
     }
+
+
+def net_of_configured_delay(
+    values: list[float],
+    delay_ms: float,
+    *,
+    times: int | list[int] = 1,
+) -> list[float]:
+    """Raw total minus configured modelMs (times = applications per sample)."""
+    if isinstance(times, int):
+        return [_round_ms(item - delay_ms * times) for item in values]
+    return [_round_ms(item - delay_ms * count) for item, count in zip(values, times)]
+
+
+def net_stream_chunk_ms(intervals: list[float], delay_ms: float) -> list[float]:
+    """C4: subtract configured modelMs from interval[0] only."""
+    if not intervals:
+        return []
+    return [_round_ms(intervals[0] - delay_ms), *[_round_ms(item) for item in intervals[1:]]]
+
+
+def d4_threshold(native_p95: float | None) -> float | None:
+    """D4 = max(native P95 × 10%, 5ms). Judged on net-of-delay P95."""
+    if native_p95 is None:
+        return None
+    return _round_ms(max(float(native_p95) * 0.10, 5.0))
 
 
 def _round_ms(value: float) -> float:
@@ -332,6 +368,7 @@ def build_scenario_report(
     *,
     delay_injected: bool,
     samples: list[dict[str, Any]],
+    configured_model_ms: float = 0.0,
 ) -> dict[str, Any]:
     turn = [float(item["turn_ms"]) for item in samples]
     model = flatten([list(item.get("model_iter_ms") or []) for item in samples])
@@ -378,16 +415,40 @@ def build_scenario_report(
         for item in samples
         if isinstance(item.get("n_chunks"), (int, float)) and not isinstance(item.get("n_chunks"), bool)
     ]
+    model_counts = [len(list(item.get("model_iter_ms") or [])) for item in samples]
+    turn_net = net_of_configured_delay(turn, configured_model_ms, times=model_counts)
+    model_net = net_of_configured_delay(model, configured_model_ms, times=1)
+    chunk_net = flatten([
+        net_stream_chunk_ms(list(item.get("stream_chunk_ms") or []), configured_model_ms)
+        for item in samples
+    ])
+    interval0 = [
+        float(item["stream_chunk_ms"][0])
+        for item in samples
+        if item.get("stream_chunk_ms")
+    ]
+    interval0_net = net_of_configured_delay(interval0, configured_model_ms, times=1)
+    later_chunks = flatten([
+        list(item.get("stream_chunk_ms") or [])[1:]
+        for item in samples
+    ])
     return {
         "scenarioId": scenario_id,
         "delay_injected": delay_injected,
         "primaryBaseline": not delay_injected,
+        "configuredModelMs": configured_model_ms,
         "iterations": len(samples),
         "samples": samples,
         "turn_ms": summarize(turn),
+        "turn_ms_net_of_model_ms": summarize(turn_net),
         "model_iter_ms": summarize(model),
+        "model_iter_ms_net_of_model_ms": summarize(model_net),
         "non_model_ms": summarize(non_model),
         "stream_chunk_ms": summarize(chunks),
+        "stream_chunk_ms_net_of_model_ms": summarize(chunk_net),
+        "stream_chunk_ms_interval0": summarize(interval0),
+        "stream_chunk_ms_interval0_net_of_model_ms": summarize(interval0_net),
+        "stream_chunk_ms_after_first": summarize(later_chunks),
         "n_chunks": summarize(n_chunks),
         "segments": {
             "first_gateway_event_ms": summarize(first_event),
@@ -419,6 +480,37 @@ def load_named_scenarios(scenario_file: Path, names: list[str]) -> list[dict[str
     return selected
 
 
+def scenario_headline(report: dict[str, Any]) -> dict[str, Any]:
+    def brief(block: dict[str, Any] | None) -> dict[str, Any]:
+        payload = block or {}
+        return {"n": payload.get("n"), "p50": payload.get("p50"), "p95": payload.get("p95")}
+    return {
+        "delay_injected": report["delay_injected"],
+        "configuredModelMs": report.get("configuredModelMs", 0.0),
+        "turn_ms": brief(report.get("turn_ms")),
+        "turn_ms_net_of_model_ms": brief(report.get("turn_ms_net_of_model_ms")),
+        "model_iter_ms": brief(report.get("model_iter_ms")),
+        "model_iter_ms_net_of_model_ms": brief(report.get("model_iter_ms_net_of_model_ms")),
+        "non_model_ms": brief(report.get("non_model_ms")),
+        "stream_chunk_ms": brief(report.get("stream_chunk_ms")),
+        "stream_chunk_ms_net_of_model_ms": brief(report.get("stream_chunk_ms_net_of_model_ms")),
+        "stream_chunk_ms_interval0": brief(report.get("stream_chunk_ms_interval0")),
+        "stream_chunk_ms_interval0_net_of_model_ms": brief(report.get("stream_chunk_ms_interval0_net_of_model_ms")),
+        "stream_chunk_ms_after_first": brief(report.get("stream_chunk_ms_after_first")),
+        "segments": {
+            key: brief(value)
+            for key, value in (report.get("segments") or {}).items()
+        },
+    }
+
+
+def delay_policy_label(*, zero_delays: bool, model_ms: float | None) -> str:
+    if model_ms is not None:
+        prefix = "zero" if zero_delays else "keep"
+        return f"{prefix}+modelMs:{model_ms:g}"
+    return "zero" if zero_delays else "keep"
+
+
 def run_transport(
     *,
     transport: str,
@@ -429,6 +521,7 @@ def run_transport(
     work: Path,
     mock: str,
     zero_delays: bool,
+    model_ms: float | None,
     tcp_sidecar_cmd: str | None,
     tcp_host: str | None,
     tcp_port: int | None,
@@ -450,7 +543,11 @@ def run_transport(
     reports: dict[str, Any] = {}
     try:
         for scenario in scenarios:
-            prepared, delay_injected = apply_delay_policy(scenario, zero=zero_delays)
+            prepared, delay_injected = apply_delay_policy(
+                scenario,
+                zero=zero_delays,
+                model_ms=model_ms,
+            )
             sid = str(prepared["scenarioId"])
             samples: list[dict[str, Any]] = []
             for iteration in range(1, iterations + 1):
@@ -477,39 +574,30 @@ def run_transport(
                     }, ensure_ascii=False),
                     flush=True,
                 )
-            reports[sid] = build_scenario_report(sid, delay_injected=delay_injected, samples=samples)
+            reports[sid] = build_scenario_report(
+                sid,
+                delay_injected=delay_injected,
+                samples=samples,
+                configured_model_ms=float(model_ms or 0.0),
+            )
     finally:
         stop_process(tcp_process)
     primary = {
-        sid: {
-            "delay_injected": report["delay_injected"],
-            "turn_ms": {"n": report["turn_ms"]["n"], "p50": report["turn_ms"]["p50"], "p95": report["turn_ms"]["p95"]},
-            "model_iter_ms": {
-                "n": report["model_iter_ms"]["n"],
-                "p50": report["model_iter_ms"]["p50"],
-                "p95": report["model_iter_ms"]["p95"],
-            },
-            "non_model_ms": {
-                "n": report["non_model_ms"]["n"],
-                "p50": report["non_model_ms"]["p50"],
-                "p95": report["non_model_ms"]["p95"],
-            },
-            "segments": {
-                key: {"n": value["n"], "p50": value["p50"], "p95": value["p95"]}
-                for key, value in report["segments"].items()
-            },
-        }
+        sid: scenario_headline(report)
         for sid, report in reports.items()
         if not report["delay_injected"]
     }
+    comparison = {sid: scenario_headline(report) for sid, report in reports.items()}
     excluded = [sid for sid, report in reports.items() if report["delay_injected"]]
     return {
         "transport": transport,
         "sidecarTransport": sidecar_transport if transport != "native" else None,
         "tcpSidecarLog": str(tcp_log) if tcp_log is not None else None,
         "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
-        "delayPolicy": "zero" if zero_delays else "keep",
+        "delayPolicy": delay_policy_label(zero_delays=zero_delays, model_ms=model_ms),
+        "configuredModelMs": float(model_ms) if model_ms is not None else 0.0,
         "primaryBaseline": primary,
+        "comparisonBaseline": comparison,
         "excludedFromPrimary": excluded,
         "scenarios": reports,
     }
@@ -544,6 +632,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--adapter-timeout-seconds", type=float, default=60)
     parser.add_argument("--keep-delays", action="store_true", help="Do not zero scenario delays.* / toolDelays.*")
+    parser.add_argument(
+        "--model-ms",
+        type=float,
+        default=None,
+        help=(
+            "Overlay delays.modelMs on every scenario after the delay policy. "
+            "T-P1-05 uses 200 for native / TS-tcp / Rust-tcp."
+        ),
+    )
     parser.add_argument("--pilotdeck-tcp-host")
     parser.add_argument("--pilotdeck-tcp-port", type=int)
     parser.add_argument("--pilotdeck-tcp-sidecar-cmd")
@@ -585,7 +682,8 @@ def main(argv: list[str] | None = None) -> int:
         "pilotdeckRoot": "$PWD",
         "iterationsRequested": args.iterations,
         "hostOverheadDefinition": HOST_OVERHEAD_DEFINITION,
-        "delayPolicy": "keep" if args.keep_delays else "zero",
+        "delayPolicy": delay_policy_label(zero_delays=not args.keep_delays, model_ms=args.model_ms),
+        "configuredModelMs": args.model_ms,
         "metrics": "tools/agent-loop-perf/METRICS.md",
         "productDefaultTransport": "native",
         "baseBranch": base_branch,
@@ -607,6 +705,7 @@ def main(argv: list[str] | None = None) -> int:
                     work=work,
                     mock=mock_url,
                     zero_delays=not args.keep_delays,
+                    model_ms=args.model_ms,
                     tcp_sidecar_cmd=args.pilotdeck_tcp_sidecar_cmd,
                     tcp_host=args.pilotdeck_tcp_host,
                     tcp_port=args.pilotdeck_tcp_port,

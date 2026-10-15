@@ -10,6 +10,7 @@ import {
   isLiveModelStreamScenario,
   liveStreamTextDeltas,
   resolveStreamChunkChars,
+  yieldAdapterLiveModelStream,
   yieldLiveModelStreamDeltas,
 } from "./stream-chunks.mjs";
 
@@ -103,12 +104,70 @@ test("default path empty body still emits STREAM_PREFIX + one remainder (n_chunk
   assert.equal(events[1].text, "");
 });
 
-test("gateway adapter live-stream path calls yieldLiveModelStreamDeltas and liveStreamTextDeltas", async () => {
+test("gateway adapter live-stream path uses yieldAdapterLiveModelStream (goes red if helper is broken)", async () => {
   const source = await readFile(new URL("./adapters/pilotdeck_gateway_impl.mjs", import.meta.url), "utf8");
-  assert.match(source, /yieldLiveModelStreamDeltas\(/);
-  assert.match(source, /liveStreamTextDeltas\(/);
+  assert.match(source, /yieldAdapterLiveModelStream\(/);
+  assert.doesNotMatch(source, /yieldLiveModelStreamDeltas\(/);
   assert.doesNotMatch(source, /chunkTextByChars\(/);
   assert.doesNotMatch(source, /text: STREAM_PREFIX/);
+
+  const body = "A字🎉BC";
+  const streamChunkChars = 1;
+  const expectedDeltas = liveStreamTextDeltas(body, streamChunkChars);
+  let providerCompleted = false;
+  const order = [];
+  const events = [];
+  const stream = yieldAdapterLiveModelStream({
+    awaitProvider: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      providerCompleted = true;
+      order.push("provider_completed");
+      return body;
+    },
+    streamChunkChars,
+    provider: "mock",
+    model: "mock-model",
+    onFirstDelta: () => order.push("first_delta"),
+    onProviderCompleted: () => order.push("on_provider_completed"),
+  });
+  let next = await stream.next();
+  while (!next.done) {
+    events.push({ ...next.value, providerCompleted });
+    next = await stream.next();
+  }
+  const returned = next.value;
+  assert.deepEqual(order.slice(0, 2), ["first_delta", "provider_completed"]);
+  assert.equal(events[0].type, "request_started");
+  assert.equal(events[1].type, "message_start");
+  const textDeltas = events.filter((item) => item.type === "text_delta");
+  assert.equal(textDeltas[0].text, STREAM_PREFIX);
+  assert.equal(textDeltas[0].providerCompleted, false, "prefix must yield before awaitProvider resolves");
+  assert.equal(textDeltas.at(-1).text, "C");
+  assert.equal(textDeltas.at(-1).providerCompleted, true);
+  assert.deepEqual(textDeltas.map((item) => item.text), expectedDeltas);
+  assert.equal(events.at(-1).type, "message_end");
+  assert.deepEqual(returned.deltas, expectedDeltas);
+  assert.equal(returned.body, body);
+  assert.equal(returned.deltas.length, 1 + Array.from(body).length);
+});
+
+test("yieldAdapterLiveModelStream default empty body is still STREAM_PREFIX + remainder", async () => {
+  const streamChunkChars = resolveStreamChunkChars({ scenarioId: "sidecar_live_model_stream" });
+  assert.equal(streamChunkChars, null);
+  const stream = yieldAdapterLiveModelStream({
+    awaitProvider: async () => "",
+    streamChunkChars,
+  });
+  const events = [];
+  let next = await stream.next();
+  while (!next.done) {
+    events.push(next.value);
+    next = await stream.next();
+  }
+  const text = events.filter((item) => item.type === "text_delta").map((item) => item.text);
+  assert.deepEqual(text, [STREAM_PREFIX, ""]);
+  assert.equal(next.value.deltas.length, 2);
+  assert.equal(events.at(-1).type, "message_end");
 });
 
 test("A2 first text_delta is yielded before provider completion", async () => {

@@ -13,8 +13,10 @@ from collect_stream_chunks import (
     build_run_gateway_extra_args,
     chunk_text_by_chars,
     infer_transport,
+    live_artifact_path,
     load_variant,
     main,
+    net_stream_chunk_ms,
     parse_args,
     planned_deltas,
     run_gateway,
@@ -46,7 +48,7 @@ class CollectStreamChunksTests(unittest.TestCase):
         self.assertIsNone(artifact["transport"])
         self.assertEqual(artifact["n_chunks"], 98)
 
-    def test_m4_sidecar_trace_labels_source_gateway_and_keeps_native_perf_fallback(self) -> None:
+    def test_m4_sidecar_trace_labels_source_sidecar_not_gateway(self) -> None:
         scenario_id = "sidecar_live_model_stream_chars_1"
         with tempfile.TemporaryDirectory() as temporary:
             raw = Path(temporary)
@@ -65,7 +67,8 @@ class CollectStreamChunksTests(unittest.TestCase):
                 encoding="utf-8",
             )
             selected = select_run_gateway_trace(raw, scenario_id)
-            self.assertEqual(selected["source"], "gateway")
+            self.assertEqual(selected["source"], "sidecar")
+            self.assertNotEqual(selected["source"], "gateway")
             self.assertEqual(selected["perf"]["n_chunks"], 3)
             self.assertEqual(selected["trace_summary"]["n_chunks"], 3)
 
@@ -80,7 +83,10 @@ class CollectStreamChunksTests(unittest.TestCase):
                 json.dumps({"stream_chunk_ms": [12.0], "n_chunks": 4}),
                 encoding="utf-8",
             )
-            native_selected = select_run_gateway_trace(native_only, scenario_id)
+            with self.assertRaises(FileNotFoundError) as raised:
+                select_run_gateway_trace(native_only, scenario_id, prefer="sidecar")
+            self.assertIn("no sidecar trace", str(raised.exception))
+            native_selected = select_run_gateway_trace(native_only, scenario_id, prefer="native")
             self.assertEqual(native_selected["source"], "native")
             self.assertEqual(native_selected["perf"]["n_chunks"], 4)
             self.assertEqual(native_selected["trace_summary"]["n_chunks"], 4)
@@ -109,7 +115,7 @@ class CollectStreamChunksTests(unittest.TestCase):
             raw = Path(temporary)
             with self.assertRaises(FileNotFoundError) as raised:
                 select_run_gateway_trace(raw, "sidecar_live_model_stream_chars_1")
-            self.assertIn("no gateway/sidecar or native trace", str(raised.exception))
+            self.assertIn("no sidecar or native trace", str(raised.exception))
 
     def test_m6_rust_tcp_args_pass_through_and_transport_field(self) -> None:
         extra = build_run_gateway_extra_args(
@@ -134,20 +140,29 @@ class CollectStreamChunksTests(unittest.TestCase):
         self.assertEqual(
             infer_transport(
                 explicit=None,
-                source="gateway",
+                source="sidecar",
                 sidecar_transport="tcp",
                 tcp_sidecar_cmd="./target/release/pilotdeck-agent-loop-sidecar",
             ),
             "rust-tcp",
         )
         self.assertEqual(
-            infer_transport(explicit=None, source="gateway", sidecar_transport="tcp", tcp_sidecar_cmd=None),
+            infer_transport(explicit=None, source="sidecar", sidecar_transport="tcp", tcp_sidecar_cmd=None),
             "ts-tcp",
+        )
+        self.assertEqual(
+            infer_transport(
+                explicit=None,
+                source="sidecar",
+                sidecar_transport="tcp",
+                tcp_sidecar_cmd="tools/agent-loop-parity/rust-tcp-sidecar.sh",
+            ),
+            "rust-tcp",
         )
         artifact = artifact_for(
             50,
             scenario=load_variant(50),
-            source="gateway",
+            source="sidecar",
             transport="rust-tcp",
         )
         self.assertEqual(artifact["transport"], "rust-tcp")
@@ -157,6 +172,11 @@ class CollectStreamChunksTests(unittest.TestCase):
 
         def fake_run(command, check, env):  # noqa: ANN001
             recorded["command"] = command
+            dest = Path(command[command.index("--output") + 1])
+            dest.mkdir(parents=True, exist_ok=True)
+            (dest / "sidecar_live_model_stream_chars_1.pilotdeck-current-sidecar.jsonl").write_text(
+                "{}\n", encoding="utf-8"
+            )
 
             class Result:
                 returncode = 0
@@ -183,6 +203,37 @@ class CollectStreamChunksTests(unittest.TestCase):
         self.assertIn("harness `n_chunks`", text)
         self.assertIn("assistant_text_delta", text)
         self.assertIn("perf `n_chunks`", text)
+
+    def test_net_stream_chunk_ms_subtracts_model_ms_from_interval0_only(self) -> None:
+        self.assertEqual(net_stream_chunk_ms([], 200), [])
+        self.assertEqual(net_stream_chunk_ms([212.5, 3.0, 4.0], 200), [12.5, 3.0, 4.0])
+        artifact = artifact_for(
+            1,
+            scenario=load_variant(1),
+            source="sidecar",
+            transport="ts-tcp",
+            perf={"stream_chunk_ms": [201.0, 2.0], "n_chunks": 3},
+        )
+        self.assertEqual(artifact["configuredModelMs"], 200.0)
+        self.assertEqual(artifact["stream_chunk_ms"], [201.0, 2.0])
+        self.assertEqual(artifact["stream_chunk_ms_net_of_model_ms"], [1.0, 2.0])
+        self.assertEqual(artifact["source"], "sidecar")
+        self.assertNotEqual(artifact["source"], "gateway")
+
+    def test_live_artifact_path_does_not_overwrite_planned_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            self.assertEqual(
+                live_artifact_path(out, 50, "rust-tcp"),
+                out / "stream-chunks-live-rust-tcp-50.json",
+            )
+            planned = out / "stream-chunks-50.json"
+            planned.write_text("{}\n", encoding="utf-8")
+            live = live_artifact_path(out, 50, "native")
+            live.write_text("{}\n", encoding="utf-8")
+            self.assertTrue(planned.is_file())
+            self.assertTrue(live.is_file())
+            self.assertNotEqual(planned, live)
 
 
 if __name__ == "__main__":

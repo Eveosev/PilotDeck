@@ -51,6 +51,21 @@ class DelayPolicyTests(unittest.TestCase):
         _, injected = perf.apply_delay_policy({"scenarioId": "pure_text", "q": "What is the status?"})
         self.assertFalse(injected)
 
+    def test_model_ms_overlay_sets_identical_delay_after_zeroing(self) -> None:
+        scenario, injected = perf.apply_delay_policy(
+            {
+                "scenarioId": "pure_text",
+                "delays": {"modelMs": 5000, "toolMs": 10},
+                "toolDelays": {"lookup": 80},
+            },
+            model_ms=200,
+        )
+        self.assertTrue(injected)
+        self.assertEqual(scenario["delays"]["modelMs"], 200)
+        self.assertEqual(scenario["delays"]["toolMs"], 0)
+        self.assertEqual(scenario["toolDelays"]["lookup"], 0)
+        self.assertEqual(perf.delay_policy_label(zero_delays=True, model_ms=200), "zero+modelMs:200")
+
 
 class ScenarioFixtureTests(unittest.TestCase):
     def test_default_scenarios_exist(self) -> None:
@@ -80,6 +95,35 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(clean["turn_ms"]["n"], 1)
         self.assertEqual(clean["turn_ms"]["p50"], 10.0)
         self.assertEqual(clean["non_model_ms"]["p50"], 6.0)
+
+    def test_net_of_delay_subtracts_configured_model_ms(self) -> None:
+        self.assertEqual(perf.net_of_configured_delay([450.0, 460.0], 200, times=1), [250.0, 260.0])
+        self.assertEqual(
+            perf.net_of_configured_delay([650.0, 860.0], 200, times=[1, 2]),
+            [450.0, 460.0],
+        )
+        self.assertEqual(perf.net_stream_chunk_ms([212.5, 3.0, 4.0], 200), [12.5, 3.0, 4.0])
+        self.assertEqual(perf.d4_threshold(40.0), 5.0)
+        self.assertEqual(perf.d4_threshold(80.0), 8.0)
+        samples = [{
+            "iteration": 1,
+            "turn_ms": 650.0,
+            "model_iter_ms": [210.0, 205.0],
+            "stream_chunk_ms": [201.0, 3.0],
+            "rss_kb": 1000,
+        }]
+        report = perf.build_scenario_report(
+            "sidecar_live_model_stream_chars_50",
+            delay_injected=True,
+            samples=samples,
+            configured_model_ms=200.0,
+        )
+        self.assertEqual(report["configuredModelMs"], 200.0)
+        self.assertEqual(report["turn_ms"]["p50"], 650.0)
+        self.assertEqual(report["turn_ms_net_of_model_ms"]["p50"], 250.0)
+        self.assertEqual(report["model_iter_ms_net_of_model_ms"]["p50"], 7.5)
+        self.assertEqual(report["stream_chunk_ms_net_of_model_ms"]["raw"], [1.0, 3.0])
+        self.assertEqual(report["stream_chunk_ms_interval0_net_of_model_ms"]["p50"], 1.0)
 
     def test_record_command_scrubs_absolute_root(self) -> None:
         repo = ROOT.parent.parent

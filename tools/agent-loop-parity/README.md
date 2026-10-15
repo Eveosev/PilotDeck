@@ -172,17 +172,23 @@ PARITY_PERF=1 python3 tools/agent-loop-parity/collect_stream_chunks.py \
   --output evidence/p1 \
   --run-gateway \
   --sidecar-transport tcp \
-  --pilotdeck-tcp-sidecar-cmd ./target/release/pilotdeck-agent-loop-sidecar \
-  --transport rust-tcp
+  --pilotdeck-tcp-sidecar-cmd tools/agent-loop-parity/rust-tcp-sidecar.sh \
+  --transport rust-tcp \
+  --trace-source sidecar
 ```
 
 `--run-gateway` forwards `--sidecar-transport` / `--pilotdeck-tcp-*` /
 `--pilotdeck-stdio-sidecar-cmd` to `run.py`. Invalid `--transport` exits 2.
-`source=gateway` only when a sidecar trace exists; native-only traces keep
-`source=native`; missing both exits with error and writes no artifact.
+`--trace-source sidecar` (default) labels sidecar traces `source=sidecar`
+(never `gateway`); `--trace-source native` labels native traces
+`source=native`. Missing the chosen trace exits with error and writes no
+artifact. Live runs write `stream-chunks-live-{transport}-{chars}.json` and
+do **not** overwrite planned `stream-chunks-{1,50,500}.json`.
 Planned-mode `firstDeltaBeforeProviderCompletion` /
 `outputContainsSTREAM_PREFIX` are `null` (not evaluated). Each artifact has a
 `transport` field (`native` | `ts-tcp` | `rust-tcp` | `stdio`, or `null` when planned).
+Live artifacts also record `configuredModelMs` and
+`stream_chunk_ms_net_of_model_ms` (interval[0] minus modelMs).
 
 Equivalent `run.py` commands:
 
