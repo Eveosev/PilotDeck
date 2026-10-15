@@ -1,0 +1,25 @@
+{
+  "label": "default",
+  "sourceRun": "/tmp/ft1-rust-default",
+  "tcpSidecarLog": "tcp-sidecar.log",
+  "listeningLine": "listening 127.0.0.1:50043",
+  "binaryPathInOriginalLog": false,
+  "pidInOriginalLog": false,
+  "whyMissing": "crates/pilotdeck-agent-loop/src/tcp.rs serve_tcp prints only `listening {local}` (eprintln at the line after local_addr). The harness redirects that stdout/stderr to tcp-sidecar.log and does not record pid or /proc/pid/exe. The process has exited, so the original pid cannot be recovered. Spawn command was tools/agent-loop-parity/rust-tcp-sidecar.sh, which execs target/release/pilotdeck-agent-loop.",
+  "streamNextCount": 6,
+  "firstContextBudget": {
+    "line": 10,
+    "sequence": 9,
+    "state": "ok"
+  },
+  "firstModelRequest": {
+    "line": 9,
+    "sequence": 8,
+    "state": null
+  },
+  "summarySidecarImplementation": "ts",
+  "summarySidecarImplementationSource": "none",
+  "summaryRustSidecarIntended": false,
+  "summaryFailed": [],
+  "summaryOracleFailures": []
+}

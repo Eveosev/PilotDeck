@@ -1,0 +1,44 @@
+{
+  "task": "FT-1",
+  "recollection": "r3",
+  "replaces": null,
+  "note": "Supplemental identity capture. Does not replace the r2 artifact.",
+  "scenarioId": "sidecar_live_model_stream",
+  "streamChunkChars": null,
+  "n_chunks": 2,
+  "n_text_deltas": 2,
+  "perf_n_chunks": 2,
+  "stream_chunk_ms": [
+    160.748
+  ],
+  "stream_chunk_ms_len": 1,
+  "equalToNative": true,
+  "deltaCharCounts": [
+    15,
+    89
+  ],
+  "modelStreamNextCount": 6,
+  "process": {
+    "pid": 8213,
+    "exe": "/workspace/target/release/pilotdeck-agent-loop",
+    "cmdline": "/workspace/target/release/pilotdeck-agent-loop --listen 127.0.0.1:45815"
+  },
+  "firstContextBudget": {
+    "line": 10,
+    "sequence": 9,
+    "state": "ok"
+  },
+  "firstModelRequest": {
+    "line": 9,
+    "sequence": 8,
+    "state": null
+  },
+  "sidecarImplementationLabel": "ts",
+  "sidecarImplementationSource": "none",
+  "rustSidecarIntended": false,
+  "parityFailed": [],
+  "oracleFailures": [],
+  "liveLogs": "review/2026-10-15-FT-1/live-logs/r3-default/",
+  "source": "sidecar",
+  "transport": "rust-tcp"
+}
