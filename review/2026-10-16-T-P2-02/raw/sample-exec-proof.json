@@ -1,0 +1,11 @@
+{
+  "kind": "harness.proof",
+  "scenarioId": "pure_text",
+  "q": "What is the status?",
+  "invocationId": "136b57cd814745ddb4068b7c60130765",
+  "sequence": 34,
+  "state": "rust_sidecar_exec",
+  "pid": 11205,
+  "bin": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop",
+  "resolved": "/tmp/agentcpm-rust-core-src/agentcpm-rust-core-src/target/release/pilotdeck-agent-loop"
+}

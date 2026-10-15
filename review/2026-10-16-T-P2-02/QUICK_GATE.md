@@ -2,7 +2,7 @@
 
 **结果：PASS。** `pure_text`、`single_tool` 各 30 次，same-version，stdio。每一次 harness 退出码 0，`failed` / `blocked` / `oracleFailures` 皆空，`sidecarImplementation=rust`，`sidecarImplementationSource=exec-proof`。身份来自包装脚本写入的 `rust_sidecar_exec`（pid + `resolved` 以 `pilotdeck-agent-loop` 结尾），不是 `--version`。
 
-逐次记录在 `logs/quick-index.jsonl`（60 行）。运行日志在 `logs/parity-run.log`。
+逐次记录在 `raw/quick-index.jsonl`（60 行）。运行日志在 `raw/parity-run.txt`。
 
 | 场景 | n | 退出码 | 语义差 | BLOCKED | oracle | exec proof |
 |---|---:|---|---:|---:|---:|---|

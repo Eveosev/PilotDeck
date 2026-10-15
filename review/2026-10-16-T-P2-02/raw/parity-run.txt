@@ -1,0 +1,70 @@
+START 2026-10-15T19:20:00Z
+QUICK pure_text 1 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=4
+QUICK single_tool 1 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 2 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=4
+QUICK single_tool 2 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 3 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 3 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=92 secs=4
+QUICK pure_text 4 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 4 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 5 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 5 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=52 secs=4
+QUICK pure_text 6 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 6 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 7 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=4
+QUICK single_tool 7 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 8 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=2
+QUICK single_tool 8 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 9 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 9 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=60 secs=3
+QUICK pure_text 10 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 10 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 11 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 11 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 12 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 12 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 13 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 13 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=92 secs=4
+QUICK pure_text 14 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 14 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=92 secs=3
+QUICK pure_text 15 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 15 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=60 secs=4
+QUICK pure_text 16 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 16 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 17 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 17 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=60 secs=4
+QUICK pure_text 18 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=2
+QUICK single_tool 18 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 19 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 19 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 20 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 20 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=60 secs=3
+QUICK pure_text 21 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 21 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 22 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=2
+QUICK single_tool 22 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=92 secs=4
+QUICK pure_text 23 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 23 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 24 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 24 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 25 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=2
+QUICK single_tool 25 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 26 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 26 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 27 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 27 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=4
+QUICK pure_text 28 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 28 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK pure_text 29 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 29 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=90 secs=4
+QUICK pure_text 30 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=16 secs=3
+QUICK single_tool 30 rc=0 impl=rust source=exec-proof failed=0 blocked=0 oracle=0 fw=71 secs=3
+QUICK_DONE 2026-10-15T19:23:19Z
+FULL_EXIT:1 2026-10-15T19:27:34Z
+scenarios 53 impl rust source exec-proof
+failed 2
+blocked 0
+oracle 0
+FAIL deadline/PilotDeck: transport contract mismatch (3 semantic difference(s))
+FAIL sidecar_budget_limit/PilotDeck: 1 semantic difference(s)
+END 2026-10-15T19:27:34Z

@@ -30,7 +30,7 @@ cargo build --release -j 2 --bin pilotdeck-agent-loop-sidecar
 
 `PILOTDECK_RUST_SIDECAR_BIN` 指向符号链接。包装脚本对这个 basename 使用 `realpath -s`，proof 的 `resolved` 以 `pilotdeck-agent-loop` 结尾，不跟到 `*-sidecar`。`exec` 仍由内核跟随链接。产品协议未改。
 
-全量 `pure_text` sidecar 轨迹中的 exec proof（`logs/sample-exec-proof.json`）：
+全量 `pure_text` sidecar 轨迹中的 exec proof（`raw/sample-exec-proof.json`）：
 
 ```json
 {
@@ -60,4 +60,4 @@ python3 tools/agent-loop-parity/run.py \
 
 快速门对 `pure_text`、`single_tool` 各跑 30 次（2026-10-15T19:20:00Z 至 19:23:19Z）。全量 `--scenario all` 一次（结束 2026-10-15T19:27:34Z，进程退出码 1）。summary 里 `scenarios=53`，`gateScenarioCount=53`，`sidecarImplementation=rust`，`sidecarImplementationSource=exec-proof`。
 
-原始摘要：`logs/full53-summary.json`、`logs/quick-index.jsonl`、`logs/parity-run.log`。两处语义失败的报告原文：`logs/deadline-pilotdeck.md`、`logs/sidecar_budget_limit-pilotdeck.md`。
+原始摘要：`raw/full53-summary.json`、`raw/quick-index.jsonl`、`raw/parity-run.txt`。两处语义失败的报告原文：`raw/deadline-pilotdeck.md`、`raw/sidecar_budget_limit-pilotdeck.md`。`.gitignore` 的 `logs` 与 `*.log` 会挡住同名路径，所以原始件放在 `raw/`。
