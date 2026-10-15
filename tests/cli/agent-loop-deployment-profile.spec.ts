@@ -45,6 +45,7 @@ test("stdio deployment starts the bundled sidecar without inheriting TCP listene
       PILOTDECK_AGENT_LOOP_TRANSPORT: "stdio",
       PILOTDECK_AGENT_LOOP_TCP_HOST: "127.0.0.1",
       PILOTDECK_AGENT_LOOP_TCP_PORT: "32123",
+      PILOTDECK_AGENT_LOOP_TCP_TOKEN: "do-not-inherit",
     },
   });
 
@@ -54,6 +55,33 @@ test("stdio deployment starts the bundled sidecar without inheriting TCP listene
   assert.equal(basename(profile.args[0]!), "pilotdeck-agent-loop-sidecar.js");
   assert.equal(profile.env.PILOTDECK_AGENT_LOOP_TCP_HOST, undefined);
   assert.equal(profile.env.PILOTDECK_AGENT_LOOP_TCP_PORT, undefined);
+  assert.equal(profile.env.PILOTDECK_AGENT_LOOP_TCP_TOKEN, undefined);
+});
+
+test("tcp deployment carries the production hello token and does not invent one when unset", () => {
+  const open = resolveAgentLoopDeploymentProfile({
+    env: {
+      PILOTDECK_AGENT_LOOP_TRANSPORT: "tcp",
+      PILOTDECK_AGENT_LOOP_TCP_PORT: "32123",
+    },
+  });
+  assert.equal(open.transport, "tcp");
+  if (open.transport === "tcp") assert.equal(open.authToken, undefined);
+
+  const authed = resolveAgentLoopDeploymentProfile({
+    env: {
+      PILOTDECK_AGENT_LOOP_TRANSPORT: "tcp",
+      PILOTDECK_AGENT_LOOP_TCP_PORT: "32123",
+      PILOTDECK_AGENT_LOOP_TCP_TOKEN: "  production-token  ",
+    },
+  });
+  assert.deepEqual(authed, {
+    transport: "tcp",
+    host: "127.0.0.1",
+    port: 32123,
+    connectTimeoutMs: undefined,
+    authToken: "production-token",
+  });
 });
 
 test("deployment factory forwards a passive observer to the bundled stdio sidecar", async () => {

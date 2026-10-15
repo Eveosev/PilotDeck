@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * S4 / B4 TS host: spawn Rust `--listen 127.0.0.1:0`, then speak the sidecar
- * protocol over TCP (hello → capabilities → execute → status → cancel),
- * validating every emitted frame with validateModuleMessage (ajv strict too).
+ * S4 / B4 TS host: speak the sidecar protocol (hello → capabilities → execute →
+ * status → cancel), validating every emitted frame with validateModuleMessage
+ * (ajv strict too). Default transport is TCP `--listen 127.0.0.1:0`.
+ * `--transport stdio` uses the same dialogue on the Rust stdio sidecar.
  *
  * This is not a hello→execute→status-only smoke.
  */
@@ -33,15 +34,31 @@ const schemaValidate = compileSchema(schema);
 
 const bin = process.argv.find((arg, index, all) => all[index - 1] === "--bin")
   ?? resolve(repoRoot, "target/debug/pilotdeck-agent-loop");
+const transport = process.argv.find((arg, index, all) => all[index - 1] === "--transport") ?? "tcp";
+if (transport !== "tcp" && transport !== "stdio") {
+  throw new Error("--transport must be tcp or stdio");
+}
 
-const child = spawn(bin, ["--listen", "127.0.0.1:0"], {
-  stdio: ["ignore", "ignore", "pipe"],
-});
+const child = spawn(
+  bin,
+  transport === "tcp" ? ["--listen", "127.0.0.1:0"] : [],
+  { stdio: transport === "tcp" ? ["ignore", "ignore", "pipe"] : ["pipe", "pipe", "pipe"] },
+);
 
-const address = await waitForListen(child);
-const socket = await connect(address);
+let socket;
+let listenLabel = null;
+if (transport === "tcp") {
+  const address = await waitForListen(child);
+  listenLabel = `${address.address}:${address.port}`;
+  socket = await connect(address);
+} else {
+  socket = child.stdin;
+}
 const incoming = [];
-const lines = createInterface({ input: socket, crlfDelay: Infinity });
+const lines = createInterface({
+  input: transport === "tcp" ? socket : child.stdout,
+  crlfDelay: Infinity,
+});
 const waiters = [];
 
 lines.on("line", (line) => {
@@ -64,7 +81,7 @@ function waitFor(pred, timeoutMs = 3_000) {
   if (pred(incoming)) return Promise.resolve(incoming.slice());
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`timed out waiting for sidecar TCP, have: ${JSON.stringify(incoming)}`));
+      reject(new Error(`timed out waiting for sidecar ${transport}, have: ${JSON.stringify(incoming)}`));
     }, timeoutMs);
     waiters.push({
       pred,
@@ -151,7 +168,7 @@ for (const message of incoming) {
 
 const report = {
   ok: true,
-  listen: `${address.address}:${address.port}`,
+  listen: listenLabel,
   transport: reply("caps-1")?.payload?.transport ?? null,
   helloOk: reply("hello-1")?.ok === true,
   capabilitiesOk: reply("caps-1")?.ok === true,
@@ -185,14 +202,15 @@ const failed = !(
   && report.abortedType === "aborted"
   && report.sessionId === "sess-c"
   && report.turnId === "turn-c"
-  && report.transport === "tcp"
+  && report.transport === transport
   && mismatch === 0
   && incoming.length > 0
 );
 if (failed) report.ok = false;
 
 console.log(JSON.stringify(report, null, 2));
-socket.destroy();
+if (transport === "tcp") socket.destroy();
+else child.stdin.end();
 child.kill();
 await new Promise((resolve) => child.once("exit", resolve));
 process.exit(failed ? 1 : 0);
