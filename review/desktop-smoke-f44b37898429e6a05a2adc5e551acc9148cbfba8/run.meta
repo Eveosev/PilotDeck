@@ -1,0 +1,12 @@
+sha=f44b37898429e6a05a2adc5e551acc9148cbfba8
+merged_pr=46
+branch=rust_standalone_alpha1
+x11_exit=0
+x11_seconds=28.005
+wayland_exit=0
+wayland_seconds=33.078
+timeoutCeilingSeconds=600
+n_per_backend=1
+issue14_fixed_claimed=false
+entry=apps/desktop/scripts/run-linux-chrome-smoke.sh
+banned_unused=main.ts:536,global_throttle,disable-gpu

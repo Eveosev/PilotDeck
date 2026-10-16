@@ -1,0 +1,14 @@
+head=f44b37898429e6a05a2adc5e551acc9148cbfba8
+subject=Merge pull request #46 from Eveosev/cursor/t-p2-01-agent-loop-f8ea
+parents=4fe9bba19530d5f879e6d89d5a5b312df081f43e b7ece5bf557796ca4b6ff67e22fe50ee6a454f9b
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+commit_date=2026-10-15T22:10:01+08:00
+pr46_reviewed_tip=b7ece5bf557796ca4b6ff67e22fe50ee6a454f9b; pr46_merged_head=b7ece5bf557796ca4b6ff67e22fe50ee6a454f9b (AgentLoop Track A+B)
+branch=rust_standalone_alpha1 (detached worktree at merge SHA)
+remote=https://github.com/Eveosev/PilotDeck.git
+merged_pr=https://github.com/Eveosev/PilotDeck/pull/46
+diff_vs_prev_mainline_4fe9bba1=15 files changed, 1189 insertions(+), 239 deletions(-) (agent-loop crate + TS sidecar client; no apps/desktop or ui/e2e/desktop smoke path changes)
+smoke_script_sha256=3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825
+smoke_mjs_sha256=89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130
+worktree_dirty_tracked=0

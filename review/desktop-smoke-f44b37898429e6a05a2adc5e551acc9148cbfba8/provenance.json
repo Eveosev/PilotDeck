@@ -1,0 +1,33 @@
+{
+  "sha": "f44b37898429e6a05a2adc5e551acc9148cbfba8",
+  "repo": "https://github.com/Eveosev/PilotDeck",
+  "branch": "rust_standalone_alpha1",
+  "merged_pr": 46,
+  "parents": [
+    "4fe9bba19530d5f879e6d89d5a5b312df081f43e",
+    "b7ece5bf557796ca4b6ff67e22fe50ee6a454f9b"
+  ],
+  "diff_vs_first_parent": "15 files, agent-loop crate + TS sidecar client (no apps/desktop or ui/e2e/desktop smoke path change)",
+  "runner": "Grok Bot shared box, local run (no CloudAgent tool available to this executor; GHA disabled)",
+  "entry": "apps/desktop/scripts/run-linux-chrome-smoke.sh (unmodified)",
+  "script_sha256": "3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825",
+  "smoke_mjs_sha256": "89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130",
+  "weston_log_capture": "20ms poller copying /tmp/tmp.*/weston.log before EXIT trap rm -rf (weston-copy-trace.txt)",
+  "issue14_fixed_claimed": false,
+  "runs": {
+    "x11": {
+      "exit": 0,
+      "seconds": 28.005,
+      "start": "2026-10-15T14:14:31.155Z",
+      "end": "2026-10-15T14:14:59.163Z",
+      "screenshots": 9
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 33.078,
+      "start": "2026-10-15T14:15:12.543Z",
+      "end": "2026-10-15T14:15:45.624Z",
+      "screenshots": 9
+    }
+  }
+}
