@@ -1,0 +1,95 @@
+{
+  "kind": "desktop-linux-chrome-smoke-evidence",
+  "draftEvidenceOnly": true,
+  "doNotMerge": true,
+  "doesNotClaimIssue14HungFixed": true,
+  "gitSha": "ae87ea787ff30a203fdc0430e2ebec0d16e3a0e2",
+  "gitDirty": false,
+  "porcelainByteCount": 0,
+  "baseBranch": "rust_standalone_alpha1",
+  "headBranch": "evidence/desktop-smoke-ae87ea78",
+  "remoteBaseSha": "ae87ea787ff30a203fdc0430e2ebec0d16e3a0e2",
+  "mergePr": 26,
+  "commitSubject": "Merge pull request #26 from Eveosev/cursor/t-p1-03-pr-b-evidence",
+  "parents": [
+    "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+    "fec72e032f9fb0a2ff8c96d4c10893a1d06fcf35"
+  ],
+  "verifiedAtUtc": "2026-10-14T14:18:15Z",
+  "workflowDispatch": {
+    "preferred": true,
+    "attempts": [
+      {
+        "command": "gh workflow run Desktop --ref rust_standalone_alpha1",
+        "http": 403,
+        "body": "Resource not accessible by integration"
+      },
+      {
+        "command": "gh workflow run desktop-smoke.yml --ref ae87ea787ff30a203fdc0430e2ebec0d16e3a0e2",
+        "http": 403,
+        "body": "Resource not accessible by integration"
+      }
+    ],
+    "runsOnSha": [],
+    "localFallback": true,
+    "fallbackNote": "Same as prior #17/#19/#22/#23/#25: dispatch 403, official scripts ran locally in the cloud VM"
+  },
+  "host": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "arch": "x86_64",
+    "node": "v22.23.3",
+    "pnpm": "10.32.1",
+    "electron": "42.11.1",
+    "weston": "13.0.0",
+    "xvfb": "2:21.1.12-1ubuntu1.8"
+  },
+  "prepCommands": [
+    "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-x11 desktop-file-utils weston x11-utils xauth xvfb",
+    "pnpm install --frozen-lockfile",
+    "pnpm --filter pilotdeck-desktop run compile"
+  ],
+  "bannedNotUsed": [
+    "main.ts:536 workaround",
+    "global throttle",
+    "--disable-gpu",
+    "any product source change"
+  ],
+  "commands": [
+    {
+      "backend": "x11",
+      "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+      "startUtc": "2026-10-14T14:19:12Z",
+      "endUtc": "2026-10-14T14:19:35Z",
+      "exitCode": 0,
+      "seconds": 23,
+      "passed": true,
+      "fileClickTimeout": 0,
+      "fileClickStable": 1,
+      "n": 1,
+      "log": "smoke-x11.log"
+    },
+    {
+      "backend": "wayland",
+      "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland",
+      "wrapper": "timeout --preserve-status --signal=TERM --kill-after=30s 300",
+      "startUtc": "2026-10-14T14:19:35Z",
+      "endUtc": "2026-10-14T14:19:56Z",
+      "exitCode": 0,
+      "seconds": 21,
+      "passed": true,
+      "fileClickTimeout": 0,
+      "fileClickStable": 1,
+      "n": 1,
+      "wrapperTimeout": 0,
+      "log": "smoke-wayland.log",
+      "westonLog": "weston.log"
+    }
+  ],
+  "timestamps": {
+    "identityVerifiedUtc": "2026-10-14T14:18:15Z",
+    "x11StartUtc": "2026-10-14T14:19:12Z",
+    "x11EndUtc": "2026-10-14T14:19:35Z",
+    "waylandStartUtc": "2026-10-14T14:19:35Z",
+    "waylandEndUtc": "2026-10-14T14:19:56Z"
+  }
+}

@@ -1,0 +1,7 @@
+backend=x11
+command=bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11
+startUtc=2026-10-14T14:19:12Z
+endUtc=2026-10-14T14:19:35Z
+exitCode=0
+seconds=23
+nodeBinary=/home/ubuntu/.nvm/versions/node/v22.23.3/bin/node
