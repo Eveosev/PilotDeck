@@ -1,0 +1,44 @@
+{
+  "sha": "1d7c806846386c16274e0549e156b142f4930a6f",
+  "branch": "rust_standalone_alpha1",
+  "n": 1,
+  "issue14ClaimedFixed": false,
+  "disableGpu": false,
+  "globalThrottle": false,
+  "mainTsEdited": false,
+  "ghaHttpStatus": {
+    "desktop-smoke.yml": 403,
+    "desktop-linux.yml": 403
+  },
+  "localFallback": true,
+  "x11": {
+    "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+    "exitCode": 0,
+    "wallSeconds": 22.875,
+    "startUtc": "2026-10-15T07:41:55.405964321Z",
+    "endUtc": "2026-10-15T07:42:18.280624081Z",
+    "passed": true,
+    "fileClickTimeoutCount": 0,
+    "fileClickStableCount": 1,
+    "fileClickSitesCompleted": 3,
+    "fileClickCountBasis": "suite pass (x11-smoke.out.txt:1 PASS line and :2 passed:true); no Playwright File timeout in stdout/stderr; outer timeout 600 did not kill",
+    "stdoutPassed": true,
+    "screenshotCount": 9
+  },
+  "wayland": {
+    "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland",
+    "exitCode": 0,
+    "wallSeconds": 21.345,
+    "startUtc": "2026-10-15T07:42:18.301632993Z",
+    "endUtc": "2026-10-15T07:42:39.646916241Z",
+    "passed": true,
+    "fileClickTimeoutCount": 0,
+    "fileClickStableCount": 1,
+    "fileClickSitesCompleted": 3,
+    "fileClickCountBasis": "suite pass (wayland-smoke.out.txt:1 PASS line and :2 passed:true); no Playwright File timeout in stdout/stderr; outer timeout 600 did not kill",
+    "stdoutPassed": true,
+    "screenshotCount": 9,
+    "westonLogCopiedBeforeCleanup": true,
+    "westonLogBytes": 1973
+  }
+}

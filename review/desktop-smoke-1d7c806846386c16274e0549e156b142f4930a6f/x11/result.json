@@ -1,0 +1,26 @@
+{
+  "backend": "x11",
+  "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+  "n": 1,
+  "exitCode": 0,
+  "wallSeconds": 22.875,
+  "startUtc": "2026-10-15T07:41:55.405964321Z",
+  "endUtc": "2026-10-15T07:42:18.280624081Z",
+  "passed": true,
+  "fileClickTimeoutCount": 0,
+  "fileClickStableCount": 1,
+  "fileClickSitesCompleted": 3,
+  "fileClickCountersEmitted": false,
+  "fileClickCountBasis": "PR #35 suite-level definition: suite pass, no Playwright File timeout, outer timeout did not kill. Not computed from per-site log lines.",
+  "stdout": {
+    "passed": true,
+    "geometry": { "x": 6, "border": "1px", "radius": "14px" },
+    "unmappedFixtureEndpoints": [
+      "/api/taskmaster/installation-status",
+      "/api/agents/runtime-config",
+      "/api/commands/list",
+      "/api/v1/providers"
+    ],
+    "artifactDir": "/workspace/outputs/desktop-chrome-review/linux-x11"
+  }
+}
