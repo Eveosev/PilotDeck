@@ -1,0 +1,12 @@
+os=Ubuntu 24.04.5 LTS
+kernel=6.12.94+
+arch=x86_64
+node=v22.23.3
+nodeBinary=/home/ubuntu/.nvm/versions/node/v22.23.3/bin/node
+pnpm=10.32.1
+weston=13.0.0
+xvfb_pkg=xvfb 2:21.1.12-1ubuntu1.8
+weston_pkg=weston 13.0.0-4build3
+dbus_x11_pkg=dbus-x11 1.14.10-4ubuntu4.1
+electron=42.11.1
+ciContrast=CI Linux DEB jobs use ubuntu-22.04 + Node 22.23.1; this host is Ubuntu 24.04.5 + Node 22.23.3
