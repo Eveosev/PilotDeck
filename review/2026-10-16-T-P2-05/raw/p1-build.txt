@@ -1,0 +1,42 @@
+   Compiling memchr v2.8.3
+   Compiling version_check v0.9.5
+   Compiling regex-syntax v0.8.11
+   Compiling zmij v1.0.23
+   Compiling generic-array v0.14.7
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling aho-corasick v1.1.5
+   Compiling serde_json v1.0.151
+   Compiling bit-vec v0.8.0
+   Compiling anyhow v1.0.104
+   Compiling bit-set v0.8.0
+   Compiling itoa v1.0.18
+   Compiling regex-automata v0.4.18
+   Compiling cfg-if v1.0.5
+   Compiling libc v0.2.190
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling rustc-hash v2.1.3
+   Compiling base64 v0.22.1
+   Compiling ryu-js v1.0.3
+   Compiling lazy_static v1.5.1
+   Compiling getrandom v0.4.3
+   Compiling pilotdeck-protocol v0.1.0 (/workspace/rust-core/pilotdeck-protocol)
+   Compiling digest v0.10.7
+   Compiling bstr v1.13.1
+   Compiling regex v1.13.1
+   Compiling fancy-regex v0.17.0
+   Compiling cpufeatures v0.2.17
+   Compiling tiktoken-rs v0.12.0 (/workspace/rust-core/vendor/tiktoken-rs)
+   Compiling pilotdeck-tokenizer v0.1.0 (/workspace/rust-core/pilotdeck-tokenizer)
+   Compiling sha2 v0.10.9
+   Compiling iana-time-zone v0.1.65
+   Compiling pilotdeck-transport v0.1.0 (/workspace/rust-core/pilotdeck-transport)
+   Compiling chrono v0.4.45
+   Compiling pilotdeck-agent v0.1.0 (/workspace/rust-core/pilotdeck-agent)
+   Compiling uuid v1.27.0
+   Compiling tz-rs v0.7.3
+    Finished `release` profile [optimized] target(s) in 22.18s
+EXIT:0

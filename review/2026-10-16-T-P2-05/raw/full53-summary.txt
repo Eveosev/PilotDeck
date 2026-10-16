@@ -1,0 +1,26 @@
+{
+  "scenarios": 53,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "tcp",
+  "sidecarImplementation": "ts",
+  "sidecarImplementationSource": "fingerprint",
+  "rustFingerprint": "missing",
+  "rustSidecarIntended": false,
+  "stdioSidecarCommand": null,
+  "blocked": [],
+  "failed": [
+    "deadline/PilotDeck: transport contract mismatch (3 semantic difference(s))",
+    "deadline_during_tool/PilotDeck: 1 semantic difference(s)",
+    "sidecar_budget_limit/PilotDeck: 1 semantic difference(s)"
+  ],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "provenance": {
+    "current": "9bd36089e4695410d6210e8d85f17873f23c6452",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  }
+}

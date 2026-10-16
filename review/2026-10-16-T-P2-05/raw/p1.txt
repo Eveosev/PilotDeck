@@ -1,0 +1,7 @@
+cwd=/workspace
+release sidecar: present
+repo-root sidecar filename: absent
+pilotdeck-agent-loop-sidecar 0.1.0 implementation=rust wire=2.0 source=9bd36089e4695410d6210e8d85f17873f23c6452
+2a0439fc29f22c59b00bf9dd0cf97461b9093a6627e48efc18d5ee80891f2c9d  /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+-rwxr-xr-x 2 ubuntu ubuntu 8669224 Oct 16 13:51 /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+lrwxrwxrwx 1 ubuntu ubuntu      39 Oct 16 13:53 /workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop -> ../release/pilotdeck-agent-loop-sidecar

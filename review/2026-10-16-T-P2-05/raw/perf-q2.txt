@@ -1,0 +1,23 @@
+source: /tmp/tp205/perf native.json + tcp.json comparisonBaseline
+started 2026-10-16T14:03:59Z finished 2026-10-16T14:09:49Z
+gitSha 9bd36089e4695410d6210e8d85f17873f23c6452 gitDirty false
+baseSha d740abe1330bbc4a7ca9e2264fed0dad72b9a866
+model-ms 200 iterations 30 transports native,tcp
+tcpSidecarCommand tools/agent-loop-parity/rust-tcp-sidecar.sh
+PILOTDECK_RUST_SIDECAR_BIN /workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+perf exit 0
+
+Q2 limit = max(native model net P95 * 10%, 100ms)
+D4 = max(native turn net P95 * 10%, 5ms)
+
+pure_text
+  model net p95 native=31.610 tcp=26.500 delta=-5.110 limit=100 Q2=PASS
+  turn  net p95 native=629.304 tcp=639.833 delta=10.529 D4=62.930 delta/D4=0.167
+single_tool
+  model net p95 native=28.416 tcp=34.798 delta=6.382 limit=100 Q2=PASS
+  turn  net p95 native=714.870 tcp=780.670 delta=65.800 D4=71.487 delta/D4=0.920
+sidecar_live_model_stream_chars_50
+  model net p95 native=39.785 tcp=69.122 delta=29.337 limit=100 Q2=PASS
+  turn  net p95 native=830.707 tcp=888.761 delta=58.054 D4=83.071 delta/D4=0.699
+
+PC2 not closed. D4 record only.

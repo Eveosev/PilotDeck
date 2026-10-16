@@ -1,0 +1,13 @@
+--- non-loopback ---
+exit:2
+stderr:--listen must bind a loopback address
+stdout_bytes:0
+--- listen 127.0.0.1:0 ---
+listening_line:listening 127.0.0.1:41173
+still_alive:yes
+--- TCP_PORT does not exit 2 ---
+tcp_port_listening:listening 127.0.0.1:39371
+tcp_port_still_alive:yes
+--- FACTORY still exit 2 ---
+factory_exit:2
+factory_stderr:Rust candidate does not yet support the PILOTDECK_AGENT_LOOP_FACTORY deployment profile.
