@@ -1,0 +1,16 @@
+head=2238c7ba7398c7f777f473937f0c9e2851130fbb
+subject=Merge pull request #51 from Eveosev/cursor/t-p2-03-stdio-perf-7516
+parents=113c16d915dc85f680383e8d77968ab9329128ff 7cdbcde750a82a6feff5f5b5dde5dc8d09a64883
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+commit_date=2026-10-16T07:26:05+08:00
+pr50_merge=113c16d915dc85f680383e8d77968ab9329128ff; pr51_merge=2238c7ba7398c7f777f473937f0c9e2851130fbb (tip)
+pr51_reviewed_tip=7cdbcde750a82a6feff5f5b5dde5dc8d09a64883
+branch=rust_standalone_alpha1 (detached worktree at merge SHA)
+remote=https://github.com/Eveosev/PilotDeck.git
+merged_prs=https://github.com/Eveosev/PilotDeck/pull/50 https://github.com/Eveosev/PilotDeck/pull/51
+diff_vs_first_parent_113c16d9= 13 files changed, 63153 insertions(+), 1 deletion(-)
+diff_vs_prior_smoke_3f7dd8f7_desktop_paths= 0 files (apps/desktop, ui, packages/sdk, src)
+smoke_script_sha256=3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825
+smoke_mjs_sha256=89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130
+worktree_dirty_tracked=0

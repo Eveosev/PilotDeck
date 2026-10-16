@@ -1,0 +1,8 @@
+# copier: poll /tmp/tmp.*/weston.log every 20ms during wayland run, cp to ./weston.log before EXIT-trap rm -rf; 894 successful copies; first 3 and last 3 shown
+2026-10-15T23:30:56.479Z copied /tmp/tmp.luautFAbRp/weston.log 689B
+2026-10-15T23:30:56.507Z copied /tmp/tmp.luautFAbRp/weston.log 1713B
+2026-10-15T23:30:56.534Z copied /tmp/tmp.luautFAbRp/weston.log 1845B
+...
+2026-10-15T23:31:20.528Z copied /tmp/tmp.luautFAbRp/weston.log 1845B
+2026-10-15T23:31:20.554Z copied /tmp/tmp.luautFAbRp/weston.log 1921B
+2026-10-15T23:31:20.581Z copied /tmp/tmp.luautFAbRp/weston.log 1921B
