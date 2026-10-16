@@ -48,8 +48,8 @@
 | PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。尚无完成记录。T-P2-04 合入后旧数字作废，必须重采 | open |
 | T-P2-02 | 用本仓 `tools/agent-loop-parity` 的 **stdio** 跑 rust-core 二进制。身份、命令和预计会撞上 `profile_gap` 的场景见评审意见第 2 问 | open。P2 第一道门 |
 | T-P2-03 | 用 `tools/agent-loop-perf` 做同场景对照，回答 PC2。stdio 先比「每 turn 拉起」；关掉 PC2 必须等 T-P2-05 的常驻 TCP 重采 | open。P2 第二道门 |
-| T-P2-04 | 两道门通过后，把四个 crate 引进 `rust-core/` 独立 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | open。计划已选定方向，**未实施** |
-| T-P2-05 | 在 `pilotdeck-transport` 补 D7：`--listen` 只绑 loopback、hello `payload.token` 常量时间比较、错误码 `UNAUTHENTICATED`、不回显 token、stdio 不校验。对齐本仓 `tcp.rs` 与 #46，不把探针的 10ms 轮询带过去。2026-10-12 DECISION 里的 T-P2-05/06 指的是探针上的 TCP 认证；#46 只完成了探针上的最小面 | open（rust-core 侧）。探针侧最小面已在 #46 |
+| T-P2-04 | 两道门通过后，把四个 crate 引进 `rust-core/` 独立 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | 已合入 `d740abe1` |
+| T-P2-05 | 在 `pilotdeck-transport` 补 D7：`--listen` 只绑 loopback、hello `payload.token` 常量时间比较、错误码 `UNAUTHENTICATED`、不回显 token、stdio 不校验。对齐本仓 `tcp.rs` 与 #46，不把探针的 10ms 轮询带过去。2026-10-12 DECISION 里的 T-P2-05/06 指的是探针上的 TCP 认证；#46 只完成了探针上的最小面 | rust-core 侧已实现 `--listen` loopback + hello token（本任务，未切产品默认）。探针侧最小面已在 #46 |
 | T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | open |
 | T-P2-07 | 2026-10-12 的原意是「另建 pilotdeck-rs workspace」。合流后改为：**不**新建那份 7 crate workspace；P2 只引进 rust-core 已有的 4 个 crate。gateway / yaml / cli 留在 P5 | 决议已改，未实施 |
 | T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | open |
