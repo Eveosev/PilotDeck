@@ -1,0 +1,15 @@
+head=d740abe1330bbc4a7ca9e2264fed0dad72b9a866
+subject=Merge pull request #53 from Eveosev/cursor/t-p2-04-rust-core-adopt-8bf1
+parents=2238c7ba7398c7f777f473937f0c9e2851130fbb 47d42414780a6b4a867c9a6bc6878278b25fde42
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+commit_date=2026-10-16T19:36:48+08:00
+pr53_merge=d740abe1330bbc4a7ca9e2264fed0dad72b9a866; first_parent=2238c7ba7398c7f777f473937f0c9e2851130fbb; reviewed_tip=47d42414780a6b4a867c9a6bc6878278b25fde42
+branch=rust_standalone_alpha1 (detached worktree at merge SHA)
+remote=https://github.com/Eveosev/PilotDeck.git
+merged_prs=https://github.com/Eveosev/PilotDeck/pull/53
+diff_vs_first_parent_2238c7ba= 163 files changed, 507377 insertions(+), 3 deletions(-)
+diff_vs_prior_smoke_2238c7ba_desktop_paths= 0 files (apps/desktop, ui, packages/sdk, src)
+smoke_script_sha256=3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825
+smoke_mjs_sha256=89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130
+worktree_dirty_tracked=0

@@ -1,0 +1,11 @@
+sha=d740abe1330bbc4a7ca9e2264fed0dad72b9a866
+merged_prs=https://github.com/Eveosev/PilotDeck/pull/53
+N=1 per backend
+order=x11,wayland
+outer_timeout=600
+pre_step=pnpm install --frozen-lockfile; (cd apps/desktop && pnpm compile)  # done BEFORE first attempt
+attempts=1 (no failed attempt)
+x11=exit 0 28.393s
+wayland=exit 0 25.462s
+banned_workarounds_used=none (no main.ts:536 change, no global throttle, no --disable-gpu)
+product_code_modified=no
