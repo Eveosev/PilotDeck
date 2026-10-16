@@ -1,0 +1,10 @@
+{
+  "backend": "wayland",
+  "exit": 0,
+  "seconds": 25.719,
+  "start": "2026-10-15T19:09:44.481Z",
+  "end": "2026-10-15T19:10:10.203Z",
+  "passed": true,
+  "screenshots": 9,
+  "N": 1
+}
