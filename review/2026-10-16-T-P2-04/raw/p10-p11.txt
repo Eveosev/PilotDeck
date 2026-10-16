@@ -1,0 +1,47 @@
+started=2026-10-16T07:46:36Z
+$ cargo +1.99.1 tree --locked -e features -p pilotdeck-protocol -p pilotdeck-tokenizer -p pilotdeck-agent -p pilotdeck-transport
+P10_RUST_TREE_EXIT:0
+$ cargo +1.99.1 metadata --locked --format-version 1
+ Downloading crates ...
+  Downloaded pin-project-lite v0.2.17
+  Downloaded proc-macro2 v1.0.107
+  Downloaded android_system_properties v0.1.6
+  Downloaded futures-core v0.3.34
+  Downloaded iana-time-zone-haiku v0.1.2
+  Downloaded windows-link v0.2.1
+  Downloaded windows-strings v0.5.1
+  Downloaded shlex v2.0.1
+  Downloaded windows-result v0.4.1
+  Downloaded wasm-bindgen-shared v0.2.129
+  Downloaded windows-implement v0.60.2
+  Downloaded windows-interface v0.59.3
+  Downloaded futures-task v0.3.34
+  Downloaded slab v0.4.12
+  Downloaded wasm-bindgen-macro v0.2.129
+  Downloaded rustversion v1.0.23
+  Downloaded unicode-ident v1.0.27
+  Downloaded windows-core v0.62.2
+  Downloaded core-foundation-sys v0.8.7
+  Downloaded quote v1.0.47
+  Downloaded once_cell v1.21.4
+  Downloaded serde_derive v1.0.229
+  Downloaded r-efi v6.0.0
+  Downloaded find-msvc-tools v0.1.14
+  Downloaded log v0.4.34
+  Downloaded wasm-bindgen v0.2.129
+  Downloaded serde v1.0.229
+  Downloaded bumpalo v3.20.3
+  Downloaded js-sys v0.3.106
+  Downloaded wasm-bindgen-macro-support v0.2.129
+  Downloaded cc v1.8.0
+  Downloaded futures-util v0.3.34
+  Downloaded syn v2.0.119
+  Downloaded syn v3.0.9
+P10_META_EXIT:0
+$ P11 workspace_root from rust-core/
+/workspace/rust-core
+P11_ROOT_EXIT:0
+$ P11 workspace_root from rust-core/pilotdeck-transport/
+/workspace/rust-core
+P11_TRANSPORT_EXIT:0
+finished=2026-10-16T07:46:36Z

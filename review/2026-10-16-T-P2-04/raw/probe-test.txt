@@ -1,0 +1,198 @@
+$ cargo +1.83.0 test --locked
+started=2026-10-16T08:06:29Z
+   Compiling zmij v1.0.23
+   Compiling serde_core v1.0.229
+   Compiling equivalent v1.0.3
+   Compiling hashbrown v0.15.5
+   Compiling serde_json v1.0.154
+   Compiling foldhash v0.2.0
+   Compiling itoa v1.0.18
+   Compiling indexmap v2.7.1
+   Compiling memchr v2.8.3
+   Compiling pilotdeck-agent-loop v0.1.0 (/workspace/crates/pilotdeck-agent-loop)
+   Compiling pilotdeck-agent-loop-hello v0.1.0 (/workspace/crates/pilotdeck-agent-loop-hello)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.00s
+     Running unittests src/lib.rs (target/debug/deps/pilotdeck_agent_loop-0b193e14f0c1a6e2)
+
+running 81 tests
+test error_recovery::tests::tool_execution_failed_matches_ts_recovery_text ... ok
+test error_recovery::tests::cjk_prefix_uses_byte_compare_and_does_not_panic ... ok
+test error_recovery::tests::tool_execution_failed_timeout_is_retry_later ... ok
+test error_recovery::tests::path_not_allowed_mentions_real_cwd ... ok
+test protocol::tests::execute_duplicate_keys_last_wins_like_json_parse ... ok
+test protocol::tests::cancel_and_status_validate_required_fields ... ok
+test protocol::tests::event_and_response_enforce_final_implies_outcome_and_forbidden_binding ... ok
+test protocol::tests::hello_and_capabilities_require_payload_object ... ok
+test protocol::tests::execute_rejects_missing_fields_and_forbidden_ids ... ok
+test protocol::tests::malformed_kind_and_error_retryability ... ok
+test protocol::tests::parse_json_line_last_key_wins ... ok
+test protocol::tests::resume_and_ack_are_valid_protocol_but_out_of_scope_for_sidecar ... ok
+test error_recovery::tests::overlong_cjk_truncates_on_char_boundary ... ok
+test sidecar::tests::cancel_unknown_and_status_unknown ... ok
+test sidecar::tests::cancel_during_prepare_still_sends_close_stream ... ok
+test sidecar::tests::cancel_while_host_omits_stream_still_closes_stream ... ok
+test sidecar::tests::capability_execute_fail_covers_every_outstanding_tool_call ... ok
+test sidecar::tests::capability_execute_fail_emits_is_error_tool_result_then_projected ... ok
+test sidecar::tests::capability_execute_fail_synthesizes_ts_recovery_result ... ok
+test sidecar::tests::capability_execute_fail_uses_payload_cwd_and_permission_mode ... ok
+test sidecar::tests::capability_execute_ok_then_fail_keeps_success_then_synthesized_error ... ok
+test sidecar::tests::capability_result_error_field_without_type_does_not_mark_is_error ... ok
+test sidecar::tests::capability_result_filters_json_file_and_rejects_empty_or_string_arrays ... ok
+test sidecar::tests::capability_result_keeps_error_and_marks_tool_result_is_error ... ok
+test sidecar::tests::capability_result_keeps_host_content_block_array ... ok
+test sidecar::tests::capability_result_wraps_host_string_content_as_text_block ... ok
+test sidecar::tests::channel_emit_is_send_sync ... ok
+test sidecar::tests::completed_final_echoes_request_session_and_turn_ids ... ok
+test sidecar::tests::context_budget_is_emitted_when_host_advertises_budget ... ok
+test sidecar::tests::cancel_mid_execute_matches_ts_outcome ... ok
+test sidecar::tests::empty_thinking_signature_is_not_invented ... ok
+test sidecar::tests::execute_duplicate_keys_use_last_request_id ... ok
+test sidecar::tests::capability_execute_timeout_emits_is_error_tool_result_then_projected ... ok
+test sidecar::tests::execute_finished_run_mismatch_is_rejected ... ok
+test sidecar::tests::execute_prompt_comes_from_last_user_text_block_not_q_or_tools ... ok
+test sidecar::tests::execute_pure_text_emits_events_and_final_outcome ... ok
+test sidecar::tests::execute_single_tool_emits_tool_call_result_and_final_text ... ok
+test sidecar::tests::execute_single_tool_prompt_mutation_changes_output ... ok
+test sidecar::tests::expired_offset_iso_deadline_is_rejected_not_ignored ... ok
+test sidecar::tests::first_round_keeps_text_before_tool_calls_in_one_assistant_message ... ok
+test sidecar::tests::execute_finished_cancel_then_complete_keeps_cancelled_status ... ok
+test sidecar::tests::hello_capabilities_handshake ... ok
+test sidecar::tests::inbound_module_call_is_still_unexpected ... ok
+test sidecar::tests::model_request_carries_agent_view_not_raw_manifest ... ok
+test sidecar::tests::model_request_filters_plan_and_prompt_gated_tools ... ok
+test sidecar::tests::model_tool_schema_keeps_input_schema_key_order ... ok
+test sidecar::tests::module_call_host_ok_false_fails_execute ... ok
+test sidecar::tests::future_deadline_completes_when_not_expired ... ok
+test sidecar::tests::outbound_content_is_block_array_for_pure_text_and_single_tool ... ok
+test sidecar::tests::prepare_for_model_supplies_system_prompt_and_filtered_tools ... ok
+test sidecar::tests::recovery_cwd_reads_agent_cwd_same_as_context_prepare ... ok
+test sidecar::tests::rejects_invalid_json_and_unknown_kind ... ok
+test sidecar::tests::attempt_deadline_during_stub_sleep_is_result_unknown ... ok
+test sidecar::tests::same_round_tool_calls_merge_into_one_assistant_and_one_results_message ... ok
+test sidecar::tests::second_round_tool_calls_fail_explicitly ... ok
+test sidecar::tests::single_tool_emits_durable_assistant_message_and_tool_results_projected ... ok
+test sidecar::tests::status_and_stale_cancel_and_unsupported_resume_ack ... ok
+test sidecar::tests::module_call_timeout_fails_execute ... ok
+test sidecar::tests::stream_next_cancel_closes_stream_and_cancels ... ok
+test sidecar::tests::stream_next_closes_thinking_block_with_the_same_id ... ok
+test sidecar::tests::stream_next_consecutive_empty_frames_fail ... ok
+test sidecar::tests::stream_next_emits_each_text_delta_before_the_next_pull ... ok
+test sidecar::tests::stream_next_end_frame_completes_and_malformed_frame_fails ... ok
+test sidecar::tests::stream_next_error_frame_is_emitted_then_the_unfinished_stream_is_closed ... ok
+test sidecar::tests::stream_next_falls_back_to_unary_stream_when_host_does_not_advertise_it ... ok
+test sidecar::tests::stream_next_host_rejection_fails_and_closes ... ok
+test sidecar::tests::earliest_deadline_uses_sooner_of_operation_and_attempt ... ok
+test sidecar::tests::stream_next_tool_call_keeps_pre_tool_text_block_id ... ok
+test sidecar::tests::stream_uses_host_prepared_request ... ok
+test sidecar::tests::tcp_auth_token_gates_hello_and_later_methods ... ok
+test sidecar::tests::thinking_signature_round_trip_keeps_last_non_empty_signature ... ok
+test sidecar::tests::stream_next_timeout_fails_and_closes ... ok
+test sidecar::tests::tool_result_block_is_error_only_when_type_is_error ... ok
+test sidecar::tests::turn_timeline_reuses_id_and_update_bumps_revision ... ok
+test sidecar::tests::unary_stream_error_event_fails_instead_of_completing ... ok
+test tests::parse_serve_mode_stdio_default_and_listen_ephemeral ... ok
+test time::tests::parse_iso_ms_accepts_z_offsets_and_unsuffixed ... ok
+test time::tests::roundtrips_unix_epoch ... ok
+test sidecar::tests::timeout_cancel_is_result_unknown ... ok
+test sidecar::tests::runtime_deadline_during_stub_sleep_is_result_unknown ... ok
+test sidecar::tests::stream_next_accepts_more_than_8192_non_empty_frames ... ok
+
+test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+     Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop-baa167ea39ed8812)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/g5_tcp_module_call.rs (target/debug/deps/g5_tcp_module_call-d02f79842ef543c2)
+
+running 1 test
+test g5_tcp_listen_real_client_payload_reaches_pure_text_and_single_tool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/lock.rs (target/debug/deps/lock-f773991e399be1e1)
+
+running 6 tests
+test crate_rust_version_matches_hello_msrv ... ok
+test crate_exports_validate_module_message_and_stdio_bin ... ok
+test execute_is_in_scope_unlike_hello_crate ... ok
+test pr_b_tcp_cli_and_mask_f3_live_under_tests ... ok
+test workspace_lists_pilotdeck_agent_loop_crate ... ok
+test invalid_message_fixture_covers_each_protocol_type ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/real_model_stdio.rs (target/debug/deps/real_model_stdio-bf0db5a94395ed36)
+
+running 1 test
+test real_model_stdio_fixture_returns_completed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/roundtrip.rs (target/debug/deps/roundtrip-e0554a970f07a403)
+
+running 2 tests
+test rust_emitted_messages_roundtrip_schema_and_ts ... ok
+test invalid_messages_rejected_by_ajv_ts_and_rust ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/serde_r2.rs (target/debug/deps/serde_r2-75d31e4795ef44de)
+
+running 9 tests
+test s3_sequence_1e400_both_reject_via_different_paths ... ok
+test s3_sequence_1_0_accepts_like_ts ... ok
+test s3_duplicate_keys_last_wins_like_json_parse ... ok
+test s3_sequence_above_2_pow_53_accepts_with_documented_precision_split ... ok
+test s3_sequence_negative_zero_accepts_like_ts ... ok
+test s3_wire_input_is_value_first_not_derive ... ok
+test s3_ajv_strict_agrees_with_ts_and_rust ... ok
+test s3_sequence_exponents_accept_like_ts ... ok
+test s3_seven_cases_record_explicit_decisions ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.67s
+
+     Running tests/sidecar_stdio.rs (target/debug/deps/sidecar_stdio-ade933d086c5da5f)
+
+running 8 tests
+test s0_hello_capabilities_and_invalid_input ... ok
+test s0_non_utf8_line_is_invalid_json_and_keeps_serving ... ok
+test s1_execute_rejects_forbidden_fields ... ok
+test s1_execute_pure_text_events_and_final_outcome ... ok
+test s1_execute_rejects_step_id ... ok
+test g5_stdio_real_client_payload_reaches_pure_text_and_single_tool ... ok
+test s2_cancel_status_and_explicit_resume_ack_reject ... ok
+test ts_host_b4_dialogue_over_stdio ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/sidecar_tcp.rs (target/debug/deps/sidecar_tcp-a7de77adb525aa2b)
+
+running 8 tests
+test s1_execute_rejects_forbidden_fields ... ok
+test s0_hello_capabilities_and_invalid_input ... ok
+test s0_non_utf8_line_is_invalid_json_and_keeps_serving ... ok
+test s1_execute_rejects_step_id ... ok
+test tcp_auth_token_rejects_anonymous_hello ... ok
+test s1_execute_pure_text_events_and_final_outcome ... ok
+test s2_cancel_status_and_explicit_resume_ack_reject ... ok
+test ts_host_b4_dialogue_over_tcp ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running unittests src/main.rs (target/debug/deps/pilotdeck_agent_loop_hello-5a8c05fcaf712da9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pilotdeck_agent_loop
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+EXIT:0
+finished=2026-10-16T08:06:38Z

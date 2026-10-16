@@ -1,0 +1,1 @@
+{"kind":"harness.proof","scenarioId":"pure_text","q":"What is the status?","invocationId":"6b9b443ca5ab4c1ba9efcfb5b8d23bca","sequence":34,"state":"rust_sidecar_exec","pid":10837,"bin":"/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop","resolved":"/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop"}

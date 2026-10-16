@@ -1,0 +1,220 @@
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 746.417, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 2, "turn_ms": 735.748, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 3, "turn_ms": 742.607, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 4, "turn_ms": 742.357, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 5, "turn_ms": 731.647, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 6, "turn_ms": 735.805, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 7, "turn_ms": 740.119, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 8, "turn_ms": 740.726, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 9, "turn_ms": 739.835, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 10, "turn_ms": 743.576, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 11, "turn_ms": 735.387, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 12, "turn_ms": 740.705, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 13, "turn_ms": 737.695, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 14, "turn_ms": 734.584, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 15, "turn_ms": 738.532, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 16, "turn_ms": 792.031, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 17, "turn_ms": 725.949, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 18, "turn_ms": 727.621, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 19, "turn_ms": 739.007, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 20, "turn_ms": 741.979, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 21, "turn_ms": 738.047, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 22, "turn_ms": 708.823, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 23, "turn_ms": 733.531, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 24, "turn_ms": 735.467, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 25, "turn_ms": 744.282, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 26, "turn_ms": 774.181, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 27, "turn_ms": 729.457, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 28, "turn_ms": 725.749, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 29, "turn_ms": 730.786, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 30, "turn_ms": 739.396, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 1, "turn_ms": 1031.171, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 2, "turn_ms": 1043.142, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 3, "turn_ms": 1040.725, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 4, "turn_ms": 1035.982, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 5, "turn_ms": 1024.336, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 6, "turn_ms": 1027.192, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 7, "turn_ms": 1047.013, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 8, "turn_ms": 1036.043, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 9, "turn_ms": 1030.148, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 10, "turn_ms": 1023.652, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 11, "turn_ms": 1027.002, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 12, "turn_ms": 1029.35, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 13, "turn_ms": 1030.495, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 14, "turn_ms": 1022.89, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 15, "turn_ms": 1031.254, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 16, "turn_ms": 1022.506, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 17, "turn_ms": 1022.082, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 18, "turn_ms": 1018.605, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 19, "turn_ms": 1011.951, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 20, "turn_ms": 1024.79, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 21, "turn_ms": 1031.699, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 22, "turn_ms": 1036.066, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 23, "turn_ms": 1031.76, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 24, "turn_ms": 1019.698, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 25, "turn_ms": 1037.81, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 26, "turn_ms": 1040.526, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 27, "turn_ms": 1040.068, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 28, "turn_ms": 1026.261, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 29, "turn_ms": 1057.589, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 30, "turn_ms": 1032.982, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 1, "turn_ms": 963.28, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 2, "turn_ms": 964.903, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 3, "turn_ms": 946.21, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 4, "turn_ms": 947.547, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 5, "turn_ms": 988.131, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 6, "turn_ms": 946.27, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 7, "turn_ms": 961.427, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 8, "turn_ms": 940.328, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 9, "turn_ms": 942.183, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 10, "turn_ms": 948.043, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 11, "turn_ms": 947.016, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 12, "turn_ms": 949.804, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 13, "turn_ms": 941.076, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 14, "turn_ms": 946.947, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 15, "turn_ms": 938.647, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 16, "turn_ms": 976.446, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 17, "turn_ms": 953.572, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 18, "turn_ms": 947.305, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 19, "turn_ms": 941.969, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 20, "turn_ms": 951.228, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 21, "turn_ms": 946.42, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 22, "turn_ms": 932.468, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 23, "turn_ms": 938.618, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 24, "turn_ms": 943.757, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 25, "turn_ms": 942.609, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 26, "turn_ms": 932.617, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 27, "turn_ms": 946.849, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 28, "turn_ms": 950.585, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 29, "turn_ms": 951.46, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 30, "turn_ms": 946.077, "delay_injected": true}
+{"event": "wrote", "transport": "native", "path": "/tmp/tp204-perf/native.json", "primaryBaseline": {}, "excludedFromPrimary": ["pure_text", "single_tool", "sidecar_live_model_stream_chars_50"]}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 772.109, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 2, "turn_ms": 781.574, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 3, "turn_ms": 771.323, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 4, "turn_ms": 812.125, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 5, "turn_ms": 818.492, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 6, "turn_ms": 792.594, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 7, "turn_ms": 791.272, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 8, "turn_ms": 755.171, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 9, "turn_ms": 787.873, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 10, "turn_ms": 768.542, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 11, "turn_ms": 788.258, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 12, "turn_ms": 783.657, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 13, "turn_ms": 776.153, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 14, "turn_ms": 793.896, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 15, "turn_ms": 802.805, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 16, "turn_ms": 802.637, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 17, "turn_ms": 777.514, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 18, "turn_ms": 787.996, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 19, "turn_ms": 801.373, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 20, "turn_ms": 793.086, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 21, "turn_ms": 787.792, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 22, "turn_ms": 812.167, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 23, "turn_ms": 783.506, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 24, "turn_ms": 784.867, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 25, "turn_ms": 781.572, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 26, "turn_ms": 787.909, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 27, "turn_ms": 773.866, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 28, "turn_ms": 782.416, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 29, "turn_ms": 775.565, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "pure_text", "iteration": 30, "turn_ms": 777.999, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 1, "turn_ms": 1120.604, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 2, "turn_ms": 1096.209, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 3, "turn_ms": 1130.464, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 4, "turn_ms": 1119.753, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 5, "turn_ms": 1147.209, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 6, "turn_ms": 1132.324, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 7, "turn_ms": 1118.784, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 8, "turn_ms": 1111.446, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 9, "turn_ms": 1091.815, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 10, "turn_ms": 1097.424, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 11, "turn_ms": 1092.402, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 12, "turn_ms": 1126.993, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 13, "turn_ms": 1096.967, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 14, "turn_ms": 1087.865, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 15, "turn_ms": 1104.914, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 16, "turn_ms": 1084.094, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 17, "turn_ms": 1088.153, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 18, "turn_ms": 1097.098, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 19, "turn_ms": 1099.37, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 20, "turn_ms": 1121.517, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 21, "turn_ms": 1145.227, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 22, "turn_ms": 1102.225, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 23, "turn_ms": 1111.083, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 24, "turn_ms": 1108.381, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 25, "turn_ms": 1094.422, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 26, "turn_ms": 1104.32, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 27, "turn_ms": 1107.433, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 28, "turn_ms": 1100.153, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 29, "turn_ms": 1101.515, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "single_tool", "iteration": 30, "turn_ms": 1107.35, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 1, "turn_ms": 987.314, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 2, "turn_ms": 996.737, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 3, "turn_ms": 996.42, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 4, "turn_ms": 1017.445, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 5, "turn_ms": 985.071, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 6, "turn_ms": 974.402, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 7, "turn_ms": 979.906, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 8, "turn_ms": 987.958, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 9, "turn_ms": 980.188, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 10, "turn_ms": 1005.764, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 11, "turn_ms": 980.239, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 12, "turn_ms": 981.503, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 13, "turn_ms": 1083.187, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 14, "turn_ms": 1053.33, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 15, "turn_ms": 1004.994, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 16, "turn_ms": 969.069, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 17, "turn_ms": 1022.822, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 18, "turn_ms": 1064.007, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 19, "turn_ms": 1013.736, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 20, "turn_ms": 1005.586, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 21, "turn_ms": 996.316, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 22, "turn_ms": 1017.186, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 23, "turn_ms": 1066.602, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 24, "turn_ms": 1000.714, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 25, "turn_ms": 979.719, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 26, "turn_ms": 985.796, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 27, "turn_ms": 978.316, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 28, "turn_ms": 977.412, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 29, "turn_ms": 999.635, "delay_injected": true}
+{"event": "iteration", "transport": "stdio", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 30, "turn_ms": 1005.567, "delay_injected": true}
+{"event": "wrote", "transport": "stdio", "path": "/tmp/tp204-perf/stdio.json", "primaryBaseline": {}, "excludedFromPrimary": ["pure_text", "single_tool", "sidecar_live_model_stream_chars_50"]}
+{
+  "output": "/tmp/tp204-perf",
+  "transports": [
+    "native",
+    "stdio"
+  ],
+  "scenarios": [
+    "pure_text",
+    "single_tool",
+    "sidecar_live_model_stream_chars_50"
+  ],
+  "iterations": 30,
+  "startedAt": "2026-10-16T07:54:11.311247+00:00",
+  "finishedAt": "2026-10-16T07:59:47.963506+00:00",
+  "provenance": {
+    "gitSha": "87b2d6b4e6fc193d6970de73466be5711b3d494c",
+    "collectSha": "87b2d6b4e6fc193d6970de73466be5711b3d494c",
+    "gitDirty": false,
+    "node": "v22.14.0",
+    "python": "3.12.3",
+    "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_50 --model-ms 200 --iterations 30 --transports native,stdio --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh --output /tmp/tp204-perf",
+    "pilotdeckRoot": "$PWD",
+    "iterationsRequested": 30,
+    "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+    "delayPolicy": "zero+modelMs:200",
+    "configuredModelMs": 200.0,
+    "metrics": "tools/agent-loop-perf/METRICS.md",
+    "productDefaultTransport": "native",
+    "baseBranch": "rust_standalone_alpha1",
+    "baseSha": "2238c7ba7398c7f777f473937f0c9e2851130fbb",
+    "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+    "rustSidecarBin": "/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop",
+    "rustSidecarTarget": "/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar",
+    "rustSidecarSha256": "b766fed5af38de89fa248b2e495e56d89eb6cddaf71f81ef8bde4d0773f1d7d1",
+    "tcpSidecarCommand": null
+  }
+}

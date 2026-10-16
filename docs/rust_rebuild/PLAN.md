@@ -8,7 +8,7 @@
 
 - **D0 = G3**（2026-10-10 暂定）：完整可运行的 Rust 核心，约在 **P5** 后达成。G3 终验：除未覆盖 provider 外 module_call≈0；P95 ≤ native+5%；RSS ≤ native+10%（TASK_PLAN T-G3-01）。
 - 其他已定：D1 渐进 sidecar；D4 = `max(native 单轮 P95×10%, 5ms)`，体积 ≤ 当前包+20%；D7 TCP 常驻（生产默认前须补认证/UDS）；D9 TS adapter-host。
-- **D-CORE（2026-10-15，计划修订，代码未动）**：P2 的领域核心改为 rust-core 的四个 crate（`pilotdeck-protocol` / `tokenizer` / `agent` / `transport`）。本仓 `crates/pilotdeck-agent-loop` 停在探针：保留作 D7、对拍包装和性能参照，**不再往 `sidecar.rs` 上堆 53 场景**。切换实施（T-P2-04）必须先过 T-P2-02 对拍门和 T-P2-03 性能门。门没过就继续用探针，不提前删 crate。
+- **D-CORE（2026-10-15，计划修订，代码未动）**：P2 的领域核心改为 rust-core 的四个 crate（`pilotdeck-protocol` / `tokenizer` / `agent` / `transport`）。本仓 `crates/pilotdeck-agent-loop` 停在探针：保留作 D7、对拍包装和性能参照，**不再往 `sidecar.rs` 上堆 53 场景**。切换实施（T-P2-04）必须先过 T-P2-02 对拍门和 T-P2-03 性能门。门没过就继续用探针，不提前删 crate。四 crate 在 `rust-core/` 独立 workspace；不是 T-P2-07 的 7 crate workspace。
 
 合流取三样东西，不取「整仓替换」：
 
@@ -48,11 +48,11 @@
 | PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。尚无完成记录。T-P2-04 合入后旧数字作废，必须重采 | open |
 | T-P2-02 | 用本仓 `tools/agent-loop-parity` 的 **stdio** 跑 rust-core 二进制。身份、命令和预计会撞上 `profile_gap` 的场景见评审意见第 2 问 | open。P2 第一道门 |
 | T-P2-03 | 用 `tools/agent-loop-perf` 做同场景对照，回答 PC2。stdio 先比「每 turn 拉起」；关掉 PC2 必须等 T-P2-05 的常驻 TCP 重采 | open。P2 第二道门 |
-| T-P2-04 | 两道门通过后，把四个 crate 引进本 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | open。计划已选定方向，**未实施** |
+| T-P2-04 | 两道门通过后，把四个 crate 引进 `rust-core/` 独立 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | open。计划已选定方向，**未实施** |
 | T-P2-05 | 在 `pilotdeck-transport` 补 D7：`--listen` 只绑 loopback、hello `payload.token` 常量时间比较、错误码 `UNAUTHENTICATED`、不回显 token、stdio 不校验。对齐本仓 `tcp.rs` 与 #46，不把探针的 10ms 轮询带过去。2026-10-12 DECISION 里的 T-P2-05/06 指的是探针上的 TCP 认证；#46 只完成了探针上的最小面 | open（rust-core 侧）。探针侧最小面已在 #46 |
 | T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | open |
 | T-P2-07 | 2026-10-12 的原意是「另建 pilotdeck-rs workspace」。合流后改为：**不**新建那份 7 crate workspace；P2 只引进 rust-core 已有的 4 个 crate。gateway / yaml / cli 留在 P5 | 决议已改，未实施 |
-| T-P2-08 | CI：引进后的 workspace 跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | open |
+| T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | open |
 | T-P2-09 | 基线差：本仓 `AgentLoop.ts` 的 status 事件带 `kind` / `text`（#2）。对拍期望以本仓 TS 为准。rust-core 若少这两个字段，补事件投影，不把 TS 改回去 | open，附在 T-P2-02 的 diff 分类里 |
 
 ## 门禁流程（每个 PR）

@@ -1,0 +1,22 @@
+$ cd rust-core && rustc -V && cargo -V
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo 1.99.1 (5f94df478 2026-08-27)
+
+$ rustup show active-toolchain
+1.99.1-x86_64-unknown-linux-gnu (overridden by '/workspace/rust-core/rust-toolchain.toml')
+
+$ cat rust-core/rust-toolchain.toml
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
+
+$ grep resolver/edition/rust-version/unsafe
+7:resolver = "3"
+17:edition = "2024"
+18:rust-version = "1.93"
+32:unsafe_code = "forbid"
+
+$ grep loose versions
+rust-core/Cargo.toml:18:rust-version = "1.93"
+rust-core/Cargo.toml:19:version = "0.1.0"

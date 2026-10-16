@@ -1,0 +1,102 @@
+# sidecar_budget_limit PilotDeck
+
+- left: `/tmp/tp204-parity/full53/sidecar_budget_limit.pilotdeck-current-native.jsonl`
+- right: `/tmp/tp204-parity/full53/sidecar_budget_limit.pilotdeck-current-sidecar.jsonl`
+
+FAIL: 1 semantic difference(s).
+
+## Semantic Differences
+
+
+- `trace.channel[core/parent][0]~[0].text`
+  - left: `"Reached Gateway-owned maxBudgetUsd ($0.500000) after spending $1.000000."`
+  - right: `"max_budget_reached"`
+
+## Format Warnings
+
+Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=21. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.
+21 difference(s). taxonomy={"envelope": 21, "budget": 0, "modelView": 0, "request": 0, "requestEvidence": 0, "response": 0, "state": 0, "kind": 0, "source": 0, "attempt": 0}
+
+- `trace[0].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[0].sequence` (envelope)
+  - left: `1`
+  - right: `17`
+
+- `trace[1].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[1].sequence` (envelope)
+  - left: `2`
+  - right: `18`
+
+- `trace[2].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[2].sequence` (envelope)
+  - left: `3`
+  - right: `19`
+
+- `trace[3].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[3].sequence` (envelope)
+  - left: `4`
+  - right: `21`
+
+- `trace[4].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[4].sequence` (envelope)
+  - left: `5`
+  - right: `28`
+
+- `trace[4].text` (envelope)
+  - left: `"Reached Gateway-owned maxBudgetUsd ($0.500000) after spending $1.000000."`
+  - right: `"max_budget_reached"`
+
+- `trace[5].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[5].sequence` (envelope)
+  - left: `6`
+  - right: `30`
+
+- `trace[6].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[6].sequence` (envelope)
+  - left: `7`
+  - right: `31`
+
+- `trace[7].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[7].sequence` (envelope)
+  - left: `8`
+  - right: `32`
+
+- `trace[8].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[8].sequence` (envelope)
+  - left: `9`
+  - right: `34`
+
+- `trace[9].invocationId` (envelope)
+  - left: `"fee80f3c502e429eb48bd6a928b54e1c"`
+  - right: `"e61173a57c1f438b80292c7ab6224248"`
+
+- `trace[9].sequence` (envelope)
+  - left: `10`
+  - right: `35`

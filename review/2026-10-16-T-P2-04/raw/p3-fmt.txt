@@ -1,0 +1,5 @@
+$ cargo +1.99.1 --locked fmt --check -p pilotdeck-protocol -p pilotdeck-tokenizer -p pilotdeck-agent -p pilotdeck-transport
+cwd=/workspace/rust-core
+started=2026-10-16T07:43:00Z
+EXIT:0
+finished=2026-10-16T07:43:01Z

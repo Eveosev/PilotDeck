@@ -1,0 +1,8 @@
+$ rust-core/target/release/pilotdeck-agent-loop-sidecar --version
+pilotdeck-agent-loop-sidecar 0.1.0 implementation=rust wire=2.0 source=87b2d6b4e6fc193d6970de73466be5711b3d494c
+VERSION_EXIT:0
+b766fed5af38de89fa248b2e495e56d89eb6cddaf71f81ef8bde4d0773f1d7d1  /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+lrwxrwxrwx 1 ubuntu ubuntu 39 Oct 16 07:43 /workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop -> ../release/pilotdeck-agent-loop-sidecar
+$ ls /workspace/target/release/pilotdeck-agent-loop-sidecar
+ls: cannot access '/workspace/target/release/pilotdeck-agent-loop-sidecar': No such file or directory
+ROOT_SIDECAR_LS_EXIT:2
