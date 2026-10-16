@@ -1,0 +1,49 @@
+# Wayland / X11 File-click hang counts for official chrome smoke (N=1 per backend)
+# These are observed counts from this post-#21 merge evidence run only.
+#
+# Official entry (same as CI):
+#   bash apps/desktop/scripts/run-linux-chrome-smoke.sh {x11,wayland}
+#
+# File .click() sites in ui/e2e/desktop-chrome.smoke.mjs that a passing suite must complete:
+#   L161 caption File.click() (dark)
+#   L243 caption File.click() then New Project
+#   L339 caption File.click() (light)
+# Additional File menu openings (keyboard / data-menu) also completed on pass:
+#   L177 Alt+f
+#   L366 loop includes button[data-menu="menu-file"]
+#
+# Hang definition used here: Playwright locator.click / expect timeout on File,
+# or the wrapper `timeout 300` killing the process. Neither fired.
+
+backend=x11
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=24
+log=smoke-x11.log
+
+backend=wayland
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=21
+timeoutCeilingSeconds=300
+log=smoke-wayland.log
+
+# Totals across official one-shot pair
+total_suite_runs=2
+total_file_click_timeout=0
+total_file_click_stable=2
+n_trial_diag=not_run
+associated_merge=https://github.com/Eveosev/PilotDeck/pull/21
+note=Post-#21 merge official one-shot on c5bed6c1: timeout=0 / stable=1 per backend. This is N=1, not the C-group N=300 gate. Does not claim the #14 diagnostic hang is resolved beyond this one-shot.
