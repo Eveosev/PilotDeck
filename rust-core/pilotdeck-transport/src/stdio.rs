@@ -12,6 +12,12 @@ use std::io::{self, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+/// A host tool abort answers an already-dispatched execute call just after the
+/// execution deadline. Model streams do not use this window: they stay
+/// immediate `result_unknown`. An execute call that never answers still becomes
+/// unknown when the grace ends, so a missing ACK cannot become a successful turn.
+const TOOL_DEADLINE_RESPONSE_GRACE: std::time::Duration = std::time::Duration::from_secs(1);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DispatchPhase {
     Queued,
@@ -302,9 +308,15 @@ impl ConnectionOwner {
                     .response_control
                     .deadline
                     .is_some_and(|deadline| deadline <= received_at);
+            // Once the waiter has given up, a later tool ACK stays diagnostic.
+            // A response still inside the grace is the host's cancellation
+            // result for this same call, not a late success.
+            let tool_deadline_grace = record.phase != DispatchPhase::Unresolved
+                && tool_deadline_response(record, received_at);
             record.deadline_rejected |= deadline_cleanup
                 || (record.cancelled_before_response
                     && !is_abort_cleanup(record)
+                    && !tool_deadline_grace
                     && matches!(
                         record.response_control.cancellation.cause(),
                         Some(pilotdeck_agent::ports::CancelCause::Deadline)
@@ -685,6 +697,21 @@ impl PendingExchange {
                     cause: pilotdeck_agent::ports::CancelCause::Deadline,
                 })
             );
+            let tool_grace_deadline = record
+                .response_control
+                .deadline
+                .map(|deadline| deadline + TOOL_DEADLINE_RESPONSE_GRACE);
+            // Keep waiting only for a tool execute that the host is already
+            // aborting. The bound is the original execution deadline plus one
+            // fixed grace, never a fresh deadline and never a model stream.
+            let tool_grace_open = deadline_exceeded
+                && dispatched
+                && tool_grace_deadline.is_some_and(|grace| std::time::Instant::now() < grace)
+                && record.module == "capability"
+                && matches!(record.operation, "execute" | "execute_batch");
+            if let (true, Some(grace)) = (tool_grace_open, tool_grace_deadline) {
+                reconciliation_deadline.get_or_insert(grace);
+            }
             let hard_stopped = matches!(
                 cancellation,
                 Some(PortError::Cancelled {
@@ -712,7 +739,7 @@ impl PendingExchange {
             if invalid
                 || state.closed
                 || hard_stopped
-                || deadline_exceeded
+                || (deadline_exceeded && !tool_grace_open)
                 || reconciliation_expired
                 || (cancellation.is_some() && !dispatched)
             {
@@ -759,6 +786,14 @@ fn same_execution(a: &ExecutionIdentity, b: &ExecutionIdentity) -> bool {
         && a.turn_id == b.turn_id
         && a.module_instance_id == b.module_instance_id
         && a.connection_generation == b.connection_generation
+}
+fn tool_deadline_response(record: &CallRecord, at: std::time::Instant) -> bool {
+    record.module == "capability"
+        && matches!(record.operation, "execute" | "execute_batch")
+        && record
+            .response_control
+            .deadline
+            .is_some_and(|deadline| at <= deadline + TOOL_DEADLINE_RESPONSE_GRACE)
 }
 fn is_abort_cleanup(call: &CallRecord) -> bool {
     matches!(

@@ -629,10 +629,14 @@ impl ExecutionServer {
             {
                 context.control.cancellation.cancel(CancelCause::Deadline);
             }
+            // Deadline still hides a late success. A tool abort that already
+            // produced an aborted turn is a known terminal: replacing it with
+            // an empty result_unknown makes the host fail closed.
             let terminal = if matches!(
                 context.control.cancellation.cause(),
                 Some(CancelCause::Deadline)
-            ) {
+            ) && !known_aborted_terminal(&terminal)
+            {
                 ExecutionTerminal {
                     outcome: ModuleOutcome::ResultUnknown,
                     payload: JsObject::new(),
@@ -981,6 +985,15 @@ fn phase_name(phase: OperationPhase) -> &'static str {
         OperationPhase::Cancelled => "cancelled",
         OperationPhase::Resolving => "resolving",
     }
+}
+fn known_aborted_terminal(terminal: &ExecutionTerminal) -> bool {
+    terminal.outcome == ModuleOutcome::Cancelled
+        && terminal
+            .payload
+            .get("result")
+            .and_then(|result| result.get("type"))
+            .and_then(JsValue::as_string)
+            .is_some_and(|kind| kind.equals_str("aborted"))
 }
 fn failure_terminal(error: PortError) -> ExecutionTerminal {
     let accepted_call = if let PortError::AcceptedUnknown {

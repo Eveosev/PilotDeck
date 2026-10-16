@@ -56,6 +56,9 @@ fn reply(io: &mut UnixStream, request: &JsValue, payload: &str) {
     send(io, &JsValue::Object(response));
 }
 fn run(tool: bool, requested: bool) {
+    run_with(tool, requested, false);
+}
+fn run_with(tool: bool, requested: bool, settle_cancelled_tool: bool) {
     let owner = ConnectionOwner::new(
         SidecarBinding {
             module_id: "pilotdeck-agent-loop".into(),
@@ -117,6 +120,17 @@ fn run(tool: bool, requested: bool) {
                     &mut io,
                     &message,
                     r#"{"ok":true,"payload":{"events":[{"type":"request_started","provider":"test","model":"model"},{"type":"message_start","role":"assistant"},{"type":"tool_call_end","toolCall":{"id":"call","name":"owned_tool","input":{},"raw":{}}},{"type":"message_end","finishReason":"tool_call"}],"done":true}}"#,
+                );
+            }
+            "execute_batch" if tool && !requested && settle_cancelled_tool => {
+                assert!(pending.replace(message.clone()).is_none(), "no replay");
+                // Land inside the post-deadline tool grace, after the timer fires.
+                let remain = Duration::from_millis(1200).saturating_sub(start.elapsed());
+                std::thread::sleep(remain);
+                reply(
+                    &mut io,
+                    &message,
+                    r#"{"ok":false,"error":{"code":"CANCELLED","message":"Deterministic tool cancellation."}}"#,
                 );
             }
             "stream_next" | "execute_batch" => {
@@ -226,6 +240,36 @@ fn run(tool: bool, requested: bool) {
         assert_eq!(field(&terminal, "outcome"), &JsValue::from("cancelled"));
         assert_eq!(field(field(&terminal, "payload"), "result"), result);
     } else {
+        if settle_cancelled_tool {
+            assert_eq!(
+                field(&terminal, "eventType"),
+                &JsValue::from("agent.execute.cancelled")
+            );
+            assert_eq!(field(&terminal, "outcome"), &JsValue::from("cancelled"));
+            let settled = field(field(&terminal, "payload"), "result");
+            assert_eq!(field(settled, "type"), &JsValue::from("aborted"));
+            assert_eq!(
+                field(settled, "stopReason"),
+                &JsValue::from("aborted_streaming")
+            );
+            // The settled tool reply is released with the known cancelled terminal.
+            let pending = pending.unwrap();
+            let id = field(&pending, "messageId").as_string().unwrap();
+            assert!(owner.call_record(id).is_none());
+            send(
+                &mut io,
+                &parse_json(
+                    r#"{"kind":"request","messageId":"status","method":"status","requestId":"initial"}"#,
+                )
+                .unwrap(),
+            );
+            let status = read(&io);
+            assert_eq!(field(&status, "inReplyTo"), &JsValue::from("status"));
+            io.shutdown(std::net::Shutdown::Both).unwrap();
+            drop(io);
+            assert!(worker.join().unwrap().complete());
+            return;
+        }
         assert_eq!(
             field(&terminal, "eventType"),
             &JsValue::from("agent.execute.result_unknown")
@@ -297,6 +341,10 @@ fn deadline_model_has_ts_sequence_three_and_aborted_completed_without_cleanup_ac
 #[test]
 fn deadline_tool_has_ts_sequence_nine_and_aborted_completed_without_capture_ack() {
     run(true, false);
+}
+#[test]
+fn deadline_tool_cancelled_result_inside_grace_keeps_aborted_terminal() {
+    run_with(true, false, true);
 }
 #[test]
 fn user_cancel_pending_model_keeps_known_aborted_turn_and_cancelled_terminal() {

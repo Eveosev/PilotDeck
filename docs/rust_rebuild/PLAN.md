@@ -43,7 +43,7 @@
 |---|---|---|
 | T-P2-01 A+B | 真 host `prepare` 请求、thinking signature、stdio 与 TCP 的 G5/B4、TCP hello token（`PILOTDECK_AGENT_LOOP_TCP_TOKEN`，未设置仍是开放 loopback；stdio 子进程环境删除该变量） | **已合** #46 `f44b3789` |
 | T-P2-01 C | FT-2a：模型迭代按需重采。2026-10-15 18:01 取消为「接上真模型后若仍超 Q2 再开」。只有带 key 的运行仍超过 Q2 才另开。T-P2-03 先回答探针 PC2 是不是实现问题 | 条件触发，未开 |
-| T-P2-01 D | 53 场景分诊，以及 tools 缺口 m2/m4/m5/m6/E1/n1/n3。输入改为 T-P2-02 的 rust-core 结果，不在 `sidecar.rs` 上补场景 | open |
+| T-P2-01 D | 53 场景分诊，以及 tools 缺口 m2/m4/m5/m6/E1/n1/n3。输入改为 T-P2-02 的 rust-core 结果，不在 `sidecar.rs` 上补场景 | `deadline_during_tool` 的 TCP `result_unknown` 最小切片在本分支；tools 缺口与其余 Track D 仍 open |
 | PC1#3 | 关闭 PC1 第 3 项：流块 after-first 净 P95 差/D4 ≤ 1（实测 1.394 / 1.822）。探针 TCP 的旧数字在核心切换前仍然有效；T-P2-04 合入后这组数字作废，必须重采 | open |
 | PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。尚无完成记录。T-P2-04 合入后旧数字作废，必须重采 | open |
 | T-P2-02 | 用本仓 `tools/agent-loop-parity` 的 **stdio** 跑 rust-core 二进制。身份、命令和预计会撞上 `profile_gap` 的场景见评审意见第 2 问 | open。P2 第一道门 |

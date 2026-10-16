@@ -1018,6 +1018,14 @@ impl ExecutionFactory for OriginalAgentFactory {
         let output = match (output, settled, responsibility) {
             (Err(error @ PortError::AcceptedUnknown { .. }), _, _) => return Err(error),
             (_, Err(error @ PortError::AcceptedUnknown { .. }), _) => return Err(error),
+            // Deadline during a settled tool leaves the advisory capture
+            // unresolved. The turn is already aborted; that known result is the
+            // terminal. An unresolved model or tool call still returns above.
+            (Ok(output), Ok(()), Err(PortError::AcceptedUnknown { .. }))
+                if output.result.kind == pilotdeck_agent::turn::TurnResultKind::Aborted =>
+            {
+                output
+            }
             (_, _, Err(error @ PortError::AcceptedUnknown { .. })) => return Err(error),
             (Err(error), _, _) | (Ok(_), Err(error), _) | (Ok(_), Ok(()), Err(error)) => {
                 return Err(error);
