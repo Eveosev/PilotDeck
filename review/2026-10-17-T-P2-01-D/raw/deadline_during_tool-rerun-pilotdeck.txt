@@ -1,0 +1,115 @@
+# deadline_during_tool PilotDeck
+
+- left: `/tmp/tp201d/final/full2/deadline_during_tool.pilotdeck-current-native.jsonl`
+- right: `/tmp/tp201d/final/full2/deadline_during_tool.pilotdeck-current-sidecar.jsonl`
+
+PASS: no semantic differences after projection.
+
+## Format Warnings
+
+Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=26. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.
+26 difference(s). taxonomy={"envelope": 26, "budget": 0, "modelView": 0, "request": 0, "requestEvidence": 0, "response": 0, "state": 0, "kind": 0, "source": 0, "attempt": 0}
+
+- `trace[0].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[0].sequence` (envelope)
+  - left: `1`
+  - right: `17`
+
+- `trace[1].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[1].sequence` (envelope)
+  - left: `2`
+  - right: `18`
+
+- `trace[2].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[2].sequence` (envelope)
+  - left: `3`
+  - right: `19`
+
+- `trace[3].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[3].sequence` (envelope)
+  - left: `4`
+  - right: `22`
+
+- `trace[4].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[4].sequence` (envelope)
+  - left: `5`
+  - right: `27`
+
+- `trace[5].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[5].sequence` (envelope)
+  - left: `6`
+  - right: `28`
+
+- `trace[6].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[6].sequence` (envelope)
+  - left: `7`
+  - right: `29`
+
+- `trace[7].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[7].sequence` (envelope)
+  - left: `8`
+  - right: `30`
+
+- `trace[8].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[8].sequence` (envelope)
+  - left: `9`
+  - right: `31`
+
+- `trace[9].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[9].sequence` (envelope)
+  - left: `10`
+  - right: `33`
+
+- `trace[10].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[10].sequence` (envelope)
+  - left: `11`
+  - right: `34`
+
+- `trace[11].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[11].sequence` (envelope)
+  - left: `12`
+  - right: `36`
+
+- `trace[12].invocationId` (envelope)
+  - left: `"46acd0c4d23845f188dea9850f000f26"`
+  - right: `"816f6fa02ece4d688cd9d930968cd766"`
+
+- `trace[12].sequence` (envelope)
+  - left: `13`
+  - right: `37`

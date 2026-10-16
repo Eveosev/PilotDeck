@@ -1,0 +1,182 @@
+# deadline PilotDeck
+
+- left: `/tmp/tp201d/final/full2/deadline.pilotdeck-current-native.jsonl`
+- right: `/tmp/tp201d/final/full2/deadline.pilotdeck-current-sidecar.jsonl`
+
+FAIL: 3 semantic difference(s).
+
+## Semantic Differences
+
+
+- `trace.channel[core/parent][1]`
+  - left: `null`
+  - right: `{"agentScope": "parent", "event": "gateway_submit_failed", "kind": "durable.status", "statusKind": "error", "text": "AgentLoop terminal outcome is result_unknown and host reconciliation found no final result."}`
+
+- `trace.channel[core/parent][3]~[4].durableStopReason`
+  - left: `"aborted_streaming"`
+  - right: `null`
+
+- `trace.channel[core/parent][3]~[4].resultType`
+  - left: `"aborted"`
+  - right: `null`
+
+## Format Warnings
+
+Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=36, kind=3. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.
+39 difference(s). taxonomy={"envelope": 36, "budget": 0, "modelView": 0, "request": 0, "requestEvidence": 0, "response": 0, "state": 0, "kind": 3, "source": 0, "attempt": 0}
+
+- `trace.length` (envelope)
+  - left: `7`
+  - right: `8`
+
+- `trace[0].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[0].sequence` (envelope)
+  - left: `1`
+  - right: `17`
+
+- `trace[1].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[1].sequence` (envelope)
+  - left: `2`
+  - right: `18`
+
+- `trace[2].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[2].sequence` (envelope)
+  - left: `3`
+  - right: `19`
+
+- `trace[3].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[3].sequence` (envelope)
+  - left: `4`
+  - right: `22`
+
+- `trace[4].agentScope` (envelope)
+  - left: `null`
+  - right: `"parent"`
+
+- `trace[4].counts` (envelope)
+  - left: `{}`
+  - right: `null`
+
+- `trace[4].event` (envelope)
+  - left: `null`
+  - right: `"gateway_submit_failed"`
+
+- `trace[4].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[4].kind` (kind)
+  - left: `"side_effect.state"`
+  - right: `"durable.status"`
+
+- `trace[4].sequence` (envelope)
+  - left: `5`
+  - right: `24`
+
+- `trace[4].sideEffectCount` (envelope)
+  - left: `0`
+  - right: `null`
+
+- `trace[4].statusKind` (envelope)
+  - left: `null`
+  - right: `"error"`
+
+- `trace[4].text` (envelope)
+  - left: `null`
+  - right: `"AgentLoop terminal outcome is result_unknown and host reconciliation found no final result."`
+
+- `trace[5].compactionBoundaryCount` (envelope)
+  - left: `0`
+  - right: `null`
+
+- `trace[5].compactionCompletedCount` (envelope)
+  - left: `0`
+  - right: `null`
+
+- `trace[5].counts` (envelope)
+  - left: `null`
+  - right: `{}`
+
+- `trace[5].durableStatusCount` (envelope)
+  - left: `0`
+  - right: `null`
+
+- `trace[5].durableSteerCount` (envelope)
+  - left: `0`
+  - right: `null`
+
+- `trace[5].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[5].kind` (kind)
+  - left: `"durable.state"`
+  - right: `"side_effect.state"`
+
+- `trace[5].sequence` (envelope)
+  - left: `6`
+  - right: `25`
+
+- `trace[5].sideEffectCount` (envelope)
+  - left: `null`
+  - right: `0`
+
+- `trace[6].compactionBoundaryCount` (envelope)
+  - left: `null`
+  - right: `0`
+
+- `trace[6].compactionCompletedCount` (envelope)
+  - left: `null`
+  - right: `0`
+
+- `trace[6].durableStatusCount` (envelope)
+  - left: `null`
+  - right: `0`
+
+- `trace[6].durableSteerCount` (envelope)
+  - left: `null`
+  - right: `0`
+
+- `trace[6].durableStopReason` (envelope)
+  - left: `"aborted_streaming"`
+  - right: `null`
+
+- `trace[6].invocationId` (envelope)
+  - left: `"8a2878f9322748378417ac4f58e13200"`
+  - right: `"1aad0cbade47461691c9bcc47e65ed31"`
+
+- `trace[6].kind` (kind)
+  - left: `"terminal"`
+  - right: `"durable.state"`
+
+- `trace[6].outcome` (envelope)
+  - left: `"failed"`
+  - right: `null`
+
+- `trace[6].output` (envelope)
+  - left: `""`
+  - right: `null`
+
+- `trace[6].resultType` (envelope)
+  - left: `"aborted"`
+  - right: `null`
+
+- `trace[6].sequence` (envelope)
+  - left: `7`
+  - right: `27`
+
+- `trace[6].stopReason` (envelope)
+  - left: `"unknown"`
+  - right: `null`
