@@ -1,0 +1,8 @@
+backend=wayland
+command=bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland
+wrapper=timeout --preserve-status --signal=TERM --kill-after=30s 300
+startUtc=2026-10-14T06:08:19Z
+endUtc=2026-10-14T06:08:42Z
+exitCode=0
+seconds=23
+nodeBinary=/home/ubuntu/.nvm/versions/node/v22.23.3/bin/node
