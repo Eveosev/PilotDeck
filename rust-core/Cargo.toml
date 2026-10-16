@@ -1,0 +1,39 @@
+# Rust sidecar 独立工作区。
+#
+# 这不是原始 PilotDeck-RS 仓的完整 workspace：只收 sidecar 进程实际用到的
+# 四个 crate（protocol / tokenizer / agent / transport），gateway、yaml 与
+# CLI 占位不在此列。见 docs/DEVELOPMENT.md 与 PROVENANCE.md。
+[workspace]
+resolver = "3"
+exclude = ["vendor/tiktoken-rs"]
+members = [
+    "pilotdeck-protocol",
+    "pilotdeck-tokenizer",
+    "pilotdeck-agent",
+    "pilotdeck-transport",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.93"
+version = "0.1.0"
+license = "AGPL-3.0-only"
+license-file = "LICENSE"
+publish = false
+
+[workspace.dependencies]
+serde_json = { version = "=1.0.151", features = ["raw_value"] }
+ryu-js = "=1.0.3"
+sha2 = "=0.10.9"
+tz-rs = { version = "=0.7.3", default-features = false, features = ["alloc"] }
+pilotdeck-protocol = { path = "pilotdeck-protocol" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
