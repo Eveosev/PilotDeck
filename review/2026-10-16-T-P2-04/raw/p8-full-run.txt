@@ -1,0 +1,2326 @@
+{
+  "scenarios": 53,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "stdio",
+  "sidecarImplementation": "rust",
+  "sidecarImplementationSource": "exec-proof",
+  "rustFingerprint": "n/a",
+  "rustSidecarIntended": true,
+  "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "87b2d6b4e6fc193d6970de73466be5711b3d494c",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  },
+  "blocked": [],
+  "failed": [
+    "deadline_during_tool/PilotDeck: 1 semantic difference(s)",
+    "sidecar_budget_limit/PilotDeck: 1 semantic difference(s)"
+  ],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [
+    "deadline/PilotDeck: verified 2 declared transport difference(s)"
+  ],
+  "notApplicable": [],
+  "formatWarnings": [
+    "pure_text/PilotDeck: 16 warning(s) [envelope=16]",
+    "single_tool/PilotDeck: 60 warning(s) [envelope=51, modelView=2, request=2, kind=3, attempt=2]",
+    "multiple_tool/PilotDeck: 85 warning(s) [envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "tool_error/PilotDeck: 71 warning(s) [envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "permission_denial/PilotDeck: 63 warning(s) [envelope=43, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "max_turns/PilotDeck: 32 warning(s) [envelope=32]",
+    "deadline/PilotDeck: 16 warning(s) [envelope=16]",
+    "cancel/PilotDeck: 16 warning(s) [envelope=16]",
+    "image/PilotDeck: 16 warning(s) [envelope=16]",
+    "checkpoint_resume/PilotDeck: 24 warning(s) [envelope=24]",
+    "permission_allow/PilotDeck: 71 warning(s) [envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "permission_ask_approve/PilotDeck: 73 warning(s) [envelope=53, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "permission_ask_deny/PilotDeck: 65 warning(s) [envelope=45, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "can_prompt_false/PilotDeck: 16 warning(s) [envelope=16]",
+    "multi_tool_ordered/PilotDeck: 85 warning(s) [envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "multi_tool_mixed_permission/PilotDeck: 77 warning(s) [envelope=57, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "multi_tool_mixed_error/PilotDeck: 85 warning(s) [envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "large_tool_result/PilotDeck: 71 warning(s) [envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "tool_retryable_error/PilotDeck: 71 warning(s) [envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "tool_non_retryable_error/PilotDeck: 92 warning(s) [envelope=61, budget=6, modelView=10, request=2, response=2, state=2, kind=5, source=2, attempt=2]",
+    "model_retryable_error/PilotDeck: 52 warning(s) [envelope=40, budget=6, state=2, kind=2, source=2]",
+    "model_non_retryable_error/PilotDeck: 52 warning(s) [envelope=40, budget=6, state=2, kind=2, source=2]",
+    "malformed_model_response/PilotDeck: 50 warning(s) [envelope=38, budget=6, state=2, kind=2, source=2]",
+    "stream_interruption/PilotDeck: 54 warning(s) [envelope=41, budget=6, state=2, kind=3, source=2]",
+    "cancel_during_tool/PilotDeck: 28 warning(s) [envelope=28]",
+    "deadline_during_tool/PilotDeck: 49 warning(s) [envelope=46, kind=3]",
+    "multimodal_image_and_text/PilotDeck: 16 warning(s) [envelope=16]",
+    "allowed_read_files/PilotDeck: 67 warning(s) [envelope=47, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "denied_read_files/PilotDeck: 67 warning(s) [envelope=47, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "write_snapshot_resume/PilotDeck: 30 warning(s) [envelope=30]",
+    "auto_compact/PilotDeck: 36 warning(s) [envelope=34, kind=2]",
+    "plan_mode_host_policy/PilotDeck: 134 warning(s) [envelope=131, kind=3]",
+    "plan_mode_bypass_host_policy/PilotDeck: 115 warning(s) [envelope=115]",
+    "sidecar_budget_limit/PilotDeck: 21 warning(s) [envelope=21]",
+    "sidecar_elicitation/PilotDeck: 16 warning(s) [envelope=16]",
+    "sidecar_elicitation_execution/PilotDeck: 54 warning(s) [envelope=45, modelView=2, request=2, kind=3, attempt=2]",
+    "sidecar_sdk_tool_progress/PilotDeck: 94 warning(s) [envelope=63, budget=6, modelView=10, request=2, response=2, state=2, kind=5, source=2, attempt=2]",
+    "sidecar_live_steer/PilotDeck: 64 warning(s) [envelope=53, modelView=2, request=2, kind=5, attempt=2]",
+    "sidecar_durable_compaction/PilotDeck: 55 warning(s) [envelope=35, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "sidecar_full_request_compaction_budget/PilotDeck: 59 warning(s) [envelope=39, modelView=10, request=2, response=2, kind=4, attempt=2]",
+    "sidecar_projected_request_compaction_budget/PilotDeck: 60 warning(s) [envelope=51, modelView=2, request=2, kind=3, attempt=2]",
+    "sidecar_seed_read_state/PilotDeck: 48 warning(s) [envelope=46, kind=2]",
+    "sidecar_live_model_stream/PilotDeck: 50 warning(s) [envelope=38, budget=6, state=2, kind=2, source=2]",
+    "sidecar_model_metadata/PilotDeck: 16 warning(s) [envelope=16]",
+    "sidecar_empty_system_prompt/PilotDeck: 16 warning(s) [envelope=16]",
+    "sidecar_additional_working_directories/PilotDeck: 16 warning(s) [envelope=16]",
+    "sidecar_continuable_followup_live/PilotDeck: 1162 warning(s) [envelope=103, budget=6, modelView=522, request=507, response=3, state=2, kind=9, source=2, attempt=8]",
+    "sidecar_continuable_followup_cold/PilotDeck: 155 warning(s) [envelope=104, budget=6, modelView=15, request=4, response=5, state=2, kind=9, source=2, attempt=8]",
+    "sidecar_parent_close_after_admission/PilotDeck: 56 warning(s) [envelope=47, modelView=2, request=2, kind=3, attempt=2]",
+    "sidecar_one_shot_subagent_success/PilotDeck: 120 warning(s) [envelope=90, budget=6, modelView=4, request=2, response=2, state=2, kind=8, source=2, attempt=4]",
+    "sidecar_one_shot_subagent_failure/PilotDeck: 117 warning(s) [envelope=87, budget=6, modelView=4, request=2, response=2, state=2, kind=8, source=2, attempt=4]",
+    "sidecar_one_shot_parent_abort_after_admission/PilotDeck: 30 warning(s) [envelope=30]",
+    "sidecar_one_shot_parent_close_after_admission/PilotDeck: 28 warning(s) [envelope=28]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 2442,
+    "budget": 66,
+    "modelView": 725,
+    "request": 559,
+    "requestEvidence": 0,
+    "response": 46,
+    "state": 22,
+    "kind": 142,
+    "source": 22,
+    "attempt": 68
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=2442, budget=66, modelView=725, request=559, response=46, state=22, kind=142, source=22, attempt=68. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [
+    {
+      "scenario": "pure_text",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:282e0cbe2b812ca1bd739ee9d89f228842d7125ab894ea03f5a2c59b7572d9a1",
+          "canonical": "sha256:b7fd3f8c8806f46d31e01504b19757d53101875f4097a1aa27784fdd93f54e98"
+        },
+        "right": {
+          "file": "sha256:a84f3d3a2bc6d65e2b63196b01c5758c832b6003f4de4cbba555317a4353bd8e",
+          "canonical": "sha256:5f3424ec705747f8441108dd3c4b123baa8b799394b56982005a8397d5e0b98f"
+        },
+        "ts": {
+          "file": "sha256:282e0cbe2b812ca1bd739ee9d89f228842d7125ab894ea03f5a2c59b7572d9a1",
+          "canonical": "sha256:b7fd3f8c8806f46d31e01504b19757d53101875f4097a1aa27784fdd93f54e98"
+        },
+        "rust": {
+          "file": "sha256:a84f3d3a2bc6d65e2b63196b01c5758c832b6003f4de4cbba555317a4353bd8e",
+          "canonical": "sha256:5f3424ec705747f8441108dd3c4b123baa8b799394b56982005a8397d5e0b98f"
+        }
+      }
+    },
+    {
+      "scenario": "single_tool",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 60,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 2,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=2, request=2, kind=3, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:b8bf8969a193950c71b347eff7b41136bef27d059d3500bdab62feea0ba31344",
+          "canonical": "sha256:c24d8053d20cdcdbd0b4abb292ce54d4112b4f0bd317ce719d63f66b41640426"
+        },
+        "right": {
+          "file": "sha256:7be2635c2dfb6aff001d24538b796c5abf2f8180061aae9933b86498fa6de582",
+          "canonical": "sha256:94f6f1c1fc4ef666e288a0984680df2880a6cfbb31f486b2ab72870a70fba7aa"
+        },
+        "ts": {
+          "file": "sha256:b8bf8969a193950c71b347eff7b41136bef27d059d3500bdab62feea0ba31344",
+          "canonical": "sha256:c24d8053d20cdcdbd0b4abb292ce54d4112b4f0bd317ce719d63f66b41640426"
+        },
+        "rust": {
+          "file": "sha256:7be2635c2dfb6aff001d24538b796c5abf2f8180061aae9933b86498fa6de582",
+          "canonical": "sha256:94f6f1c1fc4ef666e288a0984680df2880a6cfbb31f486b2ab72870a70fba7aa"
+        }
+      }
+    },
+    {
+      "scenario": "multiple_tool",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 85,
+      "formatWarningTaxonomy": {
+        "envelope": 65,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:77389bf7b51e43755078932e5ef2963a85977a57b6452c5db5d0d005a11679ac",
+          "canonical": "sha256:e2e286dc4541041c53ff7097da3b0a3910e0f9078377150332a04d97132d9d6c"
+        },
+        "right": {
+          "file": "sha256:ae61e3422644ce6a0093c5f8c22c50fbf57d135d519d4982107bf3814037b735",
+          "canonical": "sha256:d5b2512cfe72b57cf4123ad47d9e67609ab8d42ec0ac77483a6e16ba53b989d6"
+        },
+        "ts": {
+          "file": "sha256:77389bf7b51e43755078932e5ef2963a85977a57b6452c5db5d0d005a11679ac",
+          "canonical": "sha256:e2e286dc4541041c53ff7097da3b0a3910e0f9078377150332a04d97132d9d6c"
+        },
+        "rust": {
+          "file": "sha256:ae61e3422644ce6a0093c5f8c22c50fbf57d135d519d4982107bf3814037b735",
+          "canonical": "sha256:d5b2512cfe72b57cf4123ad47d9e67609ab8d42ec0ac77483a6e16ba53b989d6"
+        }
+      }
+    },
+    {
+      "scenario": "tool_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 71,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:43f64cb804c6f7d0667bbf60212d9cc3de45949d98a4217b6141cc3f67340ef4",
+          "canonical": "sha256:9ffdb081a86d6ad512f4673a0cccb8b3c0cb8e25851c3b042b419142d081ece2"
+        },
+        "right": {
+          "file": "sha256:7251142bbbfc2bee9981ffe1d9118038cac0553e10b141b534e7e8c535e737d1",
+          "canonical": "sha256:c6f00975f306afe695151d58940bda0fd9535a3580e529a6ae643f5d1de2d82a"
+        },
+        "ts": {
+          "file": "sha256:43f64cb804c6f7d0667bbf60212d9cc3de45949d98a4217b6141cc3f67340ef4",
+          "canonical": "sha256:9ffdb081a86d6ad512f4673a0cccb8b3c0cb8e25851c3b042b419142d081ece2"
+        },
+        "rust": {
+          "file": "sha256:7251142bbbfc2bee9981ffe1d9118038cac0553e10b141b534e7e8c535e737d1",
+          "canonical": "sha256:c6f00975f306afe695151d58940bda0fd9535a3580e529a6ae643f5d1de2d82a"
+        }
+      }
+    },
+    {
+      "scenario": "permission_denial",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 63,
+      "formatWarningTaxonomy": {
+        "envelope": 43,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=43, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:9eb4ccf224b9c15bffb525d25bf9f3415d0cba3280cfa01f705ba525f03a8f19",
+          "canonical": "sha256:8565bd1894c264d85c0f4162839c319dd2c4544495f327fb07d5934462ccdd33"
+        },
+        "right": {
+          "file": "sha256:a36ec22f804fffaf389e90465857fc2f786118d81460b5ee69df114e15f357ee",
+          "canonical": "sha256:ea7860ee4d88fe211e77739869ec8deac824f30afeda0c4ed571737c84a89fc9"
+        },
+        "ts": {
+          "file": "sha256:9eb4ccf224b9c15bffb525d25bf9f3415d0cba3280cfa01f705ba525f03a8f19",
+          "canonical": "sha256:8565bd1894c264d85c0f4162839c319dd2c4544495f327fb07d5934462ccdd33"
+        },
+        "rust": {
+          "file": "sha256:a36ec22f804fffaf389e90465857fc2f786118d81460b5ee69df114e15f357ee",
+          "canonical": "sha256:ea7860ee4d88fe211e77739869ec8deac824f30afeda0c4ed571737c84a89fc9"
+        }
+      }
+    },
+    {
+      "scenario": "max_turns",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 32,
+      "formatWarningTaxonomy": {
+        "envelope": 32,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=32. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:16f037cae3c21b64b19c12bca888c09b7adf799830f566a6c30f4839745b8c4e",
+          "canonical": "sha256:5ddf1822077495e6911c44d6b80788916256b733c3528a30c547a6431d388277"
+        },
+        "right": {
+          "file": "sha256:b7a23722d8815f1e6eb401bcbf56a9c10698dd4be67787699afd21b3f5b528af",
+          "canonical": "sha256:77c719ce192c6f91c892b2848df7bf343d89b10756c6ff6a21aefe98ec72f95c"
+        },
+        "ts": {
+          "file": "sha256:16f037cae3c21b64b19c12bca888c09b7adf799830f566a6c30f4839745b8c4e",
+          "canonical": "sha256:5ddf1822077495e6911c44d6b80788916256b733c3528a30c547a6431d388277"
+        },
+        "rust": {
+          "file": "sha256:b7a23722d8815f1e6eb401bcbf56a9c10698dd4be67787699afd21b3f5b528af",
+          "canonical": "sha256:77c719ce192c6f91c892b2848df7bf343d89b10756c6ff6a21aefe98ec72f95c"
+        }
+      }
+    },
+    {
+      "scenario": "deadline",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:61a9b09d532bfa2e2901918b4eaeffc8426e3603368c69ad4d8a633f221b9d3c",
+          "canonical": "sha256:3823a8ce3fc4c12da98b8e8a8399e8b4c7360bf03d9b7d1e5ca20dd791b9bac8"
+        },
+        "right": {
+          "file": "sha256:a4ac94ca84da3fef239aaea241e7fe9643f49f26b6aed3069aab01c07799f11a",
+          "canonical": "sha256:4a4d2d2fb2a70abd58ab9150969dfeedac6a794f616e209d964a376971c8b2b2"
+        },
+        "ts": {
+          "file": "sha256:61a9b09d532bfa2e2901918b4eaeffc8426e3603368c69ad4d8a633f221b9d3c",
+          "canonical": "sha256:3823a8ce3fc4c12da98b8e8a8399e8b4c7360bf03d9b7d1e5ca20dd791b9bac8"
+        },
+        "rust": {
+          "file": "sha256:a4ac94ca84da3fef239aaea241e7fe9643f49f26b6aed3069aab01c07799f11a",
+          "canonical": "sha256:4a4d2d2fb2a70abd58ab9150969dfeedac6a794f616e209d964a376971c8b2b2"
+        }
+      }
+    },
+    {
+      "scenario": "cancel",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:8f560b6ecab251c3c3ea575f5e43fac97b6d96f8d49a4713594aa5627afec8e8",
+          "canonical": "sha256:c94b633ff7177d988cfea7f0ecb5dfa5056ad67aad31c622dd7512c6b32a2819"
+        },
+        "right": {
+          "file": "sha256:9d56809a4f2ccd228716209518cb7a47d8ca545313238f9ca483adcefe4a262b",
+          "canonical": "sha256:6ac24980ae60bf1f7dcc6e44d524f0074b508b22c64428744bbfc8f318c29934"
+        },
+        "ts": {
+          "file": "sha256:8f560b6ecab251c3c3ea575f5e43fac97b6d96f8d49a4713594aa5627afec8e8",
+          "canonical": "sha256:c94b633ff7177d988cfea7f0ecb5dfa5056ad67aad31c622dd7512c6b32a2819"
+        },
+        "rust": {
+          "file": "sha256:9d56809a4f2ccd228716209518cb7a47d8ca545313238f9ca483adcefe4a262b",
+          "canonical": "sha256:6ac24980ae60bf1f7dcc6e44d524f0074b508b22c64428744bbfc8f318c29934"
+        }
+      }
+    },
+    {
+      "scenario": "image",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:8d8292c0c8d2bd01058e6ee25b43ea7083f4514ad810d27aec563408f53209b8",
+          "canonical": "sha256:53c0df3012ae8cfff2bc1b3c5d3be0dfed2c79e9c64d39162b1e9a49215ae53c"
+        },
+        "right": {
+          "file": "sha256:831fdea607c56340d1db4d4cc0776eb5e84888229e6c42aebcf85dfa7483e4ef",
+          "canonical": "sha256:5cff2e1fbf920bfa39fe000fbac55bac9d0cfe7dc58cc434b81362dfd8380a29"
+        },
+        "ts": {
+          "file": "sha256:8d8292c0c8d2bd01058e6ee25b43ea7083f4514ad810d27aec563408f53209b8",
+          "canonical": "sha256:53c0df3012ae8cfff2bc1b3c5d3be0dfed2c79e9c64d39162b1e9a49215ae53c"
+        },
+        "rust": {
+          "file": "sha256:831fdea607c56340d1db4d4cc0776eb5e84888229e6c42aebcf85dfa7483e4ef",
+          "canonical": "sha256:5cff2e1fbf920bfa39fe000fbac55bac9d0cfe7dc58cc434b81362dfd8380a29"
+        }
+      }
+    },
+    {
+      "scenario": "checkpoint_resume",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 24,
+      "formatWarningTaxonomy": {
+        "envelope": 24,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=24. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:79c9f77a73c1e6c3de50a8fd000aab46fc275733e54bdbc289706408a820336d",
+          "canonical": "sha256:9f1a429830bb0041211b2703717960bca483ec67b2319b4228ad2a099d29034e"
+        },
+        "right": {
+          "file": "sha256:3e545799dd4f352ff148c59c5d75725d7c2e6703b60ab8444322b93adbc1832b",
+          "canonical": "sha256:26f1c6be970e54c9ff1032414de62a7184af404bd7dd500d76a7c24abb53ad45"
+        },
+        "ts": {
+          "file": "sha256:79c9f77a73c1e6c3de50a8fd000aab46fc275733e54bdbc289706408a820336d",
+          "canonical": "sha256:9f1a429830bb0041211b2703717960bca483ec67b2319b4228ad2a099d29034e"
+        },
+        "rust": {
+          "file": "sha256:3e545799dd4f352ff148c59c5d75725d7c2e6703b60ab8444322b93adbc1832b",
+          "canonical": "sha256:26f1c6be970e54c9ff1032414de62a7184af404bd7dd500d76a7c24abb53ad45"
+        }
+      }
+    },
+    {
+      "scenario": "permission_allow",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 71,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:589802856360b907877cb4b54e3272ed6eb9b6be71c28a93ba6b5fbf451d997f",
+          "canonical": "sha256:e0dddd7884a47ed55931b7ea17d40b7aeb71a4403d14a621da01c0d6bbf5a324"
+        },
+        "right": {
+          "file": "sha256:0e18665c5512589cf4cec37dd7aafe024f01abcdd502fee40f1c1e2d0d629b71",
+          "canonical": "sha256:c5051f58869788daa7239fbd16caea0e0db22b8364f8a29b1691feacae332838"
+        },
+        "ts": {
+          "file": "sha256:589802856360b907877cb4b54e3272ed6eb9b6be71c28a93ba6b5fbf451d997f",
+          "canonical": "sha256:e0dddd7884a47ed55931b7ea17d40b7aeb71a4403d14a621da01c0d6bbf5a324"
+        },
+        "rust": {
+          "file": "sha256:0e18665c5512589cf4cec37dd7aafe024f01abcdd502fee40f1c1e2d0d629b71",
+          "canonical": "sha256:c5051f58869788daa7239fbd16caea0e0db22b8364f8a29b1691feacae332838"
+        }
+      }
+    },
+    {
+      "scenario": "permission_ask_approve",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 73,
+      "formatWarningTaxonomy": {
+        "envelope": 53,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=53, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:674a3f8980dc5a011107b8c5148c86a6031178796a6f845931b89b5f62a8cf95",
+          "canonical": "sha256:d817cc2024e976ccc122c8c1ac1b68a6eebf2c20cf42c06b43c9521b74315343"
+        },
+        "right": {
+          "file": "sha256:bb474f24ee1181998c459eaaef144ecc3ff1fb768e4cac08a89d3bda4728b1f6",
+          "canonical": "sha256:30e51bc8112e60dd29e7743851f3ef1efb4db6016848e599410b5263e688d0c3"
+        },
+        "ts": {
+          "file": "sha256:674a3f8980dc5a011107b8c5148c86a6031178796a6f845931b89b5f62a8cf95",
+          "canonical": "sha256:d817cc2024e976ccc122c8c1ac1b68a6eebf2c20cf42c06b43c9521b74315343"
+        },
+        "rust": {
+          "file": "sha256:bb474f24ee1181998c459eaaef144ecc3ff1fb768e4cac08a89d3bda4728b1f6",
+          "canonical": "sha256:30e51bc8112e60dd29e7743851f3ef1efb4db6016848e599410b5263e688d0c3"
+        }
+      }
+    },
+    {
+      "scenario": "permission_ask_deny",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 65,
+      "formatWarningTaxonomy": {
+        "envelope": 45,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=45, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:97b9f432ca215e79cb63bcc400ea68f75f01f44674c8f7bf0a98814bebd9ea41",
+          "canonical": "sha256:6529ec607c870629e6ece97546c65262850ba86fcf8207ec30952ac3845e6f72"
+        },
+        "right": {
+          "file": "sha256:3a836b8aef9b794b0337d217f8300e51d5e6dc6713481a3c9110821a0a06e8b3",
+          "canonical": "sha256:436ad544dfe6c6d9e6ed9dfbbc6f1b975cd9eea8ad274c357f8e286f357ee46b"
+        },
+        "ts": {
+          "file": "sha256:97b9f432ca215e79cb63bcc400ea68f75f01f44674c8f7bf0a98814bebd9ea41",
+          "canonical": "sha256:6529ec607c870629e6ece97546c65262850ba86fcf8207ec30952ac3845e6f72"
+        },
+        "rust": {
+          "file": "sha256:3a836b8aef9b794b0337d217f8300e51d5e6dc6713481a3c9110821a0a06e8b3",
+          "canonical": "sha256:436ad544dfe6c6d9e6ed9dfbbc6f1b975cd9eea8ad274c357f8e286f357ee46b"
+        }
+      }
+    },
+    {
+      "scenario": "can_prompt_false",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:42040c489781ef54c4ec72c7ba6041c7934c0eff13c0038efca5b9e12aba50fb",
+          "canonical": "sha256:b70c2829fa0c7c0683d5a99ae8c13920d3c1f757023fdcfe2133d0f8912aec54"
+        },
+        "right": {
+          "file": "sha256:a84e566b87f0cec6bd3f5341b3d3aa97bc7c5c730933b25f9e841a38eb752afa",
+          "canonical": "sha256:6036f516bbe4b258dae7d242080ee2b608fda168ada1f3a2d7e4b7ac4eab7523"
+        },
+        "ts": {
+          "file": "sha256:42040c489781ef54c4ec72c7ba6041c7934c0eff13c0038efca5b9e12aba50fb",
+          "canonical": "sha256:b70c2829fa0c7c0683d5a99ae8c13920d3c1f757023fdcfe2133d0f8912aec54"
+        },
+        "rust": {
+          "file": "sha256:a84e566b87f0cec6bd3f5341b3d3aa97bc7c5c730933b25f9e841a38eb752afa",
+          "canonical": "sha256:6036f516bbe4b258dae7d242080ee2b608fda168ada1f3a2d7e4b7ac4eab7523"
+        }
+      }
+    },
+    {
+      "scenario": "multi_tool_ordered",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 85,
+      "formatWarningTaxonomy": {
+        "envelope": 65,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:19d8949173a3094e5d7e643f4d7ccd3d64c1bc437cdae4db9d903ec1b586fc7c",
+          "canonical": "sha256:7b52c9fb840d64cf6c5e7ef266c546121ef4019b5912a7e063919bee5d33a1a3"
+        },
+        "right": {
+          "file": "sha256:362eb9a01944aa1a1457ef667d92e18123217da9cc801cc34f75a3c9f1b5fc2d",
+          "canonical": "sha256:5b89ff2d11fa216a3fdaf96224c3c236789b24566f526ed601ed6486dc770661"
+        },
+        "ts": {
+          "file": "sha256:19d8949173a3094e5d7e643f4d7ccd3d64c1bc437cdae4db9d903ec1b586fc7c",
+          "canonical": "sha256:7b52c9fb840d64cf6c5e7ef266c546121ef4019b5912a7e063919bee5d33a1a3"
+        },
+        "rust": {
+          "file": "sha256:362eb9a01944aa1a1457ef667d92e18123217da9cc801cc34f75a3c9f1b5fc2d",
+          "canonical": "sha256:5b89ff2d11fa216a3fdaf96224c3c236789b24566f526ed601ed6486dc770661"
+        }
+      }
+    },
+    {
+      "scenario": "multi_tool_mixed_permission",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 77,
+      "formatWarningTaxonomy": {
+        "envelope": 57,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=57, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:f67bc39032ab52e5dbfcd1b4117f55d51e13a2b9d1f9122ca5e96f2b8920663e",
+          "canonical": "sha256:156664181155cab85790cf5fc38101ec79d41fe69d9ee90b7aa457e5ca7db451"
+        },
+        "right": {
+          "file": "sha256:c99ee9ae7788195c87419b021db67cd26c1b4a3160248365a33f95a0d4d62222",
+          "canonical": "sha256:9dcafcfd7881b7881599f67274ff4792daaac82156a8a70554a389d4c2aa379b"
+        },
+        "ts": {
+          "file": "sha256:f67bc39032ab52e5dbfcd1b4117f55d51e13a2b9d1f9122ca5e96f2b8920663e",
+          "canonical": "sha256:156664181155cab85790cf5fc38101ec79d41fe69d9ee90b7aa457e5ca7db451"
+        },
+        "rust": {
+          "file": "sha256:c99ee9ae7788195c87419b021db67cd26c1b4a3160248365a33f95a0d4d62222",
+          "canonical": "sha256:9dcafcfd7881b7881599f67274ff4792daaac82156a8a70554a389d4c2aa379b"
+        }
+      }
+    },
+    {
+      "scenario": "multi_tool_mixed_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 85,
+      "formatWarningTaxonomy": {
+        "envelope": 65,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=65, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:bff1ca6246565a9586dfc4175c4461c602c420be444219d61a8e5482b395193a",
+          "canonical": "sha256:628d7093dfb51284d90a06a6436e4103ab5132b2ecf7dab0048afa799450b030"
+        },
+        "right": {
+          "file": "sha256:89855de76715f4136f7e27f024ede250be90176ef15a0080504e7f861351693f",
+          "canonical": "sha256:5dc69386b4748872dc68dab2283fc53ae32262a17f2d15c7ebba7159f4585e75"
+        },
+        "ts": {
+          "file": "sha256:bff1ca6246565a9586dfc4175c4461c602c420be444219d61a8e5482b395193a",
+          "canonical": "sha256:628d7093dfb51284d90a06a6436e4103ab5132b2ecf7dab0048afa799450b030"
+        },
+        "rust": {
+          "file": "sha256:89855de76715f4136f7e27f024ede250be90176ef15a0080504e7f861351693f",
+          "canonical": "sha256:5dc69386b4748872dc68dab2283fc53ae32262a17f2d15c7ebba7159f4585e75"
+        }
+      }
+    },
+    {
+      "scenario": "large_tool_result",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 71,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:244edd3abc0f47348657cf771a241cd43a991f1d8270fc871a5cb72b20aa47e5",
+          "canonical": "sha256:2d10e55c39d7c83ad48d3bc1a1094a6dd379c321ac4c32fcfbab20d2f03454e2"
+        },
+        "right": {
+          "file": "sha256:6e107759b56a5eae70e046e889636a91a5b373d54bb05e8c1b2cfecaadb09d42",
+          "canonical": "sha256:ac506fb46c847535d65996aa6a6fb5d4878de5cb6a04c18689f0d12cc3cbeded"
+        },
+        "ts": {
+          "file": "sha256:244edd3abc0f47348657cf771a241cd43a991f1d8270fc871a5cb72b20aa47e5",
+          "canonical": "sha256:2d10e55c39d7c83ad48d3bc1a1094a6dd379c321ac4c32fcfbab20d2f03454e2"
+        },
+        "rust": {
+          "file": "sha256:6e107759b56a5eae70e046e889636a91a5b373d54bb05e8c1b2cfecaadb09d42",
+          "canonical": "sha256:ac506fb46c847535d65996aa6a6fb5d4878de5cb6a04c18689f0d12cc3cbeded"
+        }
+      }
+    },
+    {
+      "scenario": "tool_retryable_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 71,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:183d302c3c27b6972e65abd9ba97ace11325461b7d2a4a9f0844e42a509630d9",
+          "canonical": "sha256:572ed8dfd9fd08793aa05bf4ee995c2df44a34c7eca7ebeeac7354e0328bb85a"
+        },
+        "right": {
+          "file": "sha256:d941ad868e413f1748a9fcc35bd9c99b1430c61e8ed5f7b676d66beae730d6ed",
+          "canonical": "sha256:e634e1e9df5ce80364194df6e62a59cf113600136f7b67b8cdfebeb6b392923d"
+        },
+        "ts": {
+          "file": "sha256:183d302c3c27b6972e65abd9ba97ace11325461b7d2a4a9f0844e42a509630d9",
+          "canonical": "sha256:572ed8dfd9fd08793aa05bf4ee995c2df44a34c7eca7ebeeac7354e0328bb85a"
+        },
+        "rust": {
+          "file": "sha256:d941ad868e413f1748a9fcc35bd9c99b1430c61e8ed5f7b676d66beae730d6ed",
+          "canonical": "sha256:e634e1e9df5ce80364194df6e62a59cf113600136f7b67b8cdfebeb6b392923d"
+        }
+      }
+    },
+    {
+      "scenario": "tool_non_retryable_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 92,
+      "formatWarningTaxonomy": {
+        "envelope": 61,
+        "budget": 6,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 2,
+        "kind": 5,
+        "source": 2,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=61, budget=6, modelView=10, request=2, response=2, state=2, kind=5, source=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:67be6cf592faa3fb46ccb33c62cee0c5c8daa062099b28be6edae1a6cb0f67b2",
+          "canonical": "sha256:fdb0b6aa83eaedae0bc4410dbfd4e8d6e5b20509da2cdc5d7dddc01e6cf2c751"
+        },
+        "right": {
+          "file": "sha256:0d64a27202693094ffc84bb25bb03e63d7eb78ce87c21853fb5ceb6644070407",
+          "canonical": "sha256:74cc55a41e99233e3fed453577058dd60fc22f75305edd4a9870a6fd0bbfb767"
+        },
+        "ts": {
+          "file": "sha256:67be6cf592faa3fb46ccb33c62cee0c5c8daa062099b28be6edae1a6cb0f67b2",
+          "canonical": "sha256:fdb0b6aa83eaedae0bc4410dbfd4e8d6e5b20509da2cdc5d7dddc01e6cf2c751"
+        },
+        "rust": {
+          "file": "sha256:0d64a27202693094ffc84bb25bb03e63d7eb78ce87c21853fb5ceb6644070407",
+          "canonical": "sha256:74cc55a41e99233e3fed453577058dd60fc22f75305edd4a9870a6fd0bbfb767"
+        }
+      }
+    },
+    {
+      "scenario": "model_retryable_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 52,
+      "formatWarningTaxonomy": {
+        "envelope": 40,
+        "budget": 6,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 2,
+        "kind": 2,
+        "source": 2,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=40, budget=6, state=2, kind=2, source=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:8bb5d9e9821475755dbf258f8c9872cfc6f2a9e97f8c8fa67c51e7c80105b915",
+          "canonical": "sha256:aaa893b52e13fa945d51b761ad37a379d84e11eeee6b9a4fa0204e0447362297"
+        },
+        "right": {
+          "file": "sha256:8dbcbb7020d4b827842d332a36475f18282cb5e86acc72d780b45f2aa5abc435",
+          "canonical": "sha256:8300566e4ea3b45fade4c2f0717c71434c5a2157a584f61e7a324465b8d8a13d"
+        },
+        "ts": {
+          "file": "sha256:8bb5d9e9821475755dbf258f8c9872cfc6f2a9e97f8c8fa67c51e7c80105b915",
+          "canonical": "sha256:aaa893b52e13fa945d51b761ad37a379d84e11eeee6b9a4fa0204e0447362297"
+        },
+        "rust": {
+          "file": "sha256:8dbcbb7020d4b827842d332a36475f18282cb5e86acc72d780b45f2aa5abc435",
+          "canonical": "sha256:8300566e4ea3b45fade4c2f0717c71434c5a2157a584f61e7a324465b8d8a13d"
+        }
+      }
+    },
+    {
+      "scenario": "model_non_retryable_error",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 52,
+      "formatWarningTaxonomy": {
+        "envelope": 40,
+        "budget": 6,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 2,
+        "kind": 2,
+        "source": 2,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=40, budget=6, state=2, kind=2, source=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:9e8541b230779f7af78f71a25f76bdce743f5747dd4524e1a124a31da8045c21",
+          "canonical": "sha256:0b4c7068dbb6ea95fa2c5f779308cadda31afe4a2f14384b57b700c5e4dc3fe8"
+        },
+        "right": {
+          "file": "sha256:a48f9ec2f57a62224c931b69738db3b50c3b649699aca9a582f14b07ed2be7c3",
+          "canonical": "sha256:611ae836acead8e0740219d225b54fd47f8de9892a75aa30eec5eabef9fa48ac"
+        },
+        "ts": {
+          "file": "sha256:9e8541b230779f7af78f71a25f76bdce743f5747dd4524e1a124a31da8045c21",
+          "canonical": "sha256:0b4c7068dbb6ea95fa2c5f779308cadda31afe4a2f14384b57b700c5e4dc3fe8"
+        },
+        "rust": {
+          "file": "sha256:a48f9ec2f57a62224c931b69738db3b50c3b649699aca9a582f14b07ed2be7c3",
+          "canonical": "sha256:611ae836acead8e0740219d225b54fd47f8de9892a75aa30eec5eabef9fa48ac"
+        }
+      }
+    },
+    {
+      "scenario": "malformed_model_response",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 50,
+      "formatWarningTaxonomy": {
+        "envelope": 38,
+        "budget": 6,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 2,
+        "kind": 2,
+        "source": 2,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=38, budget=6, state=2, kind=2, source=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:605f459138f125894c626bd04bb09f407fc544bdff2cadaabb0ee7dbe8147acf",
+          "canonical": "sha256:6e8b17cb107e3387359dcf0186e30eba17befff2a82d5d35c002c7c3f2f33ee1"
+        },
+        "right": {
+          "file": "sha256:04210be1ccb72af68a211685b16edfdc64342ca1b2ac977e165b5419f29f8447",
+          "canonical": "sha256:315247961c50e9fe1ac56c8e1e99f92c37c59ceea83147cde8db407919b589fa"
+        },
+        "ts": {
+          "file": "sha256:605f459138f125894c626bd04bb09f407fc544bdff2cadaabb0ee7dbe8147acf",
+          "canonical": "sha256:6e8b17cb107e3387359dcf0186e30eba17befff2a82d5d35c002c7c3f2f33ee1"
+        },
+        "rust": {
+          "file": "sha256:04210be1ccb72af68a211685b16edfdc64342ca1b2ac977e165b5419f29f8447",
+          "canonical": "sha256:315247961c50e9fe1ac56c8e1e99f92c37c59ceea83147cde8db407919b589fa"
+        }
+      }
+    },
+    {
+      "scenario": "stream_interruption",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 54,
+      "formatWarningTaxonomy": {
+        "envelope": 41,
+        "budget": 6,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 2,
+        "kind": 3,
+        "source": 2,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=41, budget=6, state=2, kind=3, source=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:35b13db94bbd56809f02480abfdf207ee6bb7b27075fb96d4f1893a87c787a04",
+          "canonical": "sha256:44ff83f5310b681f97de5fb3b789d97e52e0b61cd5260075edb9616cc6f005f2"
+        },
+        "right": {
+          "file": "sha256:e0e9cf476f88dd1a7a7834b5cbf98ee53a9e600c8dac5c8900849abcaa425ac4",
+          "canonical": "sha256:1cdfdc9caf517e892deb10e759460118e8f13bd0a72433541d83fb8c58f2ad90"
+        },
+        "ts": {
+          "file": "sha256:35b13db94bbd56809f02480abfdf207ee6bb7b27075fb96d4f1893a87c787a04",
+          "canonical": "sha256:44ff83f5310b681f97de5fb3b789d97e52e0b61cd5260075edb9616cc6f005f2"
+        },
+        "rust": {
+          "file": "sha256:e0e9cf476f88dd1a7a7834b5cbf98ee53a9e600c8dac5c8900849abcaa425ac4",
+          "canonical": "sha256:1cdfdc9caf517e892deb10e759460118e8f13bd0a72433541d83fb8c58f2ad90"
+        }
+      }
+    },
+    {
+      "scenario": "cancel_during_tool",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 28,
+      "formatWarningTaxonomy": {
+        "envelope": 28,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=28. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:a2f4ddd94be708ec5407a486edd728aefa60dda6ff2c830d490f4071b43f59b1",
+          "canonical": "sha256:408fcb9c99c4d2f56787599780cca737900e873af4844ddd454ba0ab893060ae"
+        },
+        "right": {
+          "file": "sha256:e4b49b02c21b9417a35442c4155683c8aa0da193e8063d13c13e8975cde098b1",
+          "canonical": "sha256:c968a1cffc00bf14202b09cd9ef6bd9f1e429abff47e908f0f2290fc01f6cbc3"
+        },
+        "ts": {
+          "file": "sha256:a2f4ddd94be708ec5407a486edd728aefa60dda6ff2c830d490f4071b43f59b1",
+          "canonical": "sha256:408fcb9c99c4d2f56787599780cca737900e873af4844ddd454ba0ab893060ae"
+        },
+        "rust": {
+          "file": "sha256:e4b49b02c21b9417a35442c4155683c8aa0da193e8063d13c13e8975cde098b1",
+          "canonical": "sha256:c968a1cffc00bf14202b09cd9ef6bd9f1e429abff47e908f0f2290fc01f6cbc3"
+        }
+      }
+    },
+    {
+      "scenario": "deadline_during_tool",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 49,
+      "formatWarningTaxonomy": {
+        "envelope": 46,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=46, kind=3. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:611d25814e0b3d967e1ef48f7c2ff854f7e126537ca00d7bf8810cb01718e1cb",
+          "canonical": "sha256:d22405f61f6f20a316697046950646223c5eef8c0e1df3e8acc9aa8f6cacf0b7"
+        },
+        "right": {
+          "file": "sha256:2e65d1f4fd343eb560a6706d369c9f6ab7f49459fe694a58514df8a920a37046",
+          "canonical": "sha256:c2ac63f23e2e431a008b0ee715a65106a65f4eb7336a4e98bdf2ccc0b723d08c"
+        },
+        "ts": {
+          "file": "sha256:611d25814e0b3d967e1ef48f7c2ff854f7e126537ca00d7bf8810cb01718e1cb",
+          "canonical": "sha256:d22405f61f6f20a316697046950646223c5eef8c0e1df3e8acc9aa8f6cacf0b7"
+        },
+        "rust": {
+          "file": "sha256:2e65d1f4fd343eb560a6706d369c9f6ab7f49459fe694a58514df8a920a37046",
+          "canonical": "sha256:c2ac63f23e2e431a008b0ee715a65106a65f4eb7336a4e98bdf2ccc0b723d08c"
+        }
+      }
+    },
+    {
+      "scenario": "multimodal_image_and_text",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:e13317c7f32686a13353cd65d67e618f6a04cbbdf10e39cfe66d71e72c1009ba",
+          "canonical": "sha256:65307ab347e5ae660066794d411e09ab005221fd2c18897c08bcc965f99effba"
+        },
+        "right": {
+          "file": "sha256:260443fdaf816b502512b68538f7087a6b5ed0be238a4a7f8d388b1446c30d46",
+          "canonical": "sha256:56e1c2a6252cf2684d6f4c7bc09d36ca22eb62c133eea7fa1d3f4751eb43130e"
+        },
+        "ts": {
+          "file": "sha256:e13317c7f32686a13353cd65d67e618f6a04cbbdf10e39cfe66d71e72c1009ba",
+          "canonical": "sha256:65307ab347e5ae660066794d411e09ab005221fd2c18897c08bcc965f99effba"
+        },
+        "rust": {
+          "file": "sha256:260443fdaf816b502512b68538f7087a6b5ed0be238a4a7f8d388b1446c30d46",
+          "canonical": "sha256:56e1c2a6252cf2684d6f4c7bc09d36ca22eb62c133eea7fa1d3f4751eb43130e"
+        }
+      }
+    },
+    {
+      "scenario": "allowed_read_files",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 67,
+      "formatWarningTaxonomy": {
+        "envelope": 47,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=47, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:7f2ce0f8f4639add7896a3510575e30662ab42e3a9eb2d85644811142e7a2376",
+          "canonical": "sha256:a88e52f3be88d919c35116cea46a1a89c34adef78d1259f8c582fb94025918de"
+        },
+        "right": {
+          "file": "sha256:682660f6b3e43f0f36dd4d09c9278d69ac8768eb80b15b700c2987ea4710a719",
+          "canonical": "sha256:f0c0e16a02fe75f37629eca70c401e91efa4eaf8a6d534994d61e1ccbf160d7d"
+        },
+        "ts": {
+          "file": "sha256:7f2ce0f8f4639add7896a3510575e30662ab42e3a9eb2d85644811142e7a2376",
+          "canonical": "sha256:a88e52f3be88d919c35116cea46a1a89c34adef78d1259f8c582fb94025918de"
+        },
+        "rust": {
+          "file": "sha256:682660f6b3e43f0f36dd4d09c9278d69ac8768eb80b15b700c2987ea4710a719",
+          "canonical": "sha256:f0c0e16a02fe75f37629eca70c401e91efa4eaf8a6d534994d61e1ccbf160d7d"
+        }
+      }
+    },
+    {
+      "scenario": "denied_read_files",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 67,
+      "formatWarningTaxonomy": {
+        "envelope": 47,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=47, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:f26479a1f8f8e3d531087eb67021c820e5d72aea053bac8bf07cf4f366599ead",
+          "canonical": "sha256:4b6940a4248d0b62cfcdee88d7575d2b91005157ce4647edc2581ab08a01098a"
+        },
+        "right": {
+          "file": "sha256:66a9dd1f90cd3e77eb4b787a0e7b9a58aa71b283068d1bf0b739e2840aa93597",
+          "canonical": "sha256:3fca3fcb12abda07b49a3bd68864e83e0b150cfcb8cb7be4fea35f842e6d5875"
+        },
+        "ts": {
+          "file": "sha256:f26479a1f8f8e3d531087eb67021c820e5d72aea053bac8bf07cf4f366599ead",
+          "canonical": "sha256:4b6940a4248d0b62cfcdee88d7575d2b91005157ce4647edc2581ab08a01098a"
+        },
+        "rust": {
+          "file": "sha256:66a9dd1f90cd3e77eb4b787a0e7b9a58aa71b283068d1bf0b739e2840aa93597",
+          "canonical": "sha256:3fca3fcb12abda07b49a3bd68864e83e0b150cfcb8cb7be4fea35f842e6d5875"
+        }
+      }
+    },
+    {
+      "scenario": "write_snapshot_resume",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 30,
+      "formatWarningTaxonomy": {
+        "envelope": 30,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=30. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:ab3accd036d5b6ee1854a074546990ed8dfd2329b112f2c30e3124528ab450a5",
+          "canonical": "sha256:063373259b277d09fa6af1bec8da5cc44a382cc7c0902ff644fb78a57ee77780"
+        },
+        "right": {
+          "file": "sha256:8e37d3cd88d70e1ae982b5978b16660f4e8fd625c359b1bb6f0b6ee2989ead5b",
+          "canonical": "sha256:f1c2132393736d5eea50783b2dde65683b48af8ca7a49214788ff0e07f3ea506"
+        },
+        "ts": {
+          "file": "sha256:ab3accd036d5b6ee1854a074546990ed8dfd2329b112f2c30e3124528ab450a5",
+          "canonical": "sha256:063373259b277d09fa6af1bec8da5cc44a382cc7c0902ff644fb78a57ee77780"
+        },
+        "rust": {
+          "file": "sha256:8e37d3cd88d70e1ae982b5978b16660f4e8fd625c359b1bb6f0b6ee2989ead5b",
+          "canonical": "sha256:f1c2132393736d5eea50783b2dde65683b48af8ca7a49214788ff0e07f3ea506"
+        }
+      }
+    },
+    {
+      "scenario": "auto_compact",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 36,
+      "formatWarningTaxonomy": {
+        "envelope": 34,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 2,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=34, kind=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:2636e3f834f21dc5db7bded575ec2b4b835e5ced56af802709fa6d6f71fcce48",
+          "canonical": "sha256:e2291bcaef7da0796251c2d7cbcc26197705f7b9f5dd4cb0cafec80519bd1e16"
+        },
+        "right": {
+          "file": "sha256:bbe09b796e5eb06f6aa2456dafa30e80321016e7d64d6c230d9c445932300de0",
+          "canonical": "sha256:cfdb83f66951b4ca993f7a20f389d0bed5bac5134b52c03a6faa3c6e53c22cab"
+        },
+        "ts": {
+          "file": "sha256:2636e3f834f21dc5db7bded575ec2b4b835e5ced56af802709fa6d6f71fcce48",
+          "canonical": "sha256:e2291bcaef7da0796251c2d7cbcc26197705f7b9f5dd4cb0cafec80519bd1e16"
+        },
+        "rust": {
+          "file": "sha256:bbe09b796e5eb06f6aa2456dafa30e80321016e7d64d6c230d9c445932300de0",
+          "canonical": "sha256:cfdb83f66951b4ca993f7a20f389d0bed5bac5134b52c03a6faa3c6e53c22cab"
+        }
+      }
+    },
+    {
+      "scenario": "plan_mode_host_policy",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 134,
+      "formatWarningTaxonomy": {
+        "envelope": 131,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=131, kind=3. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:3131edbef7ab1a58b999dc1f3a295664979f4c2f05fd1bb968816cec2dcf352d",
+          "canonical": "sha256:5f3082d344715a95314ce2ae94221a2e913c9005ed6d0d0bedb14d8a5601c24d"
+        },
+        "right": {
+          "file": "sha256:ae98e405de7285f92ab287ab10ad5e4c46e4f750426de71b389bd25542774cc9",
+          "canonical": "sha256:8535431df56e14d56c945b49085bacdf1b63b102945dc6dadc68b67e249e5bbb"
+        },
+        "ts": {
+          "file": "sha256:3131edbef7ab1a58b999dc1f3a295664979f4c2f05fd1bb968816cec2dcf352d",
+          "canonical": "sha256:5f3082d344715a95314ce2ae94221a2e913c9005ed6d0d0bedb14d8a5601c24d"
+        },
+        "rust": {
+          "file": "sha256:ae98e405de7285f92ab287ab10ad5e4c46e4f750426de71b389bd25542774cc9",
+          "canonical": "sha256:8535431df56e14d56c945b49085bacdf1b63b102945dc6dadc68b67e249e5bbb"
+        }
+      }
+    },
+    {
+      "scenario": "plan_mode_bypass_host_policy",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 115,
+      "formatWarningTaxonomy": {
+        "envelope": 115,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=115. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:1900fe1ae6447204272811037860ea56801d8905b202c4319d2c45468e0a5a43",
+          "canonical": "sha256:6803b5005e51c2139946e40a412ae7bfcfe439c56cf486258971a518226c2f34"
+        },
+        "right": {
+          "file": "sha256:d6cd87ad23e2af75fef64705cce42195972864f67edf787315a7ef8e554bd2ac",
+          "canonical": "sha256:5b1e1a690b079dcd77b3319c88e336c82260ee1c4e0bfcb3dd4bdd649313c025"
+        },
+        "ts": {
+          "file": "sha256:1900fe1ae6447204272811037860ea56801d8905b202c4319d2c45468e0a5a43",
+          "canonical": "sha256:6803b5005e51c2139946e40a412ae7bfcfe439c56cf486258971a518226c2f34"
+        },
+        "rust": {
+          "file": "sha256:d6cd87ad23e2af75fef64705cce42195972864f67edf787315a7ef8e554bd2ac",
+          "canonical": "sha256:5b1e1a690b079dcd77b3319c88e336c82260ee1c4e0bfcb3dd4bdd649313c025"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_budget_limit",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 21,
+      "formatWarningTaxonomy": {
+        "envelope": 21,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=21. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:08e4c971278268e909e69986a6b2c8f652a615f2b2be29cbce1002d43a6e4f15",
+          "canonical": "sha256:7686ecabae48e1c22ef247cb4904773c922b842fc5dff99ef5e9b3f018748af0"
+        },
+        "right": {
+          "file": "sha256:91e5618be1fab534d65c6f702713dc25c0e8d85e4c53c141f591fa9b090266fd",
+          "canonical": "sha256:339dc1e1b8c706197870f17f3beb5b9124abf4ef3ad8817fee134bb299440772"
+        },
+        "ts": {
+          "file": "sha256:08e4c971278268e909e69986a6b2c8f652a615f2b2be29cbce1002d43a6e4f15",
+          "canonical": "sha256:7686ecabae48e1c22ef247cb4904773c922b842fc5dff99ef5e9b3f018748af0"
+        },
+        "rust": {
+          "file": "sha256:91e5618be1fab534d65c6f702713dc25c0e8d85e4c53c141f591fa9b090266fd",
+          "canonical": "sha256:339dc1e1b8c706197870f17f3beb5b9124abf4ef3ad8817fee134bb299440772"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_elicitation",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:cb1ff04315a4a48dc44e9074dcf94b64ab9b6a27598cbef21c3c439a7892e493",
+          "canonical": "sha256:c4cf72a9aa531ae0c9b77847b4abb5c0e1695705c774f50eab944babe5e4cddd"
+        },
+        "right": {
+          "file": "sha256:25f118c71d46e88c85ee92d1e6a60b124e53b72b02f6d7c0edd2890cda1b45ba",
+          "canonical": "sha256:c9974be7ca2fd503689ac4c703adb73a72dc12ecd7f368996e7ab0879fcbe524"
+        },
+        "ts": {
+          "file": "sha256:cb1ff04315a4a48dc44e9074dcf94b64ab9b6a27598cbef21c3c439a7892e493",
+          "canonical": "sha256:c4cf72a9aa531ae0c9b77847b4abb5c0e1695705c774f50eab944babe5e4cddd"
+        },
+        "rust": {
+          "file": "sha256:25f118c71d46e88c85ee92d1e6a60b124e53b72b02f6d7c0edd2890cda1b45ba",
+          "canonical": "sha256:c9974be7ca2fd503689ac4c703adb73a72dc12ecd7f368996e7ab0879fcbe524"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_elicitation_execution",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 54,
+      "formatWarningTaxonomy": {
+        "envelope": 45,
+        "budget": 0,
+        "modelView": 2,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=45, modelView=2, request=2, kind=3, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:6242ce36ba02d085a3e066b6ce134822d6a550d148507c44577811cbd21e509e",
+          "canonical": "sha256:7ab57c2c813614ba36c72245be11ca73fd029c2fbb1d104d309f9114ca9c63d5"
+        },
+        "right": {
+          "file": "sha256:f41e0259b7d2f0b5c75742215d8c48a9e5c906d958fbaffdf651332260fe348b",
+          "canonical": "sha256:763dc9ec8d43b40b69cc078c97d43d04615a8e6c942ce218f4b129b32eb3f98e"
+        },
+        "ts": {
+          "file": "sha256:6242ce36ba02d085a3e066b6ce134822d6a550d148507c44577811cbd21e509e",
+          "canonical": "sha256:7ab57c2c813614ba36c72245be11ca73fd029c2fbb1d104d309f9114ca9c63d5"
+        },
+        "rust": {
+          "file": "sha256:f41e0259b7d2f0b5c75742215d8c48a9e5c906d958fbaffdf651332260fe348b",
+          "canonical": "sha256:763dc9ec8d43b40b69cc078c97d43d04615a8e6c942ce218f4b129b32eb3f98e"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_sdk_tool_progress",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 94,
+      "formatWarningTaxonomy": {
+        "envelope": 63,
+        "budget": 6,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 2,
+        "kind": 5,
+        "source": 2,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=63, budget=6, modelView=10, request=2, response=2, state=2, kind=5, source=2, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:98ff37f1d55298b0bac169b536c5839d67e419e359269ed7f1c877e4dc6148cf",
+          "canonical": "sha256:b040eb9a9a66651aaf503c6de64e214be9b1f667b6e20148202ff3cc77a6471d"
+        },
+        "right": {
+          "file": "sha256:25b0adf4db44f917d30f5d42d750ca7e905f7a0ef1be879bbc3ee629fb30993c",
+          "canonical": "sha256:bfae412b9dfd2a2ac23a5bc06e110d73ac72f82ed21d1c81070079e08983d1aa"
+        },
+        "ts": {
+          "file": "sha256:98ff37f1d55298b0bac169b536c5839d67e419e359269ed7f1c877e4dc6148cf",
+          "canonical": "sha256:b040eb9a9a66651aaf503c6de64e214be9b1f667b6e20148202ff3cc77a6471d"
+        },
+        "rust": {
+          "file": "sha256:25b0adf4db44f917d30f5d42d750ca7e905f7a0ef1be879bbc3ee629fb30993c",
+          "canonical": "sha256:bfae412b9dfd2a2ac23a5bc06e110d73ac72f82ed21d1c81070079e08983d1aa"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_live_steer",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 64,
+      "formatWarningTaxonomy": {
+        "envelope": 53,
+        "budget": 0,
+        "modelView": 2,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 5,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=53, modelView=2, request=2, kind=5, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:c02bd00bbb81ade34a658a365be96ed6c3ac71220113179c13846b063e93c984",
+          "canonical": "sha256:a9b81b8484c59e11fd4e5639b1902288f0e39005c4527ac10f30149b69a20035"
+        },
+        "right": {
+          "file": "sha256:6bba7c4f5f8b72156b3427e56c556437ba0eeafb5b79185e60fa61a72338c069",
+          "canonical": "sha256:a5b77c01aa4ab2e0301af5f589abe81bf0f3330e59960bdb7e394c6b172bf5b2"
+        },
+        "ts": {
+          "file": "sha256:c02bd00bbb81ade34a658a365be96ed6c3ac71220113179c13846b063e93c984",
+          "canonical": "sha256:a9b81b8484c59e11fd4e5639b1902288f0e39005c4527ac10f30149b69a20035"
+        },
+        "rust": {
+          "file": "sha256:6bba7c4f5f8b72156b3427e56c556437ba0eeafb5b79185e60fa61a72338c069",
+          "canonical": "sha256:a5b77c01aa4ab2e0301af5f589abe81bf0f3330e59960bdb7e394c6b172bf5b2"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_durable_compaction",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 55,
+      "formatWarningTaxonomy": {
+        "envelope": 35,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=35, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:d4facd974e565c130b7ece3f3c78fad7c7d9072c2d733e38d6045de2f3829f85",
+          "canonical": "sha256:cfe9b29be0addc38a5e7eb4030f8b721ce19901030ff3b6a24f0451e1dee80d0"
+        },
+        "right": {
+          "file": "sha256:45ea53d04f6561da08b75aa8c212a5200108a66dd0df27aee20ae65cb4463164",
+          "canonical": "sha256:c9123b3e085120f4441979fa3819a9dab40a771e27de2a16d804a32d1943de30"
+        },
+        "ts": {
+          "file": "sha256:d4facd974e565c130b7ece3f3c78fad7c7d9072c2d733e38d6045de2f3829f85",
+          "canonical": "sha256:cfe9b29be0addc38a5e7eb4030f8b721ce19901030ff3b6a24f0451e1dee80d0"
+        },
+        "rust": {
+          "file": "sha256:45ea53d04f6561da08b75aa8c212a5200108a66dd0df27aee20ae65cb4463164",
+          "canonical": "sha256:c9123b3e085120f4441979fa3819a9dab40a771e27de2a16d804a32d1943de30"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_full_request_compaction_budget",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 59,
+      "formatWarningTaxonomy": {
+        "envelope": 39,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=39, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:dec0783835826151d6657fd9e444ef33967f098005e4cf41c84cb58c73a7e1f1",
+          "canonical": "sha256:5582d48e24b4af52525c1cc4e1220c311aa8e78ae9738de51869eaf7b0b384a0"
+        },
+        "right": {
+          "file": "sha256:dd1d1aff3dfa37944910de4511f16b98a7ded3062766475877d0a4c7bfa49ba8",
+          "canonical": "sha256:a088c4d0e1e0b4ffb000ccb70f0317562125ba51ef54525c04a5f072c627b903"
+        },
+        "ts": {
+          "file": "sha256:dec0783835826151d6657fd9e444ef33967f098005e4cf41c84cb58c73a7e1f1",
+          "canonical": "sha256:5582d48e24b4af52525c1cc4e1220c311aa8e78ae9738de51869eaf7b0b384a0"
+        },
+        "rust": {
+          "file": "sha256:dd1d1aff3dfa37944910de4511f16b98a7ded3062766475877d0a4c7bfa49ba8",
+          "canonical": "sha256:a088c4d0e1e0b4ffb000ccb70f0317562125ba51ef54525c04a5f072c627b903"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_projected_request_compaction_budget",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 60,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 2,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=2, request=2, kind=3, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:0107fe15209f20346f2452ccf6116a0181ab38e0af483cc71d30f06bd4f74078",
+          "canonical": "sha256:61aa029259a382f6f09dadfc74e9207e86f98d08404ca77a5793be8161a2a403"
+        },
+        "right": {
+          "file": "sha256:e88eae2ec0d266b3ab86f2379021593477a1f855d263c7015e75833d0bfc7172",
+          "canonical": "sha256:599c3aab66392f832e3fd1dfab64cb05a82abad481955525117f1dbee0e5100a"
+        },
+        "ts": {
+          "file": "sha256:0107fe15209f20346f2452ccf6116a0181ab38e0af483cc71d30f06bd4f74078",
+          "canonical": "sha256:61aa029259a382f6f09dadfc74e9207e86f98d08404ca77a5793be8161a2a403"
+        },
+        "rust": {
+          "file": "sha256:e88eae2ec0d266b3ab86f2379021593477a1f855d263c7015e75833d0bfc7172",
+          "canonical": "sha256:599c3aab66392f832e3fd1dfab64cb05a82abad481955525117f1dbee0e5100a"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_seed_read_state",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 48,
+      "formatWarningTaxonomy": {
+        "envelope": 46,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 2,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=46, kind=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:15a72a4f4e74d4238d2fa28ef69afc78a7ec2053e1a41f06f35aa2b948802e20",
+          "canonical": "sha256:a36e6a5e98b2de8609df64efa4f3e53d629d166cd978fae0e3519ae099a6244d"
+        },
+        "right": {
+          "file": "sha256:68decb2449485d76fd9acb87dbb2342925505163e529d55f6da33ed5ee46c1af",
+          "canonical": "sha256:3f85b5cca3bde141146cd1f961c02ec12569adbb6a5ac0257b6de777ba51b648"
+        },
+        "ts": {
+          "file": "sha256:15a72a4f4e74d4238d2fa28ef69afc78a7ec2053e1a41f06f35aa2b948802e20",
+          "canonical": "sha256:a36e6a5e98b2de8609df64efa4f3e53d629d166cd978fae0e3519ae099a6244d"
+        },
+        "rust": {
+          "file": "sha256:68decb2449485d76fd9acb87dbb2342925505163e529d55f6da33ed5ee46c1af",
+          "canonical": "sha256:3f85b5cca3bde141146cd1f961c02ec12569adbb6a5ac0257b6de777ba51b648"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_live_model_stream",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 50,
+      "formatWarningTaxonomy": {
+        "envelope": 38,
+        "budget": 6,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 2,
+        "kind": 2,
+        "source": 2,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=38, budget=6, state=2, kind=2, source=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:77738d12f31a7bd4903b6942541f76f5ead9430dca4091be88ad973df1d5bc9b",
+          "canonical": "sha256:ff4ee1c15e956d446e802645b0a19f0c0e337c2caab0294081c4c5eacf64161c"
+        },
+        "right": {
+          "file": "sha256:a54bf484c832217ee3f8b83da642142404fe0ffd46e3db3522d54c807e9c9a8a",
+          "canonical": "sha256:bc0c4e812cc4891028cfc1b20de10a690c161cc5f622b3a3d7bcdf528a2fe683"
+        },
+        "ts": {
+          "file": "sha256:77738d12f31a7bd4903b6942541f76f5ead9430dca4091be88ad973df1d5bc9b",
+          "canonical": "sha256:ff4ee1c15e956d446e802645b0a19f0c0e337c2caab0294081c4c5eacf64161c"
+        },
+        "rust": {
+          "file": "sha256:a54bf484c832217ee3f8b83da642142404fe0ffd46e3db3522d54c807e9c9a8a",
+          "canonical": "sha256:bc0c4e812cc4891028cfc1b20de10a690c161cc5f622b3a3d7bcdf528a2fe683"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_model_metadata",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:5a03e620ecd0f2d638780196d412ece2895e776085b1c120b95c51d34621d3e9",
+          "canonical": "sha256:268c2210096752e3d3b3cd58d7a5ac0176c8beeba22e85df34219f34a3bb4d71"
+        },
+        "right": {
+          "file": "sha256:35bd1d0991946d3f4ecfea56b7e240446e507f25cd7cd7bc9c541fd03d8681dc",
+          "canonical": "sha256:f63a6c80e3fc5009a320fc4d9346184f278fafe532942cd0fdfa93ac86c8f1fc"
+        },
+        "ts": {
+          "file": "sha256:5a03e620ecd0f2d638780196d412ece2895e776085b1c120b95c51d34621d3e9",
+          "canonical": "sha256:268c2210096752e3d3b3cd58d7a5ac0176c8beeba22e85df34219f34a3bb4d71"
+        },
+        "rust": {
+          "file": "sha256:35bd1d0991946d3f4ecfea56b7e240446e507f25cd7cd7bc9c541fd03d8681dc",
+          "canonical": "sha256:f63a6c80e3fc5009a320fc4d9346184f278fafe532942cd0fdfa93ac86c8f1fc"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_empty_system_prompt",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:328c788325811077b90cd65ec15bc612d4f278ad2ff73561825f8269c73d7ed4",
+          "canonical": "sha256:e51c78dc96199707ff711e17c6b123a16b767ea0b71801ee3f56c2b361393842"
+        },
+        "right": {
+          "file": "sha256:4679b486e9c74b792f251849d4be4e9945f0348737480f118948cf6365ed0224",
+          "canonical": "sha256:2a8032d864f6418bed3be52b98113424520f9c4e1cadab652157671dcc679976"
+        },
+        "ts": {
+          "file": "sha256:328c788325811077b90cd65ec15bc612d4f278ad2ff73561825f8269c73d7ed4",
+          "canonical": "sha256:e51c78dc96199707ff711e17c6b123a16b767ea0b71801ee3f56c2b361393842"
+        },
+        "rust": {
+          "file": "sha256:4679b486e9c74b792f251849d4be4e9945f0348737480f118948cf6365ed0224",
+          "canonical": "sha256:2a8032d864f6418bed3be52b98113424520f9c4e1cadab652157671dcc679976"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_additional_working_directories",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:58c2a525732be115aed7c108704cc704933c45b4bf29e77dfaeee3f6733aab14",
+          "canonical": "sha256:c0dea30b246ef2c17a1b0cc0f65eec1424cf6abcda561e2f0522c4d39524b306"
+        },
+        "right": {
+          "file": "sha256:8bc03eb5ed407661594a7a3ccc3e85a11846eba41b147ec68a544dbfe8dda520",
+          "canonical": "sha256:6b63d5e428f0a55f5192bca025ad8c05a4f5ad5b84f8c061ae9ccad258a66c6c"
+        },
+        "ts": {
+          "file": "sha256:58c2a525732be115aed7c108704cc704933c45b4bf29e77dfaeee3f6733aab14",
+          "canonical": "sha256:c0dea30b246ef2c17a1b0cc0f65eec1424cf6abcda561e2f0522c4d39524b306"
+        },
+        "rust": {
+          "file": "sha256:8bc03eb5ed407661594a7a3ccc3e85a11846eba41b147ec68a544dbfe8dda520",
+          "canonical": "sha256:6b63d5e428f0a55f5192bca025ad8c05a4f5ad5b84f8c061ae9ccad258a66c6c"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_continuable_followup_live",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 1162,
+      "formatWarningTaxonomy": {
+        "envelope": 103,
+        "budget": 6,
+        "modelView": 522,
+        "request": 507,
+        "requestEvidence": 0,
+        "response": 3,
+        "state": 2,
+        "kind": 9,
+        "source": 2,
+        "attempt": 8
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=103, budget=6, modelView=522, request=507, response=3, state=2, kind=9, source=2, attempt=8. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:0d03437eee767dd235004f4f0d42537c0b53b72c4e9e64dda9aa0f36b739b83c",
+          "canonical": "sha256:5fd3d49c0cccffaea1333a3f6c02d714d3f1b5f013666a0698c50aab67caa33b"
+        },
+        "right": {
+          "file": "sha256:1edea67dab297942e9424f6c9bfc8fc2956e918eb3f7a10201e0f3bd6ae4ad67",
+          "canonical": "sha256:bf7e1cb14059e013e618c75455ca973564e6039d064868aabe59a5e1ebd5ea9a"
+        },
+        "ts": {
+          "file": "sha256:0d03437eee767dd235004f4f0d42537c0b53b72c4e9e64dda9aa0f36b739b83c",
+          "canonical": "sha256:5fd3d49c0cccffaea1333a3f6c02d714d3f1b5f013666a0698c50aab67caa33b"
+        },
+        "rust": {
+          "file": "sha256:1edea67dab297942e9424f6c9bfc8fc2956e918eb3f7a10201e0f3bd6ae4ad67",
+          "canonical": "sha256:bf7e1cb14059e013e618c75455ca973564e6039d064868aabe59a5e1ebd5ea9a"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_continuable_followup_cold",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 155,
+      "formatWarningTaxonomy": {
+        "envelope": 104,
+        "budget": 6,
+        "modelView": 15,
+        "request": 4,
+        "requestEvidence": 0,
+        "response": 5,
+        "state": 2,
+        "kind": 9,
+        "source": 2,
+        "attempt": 8
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=104, budget=6, modelView=15, request=4, response=5, state=2, kind=9, source=2, attempt=8. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:78868f3fd17dd999ef771fbec0246628d9de08219ca4c298cd87c2a87754a556",
+          "canonical": "sha256:7d1acc466dd8b7ea99de7572746b3c216c661a5136e924e88babc412bc22852d"
+        },
+        "right": {
+          "file": "sha256:6e877b00f4f309c34daedd7b262e203a80f56ff29ecdaecd93c36fecb0e3d66d",
+          "canonical": "sha256:494dd7fb870a11d24f3a28e25a9783cfa98307eaa19ad669adfc6dcbaf6eb76a"
+        },
+        "ts": {
+          "file": "sha256:78868f3fd17dd999ef771fbec0246628d9de08219ca4c298cd87c2a87754a556",
+          "canonical": "sha256:7d1acc466dd8b7ea99de7572746b3c216c661a5136e924e88babc412bc22852d"
+        },
+        "rust": {
+          "file": "sha256:6e877b00f4f309c34daedd7b262e203a80f56ff29ecdaecd93c36fecb0e3d66d",
+          "canonical": "sha256:494dd7fb870a11d24f3a28e25a9783cfa98307eaa19ad669adfc6dcbaf6eb76a"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_parent_close_after_admission",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 56,
+      "formatWarningTaxonomy": {
+        "envelope": 47,
+        "budget": 0,
+        "modelView": 2,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 3,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=47, modelView=2, request=2, kind=3, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:781a86047dff1a2e168340d63204577b96b60666591a3c3c5807c27a5c0456fa",
+          "canonical": "sha256:db5aa1117fb56b67d125a0de0c63871c413f76d490e3a0f9ee5680f1a32c1b72"
+        },
+        "right": {
+          "file": "sha256:438e4ca02e75e63d1ea8161e53dbc48d3315a8f73142dba7cc36508987a2cdeb",
+          "canonical": "sha256:f1aa49afb99ec5576e31347ee690966251176306f0c395a4a790c4b81a469c3c"
+        },
+        "ts": {
+          "file": "sha256:781a86047dff1a2e168340d63204577b96b60666591a3c3c5807c27a5c0456fa",
+          "canonical": "sha256:db5aa1117fb56b67d125a0de0c63871c413f76d490e3a0f9ee5680f1a32c1b72"
+        },
+        "rust": {
+          "file": "sha256:438e4ca02e75e63d1ea8161e53dbc48d3315a8f73142dba7cc36508987a2cdeb",
+          "canonical": "sha256:f1aa49afb99ec5576e31347ee690966251176306f0c395a4a790c4b81a469c3c"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_one_shot_subagent_success",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 120,
+      "formatWarningTaxonomy": {
+        "envelope": 90,
+        "budget": 6,
+        "modelView": 4,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 2,
+        "kind": 8,
+        "source": 2,
+        "attempt": 4
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=90, budget=6, modelView=4, request=2, response=2, state=2, kind=8, source=2, attempt=4. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:f037d782577717e5c89b6cb5b7699bb640212721c3c9b68f6dec939f212cbdfc",
+          "canonical": "sha256:3025352cf89e2f56aaa247199fde5dbb17a1980ef52c7ef7152c26165d886361"
+        },
+        "right": {
+          "file": "sha256:7f7c6dcead1c98aca6a57786916392bd032aa12d32115747122cb86f2488d2b4",
+          "canonical": "sha256:99a60f8f35cc21a1fcf0eeafd9445d98412b81db4b4b69dfaab50d01b5362708"
+        },
+        "ts": {
+          "file": "sha256:f037d782577717e5c89b6cb5b7699bb640212721c3c9b68f6dec939f212cbdfc",
+          "canonical": "sha256:3025352cf89e2f56aaa247199fde5dbb17a1980ef52c7ef7152c26165d886361"
+        },
+        "rust": {
+          "file": "sha256:7f7c6dcead1c98aca6a57786916392bd032aa12d32115747122cb86f2488d2b4",
+          "canonical": "sha256:99a60f8f35cc21a1fcf0eeafd9445d98412b81db4b4b69dfaab50d01b5362708"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_one_shot_subagent_failure",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 117,
+      "formatWarningTaxonomy": {
+        "envelope": 87,
+        "budget": 6,
+        "modelView": 4,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 2,
+        "kind": 8,
+        "source": 2,
+        "attempt": 4
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=87, budget=6, modelView=4, request=2, response=2, state=2, kind=8, source=2, attempt=4. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:720f4dfa0a3bd93cdf19017c36bbb85b43812de713839378a9be86d0cfdfcdc5",
+          "canonical": "sha256:5442f93892f546f73ec4554d44d9a06d5182ee89f8ddf3638ee5f7f8aab2e94e"
+        },
+        "right": {
+          "file": "sha256:c7eae4c4407180f18fd59764ad0b37585b4c7265904c8240f1d3cbf7d8bcc5aa",
+          "canonical": "sha256:b98f2ff1c132adb71e557250492195820ef24118cab1a0c48627885825627fd9"
+        },
+        "ts": {
+          "file": "sha256:720f4dfa0a3bd93cdf19017c36bbb85b43812de713839378a9be86d0cfdfcdc5",
+          "canonical": "sha256:5442f93892f546f73ec4554d44d9a06d5182ee89f8ddf3638ee5f7f8aab2e94e"
+        },
+        "rust": {
+          "file": "sha256:c7eae4c4407180f18fd59764ad0b37585b4c7265904c8240f1d3cbf7d8bcc5aa",
+          "canonical": "sha256:b98f2ff1c132adb71e557250492195820ef24118cab1a0c48627885825627fd9"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_one_shot_parent_abort_after_admission",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 30,
+      "formatWarningTaxonomy": {
+        "envelope": 30,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=30. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:bdb9ecc9e256b03a668e4849c698651a4d91b307bd4af0544ba620342080564d",
+          "canonical": "sha256:bb811c4bbc98e6bd47dd9ea7e04d7d0668799c6c1542ddff32025185086126c8"
+        },
+        "right": {
+          "file": "sha256:ceacdd5c205b2c9f2c3c18ad5fb05959185121c16e5dfe2fb9150d27183b5549",
+          "canonical": "sha256:6bcda558eddc869a26be299abc798da7ebb6447d5bd73041d60f30f06847188d"
+        },
+        "ts": {
+          "file": "sha256:bdb9ecc9e256b03a668e4849c698651a4d91b307bd4af0544ba620342080564d",
+          "canonical": "sha256:bb811c4bbc98e6bd47dd9ea7e04d7d0668799c6c1542ddff32025185086126c8"
+        },
+        "rust": {
+          "file": "sha256:ceacdd5c205b2c9f2c3c18ad5fb05959185121c16e5dfe2fb9150d27183b5549",
+          "canonical": "sha256:6bcda558eddc869a26be299abc798da7ebb6447d5bd73041d60f30f06847188d"
+        }
+      }
+    },
+    {
+      "scenario": "sidecar_one_shot_parent_close_after_admission",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 28,
+      "formatWarningTaxonomy": {
+        "envelope": 28,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=28. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:4cfb84ecd5fbf5cd24b64b7442f637ff740f9c8f9cdf12132e742fe8fd48012a",
+          "canonical": "sha256:824f29d8324d47e9622e56aa51028f486bcadfdf4e32dd774a32341a2385e0e6"
+        },
+        "right": {
+          "file": "sha256:71e67c2645a2044282425aee07a948a70a5dd81bfe4a33be131cab1e355d0cb8",
+          "canonical": "sha256:78c6e4af809369423aa7a3036de8367576b9cf58bd2ff6c13c269dbad7876a21"
+        },
+        "ts": {
+          "file": "sha256:4cfb84ecd5fbf5cd24b64b7442f637ff740f9c8f9cdf12132e742fe8fd48012a",
+          "canonical": "sha256:824f29d8324d47e9622e56aa51028f486bcadfdf4e32dd774a32341a2385e0e6"
+        },
+        "rust": {
+          "file": "sha256:71e67c2645a2044282425aee07a948a70a5dd81bfe4a33be131cab1e355d0cb8",
+          "canonical": "sha256:78c6e4af809369423aa7a3036de8367576b9cf58bd2ff6c13c269dbad7876a21"
+        }
+      }
+    }
+  ],
+  "output": "/tmp/tp204-parity/full53"
+}

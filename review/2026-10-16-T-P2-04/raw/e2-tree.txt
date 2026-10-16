@@ -1,0 +1,13 @@
+pilotdeck-agent-loop v0.1.0 (<repo>/crates/pilotdeck-agent-loop)
+└── serde_json v1.0.154
+    ├── foldhash v0.2.0
+    ├── indexmap v2.7.1
+    │   ├── equivalent v1.0.3
+    │   └── hashbrown v0.15.5
+    ├── itoa v1.0.18
+    ├── memchr v2.8.3
+    ├── serde_core v1.0.229
+    └── zmij v1.0.23
+
+pilotdeck-agent-loop-hello v0.1.0 (<repo>/crates/pilotdeck-agent-loop-hello)
+└── serde_json v1.0.154 (*)

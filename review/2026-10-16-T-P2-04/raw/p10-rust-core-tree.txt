@@ -1,0 +1,330 @@
+pilotdeck-agent v0.1.0 (/workspace/rust-core/pilotdeck-agent)
+├── pilotdeck-protocol feature "default" (command-line)
+│   └── pilotdeck-protocol v0.1.0 (/workspace/rust-core/pilotdeck-protocol)
+│       ├── ryu-js feature "default"
+│       │   └── ryu-js v1.0.3
+│       ├── serde_json feature "default"
+│       │   ├── serde_json v1.0.151
+│       │   │   ├── memchr v2.8.3
+│       │   │   ├── serde_core v1.0.229
+│       │   │   ├── itoa feature "default"
+│       │   │   │   └── itoa v1.0.18
+│       │   │   └── zmij feature "default"
+│       │   │       └── zmij v1.0.23
+│       │   └── serde_json feature "std"
+│       │       ├── serde_json v1.0.151 (*)
+│       │       ├── memchr feature "std"
+│       │       │   ├── memchr v2.8.3
+│       │       │   └── memchr feature "alloc"
+│       │       │       └── memchr v2.8.3
+│       │       └── serde_core feature "std"
+│       │           └── serde_core v1.0.229
+│       └── serde_json feature "raw_value"
+│           └── serde_json v1.0.151 (*)
+├── pilotdeck-tokenizer feature "default" (command-line)
+│   └── pilotdeck-tokenizer v0.1.0 (/workspace/rust-core/pilotdeck-tokenizer)
+│       ├── tiktoken-rs v0.12.0 (/workspace/rust-core/vendor/tiktoken-rs)
+│       │   ├── base64 feature "default"
+│       │   │   ├── base64 v0.22.1
+│       │   │   └── base64 feature "std"
+│       │   │       ├── base64 v0.22.1
+│       │   │       └── base64 feature "alloc"
+│       │   │           └── base64 v0.22.1
+│       │   ├── rustc-hash feature "default"
+│       │   │   ├── rustc-hash v2.1.3
+│       │   │   └── rustc-hash feature "std"
+│       │   │       └── rustc-hash v2.1.3
+│       │   ├── anyhow feature "default"
+│       │   │   ├── anyhow v1.0.104
+│       │   │   └── anyhow feature "std"
+│       │   │       └── anyhow v1.0.104
+│       │   ├── bstr feature "default"
+│       │   │   ├── bstr v1.13.1
+│       │   │   │   ├── memchr v2.8.3
+│       │   │   │   └── regex-automata feature "dfa-search"
+│       │   │   │       └── regex-automata v0.4.18
+│       │   │   │           ├── aho-corasick v1.1.5
+│       │   │   │           │   └── memchr v2.8.3
+│       │   │   │           ├── memchr v2.8.3
+│       │   │   │           └── regex-syntax v0.8.11
+│       │   │   ├── bstr feature "std"
+│       │   │   │   ├── bstr v1.13.1 (*)
+│       │   │   │   ├── memchr feature "std" (*)
+│       │   │   │   └── bstr feature "alloc"
+│       │   │   │       ├── bstr v1.13.1 (*)
+│       │   │   │       └── memchr feature "alloc" (*)
+│       │   │   └── bstr feature "unicode"
+│       │   │       └── bstr v1.13.1 (*)
+│       │   ├── fancy-regex feature "default"
+│       │   │   ├── fancy-regex v0.17.0
+│       │   │   │   ├── bit-set v0.8.0
+│       │   │   │   │   └── bit-vec v0.8.0
+│       │   │   │   ├── regex-syntax v0.8.11
+│       │   │   │   ├── regex-automata feature "alloc"
+│       │   │   │   │   └── regex-automata v0.4.18 (*)
+│       │   │   │   ├── regex-automata feature "dfa"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── regex-automata feature "dfa-build"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   ├── regex-automata feature "dfa-search" (*)
+│       │   │   │   │   │   └── regex-automata feature "nfa-thompson"
+│       │   │   │   │   │       ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │       └── regex-automata feature "alloc" (*)
+│       │   │   │   │   ├── regex-automata feature "dfa-onepass"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-automata feature "nfa-thompson" (*)
+│       │   │   │   │   └── regex-automata feature "dfa-search" (*)
+│       │   │   │   ├── regex-automata feature "hybrid"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── regex-automata feature "alloc" (*)
+│       │   │   │   │   └── regex-automata feature "nfa-thompson" (*)
+│       │   │   │   ├── regex-automata feature "meta"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── regex-automata feature "nfa-pikevm"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-automata feature "nfa-thompson" (*)
+│       │   │   │   │   └── regex-automata feature "syntax"
+│       │   │   │   │       ├── regex-automata v0.4.18 (*)
+│       │   │   │   │       └── regex-automata feature "alloc" (*)
+│       │   │   │   ├── regex-automata feature "nfa"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── regex-automata feature "nfa-backtrack"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-automata feature "nfa-thompson" (*)
+│       │   │   │   │   ├── regex-automata feature "nfa-pikevm" (*)
+│       │   │   │   │   └── regex-automata feature "nfa-thompson" (*)
+│       │   │   │   └── regex-automata feature "syntax" (*)
+│       │   │   ├── fancy-regex feature "perf"
+│       │   │   │   ├── fancy-regex v0.17.0 (*)
+│       │   │   │   └── regex-automata feature "perf"
+│       │   │   │       ├── regex-automata v0.4.18 (*)
+│       │   │   │       ├── regex-automata feature "perf-inline"
+│       │   │   │       │   └── regex-automata v0.4.18 (*)
+│       │   │   │       └── regex-automata feature "perf-literal"
+│       │   │   │           ├── regex-automata v0.4.18 (*)
+│       │   │   │           ├── regex-automata feature "perf-literal-multisubstring"
+│       │   │   │           │   └── regex-automata v0.4.18 (*)
+│       │   │   │           └── regex-automata feature "perf-literal-substring"
+│       │   │   │               ├── regex-automata v0.4.18 (*)
+│       │   │   │               └── aho-corasick feature "perf-literal"
+│       │   │   │                   └── aho-corasick v1.1.5 (*)
+│       │   │   ├── fancy-regex feature "std"
+│       │   │   │   ├── fancy-regex v0.17.0 (*)
+│       │   │   │   ├── regex-automata feature "std"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── memchr feature "std" (*)
+│       │   │   │   │   ├── regex-automata feature "alloc" (*)
+│       │   │   │   │   ├── aho-corasick feature "std"
+│       │   │   │   │   │   ├── aho-corasick v1.1.5 (*)
+│       │   │   │   │   │   └── memchr feature "std" (*)
+│       │   │   │   │   └── regex-syntax feature "std"
+│       │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   ├── regex-syntax feature "std" (*)
+│       │   │   │   └── bit-set feature "std"
+│       │   │   │       ├── bit-set v0.8.0 (*)
+│       │   │   │       └── bit-vec feature "std"
+│       │   │   │           └── bit-vec v0.8.0
+│       │   │   ├── fancy-regex feature "unicode"
+│       │   │   │   ├── fancy-regex v0.17.0 (*)
+│       │   │   │   ├── regex-automata feature "unicode"
+│       │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   ├── regex-automata feature "unicode-age"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-age"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-bool"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-bool"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-case"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-case"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-gencat"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-gencat"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-perl"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-perl"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-script"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-script"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-segment"
+│       │   │   │   │   │   ├── regex-automata v0.4.18 (*)
+│       │   │   │   │   │   └── regex-syntax feature "unicode-segment"
+│       │   │   │   │   │       └── regex-syntax v0.8.11
+│       │   │   │   │   ├── regex-automata feature "unicode-word-boundary"
+│       │   │   │   │   │   └── regex-automata v0.4.18 (*)
+│       │   │   │   │   └── regex-syntax feature "unicode"
+│       │   │   │   │       ├── regex-syntax v0.8.11
+│       │   │   │   │       ├── regex-syntax feature "unicode-age" (*)
+│       │   │   │   │       ├── regex-syntax feature "unicode-bool" (*)
+│       │   │   │   │       ├── regex-syntax feature "unicode-case" (*)
+│       │   │   │   │       ├── regex-syntax feature "unicode-gencat" (*)
+│       │   │   │   │       ├── regex-syntax feature "unicode-perl" (*)
+│       │   │   │   │       ├── regex-syntax feature "unicode-script" (*)
+│       │   │   │   │       └── regex-syntax feature "unicode-segment" (*)
+│       │   │   │   └── regex-syntax feature "unicode" (*)
+│       │   │   └── fancy-regex feature "variable-lookbehinds"
+│       │   │       ├── fancy-regex v0.17.0 (*)
+│       │   │       └── regex-automata feature "dfa-search" (*)
+│       │   ├── lazy_static feature "default"
+│       │   │   └── lazy_static v1.5.1
+│       │   └── regex feature "default"
+│       │       ├── regex v1.13.1
+│       │       │   ├── aho-corasick v1.1.5 (*)
+│       │       │   ├── memchr v2.8.3
+│       │       │   ├── regex-syntax v0.8.11
+│       │       │   ├── regex-automata feature "alloc" (*)
+│       │       │   ├── regex-automata feature "meta" (*)
+│       │       │   ├── regex-automata feature "nfa-pikevm" (*)
+│       │       │   └── regex-automata feature "syntax" (*)
+│       │       ├── regex-syntax feature "default"
+│       │       │   ├── regex-syntax v0.8.11
+│       │       │   ├── regex-syntax feature "std" (*)
+│       │       │   └── regex-syntax feature "unicode" (*)
+│       │       ├── regex feature "perf"
+│       │       │   ├── regex v1.13.1 (*)
+│       │       │   ├── regex feature "perf-backtrack"
+│       │       │   │   ├── regex v1.13.1 (*)
+│       │       │   │   └── regex-automata feature "nfa-backtrack" (*)
+│       │       │   ├── regex feature "perf-cache"
+│       │       │   │   └── regex v1.13.1 (*)
+│       │       │   ├── regex feature "perf-dfa"
+│       │       │   │   ├── regex v1.13.1 (*)
+│       │       │   │   └── regex-automata feature "hybrid" (*)
+│       │       │   ├── regex feature "perf-inline"
+│       │       │   │   ├── regex v1.13.1 (*)
+│       │       │   │   └── regex-automata feature "perf-inline" (*)
+│       │       │   ├── regex feature "perf-literal"
+│       │       │   │   ├── regex v1.13.1 (*)
+│       │       │   │   └── regex-automata feature "perf-literal" (*)
+│       │       │   └── regex feature "perf-onepass"
+│       │       │       ├── regex v1.13.1 (*)
+│       │       │       └── regex-automata feature "dfa-onepass" (*)
+│       │       ├── regex feature "std"
+│       │       │   ├── regex v1.13.1 (*)
+│       │       │   ├── memchr feature "std" (*)
+│       │       │   ├── regex-automata feature "std" (*)
+│       │       │   ├── aho-corasick feature "std" (*)
+│       │       │   └── regex-syntax feature "std" (*)
+│       │       └── regex feature "unicode"
+│       │           ├── regex v1.13.1 (*)
+│       │           ├── regex-automata feature "unicode" (*)
+│       │           ├── regex-syntax feature "unicode" (*)
+│       │           ├── regex feature "unicode-age"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-age" (*)
+│       │           │   └── regex-syntax feature "unicode-age" (*)
+│       │           ├── regex feature "unicode-bool"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-bool" (*)
+│       │           │   └── regex-syntax feature "unicode-bool" (*)
+│       │           ├── regex feature "unicode-case"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-case" (*)
+│       │           │   └── regex-syntax feature "unicode-case" (*)
+│       │           ├── regex feature "unicode-gencat"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-gencat" (*)
+│       │           │   └── regex-syntax feature "unicode-gencat" (*)
+│       │           ├── regex feature "unicode-perl"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-perl" (*)
+│       │           │   ├── regex-automata feature "unicode-word-boundary" (*)
+│       │           │   └── regex-syntax feature "unicode-perl" (*)
+│       │           ├── regex feature "unicode-script"
+│       │           │   ├── regex v1.13.1 (*)
+│       │           │   ├── regex-automata feature "unicode-script" (*)
+│       │           │   └── regex-syntax feature "unicode-script" (*)
+│       │           └── regex feature "unicode-segment"
+│       │               ├── regex v1.13.1 (*)
+│       │               ├── regex-automata feature "unicode-segment" (*)
+│       │               └── regex-syntax feature "unicode-segment" (*)
+│       ├── pilotdeck-protocol feature "default" (command-line) (*)
+│       ├── base64 feature "default" (*)
+│       └── rustc-hash feature "default" (*)
+└── sha2 feature "default"
+    ├── sha2 v0.10.9
+    │   ├── cfg-if feature "default"
+    │   │   └── cfg-if v1.0.5
+    │   ├── cpufeatures feature "default"
+    │   │   └── cpufeatures v0.2.17
+    │   └── digest feature "default"
+    │       ├── digest v0.10.7
+    │       │   ├── block-buffer feature "default"
+    │       │   │   └── block-buffer v0.10.4
+    │       │   │       └── generic-array feature "default"
+    │       │   │           └── generic-array v0.14.7
+    │       │   │               └── typenum feature "default"
+    │       │   │                   └── typenum v1.20.1
+    │       │   │               [build-dependencies]
+    │       │   │               └── version_check feature "default"
+    │       │   │                   └── version_check v0.9.5
+    │       │   └── crypto-common feature "default"
+    │       │       └── crypto-common v0.1.7
+    │       │           ├── generic-array feature "default" (*)
+    │       │           ├── generic-array feature "more_lengths"
+    │       │           │   └── generic-array v0.14.7 (*)
+    │       │           └── typenum feature "default" (*)
+    │       └── digest feature "core-api"
+    │           ├── digest v0.10.7 (*)
+    │           └── digest feature "block-buffer"
+    │               └── digest v0.10.7 (*)
+    └── sha2 feature "std"
+        ├── sha2 v0.10.9 (*)
+        └── digest feature "std"
+            ├── digest v0.10.7 (*)
+            ├── digest feature "alloc"
+            │   └── digest v0.10.7 (*)
+            └── crypto-common feature "std"
+                └── crypto-common v0.1.7 (*)
+
+pilotdeck-protocol v0.1.0 (/workspace/rust-core/pilotdeck-protocol) (*)
+
+pilotdeck-tokenizer v0.1.0 (/workspace/rust-core/pilotdeck-tokenizer) (*)
+
+pilotdeck-transport v0.1.0 (/workspace/rust-core/pilotdeck-transport)
+├── pilotdeck-agent feature "default" (command-line)
+│   └── pilotdeck-agent v0.1.0 (/workspace/rust-core/pilotdeck-agent) (*)
+├── pilotdeck-protocol feature "default" (command-line) (*)
+├── chrono feature "clock"
+│   ├── chrono v0.4.45
+│   │   ├── num-traits v0.2.19
+│   │   │   [build-dependencies]
+│   │   │   └── autocfg feature "default"
+│   │   │       └── autocfg v1.5.1
+│   │   ├── iana-time-zone feature "default"
+│   │   │   └── iana-time-zone v0.1.65
+│   │   └── iana-time-zone feature "fallback"
+│   │       └── iana-time-zone v0.1.65
+│   ├── chrono feature "iana-time-zone"
+│   │   └── chrono v0.4.45 (*)
+│   ├── chrono feature "now"
+│   │   ├── chrono v0.4.45 (*)
+│   │   └── chrono feature "std"
+│   │       ├── chrono v0.4.45 (*)
+│   │       └── chrono feature "alloc"
+│   │           └── chrono v0.4.45 (*)
+│   └── chrono feature "winapi"
+│       ├── chrono v0.4.45 (*)
+│       └── chrono feature "windows-link"
+│           └── chrono v0.4.45 (*)
+├── chrono feature "std" (*)
+├── tz-rs feature "alloc"
+│   └── tz-rs v0.7.3
+├── uuid feature "default"
+│   ├── uuid v1.27.0
+│   │   └── getrandom feature "default"
+│   │       └── getrandom v0.4.3
+│   │           ├── libc v0.2.190
+│   │           └── cfg-if feature "default" (*)
+│   └── uuid feature "std"
+│       └── uuid v1.27.0 (*)
+└── uuid feature "v4"
+    ├── uuid v1.27.0 (*)
+    └── uuid feature "rng"
+        └── uuid v1.27.0 (*)

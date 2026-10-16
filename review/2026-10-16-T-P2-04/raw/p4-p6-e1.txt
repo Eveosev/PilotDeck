@@ -1,0 +1,160 @@
+$ git diff --stat 2238c7ba -- apps/ tools/ src/ ui/ crates/ packages/
+DIFFSTAT_EXIT:0
+
+$ git show HEAD:apps/desktop/scripts/rust-hello.mjs | grep RUST_HELLO_BIN
+8:export const RUST_HELLO_BIN = "pilotdeck-agent-loop-hello";
+
+$ grep sidecar scripts
+tools/agent-loop-parity/rust-stdio-sidecar.sh:12:  bin="$(cd "$(dirname "$0")/../.." && pwd)/target/release/pilotdeck-agent-loop"
+tools/agent-loop-parity/rust-tcp-sidecar.sh:8:  bin="$(cd "$(dirname "$0")/../.." && pwd)/target/release/pilotdeck-agent-loop"
+
+$ grep readTransport default
+139:  if (normalized === undefined || normalized === "" || normalized === "native") return "native";
+
+$ git diff 2238c7ba -- LICENSE
+LICENSE_DIFF_EXIT:0
+
+$ head rust-core/LICENSE
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+$ git diff --name-only 2238c7ba..HEAD
+docs/rust_rebuild/PLAN.md
+rust-core/.gitattributes
+rust-core/.gitignore
+rust-core/Cargo.lock
+rust-core/Cargo.toml
+rust-core/LICENSE
+rust-core/PROVENANCE.md
+rust-core/README.md
+rust-core/docs/ARCHITECTURE.md
+rust-core/docs/DEVELOPMENT.md
+rust-core/docs/PROTOCOL.md
+rust-core/pilotdeck-agent/Cargo.toml
+rust-core/pilotdeck-agent/src/boundary_match.rs
+rust-core/pilotdeck-agent/src/budget_terminal.rs
+rust-core/pilotdeck-agent/src/budget_terminal_policy.rs
+rust-core/pilotdeck-agent/src/compaction_persistence.rs
+rust-core/pilotdeck-agent/src/compaction_persistence_policy.rs
+rust-core/pilotdeck-agent/src/compaction_terminal.rs
+rust-core/pilotdeck-agent/src/compaction_terminal_policy.rs
+rust-core/pilotdeck-agent/src/driver.rs
+rust-core/pilotdeck-agent/src/early_stream_recovery.rs
+rust-core/pilotdeck-agent/src/early_stream_recovery_policy.rs
+rust-core/pilotdeck-agent/src/large_file_repair.rs
+rust-core/pilotdeck-agent/src/lib.rs
+rust-core/pilotdeck-agent/src/ordinary_error_recovery.rs
+rust-core/pilotdeck-agent/src/ordinary_error_recovery_policy.rs
+rust-core/pilotdeck-agent/src/output_recovery.rs
+rust-core/pilotdeck-agent/src/output_recovery_policy.rs
+rust-core/pilotdeck-agent/src/ports.rs
+rust-core/pilotdeck-agent/src/request.rs
+rust-core/pilotdeck-agent/src/request_assembly.rs
+rust-core/pilotdeck-agent/src/request_materialization.rs
+rust-core/pilotdeck-agent/src/request_materialization_policy.rs
+rust-core/pilotdeck-agent/src/session_state.rs
+rust-core/pilotdeck-agent/src/session_state_projection.rs
+rust-core/pilotdeck-agent/src/source_invocation.rs
+rust-core/pilotdeck-agent/src/source_model.rs
+rust-core/pilotdeck-agent/src/source_model_reducer.rs
+rust-core/pilotdeck-agent/src/tool_context.rs
+rust-core/pilotdeck-agent/src/tool_context_policy.rs
+rust-core/pilotdeck-agent/src/tool_error_recovery.rs
+rust-core/pilotdeck-agent/src/tool_error_recovery_policy.rs
+rust-core/pilotdeck-agent/src/tool_failures.rs
+rust-core/pilotdeck-agent/src/tool_failures_policy.rs
+rust-core/pilotdeck-agent/src/tool_projection.rs
+rust-core/pilotdeck-agent/src/turn.rs
+rust-core/pilotdeck-agent/src/turn_timeline.rs
+rust-core/pilotdeck-agent/src/turn_wire.rs
+rust-core/pilotdeck-agent/src/usage_fallback.rs
+rust-core/pilotdeck-agent/src/usage_fallback_policy.rs
+rust-core/pilotdeck-agent/tests/budget_terminal.rs
+rust-core/pilotdeck-agent/tests/cancellation.rs
+rust-core/pilotdeck-agent/tests/compaction_persistence.rs
+rust-core/pilotdeck-agent/tests/compaction_terminal.rs
+rust-core/pilotdeck-agent/tests/driver_policy.rs
+rust-core/pilotdeck-agent/tests/early_stream_recovery.rs
+rust-core/pilotdeck-agent/tests/large_file_repair.rs
+rust-core/pilotdeck-agent/tests/ordinary_error_recovery.rs
+rust-core/pilotdeck-agent/tests/output_recovery.rs
+rust-core/pilotdeck-agent/tests/output_recovery_extension.rs
+rust-core/pilotdeck-agent/tests/pure_helpers.rs
+rust-core/pilotdeck-agent/tests/request_assembly.rs
+rust-core/pilotdeck-agent/tests/request_materialization.rs
+rust-core/pilotdeck-agent/tests/session_state_projection.rs
+rust-core/pilotdeck-agent/tests/source_model_reducer.rs
+rust-core/pilotdeck-agent/tests/timeline.rs
+rust-core/pilotdeck-agent/tests/tool_context.rs
+rust-core/pilotdeck-agent/tests/tool_error_recovery.rs
+rust-core/pilotdeck-agent/tests/tool_failure_recovery.rs
+rust-core/pilotdeck-agent/tests/usage_fallback.rs
+rust-core/pilotdeck-protocol/Cargo.toml
+rust-core/pilotdeck-protocol/src/admission.rs
+rust-core/pilotdeck-protocol/src/codec.rs
+rust-core/pilotdeck-protocol/src/consumer.rs
+rust-core/pilotdeck-protocol/src/lib.rs
+rust-core/pilotdeck-protocol/src/model.rs
+rust-core/pilotdeck-protocol/src/module.rs
+rust-core/pilotdeck-protocol/src/snapshots.rs
+rust-core/pilotdeck-protocol/src/wire.rs
+rust-core/pilotdeck-protocol/tests/codec.rs
+rust-core/pilotdeck-protocol/tests/model_admission.rs
+rust-core/pilotdeck-tokenizer/Cargo.toml
+rust-core/pilotdeck-tokenizer/src/implementation.rs
+rust-core/pilotdeck-tokenizer/src/lib.rs
+rust-core/pilotdeck-tokenizer/tests/ordinary.rs
+rust-core/pilotdeck-transport/Cargo.toml
+rust-core/pilotdeck-transport/build.rs
+rust-core/pilotdeck-transport/src/bin/pilotdeck-agent-loop-sidecar.rs
+rust-core/pilotdeck-transport/src/default_factory.rs
+rust-core/pilotdeck-transport/src/execute.rs
+rust-core/pilotdeck-transport/src/factory_payload.rs
+rust-core/pilotdeck-transport/src/host_operations.rs
+rust-core/pilotdeck-transport/src/lib.rs
+rust-core/pilotdeck-transport/src/model_admission.rs
+rust-core/pilotdeck-transport/src/notifications.rs
+rust-core/pilotdeck-transport/src/server.rs
+rust-core/pilotdeck-transport/src/stdio.rs
+rust-core/pilotdeck-transport/src/system_clock.rs
+rust-core/pilotdeck-transport/tests/bounded_capture.rs
+rust-core/pilotdeck-transport/tests/bounded_capture_memory.mts
+rust-core/pilotdeck-transport/tests/context_boundary.rs
+rust-core/pilotdeck-transport/tests/deadline_terminal.rs
+rust-core/pilotdeck-transport/tests/error_boundaries.rs
+rust-core/pilotdeck-transport/tests/factory_payload.rs
+rust-core/pilotdeck-transport/tests/fixtures/node22-date-parse.json
+rust-core/pilotdeck-transport/tests/fixtures/node22-date-parse.mjs
+rust-core/pilotdeck-transport/tests/host_contract.rs
+rust-core/pilotdeck-transport/tests/launch_arguments.rs
+rust-core/pilotdeck-transport/tests/server_owner.rs
+rust-core/pilotdeck-transport/tests/system_clock.rs
+rust-core/rust-toolchain.toml
+rust-core/vendor/tiktoken-rs/.cargo_vcs_info.json
+rust-core/vendor/tiktoken-rs/Cargo.lock
+rust-core/vendor/tiktoken-rs/Cargo.toml
+rust-core/vendor/tiktoken-rs/Cargo.toml.orig
+rust-core/vendor/tiktoken-rs/LICENSE
+rust-core/vendor/tiktoken-rs/PROVENANCE.md
+rust-core/vendor/tiktoken-rs/README.md
+rust-core/vendor/tiktoken-rs/assets/cl100k_base.tiktoken
+rust-core/vendor/tiktoken-rs/assets/o200k_base.tiktoken
+rust-core/vendor/tiktoken-rs/assets/p50k_base.tiktoken
+rust-core/vendor/tiktoken-rs/assets/r50k_base.tiktoken
+rust-core/vendor/tiktoken-rs/src/api.rs
+rust-core/vendor/tiktoken-rs/src/lib.rs
+rust-core/vendor/tiktoken-rs/src/model.rs
+rust-core/vendor/tiktoken-rs/src/patched_tiktoken.rs
+rust-core/vendor/tiktoken-rs/src/singleton.rs
+rust-core/vendor/tiktoken-rs/src/tiktoken_ext/mod.rs
+rust-core/vendor/tiktoken-rs/src/tiktoken_ext/openai_public.rs
+rust-core/vendor/tiktoken-rs/src/tokenizer.rs
+rust-core/vendor/tiktoken-rs/src/vendor_tiktoken.rs
+
+$ git diff --exit-code 2238c7ba -- Cargo.toml Cargo.lock rust-toolchain.toml .github/workflows/rust-hello.yml
+E1_EXIT:0
+
+$ git status --porcelain
+STATUS_EXIT:0
+HEAD=87b2d6b4e6fc193d6970de73466be5711b3d494c
+PARENT=2238c7ba7398c7f777f473937f0c9e2851130fbb
