@@ -1,0 +1,35 @@
+{
+  "sha": "d740abe1330bbc4a7ca9e2264fed0dad72b9a866",
+  "repo": "https://github.com/Eveosev/PilotDeck",
+  "branch": "rust_standalone_alpha1",
+  "merged_prs": [
+    53
+  ],
+  "parents": [
+    "2238c7ba7398c7f777f473937f0c9e2851130fbb",
+    "47d42414780a6b4a867c9a6bc6878278b25fde42"
+  ],
+  "diff_vs_first_parent": "163 files changed, 507377 insertions(+), 3 deletions(-) \u2014 T-P2-04 rust-core adopt (no apps/desktop or ui chrome change vs prior smoke tip)",
+  "diff_vs_prior_smoke_2238c7ba_desktop": "0 files under apps/desktop, ui, packages/sdk, src",
+  "runner": "Grok Bot shared box, local run (GHA disabled)",
+  "entry": "apps/desktop/scripts/run-linux-chrome-smoke.sh (unmodified)",
+  "script_sha256": "3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825",
+  "smoke_mjs_sha256": "89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130",
+  "weston_log_capture": "20ms poller copying /tmp/tmp.*/weston.log before EXIT trap rm -rf (weston-copy-trace.txt)",
+  "runs": {
+    "x11": {
+      "exit": 0,
+      "seconds": 28.393,
+      "start": "2026-10-16T11:40:37.459Z",
+      "end": "2026-10-16T11:41:05.855Z",
+      "screenshots": 9
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 25.462,
+      "start": "2026-10-16T11:41:18.399Z",
+      "end": "2026-10-16T11:41:43.864Z",
+      "screenshots": 9
+    }
+  }
+}
