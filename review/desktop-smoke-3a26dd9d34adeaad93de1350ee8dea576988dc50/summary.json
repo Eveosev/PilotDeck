@@ -1,0 +1,58 @@
+{
+  "kind": "desktop-linux-chrome-smoke-evidence",
+  "draftEvidenceOnly": true,
+  "doNotMerge": true,
+  "doesNotClaimIssue14HungFixed": true,
+  "gitSha": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "gitDirty": false,
+  "porcelainByteCount": 0,
+  "gitDirtyMeasuredBeforeEvidenceWrite": true,
+  "identityVerifiedAtUtc": "2026-10-14T11:35:13Z",
+  "baseBranch": "rust_standalone_alpha1",
+  "headBranch": "evidence/desktop-smoke-3a26dd9d",
+  "remoteBaseSha": "3a26dd9d34adeaad93de1350ee8dea576988dc50",
+  "mergePr": 24,
+  "commitSubject": "Merge pull request #24 from Eveosev/cursor/t-p1-03-pr-a-stub",
+  "parents": [
+    "c5bed6c1475632b770dc99033c15ee24616e9227",
+    "971e45b18582ec60db77508e9fec5e8685e63684"
+  ],
+  "modes": {
+    "x11": {
+      "result": "PASS",
+      "passed": true,
+      "exitCode": 0,
+      "seconds": 26,
+      "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh x11",
+      "startUtc": "2026-10-14T11:35:52Z",
+      "endUtc": "2026-10-14T11:36:18Z",
+      "fileClickTimeout": 0,
+      "fileClickStable": 1,
+      "n": 1,
+      "log": "smoke-x11.log"
+    },
+    "wayland": {
+      "result": "PASS",
+      "passed": true,
+      "exitCode": 0,
+      "seconds": 23,
+      "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland",
+      "wrapper": "timeout --preserve-status --signal=TERM --kill-after=30s 300",
+      "startUtc": "2026-10-14T11:36:36Z",
+      "endUtc": "2026-10-14T11:36:59Z",
+      "fileClickTimeout": 0,
+      "fileClickStable": 1,
+      "n": 1,
+      "wrapperTimeout": 0,
+      "log": "smoke-wayland.log",
+      "westonLog": "weston.log"
+    }
+  },
+  "timestamps": {
+    "identityVerifiedUtc": "2026-10-14T11:35:13Z",
+    "x11StartUtc": "2026-10-14T11:35:52Z",
+    "x11EndUtc": "2026-10-14T11:36:18Z",
+    "waylandStartUtc": "2026-10-14T11:36:36Z",
+    "waylandEndUtc": "2026-10-14T11:36:59Z"
+  }
+}
