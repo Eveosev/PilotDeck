@@ -1,0 +1,150 @@
+=== pnpm install --frozen-lockfile @ 2026-10-17T20:49:28+08:00 ===
+ WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+packages/sdk                             |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+ui                                       |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+Scope: all 4 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1478
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+   ╭──────────────────────────────────────────╮
+   │                                          │
+   │   Update available! 10.32.1 → 12.14.0.   │
+   │   Changelog: https://pnpm.io/v/12.14.0   │
+   │     To update, run: pnpm add -g pnpm     │
+   │                                          │
+   ╰──────────────────────────────────────────╯
+
+Progress: resolved 1478, reused 1, downloaded 59, added 19
+Progress: resolved 1478, reused 1, downloaded 461, added 388
+Progress: resolved 1478, reused 1, downloaded 899, added 792
+Progress: resolved 1478, reused 1, downloaded 1418, added 1325
+Progress: resolved 1478, reused 1, downloaded 1476, added 1478, done
+.../node_modules/protobufjs postinstall$ node scripts/postinstall
+.../node_modules/electron-winstaller install$ node ./script/select-7z-arch.js
+.../sharp@0.34.5/node_modules/sharp install$ node install/check.js || npm run build
+.../esbuild@0.28.0/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js
+.../node_modules/protobufjs postinstall: Done
+.../node_modules/unrs-resolver postinstall$ node postinstall.js
+.../node_modules/electron-winstaller install: Selecting 7-Zip for arch x64
+.../node_modules/electron-winstaller install: Done
+.../sharp@0.34.5/node_modules/sharp install: Done
+.../bcrypt@6.0.0/node_modules/bcrypt install$ node-gyp-build
+.../esbuild@0.28.0/node_modules/esbuild postinstall: Done
+.../esbuild@0.27.7/node_modules/esbuild postinstall: Done
+.../node-pty@1.1.0/node_modules/node-pty install$ node scripts/prebuild.js || node-gyp rebuild
+.../node_modules/unrs-resolver postinstall: Done
+.../node_modules/better-sqlite3 install$ prebuild-install || node-gyp rebuild --release
+.../node-pty@1.1.0/node_modules/node-pty install: [32m> Checking prebuilds...[0m
+.../node-pty@1.1.0/node_modules/node-pty install: [33m> Rebuilding because directory /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/prebuilds/linux-x64 does not exist[0m
+.../bcrypt@6.0.0/node_modules/bcrypt install: Done
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info it worked if it ends with ok
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info using node-gyp@11.5.0
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info using node@20.19.2 | linux | x64
+.../node_modules/better-sqlite3 install: prebuild-install warn install No prebuilt binaries found (target=20.19.2 runtime=node arch=x64 libc= platform=linux)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info find Python using Python version 3.13.5 found at "/usr/bin/python3"
+.../node_modules/better-sqlite3 install: gyp info it worked if it ends with ok
+.../node_modules/better-sqlite3 install: gyp info using node-gyp@11.5.0
+.../node_modules/better-sqlite3 install: gyp info using node@20.19.2 | linux | x64
+.../node-pty@1.1.0/node_modules/node-pty install: gyp http GET https://nodejs.org/download/release/v20.19.2/node-v20.19.2-headers.tar.gz
+.../node_modules/better-sqlite3 install: gyp info find Python using Python version 3.13.5 found at "/usr/bin/python3"
+.../node-pty@1.1.0/node_modules/node-pty install: gyp http 200 https://nodejs.org/download/release/v20.19.2/node-v20.19.2-headers.tar.gz
+.../node_modules/better-sqlite3 install: gyp http GET https://nodejs.org/download/release/v20.19.2/node-v20.19.2-headers.tar.gz
+.../node_modules/better-sqlite3 install: gyp http 200 https://nodejs.org/download/release/v20.19.2/node-v20.19.2-headers.tar.gz
+.../node-pty@1.1.0/node_modules/node-pty install: gyp http GET https://nodejs.org/download/release/v20.19.2/SHASUMS256.txt
+.../node-pty@1.1.0/node_modules/node-pty install: gyp http 200 https://nodejs.org/download/release/v20.19.2/SHASUMS256.txt
+.../node_modules/better-sqlite3 install: gyp http GET https://nodejs.org/download/release/v20.19.2/SHASUMS256.txt
+.../node_modules/better-sqlite3 install: gyp http 200 https://nodejs.org/download/release/v20.19.2/SHASUMS256.txt
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn /usr/bin/python3
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args [
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'binding.gyp',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-f',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'make',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/build/config.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/addon.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.cache/node-gyp/20.19.2/include/node/common.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dlibrary=shared_library',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dvisibility=default',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_root_dir=/home/box/.cache/node-gyp/20.19.2',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_gyp_dir=/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_lib_file=/home/box/.cache/node-gyp/20.19.2/<(target_arch)/node.lib',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dmodule_root_dir=/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_engine=v8',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--depth=.',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--no-parallel',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--generator-output',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'build',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Goutput_dir=.'
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args ]
+.../node_modules/better-sqlite3 install: gyp info spawn /usr/bin/python3
+.../node_modules/better-sqlite3 install: gyp info spawn args [
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'binding.gyp',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-f',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'make',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3/build/config.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/addon.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.cache/node-gyp/20.19.2/include/node/common.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dlibrary=shared_library',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dvisibility=default',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_root_dir=/home/box/.cache/node-gyp/20.19.2',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_gyp_dir=/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_lib_file=/home/box/.cache/node-gyp/20.19.2/<(target_arch)/node.lib',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dmodule_root_dir=/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_engine=v8',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--depth=.',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--no-parallel',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--generator-output',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'build',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Goutput_dir=.'
+.../node_modules/better-sqlite3 install: gyp info spawn args ]
+.../node_modules/better-sqlite3 install: gyp ERR! build error 
+.../node_modules/better-sqlite3 install: gyp ERR! stack Error: not found: make
+.../node_modules/better-sqlite3 install: gyp ERR! stack at getNotFoundError (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/which/lib/index.js:16:17)
+.../node_modules/better-sqlite3 install: gyp ERR! stack at which (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/which/lib/index.js:77:9)
+.../node_modules/better-sqlite3 install: gyp ERR! stack at async doWhich (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:120:22)
+.../node_modules/better-sqlite3 install: gyp ERR! stack at async loadConfigGypi (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:78:7)
+.../node_modules/better-sqlite3 install: gyp ERR! stack at async build (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:36:3)
+.../node_modules/better-sqlite3 install: gyp ERR! stack at async run (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/bin/node-gyp.js:81:18)
+.../node_modules/better-sqlite3 install: gyp ERR! System Linux 6.12.94+
+.../node_modules/better-sqlite3 install: gyp ERR! command "/usr/bin/node" "/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/bin/node-gyp.js" "rebuild" "--release"
+.../node_modules/better-sqlite3 install: gyp ERR! cwd /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3
+.../node_modules/better-sqlite3 install: gyp ERR! node -v v20.19.2
+.../node_modules/better-sqlite3 install: gyp ERR! node-gyp -v v11.5.0
+.../node_modules/better-sqlite3 install: gyp ERR! not ok 
+.../node_modules/better-sqlite3 install: Failed
+ ELIFECYCLE  Command failed with exit code 1.
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! build error 
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack Error: not found: make
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at getNotFoundError (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/which/lib/index.js:16:17)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at which (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/which/lib/index.js:77:9)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at async doWhich (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:120:22)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at async loadConfigGypi (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:78:7)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at async build (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/lib/build.js:36:3)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! stack at async run (/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/bin/node-gyp.js:81:18)
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! System Linux 6.12.94+
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! command "/usr/bin/node" "/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/bin/node-gyp.js" "rebuild"
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! cwd /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! node -v v20.19.2
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! node-gyp -v v11.5.0
+.../node-pty@1.1.0/node_modules/node-pty install: gyp ERR! not ok 
+.../node-pty@1.1.0/node_modules/node-pty install: Failed
+install_exit=1
+=== pnpm compile (apps/desktop) @ 2026-10-17T20:49:36+08:00 ===
+
+> pilotdeck-desktop@0.1.0 compile /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/apps/desktop
+> tsc -p tsconfig.json
+
+sh: 1: tsc: not found
+ ELIFECYCLE  Command failed.
+compile_exit=1
+=== done @ 2026-10-17T20:49:37+08:00 ===

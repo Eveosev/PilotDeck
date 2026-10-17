@@ -1,0 +1,9 @@
+git_user_name=Payne_Wu
+git_user_email=44869963+Eveosev@users.noreply.github.com
+remotes:
+eveosev	https://github.com/Eveosev/PilotDeck.git (fetch) [blob:none]
+eveosev	https://github.com/Eveosev/PilotDeck.git (push)
+origin	https://github.com/OpenBMB/PilotDeck.git (fetch) [blob:none]
+origin	https://github.com/OpenBMB/PilotDeck.git (push)
+HEAD=fbcfa7a9471045354de1dd33fefe9fc27bfd856b
+parents=d21eb126486eed0e86a76b00beb4f6ccd5636953 31a462e6accff94677dc270ad73c9a520e797dcd
