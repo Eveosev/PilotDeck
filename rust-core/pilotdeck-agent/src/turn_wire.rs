@@ -218,16 +218,20 @@ pub fn event(input: &TurnInput, event: &TurnEvent) -> BoundarySnapshot {
         TurnEvent::StopFailure { error } => {
             text(&mut out, "error", error);
         }
-        TurnEvent::AgentStatus { event, detail } => {
-            text(&mut out, "event", event);
-            put(&mut out, "detail", detail.value().clone());
-        }
-        TurnEvent::AgentStatusText {
+        TurnEvent::AgentStatus {
             event,
+            kind,
+            text: status_text,
+            detail,
+        }
+        | TurnEvent::AgentStatusText {
+            event,
+            kind,
             text: status_text,
             detail,
         } => {
             text(&mut out, "event", event);
+            text(&mut out, "kind", kind);
             text(&mut out, "text", status_text);
             put(&mut out, "detail", detail.value().clone());
         }
@@ -289,4 +293,116 @@ pub fn event(input: &TurnInput, event: &TurnEvent) -> BoundarySnapshot {
         }
     }
     BoundarySnapshot::capture(&JsValue::Object(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::event;
+    use crate::turn::{TurnEvent, TurnInput};
+    use pilotdeck_protocol::model::BoundarySnapshot;
+    use pilotdeck_protocol::{JsValue, parse_json};
+
+    fn input() -> TurnInput {
+        TurnInput {
+            session_id: "session".into(),
+            turn_id: "turn".into(),
+            messages: vec![],
+            max_turns: None,
+            max_budget_usd: None,
+            task_budget_usd: None,
+            initial_task_budget_spent_usd: None,
+            base_permission_mode: None,
+            allow_plan_mode_tools: false,
+            can_elicit: false,
+            model_override: None,
+        }
+    }
+
+    fn detail() -> BoundarySnapshot {
+        BoundarySnapshot::capture(&parse_json(r#"{"message":"kept"}"#).unwrap())
+    }
+
+    fn assert_kind_and_text(wire: &BoundarySnapshot, kind: &str, text: &str) {
+        let value = wire.value();
+        assert_eq!(value.get("type"), Some(&JsValue::from("agent_status")));
+        assert_eq!(value.get("kind"), Some(&JsValue::from(kind)));
+        assert_eq!(value.get("text"), Some(&JsValue::from(text)));
+        assert!(
+            value
+                .get("kind")
+                .and_then(JsValue::as_string)
+                .is_some_and(|kind| !kind.is_empty())
+        );
+        assert!(
+            value
+                .get("text")
+                .and_then(JsValue::as_string)
+                .is_some_and(|text| !text.is_empty())
+        );
+        assert_eq!(
+            value.get("detail").and_then(|detail| detail.get("message")),
+            Some(&JsValue::from("kept"))
+        );
+    }
+
+    #[test]
+    fn agent_status_wire_always_emits_kind_and_text() {
+        let wire = event(
+            &input(),
+            &TurnEvent::AgentStatus {
+                event: "turn_aborted".into(),
+                kind: "status".into(),
+                text: "This turn was aborted before completion.".into(),
+                detail: detail(),
+            },
+        );
+        assert_kind_and_text(&wire, "status", "This turn was aborted before completion.");
+        assert_eq!(
+            wire.value().get("event"),
+            Some(&JsValue::from("turn_aborted"))
+        );
+    }
+
+    #[test]
+    fn agent_status_text_wire_always_emits_kind_and_text() {
+        let wire = event(
+            &input(),
+            &TurnEvent::AgentStatusText {
+                event: "content_filter_stop".into(),
+                kind: "error".into(),
+                text: "The response may be incomplete because the model stopped due to content filtering.".into(),
+                detail: detail(),
+            },
+        );
+        assert_kind_and_text(
+            &wire,
+            "error",
+            "The response may be incomplete because the model stopped due to content filtering.",
+        );
+    }
+
+    #[test]
+    fn budget_status_wire_keeps_gateway_amount_sentence() {
+        let sentence = "Reached Gateway-owned maxBudgetUsd ($1.000000) after spending $1.250000.";
+        let wire = event(
+            &input(),
+            &TurnEvent::AgentStatus {
+                event: "max_budget_reached".into(),
+                kind: "error".into(),
+                text: sentence.into(),
+                detail: BoundarySnapshot::capture(
+                    &parse_json(r#"{"maxBudgetUsd":1,"spentBudgetUsd":1.25}"#).unwrap(),
+                ),
+            },
+        );
+        let value = wire.value();
+        assert_eq!(value.get("kind"), Some(&JsValue::from("error")));
+        assert_eq!(value.get("text"), Some(&JsValue::from(sentence)));
+        assert!(
+            value
+                .get("detail")
+                .and_then(|detail| detail.get("message"))
+                .is_none()
+        );
+    }
 }

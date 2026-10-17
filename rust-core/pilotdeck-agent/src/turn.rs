@@ -366,10 +366,13 @@ pub enum TurnEvent {
     },
     AgentStatus {
         event: JsString,
+        kind: JsString,
+        text: JsString,
         detail: BoundarySnapshot,
     },
     AgentStatusText {
         event: JsString,
+        kind: JsString,
         text: JsString,
         detail: BoundarySnapshot,
     },
@@ -1625,13 +1628,17 @@ pub fn run_admitted_turn(
                         TurnStopReason::ToolError,
                     );
                     result.errors.push(error.clone());
+                    let detail = lifecycle_blocked_status(reason);
+                    let text = text_from_detail(&detail, "A lifecycle hook blocked this turn.");
                     emit_event(
                         events,
                         &mut state.timeline,
                         input,
                         TurnEvent::AgentStatus {
                             event: "lifecycle_blocked".into(),
-                            detail: lifecycle_blocked_status(reason),
+                            kind: "error".into(),
+                            text,
+                            detail,
                         },
                     )?;
                     emit_event(
@@ -1665,13 +1672,20 @@ pub fn run_admitted_turn(
                     .iter()
                     .any(|unit| !source_whitespace(*unit))
             {
+                let detail = content_filter_status();
+                let text = text_from_detail(
+                    &detail,
+                    "The response may be incomplete because the model stopped due to content filtering.",
+                );
                 emit_event(
                     events,
                     &mut state.timeline,
                     input,
                     TurnEvent::AgentStatus {
                         event: "content_filter_stop".into(),
-                        detail: content_filter_status(),
+                        kind: "error".into(),
+                        text,
+                        detail,
                     },
                 )?;
             }
@@ -2076,13 +2090,17 @@ pub fn run_admitted_turn(
                 .expect("constructed lifecycle status")
                 .clone();
             detail.insert("stage".into(), "tool_lifecycle".into());
+            let detail = BoundarySnapshot::capture(&JsValue::Object(detail));
+            let text = text_from_detail(&detail, "A lifecycle hook blocked this turn.");
             emit_event(
                 events,
                 &mut state.timeline,
                 input,
                 TurnEvent::AgentStatus {
                     event: "lifecycle_blocked".into(),
-                    detail: BoundarySnapshot::capture(&JsValue::Object(detail)),
+                    kind: "error".into(),
+                    text,
+                    detail,
                 },
             )?;
             return finish_failed_tool_terminal(
@@ -2562,6 +2580,95 @@ fn wrong_reply(operation: &str) -> PortError {
         message: format!("{operation} returned a reply for another operation.").into(),
     }
 }
+/// AgentLoop factory kind (`AgentLoop.ts` status factories).
+/// `turn_aborted` and `structured_output_completed` are `"status"`.
+/// Budget, `content_filter_stop`, and the other named terminals are `"error"`
+/// even when `detail.severity` is `"warning"`. An explicit `"status"` / `"error"`
+/// applies only to events those factories do not name. `detail.severity == "error"`
+/// is the last resort.
+fn factory_status_kind(
+    event: &JsString,
+    explicit: Option<&JsString>,
+    detail: &JsValue,
+) -> JsString {
+    if event.equals_str("turn_aborted") || event.equals_str("structured_output_completed") {
+        return "status".into();
+    }
+    if [
+        "max_budget_reached",
+        "task_budget_reached",
+        "model_request_failed",
+        "tool_call_recovery_exhausted",
+        "tool_error_loop",
+        "lifecycle_blocked",
+        "model_empty_response_exhausted",
+        "max_turns_reached",
+        "max_output_recovery_exhausted",
+        "content_filter_stop",
+        "unknown_finish_reason",
+    ]
+    .iter()
+    .any(|name| event.equals_str(name))
+    {
+        return "error".into();
+    }
+    if let Some(kind) = explicit
+        && (kind.equals_str("status") || kind.equals_str("error"))
+    {
+        return kind.clone();
+    }
+    if detail
+        .get("severity")
+        .and_then(JsValue::as_string)
+        .is_some_and(|severity| severity.equals_str("error"))
+    {
+        return "error".into();
+    }
+    "status".into()
+}
+fn text_from_detail(detail: &BoundarySnapshot, fallback: &str) -> JsString {
+    match detail.value().get("message").and_then(JsValue::as_string) {
+        Some(text) if !text.is_empty() => text.clone(),
+        _ => fallback.into(),
+    }
+}
+fn factory_status_fallback(event: &JsString) -> &'static str {
+    if event.equals_str("turn_aborted") {
+        "This turn was aborted before completion."
+    } else if event.equals_str("structured_output_completed") {
+        "Structured output was returned, so this turn has completed."
+    } else if event.equals_str("content_filter_stop") {
+        "The response may be incomplete because the model stopped due to content filtering."
+    } else if event.equals_str("unknown_finish_reason") {
+        "The model stream ended without a normal finish reason, so the response may be incomplete."
+    } else if event.equals_str("lifecycle_blocked") {
+        "A lifecycle hook blocked this turn."
+    } else if event.equals_str("tool_call_recovery_exhausted") {
+        "Tool-call recovery was exhausted, so this turn has stopped."
+    } else if event.equals_str("tool_error_loop") {
+        "The agent repeatedly hit the same tool error, so this turn has stopped."
+    } else if event.equals_str("model_empty_response_exhausted") {
+        "The model returned empty content repeatedly, so this turn has stopped. Try again later or increase max output tokens."
+    } else if event.equals_str("max_output_recovery_exhausted") {
+        "Output token recovery was exhausted, so the visible response may be incomplete. Increase max output tokens or split the task into smaller steps and try again."
+    } else if event.equals_str("max_turns_reached") {
+        "Reached the maximum number of turns, so this turn has stopped. Increase maxTurns or split the task into smaller steps and try again."
+    } else if event.equals_str("model_request_failed") {
+        "The model request failed, so this turn has stopped."
+    } else {
+        "This turn has stopped."
+    }
+}
+fn recorded_status_text(
+    status: &BoundarySnapshot,
+    detail: &BoundarySnapshot,
+    event: &JsString,
+) -> JsString {
+    match status.value().get("text").and_then(JsValue::as_string) {
+        Some(text) if !text.is_empty() => text.clone(),
+        _ => text_from_detail(detail, factory_status_fallback(event)),
+    }
+}
 struct TerminalTurnPorts<'a> {
     host: &'a mut dyn HostPort,
     events: &'a mut dyn TurnEventPort,
@@ -2650,13 +2757,17 @@ fn finish_pre_model_abort(
                 .windows(word.len())
                 .any(|part| part.iter().copied().eq(word.encode_utf16()))
         }) {
+            let detail = abort_status_detail(reason);
+            let text = text_from_detail(&detail, "This turn was aborted before completion.");
             emit_accepted_event(
                 events,
                 &mut state.timeline,
                 input,
                 TurnEvent::AgentStatus {
                     event: "turn_aborted".into(),
-                    detail: abort_status_detail(reason),
+                    kind: "status".into(),
+                    text,
+                    detail,
                 },
             )?;
         }
@@ -2901,12 +3012,20 @@ fn finish_early_stream_exhausted(
         .ok_or_else(|| wrong_reply("early recovery terminal status event"))?;
     let detail =
         BoundarySnapshot::capture(status.value().get("detail").unwrap_or(&JsValue::Undefined));
+    let kind = factory_status_kind(
+        &status_event,
+        status.value().get("kind").and_then(JsValue::as_string),
+        detail.value(),
+    );
+    let text = recorded_status_text(&status, &detail, &status_event);
     emit_event(
         ports.events,
         &mut state.timeline,
         ports.input,
         TurnEvent::AgentStatus {
             event: status_event,
+            kind,
+            text,
             detail,
         },
     )?;
@@ -2984,12 +3103,18 @@ fn finish_emergency_compaction(
         },
     )?;
     let detail = plan.status_detail?;
+    let text = text_from_detail(
+        &detail,
+        "The model request failed, so this turn has stopped.",
+    );
     emit_event(
         ports.events,
         &mut state.timeline,
         ports.input,
         TurnEvent::AgentStatus {
             event: "model_request_failed".into(),
+            kind: "error".into(),
+            text,
             detail,
         },
     )?;
@@ -3064,13 +3189,20 @@ fn finish_plain_model_stream_throw(
     // acknowledged tool batch populated the turn-local accumulator.
     result.structured_output = None;
     result.errors.push(error.clone());
+    let detail = plain_model_failure_status(&message);
+    let text = text_from_detail(
+        &detail,
+        "The model request failed, so this turn has stopped.",
+    );
     emit_event(
         ports.events,
         &mut state.timeline,
         ports.input,
         TurnEvent::AgentStatus {
             event: "model_request_failed".into(),
-            detail: plain_model_failure_status(&message),
+            kind: "error".into(),
+            text,
+            detail,
         },
     )?;
     emit_event(
@@ -3415,12 +3547,18 @@ fn finish_ordinary_model_error(
         .get("detail")
         .map(BoundarySnapshot::capture)
         .ok_or_else(|| wrong_reply("model failure status detail"))?;
+    let kind = factory_status_kind(
+        &event,
+        status.value().get("kind").and_then(JsValue::as_string),
+        detail.value(),
+    );
     emit_event(
         ports.events,
         &mut state.timeline,
         ports.input,
         TurnEvent::AgentStatusText {
             event,
+            kind,
             text,
             detail,
         },
@@ -3646,10 +3784,13 @@ fn finish_budget_terminal(
         ports.events,
         &mut state.timeline,
         ports.input,
-        // AgentLoop's status projection omits text; the sidecar client falls
-        // back to the event name. Keep the diagnostic in StopFailure/errors.
+        // AgentLoop emits kind=error and the Gateway amount sentence as text
+        // (AgentLoop.ts budget terminal). The sidecar must not fall back to the
+        // event name when text is absent.
         TurnEvent::AgentStatus {
             event: plan.status_event,
+            kind: "error".into(),
+            text: error_message,
             detail: plan.status_detail,
         },
     )?;
@@ -3751,11 +3892,18 @@ fn finish_tool_terminal(
     detail: BoundarySnapshot,
     ports: TerminalTurnPorts<'_>,
 ) -> PortResult<TurnOutput> {
+    let kind = factory_status_kind(&event, None, detail.value());
+    let text = text_from_detail(&detail, factory_status_fallback(&event));
     emit_event(
         ports.events,
         &mut state.timeline,
         ports.input,
-        TurnEvent::AgentStatus { event, detail },
+        TurnEvent::AgentStatus {
+            event,
+            kind,
+            text,
+            detail,
+        },
     )?;
     capture_turn_advisory(
         ports.host,
@@ -4263,13 +4411,17 @@ fn finish_aborted_stream(
             text.windows(word.len())
                 .any(|part| part.iter().copied().eq(word.encode_utf16()))
         }) {
+            let detail = abort_status_detail(reason);
+            let text = text_from_detail(&detail, "This turn was aborted before completion.");
             emit_accepted_event(
                 events,
                 &mut state.timeline,
                 input,
                 TurnEvent::AgentStatus {
                     event: "turn_aborted".into(),
-                    detail: abort_status_detail(reason),
+                    kind: "status".into(),
+                    text,
+                    detail,
                 },
             )?;
         }
@@ -7189,13 +7341,20 @@ fn apply_pre_emission_output_plan(
                     TurnStopReason::ToolError,
                 );
                 result.errors.push(error.clone());
+                let detail = large_file_stop_status(reason.clone());
+                let text = text_from_detail(
+                    &detail,
+                    "The agent repeatedly hit the same tool error, so this turn has stopped.",
+                );
                 emit_event(
                     ports.events,
                     &mut state.timeline,
                     ports.input,
                     TurnEvent::AgentStatus {
                         event: "tool_error_loop".into(),
-                        detail: large_file_stop_status(reason.clone()),
+                        kind: "error".into(),
+                        text,
+                        detail,
                     },
                 )?;
                 finish_output_plan_terminal(state, result, Some(error), ports)
@@ -7934,11 +8093,22 @@ fn emit_output_plan_status(
         .get("detail")
         .map(BoundarySnapshot::capture)
         .ok_or_else(|| wrong_reply("output status detail"))?;
+    let kind = factory_status_kind(
+        &event,
+        status.value().get("kind").and_then(JsValue::as_string),
+        detail.value(),
+    );
+    let text = recorded_status_text(&status, &detail, &event);
     emit_event(
         events,
         &mut state.timeline,
         input,
-        TurnEvent::AgentStatus { event, detail },
+        TurnEvent::AgentStatus {
+            event,
+            kind,
+            text,
+            detail,
+        },
     )
 }
 fn finish_output_plan_terminal(
@@ -8362,9 +8532,18 @@ mod ordinary_model_error_terminal_order_tests {
             assert_eq!(values[0].get("error"), Some(&diagnostic));
             assert_eq!(values[1].get("event"), Some(&JsValue::from(event_name)));
             assert_eq!(values[1].get("detail"), Some(detail.value()));
-            // TS sidecarStatusMessage falls back to event.event when these
-            // fields are absent. Numeric budget detail must remain intact.
-            assert!(values[1].get("text").is_none());
+            // AgentLoop projects the Gateway amount sentence. Numeric budget
+            // detail stays intact and still has no message of its own.
+            assert_eq!(values[1].get("kind"), Some(&JsValue::from("error")));
+            assert_eq!(values[1].get("text"), Some(&diagnostic));
+            assert!(
+                diagnostic
+                    .as_string()
+                    .unwrap()
+                    .to_utf8()
+                    .unwrap()
+                    .starts_with("Reached Gateway-owned")
+            );
             assert!(detail.value().get("message").is_none());
             assert_eq!(values[2].get("error"), Some(error.value()));
             assert_eq!(
@@ -10523,6 +10702,47 @@ mod owning_reactive_recovery_tests {
         assert_eq!(
             target(r#"{"provider":null,"model":false}"#),
             ("p1".into(), "m1".into())
+        );
+    }
+}
+
+#[cfg(test)]
+mod agent_status_factory_kind_tests {
+    use super::*;
+
+    #[test]
+    fn kinds_follow_agent_loop_factories_not_warning_severity() {
+        let warning = JsValue::Object({
+            let mut detail = JsObject::new();
+            detail.insert("severity".into(), "warning".into());
+            detail
+        });
+        assert!(
+            factory_status_kind(&"turn_aborted".into(), None, &JsValue::Undefined)
+                .equals_str("status")
+        );
+        assert!(
+            factory_status_kind(
+                &"structured_output_completed".into(),
+                Some(&"error".into()),
+                &warning
+            )
+            .equals_str("status")
+        );
+        assert!(
+            factory_status_kind(&"content_filter_stop".into(), None, &warning).equals_str("error")
+        );
+        assert!(
+            factory_status_kind(&"max_budget_reached".into(), None, &JsValue::Undefined)
+                .equals_str("error")
+        );
+        assert!(
+            factory_status_kind(&"task_budget_reached".into(), None, &JsValue::Undefined)
+                .equals_str("error")
+        );
+        assert!(
+            factory_status_kind(&"unknown_finish_reason".into(), None, &warning)
+                .equals_str("error")
         );
     }
 }
