@@ -1,0 +1,98 @@
+TAP version 13
+# Subtest: reads canonical version1 and supported legacy replacement without dropping content or anchors
+ok 1 - reads canonical version1 and supported legacy replacement without dropping content or anchors
+  ---
+  duration_ms: 1.204462
+  ...
+# Subtest: rejects missing, empty, malformed or unknown snapshots rather than hiding corruption with legacy fallback
+ok 2 - rejects missing, empty, malformed or unknown snapshots rather than hiding corruption with legacy fallback
+  ---
+  duration_ms: 0.839155
+  ...
+# Subtest: A1 field path is scenarios[].streamChunkChars with values 1|50|500
+ok 3 - A1 field path is scenarios[].streamChunkChars with values 1|50|500
+  ---
+  duration_ms: 1.312322
+  ...
+# Subtest: live-stream family matches sidecar_live_model_stream and variants
+ok 4 - live-stream family matches sidecar_live_model_stream and variants
+  ---
+  duration_ms: 0.983166
+  ...
+# Subtest: A4 default path keeps STREAM_PREFIX plus one whole-body remainder
+ok 5 - A4 default path keeps STREAM_PREFIX plus one whole-body remainder
+  ---
+  duration_ms: 0.22689
+  ...
+# Subtest: A4 streamChunkChars=1 is one Unicode char per chunk, not the whole body
+ok 6 - A4 streamChunkChars=1 is one Unicode char per chunk, not the whole body
+  ---
+  duration_ms: 0.18698
+  ...
+# Subtest: A4 streamChunkChars=50 and 500 yield multiple text_deltas
+ok 7 - A4 streamChunkChars=50 and 500 yield multiple text_deltas
+  ---
+  duration_ms: 0.220206
+  ...
+# Subtest: A4 short bodies under 500 chars stay STREAM_PREFIX + one remainder (documented)
+ok 8 - A4 short bodies under 500 chars stay STREAM_PREFIX + one remainder (documented)
+  ---
+  duration_ms: 0.093785
+  ...
+# Subtest: default path empty body still emits STREAM_PREFIX + one remainder (n_chunks 2)
+ok 9 - default path empty body still emits STREAM_PREFIX + one remainder (n_chunks 2)
+  ---
+  duration_ms: 0.238456
+  ...
+# Subtest: gateway adapter live-stream path uses yieldAdapterLiveModelStream (goes red if helper is broken)
+ok 10 - gateway adapter live-stream path uses yieldAdapterLiveModelStream (goes red if helper is broken)
+  ---
+  duration_ms: 25.746275
+  ...
+# Subtest: yieldAdapterLiveModelStream default empty body is still STREAM_PREFIX + remainder
+ok 11 - yieldAdapterLiveModelStream default empty body is still STREAM_PREFIX + remainder
+  ---
+  duration_ms: 0.407475
+  ...
+# Subtest: A2 first text_delta is yielded before provider completion
+ok 12 - A2 first text_delta is yielded before provider completion
+  ---
+  duration_ms: 14.893775
+  ...
+# Subtest: createPerfCollector
+    # Subtest: stays inert when disabled
+    ok 1 - stays inert when disabled
+      ---
+      duration_ms: 1.513471
+      ...
+    # Subtest: records turn, model iters, and stream intervals
+    ok 2 - records turn, model iters, and stream intervals
+      ---
+      duration_ms: 11.436679
+      ...
+    # Subtest: derives non_model and between-model gaps
+    ok 3 - derives non_model and between-model gaps
+      ---
+      duration_ms: 13.295657
+      ...
+    # Subtest: writes rss when a dest is provided
+    ok 4 - writes rss when a dest is provided
+      ---
+      duration_ms: 0.39725
+      ...
+    1..4
+ok 13 - createPerfCollector
+  ---
+  duration_ms: 27.365685
+  type: 'suite'
+  ...
+1..13
+# tests 16
+# suites 1
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 84.52254
+EXIT:0

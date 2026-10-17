@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -334,10 +335,35 @@ def artifact_for(
     return payload
 
 
+def _discard_trace(path: Path) -> None:
+    """Remove a trace and its perf snapshot without reading either."""
+    for candidate in (path, perf_path_for(path)):
+        if candidate.exists():
+            candidate.unlink()
+
+
+# stat mtime can sit a few milliseconds behind time.time_ns() on this host.
+# A previous run's leftover is removed before the subprocess; this window only
+# stops a file that predates the run from being treated as fresh.
+_FRESH_TRACE_SKEW_NS = 1_000_000_000
+
+
+def _trace_is_fresh(path: Path, started_ns: int) -> bool:
+    if not path.is_file():
+        return False
+    return path.stat().st_mtime_ns + _FRESH_TRACE_SKEW_NS >= started_ns
+
+
 def run_gateway(chars: int, output: Path, pilotdeck_root: Path, extra_args: list[str]) -> Path:
     scenario_id = VARIANT_ID.format(chars=chars)
     dest = output / f"raw-{chars}"
     dest.mkdir(parents=True, exist_ok=True)
+    sidecar = sidecar_trace_path(dest, scenario_id)
+    native = native_trace_path(dest, scenario_id)
+    # A previous invocation can leave traces in this directory. Drop them
+    # before the run, then accept only files this invocation wrote.
+    _discard_trace(sidecar)
+    _discard_trace(native)
     env = os.environ.copy()
     env["PARITY_PERF"] = "1"
     command = [
@@ -350,21 +376,28 @@ def run_gateway(chars: int, output: Path, pilotdeck_root: Path, extra_args: list
         "--output", str(dest),
         *extra_args,
     ]
+    started_ns = time.time_ns()
     completed = subprocess.run(command, check=False, env=env)
-    sidecar = sidecar_trace_path(dest, scenario_id)
-    native = native_trace_path(dest, scenario_id)
-    if not sidecar.is_file() and not native.is_file():
+    fresh_sidecar = _trace_is_fresh(sidecar, started_ns)
+    fresh_native = _trace_is_fresh(native, started_ns)
+    if not fresh_sidecar:
+        _discard_trace(sidecar)
+    if not fresh_native:
+        _discard_trace(native)
+    if not fresh_sidecar and not fresh_native:
         raise FileNotFoundError(
-            f"run.py exited {completed.returncode} without sidecar or native traces "
+            f"run.py exited {completed.returncode} without a fresh sidecar or native trace "
             f"for {scenario_id} under {dest}"
         )
     if completed.returncode != 0:
+        # Nonzero must not be satisfied by a leftover trace. A trace this
+        # invocation just wrote (oracle / comparison failure) stays readable.
         print(
             json.dumps({
                 "event": "run-gateway-nonzero",
                 "scenarioId": scenario_id,
                 "returncode": completed.returncode,
-                "note": "traces exist; comparison/oracle failure does not block live collect",
+                "note": "fresh traces exist; a stale trace is not read",
             }, ensure_ascii=False),
             file=sys.stderr,
         )

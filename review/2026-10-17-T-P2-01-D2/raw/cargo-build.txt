@@ -1,0 +1,3 @@
+=== cd rust-core && cargo +1.99.1 build --release --locked --bin pilotdeck-agent-loop-sidecar ===
+    Finished `release` profile [optimized] target(s) in 0.02s
+EXIT:0

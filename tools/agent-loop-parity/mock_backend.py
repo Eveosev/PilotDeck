@@ -15,6 +15,16 @@ def _stable(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def configured_model_delay_ms(delays: Any) -> float:
+    """Return delays.modelMs without truncating a fractional --model-ms."""
+    if not isinstance(delays, dict):
+        return 0.0
+    raw = delays.get("modelMs")
+    if raw is None or raw is False or raw == "":
+        return 0.0
+    return float(raw)
+
+
 class MockHandler(BaseHTTPRequestHandler):
     server_version = "AgentLoopParityMock/1"
 
@@ -33,8 +43,8 @@ class MockHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
-    def _sleep_until_cancelled(self, run_key: str, delay_ms: int) -> bool:
-        remaining_ms = delay_ms
+    def _sleep_until_cancelled(self, run_key: str, delay_ms: float) -> bool:
+        remaining_ms = float(delay_ms)
         while remaining_ms > 0:
             with self.server.state_lock:
                 if run_key in self.server.cancelled:
@@ -117,7 +127,7 @@ class MockHandler(BaseHTTPRequestHandler):
         messages = request.get("messages") if isinstance(request.get("messages"), list) else []
         q = str(request.get("q") or "") or _query_from_messages(messages)
         delays = request.get("delays") if isinstance(request.get("delays"), dict) else {}
-        delay_ms = int(delays.get("modelMs") or 0)
+        delay_ms = configured_model_delay_ms(delays)
         if delay_ms > 0 and self._sleep_until_cancelled(run_key, delay_ms):
             self._json(409, {
                 "error": {

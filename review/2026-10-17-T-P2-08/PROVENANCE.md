@@ -71,7 +71,7 @@ ready / merge 不在本 PR 里做。
 
 ### Actions
 
-仓库自 2026-10-15 02:40 CST（2026-10-14T18:40:50Z）起 Actions run 为 0，原因未调查。仓库主人不会加账单，因此 G-GHA 按 WAIVER-PENDING 处理，并以同等本地证据代替。
+仓库自 2026-10-15 02:40 CST（2026-10-14T18:40:50Z）起 Actions run 为 0，原因未调查。G-GHA 按真 Payne 的裁定记为 WAIVER-PENDING，并以同等本地证据代替。
 
 R1 本地复核（提交前）：workflow YAML parse exit 0（`raw/r1-yaml-parse.txt`）。路径比对 `PROTOCOL_SYNC_PATHS_RESULT=pass`（`raw/r1-path-sync.txt`）；合成失败打印 `PROTOCOL_SYNC_PATHS_RESULT=fail` 且退出码 1（`raw/r1-path-sync-fail.txt`）。根 workspace fmt / clippy / test exit 0，rustc 1.83.0（`raw/r1-root-fmt-clippy-test.txt`）。rust-core 同样三条 exit 0，rustc 1.99.1（`raw/r1-rust-core-fmt-clippy-test.txt`）。skip 日志含 warning 与 `PARITY_QUICK_RESULT=skip`（`raw/r1-parity-quick-skip.txt`）。显式缺失二进制是 `PARITY_QUICK_RESULT=fail`、exit 1。残缺 dist 上 `run.py` 退出 2，summary 仍然被读到，然后打印 `PARITY_QUICK_RESULT=fail`，脚本退出码 2（`raw/r1-parity-quick-runpy-fail.txt`）。
 

@@ -662,6 +662,36 @@ def adapter_env(
     return env
 
 
+_RUST_WRAPPER_MARKERS = ("rust-stdio-sidecar", "rust-tcp-sidecar")
+_RUST_SIDECAR_BASENAMES = frozenset({
+    "pilotdeck-agent-loop",
+    "pilotdeck-agent-loop-sidecar",
+})
+
+
+def command_names_rust_sidecar(command: str | None) -> bool:
+    """True for the rust-stdio/tcp wrappers or the rust-core proof symlink.
+
+    The proof symlink basename is ``pilotdeck-agent-loop``. The rust-core
+    binary basename ``pilotdeck-agent-loop-sidecar`` counts too. The TS
+    default ``pilotdeck-agent-loop-sidecar.js`` does not: a substring check
+    used to mark that command as Rust.
+    """
+    text = (command or "").strip()
+    if not text:
+        return False
+    if any(marker in text for marker in _RUST_WRAPPER_MARKERS):
+        return True
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        tokens = text.split()
+    for token in tokens:
+        if Path(token.rstrip("/")).name in _RUST_SIDECAR_BASENAMES:
+            return True
+    return False
+
+
 def rust_sidecar_intended(
     *,
     sidecar_transport: str,
@@ -672,12 +702,14 @@ def rust_sidecar_intended(
 
     TCP reuse is not intended-rust by itself (a fake sidecar can occupy the
     port). Labeling rust requires observe_sidecar_implementation().
+    Stdio matches ``rust-stdio-sidecar.sh`` or the proof symlink. TCP matches
+    ``rust-tcp-sidecar.sh`` or that same symlink, not the TS sidecar JS.
     """
     if sidecar_transport == "stdio":
         command = (stdio_sidecar_command or os.environ.get("PARITY_STDIO_SIDECAR_COMMAND") or "").strip()
-        return "rust-stdio-sidecar" in command or command.endswith("pilotdeck-agent-loop")
+        return command_names_rust_sidecar(command)
     if sidecar_transport == "tcp" and tcp_target is not None and tcp_target.start_command:
-        return "pilotdeck-agent-loop" in tcp_target.start_command
+        return command_names_rust_sidecar(tcp_target.start_command)
     return False
 
 

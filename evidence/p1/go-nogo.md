@@ -131,11 +131,13 @@ Rust-tcp 在 live-stream 上 model 净 P95 明显高于 native / TS-tcp。`strea
 
 ### 3a. 30× chars=50（与 turn/model 同一 `--model-ms 200` 配置）
 
-| path | harness n_chunks (p50) | perf n_chunks | 间隔 n | 全间隔净 P50/P95 | interval[0] 净 P50/P95 | after-first P50/P95 | 相对 native after-first 净P95差 | D4 | 差/D4 |
+| path | harness n_chunks | perf n_chunks (p50) | 间隔 n | 全间隔净 P50/P95 | interval[0] 净 P50/P95 | after-first P50/P95 | 相对 native after-first 净P95差 | D4 | 差/D4 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | native | 22 | 22 | 630 | 1.899 / 6.334 | 3.539 / 5.418（n=30） | 1.833 / 6.340（n=600） | — | — | — |
 | TS-tcp | 22 | 22 | 630 | 3.511 / 6.118 | 3.253 / 5.135（n=30） | 3.513 / 6.123（n=600） | −0.217 | 5.000 | −0.043 |
 | Rust-tcp | 22 | **1** | **0** | — | — | — | **无间隔可报** | 5.000 | — |
+
+n_chunks 列来源：`harness n_chunks` 是 char 切片（`model.stream state=chunks`），不是样本 p50。`perf n_chunks (p50)` 是 Gateway `assistant_text_delta` 的样本 p50。本表数字未改。
 
 Rust-tcp：30 次 chars=50 的 `stream_chunk_ms=[]`。Gateway 每 turn 只观测到 **1** 个 `assistant_text_delta`（`n_chunks` 样本 p50=1），无法形成间隔。harness 仍按 char 切片记 22。
 

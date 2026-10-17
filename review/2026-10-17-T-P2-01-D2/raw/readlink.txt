@@ -1,0 +1,6 @@
+PILOTDECK_RUST_SIDECAR_BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+=== readlink -f "$PILOTDECK_RUST_SIDECAR_BIN" ===
+/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+EXIT:0
+-rwxr-xr-x 2 ubuntu ubuntu 8670440 Oct 17 13:00 /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+lrwxrwxrwx 1 ubuntu ubuntu      39 Oct 17 13:02 /workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop -> ../release/pilotdeck-agent-loop-sidecar

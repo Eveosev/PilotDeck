@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -90,6 +92,81 @@ class CollectStreamChunksTests(unittest.TestCase):
             self.assertEqual(native_selected["source"], "native")
             self.assertEqual(native_selected["perf"]["n_chunks"], 4)
             self.assertEqual(native_selected["trace_summary"]["n_chunks"], 4)
+
+    def test_m4_nonzero_exit_does_not_read_stale_trace(self) -> None:
+        scenario_id = "sidecar_live_model_stream_chars_1"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            dest = output / "raw-1"
+            dest.mkdir()
+            stale = dest / f"{scenario_id}.pilotdeck-current-sidecar.jsonl"
+            stale.write_text(json.dumps({"stale": True}) + "\n", encoding="utf-8")
+            stale_perf = Path(str(stale) + ".perf.json")
+            stale_perf.write_text(json.dumps({"n_chunks": 99}) + "\n", encoding="utf-8")
+
+            def fake_run(command, check, env):  # noqa: ANN001
+                class Result:
+                    returncode = 2
+
+                return Result()
+
+            with mock.patch("collect_stream_chunks.subprocess.run", fake_run):
+                with self.assertRaises(FileNotFoundError) as raised:
+                    run_gateway(1, output, Path("/repo"), [])
+            message = str(raised.exception)
+            self.assertIn("without a fresh", message)
+            self.assertNotIn("stale", message)
+            self.assertFalse(stale.exists())
+            self.assertFalse(stale_perf.exists())
+
+    def test_m4_old_mtime_is_not_a_fresh_trace(self) -> None:
+        scenario_id = "sidecar_live_model_stream_chars_1"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            dest = output / "raw-1"
+            dest.mkdir()
+            stale = dest / f"{scenario_id}.pilotdeck-current-sidecar.jsonl"
+            stale.write_text(json.dumps({"stale": True}) + "\n", encoding="utf-8")
+            old = time.time() - 30
+            os.utime(stale, (old, old))
+
+            def fake_run(command, check, env):  # noqa: ANN001
+                class Result:
+                    returncode = 1
+
+                return Result()
+
+            with mock.patch("collect_stream_chunks._discard_trace", lambda path: None):
+                with mock.patch("collect_stream_chunks.subprocess.run", fake_run):
+                    with self.assertRaises(FileNotFoundError) as raised:
+                        run_gateway(1, output, Path("/repo"), [])
+            self.assertIn("without a fresh", str(raised.exception))
+            self.assertTrue(stale.is_file())
+            self.assertIn("stale", stale.read_text(encoding="utf-8"))
+
+    def test_m4_nonzero_exit_keeps_a_trace_written_by_this_run(self) -> None:
+        scenario_id = "sidecar_live_model_stream_chars_1"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+
+            def fake_run(command, check, env):  # noqa: ANN001
+                dest = Path(command[command.index("--output") + 1])
+                dest.mkdir(parents=True, exist_ok=True)
+                trace = dest / f"{scenario_id}.pilotdeck-current-sidecar.jsonl"
+                trace.write_text(json.dumps({"fresh": True}) + "\n", encoding="utf-8")
+
+                class Result:
+                    returncode = 1
+
+                return Result()
+
+            with mock.patch("collect_stream_chunks.subprocess.run", fake_run):
+                raw = run_gateway(1, output, Path("/repo"), [])
+            selected = select_run_gateway_trace(raw, scenario_id)
+            self.assertEqual(selected["source"], "sidecar")
+            text = (raw / f"{scenario_id}.pilotdeck-current-sidecar.jsonl").read_text(encoding="utf-8")
+            self.assertIn("fresh", text)
+            self.assertNotIn("stale", text)
 
     def test_m4_missing_trace_exits_without_writing_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

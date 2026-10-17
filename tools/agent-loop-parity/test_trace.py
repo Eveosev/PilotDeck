@@ -916,6 +916,44 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
             tcp_target=started,
         ))
 
+    def test_rust_intent_matches_tcp_wrapper_and_proof_symlink_not_ts_js(self) -> None:
+        source = Path("/tmp/pilotdeck-source")
+
+        def target(command: str) -> object:
+            return resolve_tcp_sidecar_target(
+                host=None,
+                port=None,
+                command=command,
+                source=source,
+                allocate_port=lambda: 41011,
+            )
+
+        wrapper = target("tools/agent-loop-parity/rust-tcp-sidecar.sh")
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=wrapper,
+        ))
+        proof = target("/tmp/proof/pilotdeck-agent-loop")
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=proof,
+        ))
+        binary = target("/opt/release/pilotdeck-agent-loop-sidecar")
+        self.assertTrue(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=binary,
+        ))
+        ts = target(default_ts_tcp_sidecar_command(source))
+        self.assertFalse(rust_sidecar_intended(
+            sidecar_transport="tcp",
+            stdio_sidecar_command=None,
+            tcp_target=ts,
+        ))
+        self.assertIn("pilotdeck-agent-loop-sidecar.js", default_ts_tcp_sidecar_command(source))
+
     def test_wait_for_tcp_accepts_an_open_loopback_port(self) -> None:
         import socket
         with socket.create_server(("127.0.0.1", 0)) as server:
