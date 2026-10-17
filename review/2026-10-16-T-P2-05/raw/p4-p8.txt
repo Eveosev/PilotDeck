@@ -1,0 +1,28 @@
+--- diff apps/src/ui/crates/packages ---
+--- diff tools ---
+ tools/agent-loop-parity/README.md | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+--- name-only vs base ---
+docs/rust_rebuild/PLAN.md
+rust-core/pilotdeck-transport/src/bin/pilotdeck-agent-loop-sidecar.rs
+rust-core/pilotdeck-transport/src/lib.rs
+rust-core/pilotdeck-transport/src/server.rs
+rust-core/pilotdeck-transport/src/tcp.rs
+rust-core/pilotdeck-transport/tests/tcp_listen.rs
+tools/agent-loop-parity/README.md
+--- rust-hello ---
+8:export const RUST_HELLO_BIN = "pilotdeck-agent-loop-hello";
+--- rust-tcp default ---
+8:  bin="$(cd "$(dirname "$0")/../.." && pwd)/target/release/pilotdeck-agent-loop"
+--- deployment default ---
+   137	function readTransport(value: string | undefined): AgentLoopDeploymentTransport {
+   138	  const normalized = value?.trim().toLowerCase();
+   139	  if (normalized === undefined || normalized === "" || normalized === "native") return "native";
+   140	  if (normalized === "stdio" || normalized === "tcp") return normalized;
+   141	  throw new Error("PILOTDECK_AGENT_LOOP_TRANSPORT must be native, stdio, or tcp.");
+--- token impl ---
+rust-core/pilotdeck-transport/src/server.rs:253:    /// `PILOTDECK_AGENT_LOOP_TCP_TOKEN`.
+rust-core/pilotdeck-transport/src/tcp.rs:20:    std::env::var("PILOTDECK_AGENT_LOOP_TCP_TOKEN")
+rust-core/pilotdeck-transport/src/bin/pilotdeck-agent-loop-sidecar.rs:67:    // Stdio does not read PILOTDECK_AGENT_LOOP_TCP_TOKEN.
+--- sidecar bin env ---
+6:bin="${PILOTDECK_RUST_SIDECAR_BIN:-}"

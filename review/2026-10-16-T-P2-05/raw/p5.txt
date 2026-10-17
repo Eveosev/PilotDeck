@@ -1,0 +1,19 @@
+===== STATE A =====
+ADDR=127.0.0.1:45915
+{"kind":"response","messageId":"response-pilotdeck-agent-loop-instance-6c707847-03fb-4820-9cdc-e866eed7ad1e-9bb10e8a-8f05-485b-8c41-6b1e35eb5e18-1","inReplyTo":"hello-1","ok":true,"protocolVersion":"2.0","moduleId":"pilotdeck-agent-loop","moduleInstanceId":"pilotdeck-agent-loop-instance-6c707847-03fb-4820-9cdc-e866eed7ad1e","connectionGeneration":"pilotdeck-agent-loop-instance-6c707847-03fb-4820-9cdc-e866eed7ad1e-9bb10e8a-8f05-485b-8c41-6b1e35eb5e18","capabilitiesVersion":"1","payload":{}}
+A OK
+===== STATE B =====
+ADDR=127.0.0.1:43165
+{"kind":"response","messageId":"hello-pilotdeck-agent-loop-instance-52f35cec-89f7-40e5-b22a-cd3de6e5cd2a-4b8ae831-9bea-48ca-bd66-952560858518-1","inReplyTo":"hello-bad","ok":false,"code":"UNAUTHENTICATED"}
+B1 OK
+{"kind":"response","messageId":"hello-pilotdeck-agent-loop-instance-68f3596f-05ad-4ce0-82fd-f69c2214f2d5-71581aca-e3d4-42c9-a53a-3a51cdd23a41-1","inReplyTo":"hello-wrong","ok":false,"code":"UNAUTHENTICATED"}
+B2 OK
+{"kind":"error","messageId":"error-pilotdeck-agent-loop-instance-02206323-235d-4843-802a-4d0c00bfe0b5-a3153957-95e1-4047-ba10-caf00d27baaf-1","code":"UNAUTHENTICATED","message":"TCP sidecar requires an authenticated hello.","retryability":"unsafe"}
+B3 OK
+===== STATE C =====
+ADDR=127.0.0.1:44401
+{"kind":"response","messageId":"response-pilotdeck-agent-loop-instance-4fb7ef84-ed73-469c-bb45-ce17bedcdbbb-a54927cd-c789-47f9-bd9d-21a0e72398c2-1","inReplyTo":"hello-ok","ok":true,"protocolVersion":"2.0","moduleId":"pilotdeck-agent-loop","moduleInstanceId":"pilotdeck-agent-loop-instance-4fb7ef84-ed73-469c-bb45-ce17bedcdbbb","connectionGeneration":"pilotdeck-agent-loop-instance-4fb7ef84-ed73-469c-bb45-ce17bedcdbbb-a54927cd-c789-47f9-bd9d-21a0e72398c2","capabilitiesVersion":"1","payload":{}}
+C OK
+{"kind":"response","messageId":"response-pilotdeck-agent-loop-instance-d6ea95dc-63c1-430d-adf4-d74d2ee203f1-50a750cd-83e1-4e6c-954d-188b27b8d35e-1","inReplyTo":"caps-ok","ok":true,"protocolVersion":"2.0","moduleId":"pilotdeck-agent-loop","moduleInstanceId":"pilotdeck-agent-loop-instance-d6ea95dc-63c1-430d-adf4-d74d2ee203f1","connectionGeneration":"pilotdeck-agent-loop-instance-d6ea95dc-63c1-430d-adf4-d74d2ee203f1-50a750cd-83e1-4e6c-954d-188b27b8d35e","capabilitiesVersion":"1","payload":{"capabilitiesVersion":"1","methods":[{"name":"execute","enabled":true,"profiles":["streaming"],"cancel":true,"resumeSupport":"none","retry":"retry_after_status"},{"name":"cancel","enabled":true},{"name":"status","enabled":true},{"name":"resume","enabled":false},{"name":"ack","enabled":false}]}}
+C caps OK
+P5 ALL OK

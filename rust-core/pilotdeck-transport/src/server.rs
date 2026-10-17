@@ -1,6 +1,7 @@
 //! Concurrent Module2.0 execution service. Factory owns AgentLoop policy;
 //! this owner owns immutable acceptance, streams, controls and bounded shutdown.
 //! It does not provide a fake factory, a Date.parse approximation, or persistence.
+use crate::tcp::TcpHelloAuth;
 use crate::{HostExchange, HostExchangeResponse, stdio::ConnectionOwner};
 use pilotdeck_agent::ports::{
     CallControl, CancelCause, Cancellation, ExecutionIdentity, PortError, PortResult,
@@ -248,6 +249,9 @@ pub struct ExecutionServer {
     factory: Arc<dyn ExecutionFactory>,
     clock: Arc<dyn ExecutionClock>,
     queue_capacity: usize,
+    /// Set only for TCP connections. Stdio leaves this empty and never checks
+    /// `PILOTDECK_AGENT_LOOP_TCP_TOKEN`.
+    tcp_hello: Option<TcpHelloAuth>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShutdownReport {
@@ -267,6 +271,17 @@ impl ExecutionServer {
         clock: Arc<dyn ExecutionClock>,
         queue_capacity: usize,
     ) -> Arc<Self> {
+        Self::with_tcp_hello(owner, factory, clock, queue_capacity, None)
+    }
+    /// `tcp_hello` is the process-wide TCP gate. `None` is the open path
+    /// (unset token, and every stdio server).
+    pub fn with_tcp_hello(
+        owner: ConnectionOwner,
+        factory: Arc<dyn ExecutionFactory>,
+        clock: Arc<dyn ExecutionClock>,
+        queue_capacity: usize,
+        tcp_hello: Option<TcpHelloAuth>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             owner,
             state: Mutex::new(State::default()),
@@ -274,6 +289,7 @@ impl ExecutionServer {
             factory,
             clock,
             queue_capacity: queue_capacity.max(1),
+            tcp_hello,
         })
     }
     /// Called by one reader. No factory work or blocking output occurs here.
@@ -282,6 +298,9 @@ impl ExecutionServer {
             Ok(envelope) => envelope,
             Err(error) => return self.send_error(error.code, error.message.into()),
         };
+        if !self.admit_tcp_hello(&envelope)? {
+            return Ok(());
+        }
         let MessageRef::Request(request) = envelope.message else {
             if matches!(envelope.message, MessageRef::Response(_)) {
                 self.owner.receive_response(value);
@@ -610,10 +629,14 @@ impl ExecutionServer {
             {
                 context.control.cancellation.cancel(CancelCause::Deadline);
             }
+            // Deadline still hides a late success. A tool abort that already
+            // produced an aborted turn is a known terminal: replacing it with
+            // an empty result_unknown makes the host fail closed.
             let terminal = if matches!(
                 context.control.cancellation.cause(),
                 Some(CancelCause::Deadline)
-            ) {
+            ) && !known_aborted_terminal(&terminal)
+            {
                 ExecutionTerminal {
                     outcome: ModuleOutcome::ResultUnknown,
                     payload: JsObject::new(),
@@ -843,6 +866,43 @@ impl ExecutionServer {
         }
         self.owner.send_control(&JsValue::Object(response))
     }
+    /// TCP hello gate. Stdio servers have no gate and return immediately.
+    /// A rejection keeps the connection open (`Ok(false)` is not an IO error).
+    /// The response body is built from fixed strings and never includes the token.
+    fn admit_tcp_hello(&self, envelope: &EnvelopeRef<'_>) -> io::Result<bool> {
+        let Some(auth) = &self.tcp_hello else {
+            return Ok(true);
+        };
+        if auth.is_open() {
+            return Ok(true);
+        }
+        let MessageRef::Request(request) = envelope.message else {
+            return Ok(false);
+        };
+        if let RequestBodyRef::Hello { payload } = request.body {
+            let provided = hello_payload_token(payload);
+            let accepted = auth.accept_hello(&provided);
+            // Drop the provided bytes before building any response.
+            drop(provided);
+            if accepted {
+                return Ok(true);
+            }
+            let response = object([
+                ("kind", JsValue::from("response")),
+                ("messageId", JsValue::String(self.owner.next_id("hello"))),
+                ("inReplyTo", JsValue::String(request.message_id.clone())),
+                ("ok", JsValue::Bool(false)),
+                ("code", JsValue::from("UNAUTHENTICATED")),
+            ]);
+            self.owner.send_control(&JsValue::Object(response))?;
+            return Ok(false);
+        }
+        self.send_error(
+            "UNAUTHENTICATED",
+            "TCP sidecar requires an authenticated hello.".into(),
+        )?;
+        Ok(false)
+    }
     fn send_error(&self, code: &'static str, message: JsString) -> io::Result<()> {
         self.owner.send_control(&JsValue::Object(object([
             ("kind", JsValue::from("error")),
@@ -886,6 +946,13 @@ impl ExecutionServer {
         ])
     }
 }
+fn hello_payload_token(payload: &JsObject) -> String {
+    payload
+        .get("token")
+        .and_then(JsValue::as_string)
+        .and_then(|token| token.to_utf8().ok())
+        .unwrap_or_default()
+}
 fn object<const N: usize>(fields: [(&str, JsValue); N]) -> JsObject {
     let mut object = JsObject::new();
     for (key, value) in fields {
@@ -918,6 +985,15 @@ fn phase_name(phase: OperationPhase) -> &'static str {
         OperationPhase::Cancelled => "cancelled",
         OperationPhase::Resolving => "resolving",
     }
+}
+fn known_aborted_terminal(terminal: &ExecutionTerminal) -> bool {
+    terminal.outcome == ModuleOutcome::Cancelled
+        && terminal
+            .payload
+            .get("result")
+            .and_then(|result| result.get("type"))
+            .and_then(JsValue::as_string)
+            .is_some_and(|kind| kind.equals_str("aborted"))
 }
 fn failure_terminal(error: PortError) -> ExecutionTerminal {
     let accepted_call = if let PortError::AcceptedUnknown {

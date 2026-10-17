@@ -1,0 +1,7 @@
+PILOTDECK_RUST_SIDECAR_BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+readlink -f: /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+pilotdeck-agent-loop-sidecar 0.1.0 implementation=rust wire=2.0 source=66c2334be75c725e910887f55cd4297c35eb7219
+452b69c52257d51886e8402a12dd7e27d3bc39285241b9ad3ec0950e9f8558ac  /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+tcp full1: listening 127.0.0.1:52271
+tcp full2: listening 127.0.0.1:46049
+rustc 1.99.1 (58cf8f9c3 2026-10-13)

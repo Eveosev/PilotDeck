@@ -101,12 +101,16 @@ python tools/agent-loop-parity/run.py \
 
 等价环境变量：`PARITY_SIDECAR_TRANSPORT=tcp`（也接受 `PILOTDECK_PARITY_SIDECAR_TRANSPORT`）。
 
-指向已经在听的 sidecar（包括未来的 Rust 二进制）：先让该进程监听
-`PILOTDECK_AGENT_LOOP_TCP_HOST` / `PILOTDECK_AGENT_LOOP_TCP_PORT`，再复用 host/port：
+指向已经在听的 sidecar（包括 rust-core 二进制）：进程必须带 `--listen HOST:PORT`（只绑 loopback）。
+仓内产物是 `rust-core/target/release/pilotdeck-agent-loop-sidecar`，不在仓根 `target/release/`。
+包装脚本 `tools/agent-loop-parity/rust-tcp-sidecar.sh` 把 harness 注入的
+`PILOTDECK_AGENT_LOOP_TCP_HOST` / `PILOTDECK_AGENT_LOOP_TCP_PORT` 转成 `--listen`。
+脚本默认仍指向仓根探针 `target/release/pilotdeck-agent-loop`；对拍 rust-core 时显式设置
+`PILOTDECK_RUST_SIDECAR_BIN` 指向 `rust-core/target/rust-core-proof/pilotdeck-agent-loop`
+（符号链接到 `../release/pilotdeck-agent-loop-sidecar`）。
 
 ```bash
-PILOTDECK_AGENT_LOOP_TCP_HOST=127.0.0.1 PILOTDECK_AGENT_LOOP_TCP_PORT=9345 \
-  ./target/release/pilotdeck-agent-loop-sidecar
+./rust-core/target/release/pilotdeck-agent-loop-sidecar --listen 127.0.0.1:9345
 
 python tools/agent-loop-parity/run.py \
   --pilotdeck-root "$PWD" \
@@ -119,21 +123,22 @@ python tools/agent-loop-parity/run.py \
   --output /tmp/pilotdeck-agent-loop-parity-tcp-rust
 ```
 
-或者让 harness 代为启动自定义二进制（会注入同样的 HOST/PORT 环境变量）：
+或者让 harness 代为启动。它会注入 HOST/PORT；必须走 wrapper（或自行加 `--listen`），不要把裸二进制当命令：
 
 ```bash
+PILOTDECK_RUST_SIDECAR_BIN="$PWD/rust-core/target/rust-core-proof/pilotdeck-agent-loop" \
 python tools/agent-loop-parity/run.py \
   --pilotdeck-root "$PWD" \
   --comparison same-version \
   --surface gateway \
   --sidecar-transport tcp \
-  --pilotdeck-tcp-sidecar-cmd ./target/release/pilotdeck-agent-loop-sidecar \
+  --pilotdeck-tcp-sidecar-cmd tools/agent-loop-parity/rust-tcp-sidecar.sh \
   --scenario all \
   --output /tmp/pilotdeck-agent-loop-parity-tcp-rust
 ```
 
-Rust sidecar 必须遵守与 TS `pilotdeck-agent-loop-sidecar` 相同的 Module Protocol，并在
-`PILOTDECK_AGENT_LOOP_TCP_HOST`（默认 `127.0.0.1`）和 `PILOTDECK_AGENT_LOOP_TCP_PORT` 上监听。
+Rust sidecar 必须遵守与 TS `pilotdeck-agent-loop-sidecar` 相同的 Module Protocol。
+rust-core 二进制不读取 `PILOTDECK_AGENT_LOOP_TCP_HOST` / `PORT`；监听地址只来自 `--listen`。
 
 harness 启动 TCP sidecar 时把 stdout/stderr **合并写入** `<output>/tcp-sidecar.log`，并在 `summary.json` 的 `tcpSidecarLog` 记录该路径。不要用 PIPE 捕获长期 sidecar 输出，以免管道缓冲区填满后死锁。启动失败或因 listener 退出而 BLOCKED 时，错误信息会带上该日志末尾约 16 行。正常 `stop_process` 只结束进程，日志留在磁盘上供检查。
 
