@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 // Test double for a loopback TCP sidecar. Speaks just enough Module Protocol
 // for supervisor probes: listening line, hello token gate, execute response.
+import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { createServer } from "node:net";
+
+const failFile = (process.env.PILOTDECK_FAKE_SIDECAR_FAIL_FILE ?? "").trim();
+if (failFile && existsSync(failFile)) {
+  console.error("fake sidecar: restart suppressed");
+  process.exit(1);
+}
 
 const token = (process.env.PILOTDECK_AGENT_LOOP_TCP_TOKEN ?? "").trim();
 

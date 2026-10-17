@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { accessSync, constants } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
@@ -16,12 +17,14 @@ import {
   AGENT_LOOP_TCP_SUPERVISOR_RESTART_LIMIT_MS,
   AgentLoopTcpSidecarSupervisor,
   buildTcpSidecarChildEnv,
+  createSupervisedTcpConnectionFactory,
   devRustSidecarPath,
   formatAgentLoopListenAddr,
   parseListeningAddress,
   resolveAgentLoopTcpSidecarLaunch,
 } from "../../src/cli/AgentLoopTcpSidecarSupervisor.js";
 import { createLocalGateway } from "../../src/cli/createLocalGateway.js";
+import { LocalGatewayLifecycleBundle } from "../../src/cli/LocalGatewayLifecycleBundle.js";
 
 const FAKE_SIDECAR = fileURLToPath(new URL("./fixtures/fake-agent-loop-tcp-sidecar.mjs", import.meta.url));
 const TOKEN = "production-token";
@@ -329,12 +332,96 @@ test("local gateway supervise starts the listener and dispose stops the restart 
   await assert.rejects(connect(port), /ECONNREFUSED|ECONNRESET|connect/);
 });
 
+test("a failing restart cannot hang waitForAddress, and stop or dispose cancels it", { timeout: 20_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "pilotdeck-supervise-fail-"));
+  const failFile = join(root, "suppress-restart");
+  const supervisor = startFromEnv({
+    PATH: process.env.PATH,
+    PILOTDECK_AGENT_LOOP_TRANSPORT: "tcp",
+    PILOTDECK_AGENT_LOOP_TCP_SUPERVISE: "1",
+    PILOTDECK_RUST_SIDECAR_BIN: FAKE_SIDECAR,
+    PILOTDECK_FAKE_SIDECAR_FAIL_FILE: failFile,
+  }, { readyTimeoutMs: 1_000 });
+  try {
+    await supervisor.start();
+    await writeFile(failFile, "suppress\n");
+    const firstPid = requiredPid(supervisor);
+    process.kill(firstPid, "SIGKILL");
+    await waitFor(() => supervisor.address === undefined, AGENT_LOOP_TCP_SUPERVISOR_RESTART_LIMIT_MS);
+
+    const waitMs = 400;
+    const waitedAt = Date.now();
+    await assert.rejects(
+      supervisor.waitForAddress(waitMs),
+      /Timed out waiting for the AgentLoop TCP sidecar to listen after 400ms/,
+    );
+    const waitedMs = Date.now() - waitedAt;
+    assert.ok(waitedMs < 1_200, `failed-restart wait hung for ${waitedMs}ms`);
+    assert.ok(waitedMs >= waitMs - 50, `failed-restart wait returned early at ${waitedMs}ms`);
+
+    const factoryMs = 350;
+    const factoryAt = Date.now();
+    const factory = createSupervisedTcpConnectionFactory(supervisor, factoryMs);
+    await assert.rejects(
+      Promise.resolve(factory({} as never)),
+      /Timed out waiting for the AgentLoop TCP sidecar to listen after 350ms/,
+    );
+    const factoryElapsedMs = Date.now() - factoryAt;
+    assert.ok(factoryElapsedMs < 1_200, `factory wait hung for ${factoryElapsedMs}ms`);
+
+    const pending = supervisor.waitForAddress(5_000);
+    const cancelAt = Date.now();
+    let cancelledAt = 0;
+    const observed = pending.then(
+      () => {
+        throw new Error("waitForAddress resolved while the restart loop was still failing");
+      },
+      (error: unknown) => {
+        cancelledAt = Date.now();
+        assert.match(error instanceof Error ? error.message : String(error), /stopped/);
+      },
+    );
+    const bundle = new LocalGatewayLifecycleBundle({
+      gateway: {},
+      subagentManager: { async dispose() {} },
+      subagentProviders: { async dispose() {} },
+      registry: {
+        async disposeSessionMcpRuntimes() {},
+        async disposeProjectRuntimes() {},
+      },
+      telemetry: { async dispose() {} },
+      stopConfigWatching() {},
+      stopExtensionWatching() {},
+      stopTcpSupervisor: () => supervisor.stop(),
+      warn() {},
+    });
+    await bundle.dispose();
+    await observed;
+    const cancelMs = cancelledAt - cancelAt;
+    assert.ok(cancelMs < 1_500, `dispose did not cancel the in-flight wait within 1500ms (${cancelMs}ms)`);
+    assert.equal(supervisor.address, undefined);
+    console.log([
+      "m1 failing-restart",
+      `waitMs=${waitMs}`,
+      `waitedMs=${waitedMs}`,
+      `factoryMs=${factoryMs}`,
+      `factoryElapsedMs=${factoryElapsedMs}`,
+      `disposeCancelMs=${cancelMs}`,
+    ].join(" "));
+  } finally {
+    await supervisor.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 const rustBin = process.env.PILOTDECK_T_P2_06_RUST_BIN
   ?? join(process.cwd(), "rust-core/target/release/pilotdeck-agent-loop-sidecar");
+const rustBinSkip = rustSidecarSkipReason(rustBin);
 
-test("rust-core sidecar is supervised across a crash with the hello token", { timeout: 30_000 }, async () => {
-  const { access } = await import("node:fs/promises");
-  await access(rustBin);
+test("rust-core sidecar is supervised across a crash with the hello token", {
+  skip: rustBinSkip ?? false,
+  timeout: 30_000,
+}, async () => {
   const supervisor = startFromEnv({
     PATH: process.env.PATH,
     PILOTDECK_AGENT_LOOP_TRANSPORT: "tcp",
@@ -461,7 +548,10 @@ async function assertSuperviseRestart(input: {
   }
 }
 
-function startFromEnv(env: Record<string, string | undefined>): AgentLoopTcpSidecarSupervisor {
+function startFromEnv(
+  env: Record<string, string | undefined>,
+  options?: { readyTimeoutMs?: number },
+): AgentLoopTcpSidecarSupervisor {
   const profile = resolveAgentLoopDeploymentProfile({ env, cwd: process.cwd() });
   if (profile.transport !== "tcp" || !profile.supervise) {
     throw new Error("expected a supervised tcp profile");
@@ -473,7 +563,17 @@ function startFromEnv(env: Record<string, string | undefined>): AgentLoopTcpSide
     cwd: profile.supervise.cwd,
     env: profile.supervise.env,
     authToken: profile.authToken,
+    ...(options?.readyTimeoutMs === undefined ? {} : { readyTimeoutMs: options.readyTimeoutMs }),
   });
+}
+
+function rustSidecarSkipReason(binary: string): string | undefined {
+  try {
+    accessSync(binary, constants.X_OK);
+    return undefined;
+  } catch {
+    return `rust-core sidecar binary is not executable at ${binary}`;
+  }
 }
 
 async function helloExecute(port: number, token?: string): Promise<{

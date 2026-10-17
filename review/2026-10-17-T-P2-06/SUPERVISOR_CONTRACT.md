@@ -81,10 +81,11 @@ TCP 子进程**保留** `PILOTDECK_AGENT_LOOP_TCP_TOKEN`（trim 后的值）。�
 | 项 | 值 |
 |---|---|
 | 就绪超时 | `5000` ms（`AGENT_LOOP_TCP_SUPERVISOR_READY_TIMEOUT_MS`）。`start()` 在这个窗口内失败则拒绝，不回退 native |
+| 等待地址 | `waitForAddress` 默认用就绪超时做上限。传入 `connectTimeoutMs` 时用该值。重启一直失败时，这一次等待超时后拒绝，turn 不会挂住。重启环继续，直到 `stop()` |
 | 第一次重启等待 | `50` ms |
 | 退避 | 每次翻倍，上限 `1000` ms |
 | 崩溃后续上的验收窗口 | `5000` ms（`AGENT_LOOP_TCP_SUPERVISOR_RESTART_LIMIT_MS`）。supervisor 不会在 5s 后停止重试 |
-| 停止 | `SIGTERM` 进程组，`500` ms 后 `SIGKILL`。`stop()` 之后不再重启 |
+| 停止 | `SIGTERM` 进程组，`500` ms 后 `SIGKILL`。`stop()` 之后不再重启，并拒绝所有还在等地址的调用。gateway `dispose()` 走的就是这个 `stop()` |
 
 意外退出（exit / spawn error）记一条日志：`sidecar exited ... restarting in Nms`。`spawn` 使用 `detached: true`，停止时对进程组发信号（`process.kill(-pid)`），失败再退回 `child.kill`。
 

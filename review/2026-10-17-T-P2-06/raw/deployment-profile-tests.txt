@@ -1,35 +1,35 @@
 TAP version 13
-# (node:5343) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (node:6836) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 # (Use `node --trace-warnings ...` to show where the warning was created)
 # Subtest: agent loop deployment profile defaults to native execution
 ok 1 - agent loop deployment profile defaults to native execution
   ---
-  duration_ms: 0.895385
+  duration_ms: 0.939694
   ...
 # Subtest: agent loop deployment profile resolves a bounded external TCP provider
 ok 2 - agent loop deployment profile resolves a bounded external TCP provider
   ---
-  duration_ms: 0.326847
+  duration_ms: 0.294122
   ...
 # Subtest: stdio deployment starts the bundled sidecar without inheriting TCP listener state
 ok 3 - stdio deployment starts the bundled sidecar without inheriting TCP listener state
   ---
-  duration_ms: 0.133441
+  duration_ms: 0.150273
   ...
 # Subtest: tcp deployment carries the production hello token and does not invent one when unset
 ok 4 - tcp deployment carries the production hello token and does not invent one when unset
   ---
-  duration_ms: 0.116442
+  duration_ms: 0.16846
   ...
 # Subtest: deployment factory forwards a passive observer to the bundled stdio sidecar
 ok 5 - deployment factory forwards a passive observer to the bundled stdio sidecar
   ---
-  duration_ms: 776.028119
+  duration_ms: 820.790635
   ...
 # Subtest: agent loop deployment profile rejects incomplete or unknown transport configuration
 ok 6 - agent loop deployment profile rejects incomplete or unknown transport configuration
   ---
-  duration_ms: 0.384178
+  duration_ms: 0.398421
   ...
 1..6
 # tests 6
@@ -39,5 +39,4 @@ ok 6 - agent loop deployment profile rejects incomplete or unknown transport con
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1181.190107
-EXIT:0
+# duration_ms 1249.526246

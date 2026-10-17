@@ -1,109 +1,136 @@
 TAP version 13
-# (node:5455) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (node:6250) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 # (Use `node --trace-warnings ...` to show where the warning was created)
 # Subtest: deployment profile stays native unless transport is selected
 ok 1 - deployment profile stays native unless transport is selected
   ---
-  duration_ms: 1.108355
+  duration_ms: 1.144187
   ...
 # Subtest: tcp reuse keeps the external listener profile when supervise is off
 ok 2 - tcp reuse keeps the external listener profile when supervise is off
   ---
-  duration_ms: 0.267732
+  duration_ms: 0.270869
   ...
 # Subtest: stdio deployment still strips TCP listener env and does not arm the supervisor
 ok 3 - stdio deployment still strips TCP listener env and does not arm the supervisor
   ---
-  duration_ms: 0.182172
+  duration_ms: 0.176068
   ...
 # Subtest: tcp supervise resolves rust-listen argv and keeps the hello token for the child
 ok 4 - tcp supervise resolves rust-listen argv and keeps the hello token for the child
   ---
-  duration_ms: 7.564746
+  duration_ms: 5.447165
   ...
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5473 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6269 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
 # Subtest: tcp supervise without a binary fails closed
 ok 5 - tcp supervise without a binary fails closed
   ---
-  duration_ms: 0.61251
+  duration_ms: 0.668915
   ...
 # Subtest: listening line parser accepts loopback HOST:PORT only
 ok 6 - listening line parser accepts loopback HOST:PORT only
   ---
-  duration_ms: 0.316333
+  duration_ms: 0.308027
   ...
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:38343 pid=5473
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:41113 pid=6269
 # [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=SIGKILL; restarting in 50ms (restart 1)
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5484 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:33603 pid=5484
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6280 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:43531 pid=6280
 # [pilotdeck] agent-loop tcp supervisor: stopped
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5495 ts-env-listen /exec-daemon/node /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6291 ts-env-listen /exec-daemon/node /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs
 # Subtest: supervisor spawns a rust-listen sidecar, restarts it, and probes hello plus execute
 ok 7 - supervisor spawns a rust-listen sidecar, restarts it, and probes hello plus execute
   ---
-  duration_ms: 118.294764
+  duration_ms: 121.062529
   ...
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:43789 pid=5495
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:43841 pid=6291
 # [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=SIGKILL; restarting in 50ms (restart 1)
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5506 ts-env-listen /exec-daemon/node /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:45349 pid=5506
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6302 ts-env-listen /exec-daemon/node /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:42921 pid=6302
 # [pilotdeck] agent-loop tcp supervisor: stopped
 # Subtest: supervisor spawns a TS env listener without --listen and restarts it
 ok 8 - supervisor spawns a TS env listener without --listen and restarts it
   ---
-  duration_ms: 112.371733
+  duration_ms: 113.670158
   ...
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5517 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:33085
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:33085 pid=5517
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6313 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:42423
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:42423 pid=6313
 # [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=SIGKILL; restarting in 50ms (restart 1)
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5528 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:33085
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:33085 pid=5528
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6324 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:42423
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:42423 pid=6324
 # [pilotdeck] agent-loop tcp supervisor: stopped
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5539 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6335 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
 # Subtest: fixed port supervise rebinds the same port after the child exits
 ok 9 - fixed port supervise rebinds the same port after the child exits
   ---
-  duration_ms: 113.86893
+  duration_ms: 115.140138
   ...
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:43199 pid=5539
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:40945 pid=6335
 # [pilotdeck] agent-loop tcp supervisor: stopped
 # Subtest: stop kills the sidecar and does not restart it
 ok 10 - stop kills the sidecar and does not restart it
   ---
-  duration_ms: 327.943177
+  duration_ms: 326.698397
   ...
 # Subtest: reuse connects to an external listener and does not spawn when supervise is off
 ok 11 - reuse connects to an external listener and does not spawn when supervise is off
   ---
-  duration_ms: 28.22827
+  duration_ms: 31.245836
   ...
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5563 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:37379
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:37379 pid=5563
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6359 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:40937
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:40937 pid=6359
 # [pilotdeck] agent-loop tcp supervisor: stopped
 # Subtest: local gateway supervise starts the listener and dispose stops the restart loop
 ok 12 - local gateway supervise starts the listener and dispose stops the restart loop
   ---
-  duration_ms: 350.008266
+  duration_ms: 351.542854
   ...
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5574 rust-listen /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar --listen 127.0.0.1:0
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:40891 pid=5574
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6370 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:45621 pid=6370
 # [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=SIGKILL; restarting in 50ms (restart 1)
-# [pilotdeck] agent-loop tcp supervisor: spawned pid=5587 rust-listen /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar --listen 127.0.0.1:0
-# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:42457 pid=5587
-# rust-core probe listen=127.0.0.1:40891 wrong=UNAUTHENTICATED hello=true executeKind=error executeCode=MISSING_EXECUTE_FIELD restartedPid=5587 again=UNAUTHENTICATED
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6381 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: restart attempt failed: AgentLoop TCP sidecar exited before listening (code=1 signal=null). supervisor-proof token-present=no
+# listening 127.0.0.1:45621
+# fake sidecar: restart suppressed
+# [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=null; restarting in 100ms (restart 2)
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6392 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: restart attempt failed: AgentLoop TCP sidecar exited before listening (code=1 signal=null). supervisor-proof token-present=no
+# listening 127.0.0.1:45621
+# fake sidecar: restart suppressed
+# fake sidecar: restart suppressed
+# [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=null; restarting in 200ms (restart 3)
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6403 rust-listen /workspace/tests/cli/fixtures/fake-agent-loop-tcp-sidecar.mjs --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: restart attempt failed: AgentLoop TCP sidecar exited before listening (code=1 signal=null). supervisor-proof token-present=no
+# listening 127.0.0.1:45621
+# fake sidecar: restart suppressed
+# fake sidecar: restart suppressed
+# fake sidecar: restart suppressed
+# [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=null; restarting in 400ms (restart 4)
+# [pilotdeck] agent-loop tcp supervisor: stopped
+# m1 failing-restart waitMs=400 waitedMs=400 factoryMs=350 factoryElapsedMs=351 disposeCancelMs=1
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6414 rust-listen /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar --listen 127.0.0.1:0
+# Subtest: a failing restart cannot hang waitForAddress, and stop or dispose cancels it
+ok 13 - a failing restart cannot hang waitForAddress, and stop or dispose cancels it
+  ---
+  duration_ms: 802.206765
+  ...
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:37395 pid=6414
+# [pilotdeck] agent-loop tcp supervisor: sidecar exited code=null signal=SIGKILL; restarting in 50ms (restart 1)
+# [pilotdeck] agent-loop tcp supervisor: spawned pid=6427 rust-listen /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar --listen 127.0.0.1:0
+# [pilotdeck] agent-loop tcp supervisor: listening 127.0.0.1:35293 pid=6427
+# rust-core probe listen=127.0.0.1:37395 wrong=UNAUTHENTICATED hello=true executeKind=error executeCode=MISSING_EXECUTE_FIELD restartedPid=6427 again=UNAUTHENTICATED
 # [pilotdeck] agent-loop tcp supervisor: stopped
 # Subtest: rust-core sidecar is supervised across a crash with the hello token
-ok 13 - rust-core sidecar is supervised across a crash with the hello token
+ok 14 - rust-core sidecar is supervised across a crash with the hello token
   ---
-  duration_ms: 69.080945
+  duration_ms: 69.750529
   ...
-1..13
-# tests 13
+1..14
+# tests 14
 # suites 0
-# pass 13
+# pass 14
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1860.581043
-EXIT:0
+# duration_ms 2659.803359

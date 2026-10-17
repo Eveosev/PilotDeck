@@ -61,6 +61,8 @@ export type AgentLoopTcpSidecarSupervisorOptions = {
 };
 
 type AddressWaiter = {
+  settled: boolean;
+  timer?: ReturnType<typeof setTimeout>;
   resolve: (address: AgentLoopTcpListenAddress) => void;
   reject: (error: Error) => void;
 };
@@ -139,13 +141,37 @@ export class AgentLoopTcpSidecarSupervisor {
     return this.startPromise;
   }
 
-  /** Current listen address, waiting through a restart gap when necessary. */
-  waitForAddress(): Promise<AgentLoopTcpListenAddress> {
+  /**
+   * Current listen address, waiting through a restart gap when necessary.
+   * The wait is bounded by `timeoutMs` (default: the ready timeout) and is
+   * rejected immediately by `stop()`, which gateway dispose calls. A restart
+   * loop that never listens again therefore cannot hang a turn.
+   */
+  waitForAddress(timeoutMs?: number): Promise<AgentLoopTcpListenAddress> {
     if (this.addressValue) return Promise.resolve(this.addressValue);
     if (this.stopped) return Promise.reject(stoppedError());
     if (this.terminalError) return Promise.reject(this.terminalError);
+    const bounded = positiveInteger(timeoutMs ?? this.readyTimeoutMs, "timeoutMs");
     return new Promise((resolve, reject) => {
-      this.waiters.push({ resolve, reject });
+      const waiter: AddressWaiter = { settled: false, resolve, reject };
+      this.waiters.push(waiter);
+      if (this.addressValue) {
+        this.settleWaiter(waiter, undefined, this.addressValue);
+        return;
+      }
+      if (this.stopped) {
+        this.settleWaiter(waiter, stoppedError());
+        return;
+      }
+      if (this.terminalError) {
+        this.settleWaiter(waiter, this.terminalError);
+        return;
+      }
+      waiter.timer = setTimeout(() => {
+        this.settleWaiter(waiter, new Error(
+          `Timed out waiting for the AgentLoop TCP sidecar to listen after ${bounded}ms.`,
+        ));
+      }, bounded);
     });
   }
 
@@ -324,13 +350,21 @@ export class AgentLoopTcpSidecarSupervisor {
   }
 
   private flushWaiters(address: AgentLoopTcpListenAddress): void {
-    const pending = this.waiters.splice(0);
-    for (const waiter of pending) waiter.resolve(address);
+    for (const waiter of [...this.waiters]) this.settleWaiter(waiter, undefined, address);
   }
 
   private rejectWaiters(error: Error): void {
-    const pending = this.waiters.splice(0);
-    for (const waiter of pending) waiter.reject(error);
+    for (const waiter of [...this.waiters]) this.settleWaiter(waiter, error);
+  }
+
+  private settleWaiter(waiter: AddressWaiter, error?: Error, address?: AgentLoopTcpListenAddress): void {
+    if (waiter.settled) return;
+    waiter.settled = true;
+    if (waiter.timer) clearTimeout(waiter.timer);
+    const index = this.waiters.indexOf(waiter);
+    if (index >= 0) this.waiters.splice(index, 1);
+    if (error) waiter.reject(error);
+    else waiter.resolve(address!);
   }
 
   private appendOutput(line: string): void {
@@ -343,7 +377,7 @@ export function createSupervisedTcpConnectionFactory(
   connectTimeoutMs: number | undefined,
 ): AgentLoopSidecarConnectionFactory {
   return async (input) => {
-    const address = await supervisor.waitForAddress();
+    const address = await supervisor.waitForAddress(connectTimeoutMs);
     const options: TcpAgentLoopSidecarConnectionFactoryOptions = {
       host: address.host,
       port: address.port,
