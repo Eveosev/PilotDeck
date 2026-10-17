@@ -1,0 +1,75 @@
+# pure_text PilotDeck
+
+- left: `/tmp/tp209/parity/pure_text/pure_text.pilotdeck-current-native.jsonl`
+- right: `/tmp/tp209/parity/pure_text/pure_text.pilotdeck-current-sidecar.jsonl`
+
+PASS: no semantic differences after projection.
+
+## Format Warnings
+
+Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.
+16 difference(s). taxonomy={"envelope": 16, "budget": 0, "modelView": 0, "request": 0, "requestEvidence": 0, "response": 0, "state": 0, "kind": 0, "source": 0, "attempt": 0}
+
+- `trace[0].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[0].sequence` (envelope)
+  - left: `1`
+  - right: `17`
+
+- `trace[1].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[1].sequence` (envelope)
+  - left: `2`
+  - right: `18`
+
+- `trace[2].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[2].sequence` (envelope)
+  - left: `3`
+  - right: `19`
+
+- `trace[3].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[3].sequence` (envelope)
+  - left: `4`
+  - right: `21`
+
+- `trace[4].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[4].sequence` (envelope)
+  - left: `5`
+  - right: `29`
+
+- `trace[5].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[5].sequence` (envelope)
+  - left: `6`
+  - right: `30`
+
+- `trace[6].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[6].sequence` (envelope)
+  - left: `7`
+  - right: `32`
+
+- `trace[7].invocationId` (envelope)
+  - left: `"415092b890a84bed91efeb4dbfdd1547"`
+  - right: `"5e66120affb541988fc843eab6044b64"`
+
+- `trace[7].sequence` (envelope)
+  - left: `8`
+  - right: `33`
