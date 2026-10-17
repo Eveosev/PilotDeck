@@ -1,0 +1,13 @@
+{
+  "backend": "x11",
+  "exit": 0,
+  "seconds": 25.348,
+  "start": "2026-10-17T23:18:52.586Z",
+  "end": "2026-10-17T23:19:17.934Z",
+  "screenshots": 9,
+  "passed": true,
+  "file_click_timeout": 0,
+  "file_click_stable": 1,
+  "file_click_sites_completed": 3,
+  "N": 1
+}

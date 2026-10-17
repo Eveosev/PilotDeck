@@ -1,0 +1,14 @@
+backend=wayland
+exit=0
+seconds=25.202
+start=2026-10-17T23:19:24.716Z
+end=2026-10-17T23:19:49.918Z
+screenshots=9
+N=1
+passed=true
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+tip=da96f0546bb6cf3f9123c70a348477c65ab07038
+entry=apps/desktop/scripts/run-linux-chrome-smoke.sh
+wrapper=timeout 600
