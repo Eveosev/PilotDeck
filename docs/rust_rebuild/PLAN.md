@@ -87,7 +87,7 @@
    - 触及 `evidence/protocol-sync-gate.md` 所列路径的 PR，CI 跑 schema replay（检查清单 1–3 的可脚本化部分）。
    - sidecar 行为 PR 至少跑 parity 快速门。全量 53 仍可以 nightly，不在每个 PR 的路径过滤里假装已经在跑。
    - **R1 债务 m2（本轮不修）**：CI 干净 checkout 没有 rust-core release 二进制，`parity-quick` 恒为 `PARITY_QUICK_RESULT=skip`。owner：后续 CI 切片，由真 Payne 决定是否在 CI 编译。下一步：在 `rust-core/` 用 1.99.1 跑 `cargo build --locked --release --bin pilotdeck-agent-loop-sidecar`（可加缓存），再走现有 proof symlink 跑 `pure_text` 与 `single_tool`。
-   - **R1 债务 m4（本轮不修）**：跟进要求记下这条，但送达的句子没有展开缺陷内容，GitHub #60 上也没有 review 正文。owner：Reviewer。下一步：原文到达后另开提交，不在 #60 里猜修。
+   - **R1 债务 m4（本轮不修）**：`protocol-sync.yml` 必须把触发路径写成门禁列表逐字加上 `rust-core/**`，因此不包含 `protocol-sync.yml` 自身、`.github/workflows/check-protocol-sync-paths.py` 和 `CONTRIBUTING.md`（CI 实际执行的 bash 块）。只改这三个文件的 PR 不会触发该 job，削弱这个块（例如删掉 `git diff --exit-code`）也得不到 CI 信号。Follow-up：另加 `protocol-sync-meta.yml`，由这三个文件触发，跑路径比对和同一段 bash 块。owner：后续 CI 切片。
 
 ## P1 当前进度（截至 tip `f44b3789`）
 
