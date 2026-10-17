@@ -2,7 +2,7 @@
 
 > 历史决议：`review/2026-10-09-rust-proposal-v2/TASK_PLAN.md`、同目录 `DECISION.md`（本地证据，未入库；v2.1，基线 OpenBMB/PilotDeck @ `b243fa00`）。D0–D9 仍以那份决议为准。
 > **2026-10-15 合流修订以本文为准。** 依据是 `REVIEW-RustReview-2026-10-15.md`（对照 AgentCPM rust-core 调查与本仓代码）。本文不把未合并的 PR 写成已合并，也不把尚未跑过的对拍写成已切换核心。
-> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `fbcfa7a9`（2026-10-17，#60 合并，含 T-P2-08）。[PR_LOG.md](PR_LOG.md) 仍记到 #56，本任务不补表。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。
+> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `da96f054`（#62 合并，含 T-P2-01-D2；tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。[PR_LOG.md](PR_LOG.md) 仍记到 #56，本任务不补表。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。
 
 ## 终局目标
 
@@ -26,7 +26,7 @@
 | P0a | 契约与基线：parity TCP、schema、comparator、性能基线、打包骨架、协议门禁 | P1 入口 = 00/01/02/03 + D4 暂定 | 入口项已合（#1 #2 #3 #4 #5 #7）；T-P0a-04/06/08 本稿未见合并记录 |
 | P0b | 黄金样本、ST 复核、缺口清单、回滚、签名、覆盖率（与 P1/P2 并行） | 见 TASK_PLAN §P0b | 本稿未见合并记录 |
 | P1 | 技术探针：Rust loop、harness、parity、流块、对照、go/no-go | 两场景一致 + 流块数据 + 书面决议 | **已关闸，有条件**（见下） |
-| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d21eb126`，#58）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56，tools 缺口仍 open。T-P2-06 已合 #58 `d21eb126`。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。PC1#3、PC2、PC3 仍 open |
+| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d21eb126`，#58）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56。T-P2-06 已合 #58 `d21eb126`。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-01-D2 已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-09 进行中（本 PR，未合）。PC1#3、PC2、PC3 仍 open |
 | P3 | 按调用频率把宿主模块收回 Rust。缝在 `HostCall`：反向 RPC 换本地实现，顺序仍是 model → tool/MCP → budget → turn → 其余 | 对应 `module_call` 消失；每模块可回滚 | 未开始。T-P2-04 未合入之前不开工 |
 | P4 | session 与存储（格式版本、单一写者） | ST 对拍、零丢失 | 未开始 |
 | P5 | Rust gateway + adapters。rust-core **不含** gateway / yaml / cli，这三块仍在 P5，不并进 P2 | 黄金样本 100%；desktop 切 Rust gateway | 未开始 |
@@ -43,7 +43,7 @@
 |---|---|---|
 | T-P2-01 A+B | 真 host `prepare` 请求、thinking signature、stdio 与 TCP 的 G5/B4、TCP hello token（`PILOTDECK_AGENT_LOOP_TCP_TOKEN`，未设置仍是开放 loopback；stdio 子进程环境删除该变量） | **已合** #46 `f44b3789` |
 | T-P2-01 C | FT-2a：模型迭代按需重采。2026-10-15 18:01 取消为「接上真模型后若仍超 Q2 再开」。只有带 key 的运行仍超过 Q2 才另开。T-P2-03 先回答探针 PC2 是不是实现问题 | 条件触发，未开 |
-| T-P2-01 D | 53 场景分诊，以及 tools 缺口 m2/m4/m5/m6/E1/n1/n3。输入改为 T-P2-02 的 rust-core 结果，不在 `sidecar.rs` 上补场景 | `deadline_during_tool` 最小切片已合 #56 `d91ed18b`。余项见 T-P2-01-D2（进行中，未合）：tools 缺口 m2/m4/m5/m6/E1/n1/n3，以及 `deadline` / `sidecar_budget_limit` 分诊 |
+| T-P2-01 D | 53 场景分诊，以及 tools 缺口 m2/m4/m5/m6/E1/n1/n3。输入改为 T-P2-02 的 rust-core 结果，不在 `sidecar.rs` 上补场景 | `deadline_during_tool` 最小切片已合 #56 `d91ed18b`。T-P2-01 D / Track D rest **已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）**。`deadline` / `sidecar_budget_limit` 仍可作余债（非本切片强制修绿） |
 | PC1#3 | 关闭 PC1 第 3 项：流块 after-first 净 P95 差/D4 ≤ 1（实测 1.394 / 1.822）。探针 TCP 的旧数字在核心切换前仍然有效；T-P2-04 合入后这组数字作废，必须重采 | open |
 | PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。尚无完成记录。T-P2-04 合入后旧数字作废，必须重采 | open |
 | T-P2-02 | 用本仓 `tools/agent-loop-parity` 的 **stdio** 跑 rust-core 二进制。身份、命令和预计会撞上 `profile_gap` 的场景见评审意见第 2 问 | **已合** #50 `113c16d9`。stdio 全量 53：pass 51，trace_diff 2，profile_gap 0，BLOCKED 0 |
@@ -53,7 +53,7 @@
 | T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | **已合** #58 `d21eb126`。opt-in `PILOTDECK_AGENT_LOOP_TCP_SUPERVISE=1` 或显式 bin；默认 transport 仍是 native |
 | T-P2-07 | 2026-10-12 的原意是「另建 pilotdeck-rs workspace」。合流后改为：**不**新建那份 7 crate workspace；P2 只引进 rust-core 已有的 4 个 crate。gateway / yaml / cli 留在 P5 | 决议已改，未实施 |
 | T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | **已合** #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。R1 已改 toolchain 钉法、skip 的 warning、失败标记。m2 / m4 是债务，见下 |
-| T-P2-09 | 基线差：本仓 `AgentLoop.ts` 的 status 事件带 `kind` / `text`（#2）。对拍期望以本仓 TS 为准。rust-core 若少这两个字段，补事件投影，不把 TS 改回去 | open，附在 T-P2-02 的 diff 分类里 |
+| T-P2-09 | 基线差：本仓 `AgentLoop.ts` 的 status 事件带 `kind` / `text`（#2）。对拍期望以本仓 TS 为准。rust-core 若少这两个字段，补事件投影，不把 TS 改回去 | **进行中**（本 PR，draft，未合）。rust-core `agent_status` 补齐 `kind` 与 `text` 投影，对拍以本仓 AgentLoop 为准，不改 TS |
 
 ## 门禁流程（每个 PR）
 
