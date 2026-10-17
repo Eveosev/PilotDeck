@@ -1,0 +1,41 @@
+# Wayland / X11 File-click hang counts for official chrome smoke (N=1 per backend)
+# Observed counts from this post-#62 merge evidence run only.
+#
+# Official entry: bash apps/desktop/scripts/run-linux-chrome-smoke.sh {x11,wayland}
+# File .click() sites in ui/e2e/desktop-chrome.smoke.mjs: L161 (dark), L243 (then New Project), L339 (light)
+#
+# Hang definition (same as PR #35, smoke @30883a13): suite passed AND no Playwright
+# locator.click / expect timeout on File AND the outer timeout did not kill the process,
+# then file_click_timeout=0, file_click_stable=1, file_click_sites_completed=3.
+# Not computed from per-site log lines.
+# Outer timeout disclosure: PR #35 wrapper was `timeout 300`; this run's wrapper was `timeout 600`. Neither fired.
+
+backend=x11
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=25.348
+timeoutCeilingSeconds=600
+log=x11-smoke.out.txt
+stderr=x11-smoke.err.txt
+basis: suite_pass=1 from x11-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and x11-smoke.out.txt:2 {"passed":true,...}; playwright_file_timeout=0 (x11-smoke.out.txt and x11-smoke.err.txt have no Playwright timeout; stderr is empty, 0 bytes); outer_timeout_killed=0 (exit=0, wall 25.348s, wrapper `timeout 600` did not fire)
+
+backend=wayland
+suite_runs=1
+suite_pass=1
+suite_fail=0
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+wrapper_timeout=0
+exit=0
+seconds=25.202
+timeoutCeilingSeconds=600
+log=wayland-smoke.out.txt
+stderr=wayland-smoke.err.txt
+basis: suite_pass=1 from wayland-smoke.out.txt:1 "PASS: compact caption and rich About dialog, version copy and project link" and wayland-smoke.out.txt:2 {"passed":true,...}; playwright_file_timeout=0 (wayland-smoke.out.txt and wayland-smoke.err.txt have no Playwright timeout; stderr is empty, 0 bytes); outer_timeout_killed=0 (exit=0, wall 25.202s, wrapper `timeout 600` did not fire)
