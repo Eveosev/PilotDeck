@@ -1,0 +1,3 @@
+FAIL parity-quick: PILOTDECK_RUST_SIDECAR_BIN is set but missing: /tmp/no-such-pilotdeck-agent-loop
+PARITY_QUICK_RESULT=fail
+EXIT:1

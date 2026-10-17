@@ -1,0 +1,4 @@
+PILOTDECK_RUST_SIDECAR_BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+FAIL parity-quick: dist/src/cli/createLocalGateway.js missing (pnpm build). Binary is present, so this is not a skip.
+PARITY_QUICK_RESULT=fail
+EXIT:1

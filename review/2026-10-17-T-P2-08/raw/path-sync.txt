@@ -1,0 +1,16 @@
+PASS protocol-sync paths identical (15 entries, includes rust-core/**)
+src/agent/modules/protocol.ts
+scripts/lib/module-protocol-schema.mjs
+scripts/generate-module-protocol-schema.mjs
+scripts/replay-module-protocol-schema.mjs
+evidence/schema/fixtures/negative-samples.json
+evidence/schema/fixtures/edge-samples.json
+evidence/schema/module-protocol.schema.json
+evidence/schema/replay-report.json
+evidence/schema/replay-report.md
+evidence/protocol-sync-gate.md
+tools/agent-loop-parity/run.py
+tools/agent-loop-parity/scenarios.json
+package.json
+pnpm-lock.yaml
+rust-core/**
