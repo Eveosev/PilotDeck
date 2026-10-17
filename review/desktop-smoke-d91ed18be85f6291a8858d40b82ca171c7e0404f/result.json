@@ -1,0 +1,33 @@
+{
+  "sha": "d91ed18be85f6291a8858d40b82ca171c7e0404f",
+  "merged_prs": [56, 55],
+  "branch": "rust_standalone_alpha1",
+  "N": 1,
+  "overall": "PASS",
+  "backends": {
+    "x11": {
+      "exit": 0,
+      "seconds": 24.964,
+      "start": "2026-10-17T02:28:26.901Z",
+      "end": "2026-10-17T02:28:51.865Z",
+      "screenshots": 9,
+      "passed": true,
+      "file_click_timeout": 0,
+      "file_click_stable": 1,
+      "file_click_sites_completed": 3
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 23.524,
+      "start": "2026-10-17T02:29:06.497Z",
+      "end": "2026-10-17T02:29:30.021Z",
+      "screenshots": 9,
+      "passed": true,
+      "file_click_timeout": 0,
+      "file_click_stable": 1,
+      "file_click_sites_completed": 3
+    }
+  },
+  "gha": "unavailable: HTTP 422 'Actions has been disabled for this repository' (gha/desktop.dispatch.http)",
+  "issue14_fixed_claimed": false
+}

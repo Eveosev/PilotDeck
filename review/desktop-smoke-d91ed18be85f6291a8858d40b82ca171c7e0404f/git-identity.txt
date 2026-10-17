@@ -1,0 +1,9 @@
+repo=/workspace/pilotdeck-rust/repo
+HEAD=d91ed18be85f6291a8858d40b82ca171c7e0404f
+HEAD_short=d91ed18be85f
+branch=smoke-d91ed18b
+remote_eveosev=https://github.com/Eveosev/PilotDeck.git
+parents=d740abe1330bbc4a7ca9e2264fed0dad72b9a866 71eadbe46f8c1cec443231ae2349fdd397ceb0b2
+subject=Merge pull request #56 from Eveosev/cursor/t-p2-01-d-deadline-during-tool-36cd
+date_local=2026-10-17 10:28:07 CST
+date_utc=2026-10-17T02:28:07Z
