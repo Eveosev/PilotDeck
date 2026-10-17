@@ -1,0 +1,13 @@
+label run1
+scenarios 53
+gateScenarioCount 53
+blocked []
+oracleFailures []
+knownGaps []
+expectedExtensions ['deadline/PilotDeck: verified 2 declared transport difference(s)']
+notApplicable []
+rustSidecarIntended True
+sidecarImplementation rust
+sidecarImplementationSource exec-proof
+failed_count 0
+failed_names []

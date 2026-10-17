@@ -1,0 +1,5 @@
+PILOTDECK_RUST_SIDECAR_BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+readlink -f: /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+ls -l: lrwxrwxrwx 1 ubuntu ubuntu 39 Oct 17 23:34 /workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop -> ../release/pilotdeck-agent-loop-sidecar
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo 1.99.1 (5f94df478 2026-08-27)
