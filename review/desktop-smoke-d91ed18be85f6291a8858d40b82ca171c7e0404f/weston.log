@@ -1,0 +1,36 @@
+Date: 2026-10-17 CST
+[10:29:07.234] weston 14.0.2
+               https://wayland.freedesktop.org
+               Bug reports to: https://gitlab.freedesktop.org/wayland/weston/issues/
+               Build: 14.0.2
+[10:29:07.234] Command line: weston --backend=headless-backend.so --socket=wayland-pilotdeck-chrome --no-config --idle-time=0 --width=1440 --height=900
+[10:29:07.234] OS: Linux, 6.12.94+, #1 SMP PREEMPT_DYNAMIC Tue Oct  6 06:02:30 UTC 2026, x86_64
+[10:29:07.234] Flight recorder: enabled
+[10:29:07.234] Starting with no config file.
+[10:29:07.234] Output repaint window is 7 ms maximum.
+[10:29:07.236] Loading module '/usr/lib/x86_64-linux-gnu/libweston-14/headless-backend.so'
+[10:29:07.243] Registered plugin API 'weston_windowed_output_api_headless_v2' of size 16
+[10:29:07.243] Color manager: no-op
+                 protocol support: no
+[10:29:07.243] Output 'headless' attempts EOTF mode SDR and colorimetry mode default.
+[10:29:07.243] Output 'headless' using color profile: stock sRGB color profile
+[10:29:07.243] Output 'headless' enabled with head(s) headless
+[10:29:07.243] Compositor capabilities:
+               arbitrary surface rotation: no
+               screen capture uses y-flip: no
+               cursor planes: no
+               arbitrary resolutions: no
+               view mask clipping: no
+               explicit sync: no
+               color operations: no
+               presentation clock: CLOCK_MONOTONIC_RAW, id 4
+               presentation clock resolution: 0.000000001 s
+[10:29:07.243] Loading module '/usr/lib/x86_64-linux-gnu/weston/desktop-shell.so'
+[10:29:07.244] launching '/usr/libexec/weston-keyboard'
+[10:29:07.245] launching '/usr/libexec/weston-desktop-shell'
+could not load cursor 'dnd-copy'
+could not load cursor 'dnd-none'
+could not load cursor 'dnd-copy'
+could not load cursor 'dnd-none'
+[10:29:29.978] caught signal 15
+[10:29:29.978] no-op renderer SHM seed: 223
