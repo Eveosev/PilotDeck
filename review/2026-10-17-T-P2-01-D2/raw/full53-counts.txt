@@ -1,0 +1,15 @@
+scenarios 53
+gateScenarioCount 53
+blocked []
+oracleFailures []
+knownGaps []
+expectedExtensions []
+notApplicable []
+rustSidecarIntended True
+sidecarImplementation rust
+sidecarImplementationSource exec-proof
+failed_count 2
+failed deadline/PilotDeck: transport contract mismatch (3 semantic difference(s))
+failed sidecar_budget_limit/PilotDeck: 1 semantic difference(s)
+failed_names ['deadline', 'sidecar_budget_limit']
+pass_estimate 51

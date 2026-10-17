@@ -1,0 +1,63 @@
+=== mjs files changed since fbcfa7a9 ===
+=== node --test tools/agent-loop-parity tools/agent-loop-perf ===
+TAP version 13
+# node:internal/modules/cjs/loader:1228
+#   throw err;
+#   ^
+# Error: Cannot find module '/workspace/tools/agent-loop-parity'
+#     at Function._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+#     at Function._load (node:internal/modules/cjs/loader:1055:27)
+#     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+#     at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+#     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+#     at node:internal/main/run_main_module:36:49 {
+#   code: 'MODULE_NOT_FOUND',
+#   requireStack: []
+# }
+# Node.js v22.14.0
+# Subtest: tools/agent-loop-parity
+not ok 1 - tools/agent-loop-parity
+  ---
+  duration_ms: 20.630562
+  location: '/workspace/tools/agent-loop-parity:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# node:internal/modules/cjs/loader:1228
+#   throw err;
+#   ^
+# Error: Cannot find module '/workspace/tools/agent-loop-perf'
+#     at Function._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+#     at Function._load (node:internal/modules/cjs/loader:1055:27)
+#     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+#     at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+#     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+#     at node:internal/main/run_main_module:36:49 {
+#   code: 'MODULE_NOT_FOUND',
+#   requireStack: []
+# }
+# Node.js v22.14.0
+# Subtest: tools/agent-loop-perf
+not ok 2 - tools/agent-loop-perf
+  ---
+  duration_ms: 18.715764
+  location: '/workspace/tools/agent-loop-perf:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26.893382
+EXIT:1

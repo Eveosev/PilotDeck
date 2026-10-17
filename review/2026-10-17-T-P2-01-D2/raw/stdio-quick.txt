@@ -1,0 +1,174 @@
+=== stdio pure_text ===
+{
+  "scenarios": 1,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "stdio",
+  "sidecarImplementation": "rust",
+  "sidecarImplementationSource": "exec-proof",
+  "rustFingerprint": "n/a",
+  "rustSidecarIntended": true,
+  "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "fcf765b51360cafe27242943b8003738bb8f4336",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  },
+  "blocked": [],
+  "failed": [],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [
+    "pure_text/PilotDeck: 16 warning(s) [envelope=16]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 16,
+    "budget": 0,
+    "modelView": 0,
+    "request": 0,
+    "requestEvidence": 0,
+    "response": 0,
+    "state": 0,
+    "kind": 0,
+    "source": 0,
+    "attempt": 0
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [
+    {
+      "scenario": "pure_text",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 16,
+      "formatWarningTaxonomy": {
+        "envelope": 16,
+        "budget": 0,
+        "modelView": 0,
+        "request": 0,
+        "requestEvidence": 0,
+        "response": 0,
+        "state": 0,
+        "kind": 0,
+        "source": 0,
+        "attempt": 0
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=16. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:0b462b7fc3e2e9c112ccc0731ba68cc46e7b323d95d2c237b9803f4ada4ce750",
+          "canonical": "sha256:ca0fccbc18da01914596edca63bea893c4d0038c2bea92a84638c3bb79ee62fa"
+        },
+        "right": {
+          "file": "sha256:3d65d437bac0baeeefc334ae2e052fb0bf1ee21467e0a7c34bffd227182f2d32",
+          "canonical": "sha256:8ffdb746cee236b8c225c3d748c338a89354e1d287ac9a541dc98c0aaf11ec92"
+        },
+        "ts": {
+          "file": "sha256:0b462b7fc3e2e9c112ccc0731ba68cc46e7b323d95d2c237b9803f4ada4ce750",
+          "canonical": "sha256:ca0fccbc18da01914596edca63bea893c4d0038c2bea92a84638c3bb79ee62fa"
+        },
+        "rust": {
+          "file": "sha256:3d65d437bac0baeeefc334ae2e052fb0bf1ee21467e0a7c34bffd227182f2d32",
+          "canonical": "sha256:8ffdb746cee236b8c225c3d748c338a89354e1d287ac9a541dc98c0aaf11ec92"
+        }
+      }
+    }
+  ],
+  "output": "/tmp/tp201d2/stdio-pure_text"
+}
+EXIT:0
+=== stdio single_tool ===
+{
+  "scenarios": 1,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "stdio",
+  "sidecarImplementation": "rust",
+  "sidecarImplementationSource": "exec-proof",
+  "rustFingerprint": "n/a",
+  "rustSidecarIntended": true,
+  "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "fcf765b51360cafe27242943b8003738bb8f4336",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  },
+  "blocked": [],
+  "failed": [],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [
+    "single_tool/PilotDeck: 71 warning(s) [envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2]"
+  ],
+  "formatWarningTaxonomy": {
+    "envelope": 51,
+    "budget": 0,
+    "modelView": 10,
+    "request": 2,
+    "requestEvidence": 0,
+    "response": 2,
+    "state": 0,
+    "kind": 4,
+    "source": 0,
+    "attempt": 2
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [
+    {
+      "scenario": "single_tool",
+      "label": "PilotDeck",
+      "baseline": false,
+      "sidecarImplementation": "rust",
+      "sidecarImplementationSource": "exec-proof",
+      "rustFingerprint": "n/a",
+      "formatWarningCount": 71,
+      "formatWarningTaxonomy": {
+        "envelope": 51,
+        "budget": 0,
+        "modelView": 10,
+        "request": 2,
+        "requestEvidence": 0,
+        "response": 2,
+        "state": 0,
+        "kind": 4,
+        "source": 0,
+        "attempt": 2
+      },
+      "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: envelope=51, modelView=10, request=2, response=2, kind=4, attempt=2. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+      "modelViewFormatEnvelopeOnly": true,
+      "comparatorVersion": "1.1.0",
+      "traceDigest": {
+        "left": {
+          "file": "sha256:8c0f287bfb6b940da8a50c7b35fae8005192c4a36571863f6591ba45f0c80ce3",
+          "canonical": "sha256:17320a06e8ba83dd30da94fa219e8268dc60fe354042372fa8714b2cab6a69c3"
+        },
+        "right": {
+          "file": "sha256:e0dcc4f670ef194ca30335dcbc5b48d8651344bb0da36d95a310f93043491536",
+          "canonical": "sha256:cac59182729d276efeb04e7da229384804a4a4ce72a8ac1aed83e8b0f9c469fa"
+        },
+        "ts": {
+          "file": "sha256:8c0f287bfb6b940da8a50c7b35fae8005192c4a36571863f6591ba45f0c80ce3",
+          "canonical": "sha256:17320a06e8ba83dd30da94fa219e8268dc60fe354042372fa8714b2cab6a69c3"
+        },
+        "rust": {
+          "file": "sha256:e0dcc4f670ef194ca30335dcbc5b48d8651344bb0da36d95a310f93043491536",
+          "canonical": "sha256:cac59182729d276efeb04e7da229384804a4a4ce72a8ac1aed83e8b0f9c469fa"
+        }
+      }
+    }
+  ],
+  "output": "/tmp/tp201d2/stdio-single_tool"
+}
+EXIT:0
