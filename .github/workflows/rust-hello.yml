@@ -1,3 +1,6 @@
+# Desktop hello probe only (toolchain 1.83.0).
+# rust-core fmt / clippy -D warnings / cargo test is rust-workspaces.yml
+# on 1.99.1. Keep this workflow while desktop still packages the hello binary.
 name: Rust hello
 
 on:

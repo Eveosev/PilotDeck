@@ -1,0 +1,42 @@
+# Sidecar quick parity. Runs pure_text and single_tool only.
+# Does not pass --scenario all. A missing rust-core release binary is an
+# explicit skip (scripts/ci/parity-quick.sh prints PARITY_QUICK_RESULT=skip),
+# not a green scenario pass. CI does not compile the release sidecar.
+name: Parity quick
+
+on:
+  pull_request:
+    paths:
+      - rust-core/**
+      - tools/agent-loop-parity/**
+      - scripts/ci/parity-quick.sh
+      - .github/workflows/parity-quick.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  quick:
+    name: pure_text + single_tool or explicit skip
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run quick scenarios or skip
+        run: |
+          set -euo pipefail
+          scripts/ci/parity-quick.sh | tee "${RUNNER_TEMP:-/tmp}/parity-quick.txt"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo '### Parity quick'
+              echo
+              echo '```'
+              cat "${RUNNER_TEMP:-/tmp}/parity-quick.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

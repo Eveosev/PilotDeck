@@ -66,12 +66,13 @@ pub fn build_tool_error_recovery(
     }
 }
 
-fn format_recovery_message(code: &str, tool_name: &str, advice: &ToolErrorRecoveryAdvice) -> String {
+fn format_recovery_message(
+    code: &str,
+    tool_name: &str,
+    advice: &ToolErrorRecoveryAdvice,
+) -> String {
     let mut lines = vec![
-        format!(
-            "TOOL_ERROR[{code}][{tool_name}][{}]",
-            advice.failure_class
-        ),
+        format!("TOOL_ERROR[{code}][{tool_name}][{}]", advice.failure_class),
         format!("Summary: {}", advice.summary),
     ];
     if !advice.salient_evidence.is_empty() {
@@ -100,7 +101,8 @@ fn next_actions_for(code: &str, cwd: &str, permission_mode: &str) -> Vec<String>
     if code == "path_not_allowed" {
         return vec![
             format!("Use a path inside the workspace root: {cwd}."),
-            "If the outside path is essential, explain why and ask the user for access.".to_string(),
+            "If the outside path is essential, explain why and ask the user for access."
+                .to_string(),
         ];
     }
     vec![format!(
@@ -305,8 +307,14 @@ mod tests {
              1. Inspect the evidence, change the approach, then retry only with corrected inputs. Current permission mode: default."
         );
         assert_eq!(recovered.advice.failure_class, "environment_issue");
-        assert_eq!(recovered.advice.to_json()["failureClass"], "environment_issue");
-        assert_eq!(recovered.advice.to_json()["originalError"], "host rejected module_call");
+        assert_eq!(
+            recovered.advice.to_json()["failureClass"],
+            "environment_issue"
+        );
+        assert_eq!(
+            recovered.advice.to_json()["originalError"],
+            "host rejected module_call"
+        );
     }
 
     #[test]
@@ -318,14 +326,11 @@ mod tests {
             ".",
             "default",
         );
-        assert!(recovered.message.starts_with(
-            "TOOL_ERROR[tool_execution_failed][lookup][retry_later]"
-        ));
+        assert!(recovered
+            .message
+            .starts_with("TOOL_ERROR[tool_execution_failed][lookup][retry_later]"));
         assert_eq!(recovered.advice.failure_class, "retry_later");
-        assert_eq!(
-            recovered.advice.summary,
-            "Host module_call timed out."
-        );
+        assert_eq!(recovered.advice.summary, "Host module_call timed out.");
     }
 
     #[test]
@@ -340,27 +345,22 @@ mod tests {
             "TOOL_ERROR[tool_execution_failed] 中文",
             "TOOL_ERROR[",
         ));
-        let recovered = build_tool_error_recovery(
-            "tool_execution_failed",
-            "lookup",
-            cjk,
-            ".",
-            "default",
-        );
+        let recovered =
+            build_tool_error_recovery("tool_execution_failed", "lookup", cjk, ".", "default");
         assert!(recovered.message.contains("你好世界"));
         assert_eq!(recovered.advice.original_error.as_deref(), Some(cjk));
     }
 
     #[test]
     fn overlong_cjk_truncates_on_char_boundary() {
-        let long: String = std::iter::repeat('字').take(230).collect();
+        let long: String = "字".repeat(230);
         let trimmed = trim_sentence(&long);
         assert!(trimmed.ends_with("..."));
         assert!(trimmed.is_char_boundary(trimmed.len()));
         assert_eq!(char_len(&trimmed), 220);
         assert_eq!(truncate_chars(&long, 217).chars().count(), 217);
 
-        let original: String = std::iter::repeat('误').take(2_010).collect();
+        let original: String = "误".repeat(2_010);
         let formatted = format_original_error(&original).expect("original");
         assert!(formatted.contains("original error truncated; 2010 chars total"));
         let head = formatted

@@ -265,7 +265,6 @@ pub fn s2_cancel_status_and_explicit_resume_ack_reject(sidecar: &mut SidecarProc
     );
 }
 
-
 const G5_WAIT: Duration = Duration::from_secs(3);
 
 fn execute_request(
@@ -303,7 +302,10 @@ pub fn g5_real_client_payload(sidecar: &mut SidecarProcess) {
         "payload": {}
     }));
     let _ = sidecar.wait_for(
-        |msgs| msgs.iter().any(|m| m.get("inReplyTo") == Some(&json!("caps-1"))),
+        |msgs| {
+            msgs.iter()
+                .any(|m| m.get("inReplyTo") == Some(&json!("caps-1")))
+        },
         G5_WAIT,
     );
 

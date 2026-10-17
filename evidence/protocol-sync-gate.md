@@ -1,15 +1,16 @@
 # T-P0a-07 Module Protocol 变更同步门禁
 
-- 任务：T-P0a-07（文档先行，**不做 CI / git hook**）
+- 任务：T-P0a-07（文档先行；当时**不做 CI / git hook**）
+- **CI（T-P2-08）**：`.github/workflows/protocol-sync.yml` 接管检查 **1–3** 的可脚本化部分。job 把本文下方与 [CONTRIBUTING.md](../CONTRIBUTING.md) 相同的命令块交给 `bash -e`（1a、1c、**一次** replay + restore、检查 2、检查 3，以及同块里的检查 7）。不第二次 replay。检查 4–6 仍人工。Node **22**。该 workflow 尚未当作已合并的主线事实；它随 T-P2-08 的 draft PR 落地。
 - 基线：`rust_standalone_alpha1@1da663a2`
 - **前提：Node 22**（`package.json` engines `>=22.13.0 <23`；`.nvmrc` 为 `v22`）。1a / generate 只 `readFileSync` `protocol.ts`，**不要**给它们加 `--experimental-strip-types`。replay 脚本会自己用该 flag 再 exec 一次；**Node < 22.6**（含 Node 20 与 22.0–22.5）会 `bad option` 并以 **exit 9** 退出。
 - 依赖：仓库根 `pnpm install`（ajv 8.20.0）。
 - 原则：**同步，不冻结**。触发文件（见下）可以改，但必须在**同一 PR** 内把 schema / replay / 样本 / parity / Rust adapter（自 T-P1-01 起）/ 版本评估 / 干净树证据一起落地。
 - Schema 口径（R2-3）：**hand-mapped + source anchors + replay**，不是从 TypeScript 类型自动推导。生成器只从源码抽取版本常量、`MODULE_CALL_TARGETS`、`isOutcome` 枚举，并断言若干 `validateModuleMessage` 锚点。
 
-CI 路径触发自动检查**不在本任务**。Payne 已锁定：门禁文档过 Reviewer 后再开绿灯（可并入 T-P0a-04）。日后 CI 的 `paths:` **原样复制**下面「触发路径」列表。
+`.github/workflows/protocol-sync.yml` 的 `on.pull_request.paths` **原样复制**下面「触发路径」列表（含 `rust-core/**`）。T-P0a-07 当时不建 CI；T-P2-08 只把检查 1–3 升上去，不把全量 53 放进每个 PR。
 
-## 触发路径（日后 CI `paths:` 原样复制）
+## 触发路径（CI `paths:` 原样复制）
 
 任一 PR 触及下列路径之一，即适用本门禁。修改 `protocol.ts` 时，纯注释 / 格式改动可在 PR 正文声明检查 4/5/6 为 N/A，但仍须跑 1a + 2。
 
@@ -28,9 +29,10 @@ tools/agent-loop-parity/run.py
 tools/agent-loop-parity/scenarios.json
 package.json
 pnpm-lock.yaml
+rust-core/**
 ```
 
-`package.json` / `pnpm-lock.yaml` 列入列表，是因为 lib 把 `ajv` 版本写进 schema；只升级 ajv 也会让 1a 变成 stale。`docs/pilotdeck-module-protocol-v2.schema.json` 是手写 profile，**不**在本列表（改它不单独触发 generate/replay）。本列表与 [CONTRIBUTING.md](../CONTRIBUTING.md) **必须逐字相同**。
+`package.json` / `pnpm-lock.yaml` 列入列表，是因为 lib 把 `ajv` 版本写进 schema；只升级 ajv 也会让 1a 变成 stale。`docs/pilotdeck-module-protocol-v2.schema.json` 是手写 profile，**不**在本列表（改它不单独触发 generate/replay）。`rust-core/**` 是 T-P2-08 追加的触发路径（PLAN G-CI）：sidecar 改动也跑检查 1–3，避免 schema 与 Rust 侧各改各的。本列表与 [CONTRIBUTING.md](../CONTRIBUTING.md) 以及 `.github/workflows/protocol-sync.yml` 的 `paths:` **必须逐字相同**（三处同文）。
 
 ## 适用范围
 
@@ -39,6 +41,7 @@ pnpm-lock.yaml
 | `src/agent/modules/protocol.ts`（契约或校验） | 是（检查 1–7） |
 | 上表其余触发路径（手写映射、generate/replay、fixtures、schema 产物、replay 报告、本文件、parity runner/场景表、`package.json` / lock） | 是（检查 1–3、7；4/5/6 可 N/A，除非改了运行时 accept/reject 或版本） |
 | `crates/` Rust adapter（T-P1-01 起） | 是（检查 5）；须与协议改动同 PR |
+| `rust-core/**` | 是（CI 检查 1–3）。不把 rust-core 的测试当成检查 5 的根 workspace `cargo test`，也不把两个 workspace 并成一个 |
 | 仅更新 `evidence/schema/module-protocol.schema.json` / replay 报告 / 本文件 | 按对应检查执行；不强制 live parity |
 | 未改触发路径、也未改 `crates/` 协议处理的普通功能 PR | 否 |
 
@@ -313,6 +316,8 @@ cargo test --workspace
 | exit | **0** |
 | 证据 | 测试日志；`crates/` diff 出现在同一 PR |
 
+上面的 `cargo test --workspace` 是**仓库根** hello/探针 workspace。`rust-core/` 的 fmt、`clippy -D warnings`、`cargo test --locked` 在 `.github/workflows/rust-workspaces.yml`，工具链 1.99.1，不并进这条命令，也不把 MSRV 降到 1.83。
+
 ---
 
 ### 6. 版本号评估（protocolVersion / capabilitiesVersion）
@@ -373,7 +378,7 @@ sys.exit(0 if r["gitSha"]==head and r["gitDirty"] is False else 1)'
 
 | ID | 局限 | 责任 |
 | --- | --- | --- |
-| **F-5** | Schema 结构在 `scripts/lib/module-protocol-schema.mjs` **手写映射**。只有版本常量、`MODULE_CALL_TARGETS`、`isOutcome` 枚举从源码抽取，外加锚点断言。validator 新增规则或类型上新增字段时，生成器不一定报错，1a/1b 可能仍 PASS。漂移防护 = replay（检查 2–3）+ 人工审查。后续可用路径触发 CI 跑 generate+replay，但 **CI 不在本 PR**。 | **T-P0a-07 本文档**（写明口径） / **日后 CI**（Payne 开绿灯后，可并入 T-P0a-04） |
+| **F-5** | Schema 结构在 `scripts/lib/module-protocol-schema.mjs` **手写映射**。只有版本常量、`MODULE_CALL_TARGETS`、`isOutcome` 枚举从源码抽取，外加锚点断言。validator 新增规则或类型上新增字段时，生成器不一定报错，1a/1b 可能仍 PASS。漂移防护 = replay（检查 2–3）+ 人工审查。T-P2-08 的 workflow 会跑 generate/1a/replay（检查 1–3），**不**消除手写映射。 | **T-P0a-07 本文档**（写明口径） / **T-P2-08**（路径触发 CI，检查 1–3） |
 | **R2-1** | 仓库 reject 方向只有手挑样本（20 负样本 + 9 个应拒边角）。建议在 replay 加确定性字段变异（逐键删除 / 替换为 10 种值），报告变异总数、拒数、错配数。本门禁列为**建议项**，不在本任务实现。 | **T-P0a-04** |
 | **R2-3** | 生成 schema 的 `description` 仍可能写 "Generated from"。对外口径统一为 **hand-mapped + source anchors + replay**。 | 本文档；改生成器文案可另切片 |
 
@@ -385,7 +390,7 @@ sys.exit(0 if r["gitSha"]==head and r["gitDirty"] is False else 1)'
 
 ## Contributing
 
-完整片段与**可复制命令块**见仓库根 [CONTRIBUTING.md](../CONTRIBUTING.md)。**本页与 CONTRIBUTING 的命令块 / 触发路径列表必须同步修改**；以 CONTRIBUTING 为准（QA 原文连跑的对象是 CONTRIBUTING）。日后 CI 可以把命令块抽成脚本后再收敛为一份。触及触发路径的 PR 必须按本页 1–7 执行，并在 PR 正文逐项打勾或写 N/A 理由。
+完整片段与**可复制命令块**见仓库根 [CONTRIBUTING.md](../CONTRIBUTING.md)。**本页、CONTRIBUTING、`.github/workflows/protocol-sync.yml` 的触发路径列表必须同步修改**；命令块以 CONTRIBUTING 为准（QA 原文连跑和 CI 抽块执行的对象都是 CONTRIBUTING）。CI 跑该命令块覆盖检查 1a / 1c / 2 / 3 / 7。触及触发路径的 PR 仍须在正文对检查 4–6 打勾或写 N/A；1–3 与 7 可引用 CI。全量 53（检查 4）不在每个 PR 的路径过滤里。
 
 ---
 
