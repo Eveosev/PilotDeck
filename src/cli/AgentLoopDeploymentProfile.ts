@@ -9,6 +9,13 @@ import {
   type AgentLoopSidecarTransportObserver,
 } from "../agent/index.js";
 import { isExternalAgentLoopBinding, type CoreModuleBinding } from "../composition/index.js";
+import {
+  AgentLoopTcpSidecarSupervisor,
+  createSupervisedTcpConnectionFactory,
+  isLoopbackHost,
+  resolveAgentLoopTcpSuperviseConfig,
+  type AgentLoopTcpSuperviseConfig,
+} from "./AgentLoopTcpSidecarSupervisor.js";
 
 export type AgentLoopDeploymentTransport = "native" | "stdio" | "tcp";
 
@@ -27,6 +34,11 @@ export type AgentLoopDeploymentProfile =
       connectTimeoutMs: number | undefined;
       /** Production TCP hello secret. Absent keeps the existing open loopback path. */
       authToken?: string;
+      /**
+       * Present only when this process should spawn the TCP listener.
+       * Absent means reuse an already-listening sidecar (harness compatible).
+       */
+      supervise?: AgentLoopTcpSuperviseConfig;
     }>;
 
 export type ResolveAgentLoopDeploymentProfileInput = {
@@ -38,6 +50,8 @@ export type ResolveAgentLoopDeploymentProfileInput = {
 export type AgentLoopDeploymentFactoryOptions = {
   transportObserver?: AgentLoopSidecarTransportObserver;
   expectedModuleId?: string;
+  /** Required when `profile.supervise` is set. The supervisor must already be started. */
+  tcpSupervisor?: AgentLoopTcpSidecarSupervisor;
 };
 
 /**
@@ -52,13 +66,20 @@ export function resolveAgentLoopDeploymentProfile(
   const transport = readTransport(env.PILOTDECK_AGENT_LOOP_TRANSPORT);
   if (transport === "native") return Object.freeze({ transport });
   if (transport === "tcp") {
+    const cwd = input.cwd ?? process.cwd();
+    const supervise = resolveAgentLoopTcpSuperviseConfig({ env, cwd });
     const authToken = optionalTcpAuthToken(env.PILOTDECK_AGENT_LOOP_TCP_TOKEN);
+    const host = requiredText(env.PILOTDECK_AGENT_LOOP_TCP_HOST ?? "127.0.0.1", "PILOTDECK_AGENT_LOOP_TCP_HOST");
+    if (supervise && !isLoopbackHost(host)) {
+      throw new Error("PILOTDECK_AGENT_LOOP_TCP_HOST must be a loopback address when the TCP sidecar supervisor is enabled.");
+    }
     return Object.freeze({
       transport,
-      host: requiredText(env.PILOTDECK_AGENT_LOOP_TCP_HOST ?? "127.0.0.1", "PILOTDECK_AGENT_LOOP_TCP_HOST"),
-      port: requiredPort(env.PILOTDECK_AGENT_LOOP_TCP_PORT),
+      host,
+      port: tcpPort(env.PILOTDECK_AGENT_LOOP_TCP_PORT, supervise !== undefined),
       connectTimeoutMs: optionalPositiveInteger(env.PILOTDECK_AGENT_LOOP_CONNECT_TIMEOUT_MS),
       ...(authToken ? { authToken } : {}),
+      ...(supervise ? { supervise } : {}),
     });
   }
 
@@ -87,12 +108,15 @@ export function createAgentLoopDeploymentFactory(
 ): AgentLoopRuntimeFactory | undefined {
   if (profile.transport === "native") return undefined;
   if (profile.transport === "tcp") {
+    const connect = profile.supervise
+      ? createSupervisedTcpConnectionFactory(requiredSupervisor(options.tcpSupervisor), profile.connectTimeoutMs)
+      : createTcpAgentLoopSidecarConnectionFactory({
+          host: profile.host,
+          port: profile.port,
+          ...(profile.connectTimeoutMs === undefined ? {} : { connectTimeoutMs: profile.connectTimeoutMs }),
+        });
     return createAgentLoopSidecarRuntimeFactory({
-      connect: createTcpAgentLoopSidecarConnectionFactory({
-        host: profile.host,
-        port: profile.port,
-        ...(profile.connectTimeoutMs === undefined ? {} : { connectTimeoutMs: profile.connectTimeoutMs }),
-      }),
+      connect,
       ...(profile.authToken ? { tcpAuthToken: profile.authToken } : {}),
       expectedModuleId: options.expectedModuleId,
       transportObserver: options.transportObserver,
@@ -147,15 +171,26 @@ function requiredText(value: string, name: string): string {
   return normalized;
 }
 
-function requiredPort(value: string | undefined): number {
+function tcpPort(value: string | undefined, supervise: boolean): number {
   if (value === undefined || value.trim() === "") {
+    if (supervise) return 0;
     throw new Error("PILOTDECK_AGENT_LOOP_TCP_PORT is required when transport is tcp.");
   }
+  if (supervise && value.trim() === "0") return 0;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
     throw new Error("PILOTDECK_AGENT_LOOP_TCP_PORT must be an integer between 1 and 65535.");
   }
   return parsed;
+}
+
+function requiredSupervisor(supervisor: AgentLoopTcpSidecarSupervisor | undefined): AgentLoopTcpSidecarSupervisor {
+  if (!supervisor) {
+    throw new Error(
+      "TCP sidecar supervise is enabled. Start AgentLoopTcpSidecarSupervisor and pass it to createAgentLoopDeploymentFactory.",
+    );
+  }
+  return supervisor;
 }
 
 function optionalTcpAuthToken(value: string | undefined): string | undefined {

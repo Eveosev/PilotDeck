@@ -29,18 +29,20 @@ if (tcpPort === undefined) {
   await sidecar.serve();
 } else {
   const server = new AgentLoopSidecarTcpServer(sidecar);
-  await server.listen({
+  const address = await server.listen({
     host: process.env.PILOTDECK_AGENT_LOOP_TCP_HOST?.trim() || "127.0.0.1",
     port: tcpPort,
   });
+  // Same line rust-core writes for `--listen`, so the TS supervisor can parse either.
+  console.error(`listening ${address.host}:${address.port}`);
   await new Promise<void>(() => undefined);
 }
 
 function optionalPort(value: string | undefined): number | undefined {
   if (value === undefined || value.trim() === "") return undefined;
   const port = Number(value);
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error("PILOTDECK_AGENT_LOOP_TCP_PORT must be an integer between 1 and 65535.");
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error("PILOTDECK_AGENT_LOOP_TCP_PORT must be an integer between 0 and 65535.");
   }
   return port;
 }
