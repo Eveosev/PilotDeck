@@ -155,6 +155,7 @@ import {
   createAgentLoopBindingFactory,
   resolveAgentLoopDeploymentProfile,
 } from "./AgentLoopDeploymentProfile.js";
+import { AgentLoopTcpSidecarSupervisor } from "./AgentLoopTcpSidecarSupervisor.js";
 import { GatewaySessionModelBundle } from "./GatewaySessionModelBundle.js";
 import { GatewaySessionHistoryBundle } from "./GatewaySessionHistoryBundle.js";
 import { nextSessionExecutionBinding, retargetExecutionSnapshot } from "../sandbox/SessionExecutionStorage.js";
@@ -620,9 +621,14 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   const organizationPolicy = normalizeGatewayOrganizationPolicy(options.organizationPolicy);
   const sessionOverrides = options.sessionOverrides ?? new SessionConfigOverrides();
   const deploymentProfile = resolveAgentLoopDeploymentProfile({ env, cwd: projectRoot });
-  const configuredAgentLoopFactory = options.agentLoopFactory ?? createAgentLoopDeploymentFactory(
-    deploymentProfile,
-    { transportObserver: options.agentLoopTransportObserver },
+  let tcpSupervisor: AgentLoopTcpSidecarSupervisor | undefined;
+  let configuredAgentLoopFactory = options.agentLoopFactory ?? (
+    deploymentProfile.transport === "tcp" && deploymentProfile.supervise
+      ? undefined
+      : createAgentLoopDeploymentFactory(
+          deploymentProfile,
+          { transportObserver: options.agentLoopTransportObserver },
+        )
   );
   let registry!: ProjectRuntimeRegistry;
   const agentLoopFactory: AgentLoopRuntimeFactory = (input) => {
@@ -697,6 +703,28 @@ export function createLocalGateway(options: CreateLocalGatewayOptions = {}): Cre
   });
   bootResources.ownTelemetry(telemetryBundle);
   try {
+  if (!options.agentLoopFactory && deploymentProfile.transport === "tcp" && deploymentProfile.supervise) {
+    const supervise = deploymentProfile.supervise;
+    tcpSupervisor = new AgentLoopTcpSidecarSupervisor({
+      host: deploymentProfile.host,
+      port: deploymentProfile.port,
+      launch: supervise.launch,
+      cwd: supervise.cwd,
+      env: supervise.env,
+      authToken: deploymentProfile.authToken,
+    });
+    bootResources.ownTcpSupervisor(() => tcpSupervisor!.stop());
+    const pendingListen = tcpSupervisor.start();
+    configuredAgentLoopFactory = createAgentLoopDeploymentFactory(deploymentProfile, {
+      transportObserver: options.agentLoopTransportObserver,
+      tcpSupervisor,
+    });
+    void pendingListen.catch((error: unknown) => {
+      console.error(
+        `[pilotdeck] agent-loop tcp supervisor failed to start: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }
   const attachmentPort = options.attachmentPort ?? createNodeAttachmentPort();
   const subagentRuntime = new GatewaySubagentRuntimeBundle({
     uuid: options.__testSubagentIdFactory,

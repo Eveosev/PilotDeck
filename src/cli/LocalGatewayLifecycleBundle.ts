@@ -19,6 +19,8 @@ export type LocalGatewayLifecycleBundleOptions = {
   stopConfigWatching: () => void;
   stopExtensionWatching: () => void;
   disposeRuntimeRefresh?: () => void;
+  /** Stops the opt-in AgentLoop TCP sidecar restart loop and kills its process group. */
+  stopTcpSupervisor?: () => Promise<void>;
   warn: (message: string, error: unknown) => void;
 };
 
@@ -40,6 +42,12 @@ export class LocalGatewayLifecycleBundle {
   }
 
   private async disposeResources(): Promise<void> {
+    // Stop the sidecar restart loop before the rest of shutdown so an
+    // unexpected child exit during dispose cannot spawn a replacement.
+    await this.disposeStep(
+      "[pilotdeck] failed to stop agent-loop tcp supervisor:",
+      () => this.options.stopTcpSupervisor?.(),
+    );
     // Gateway.dispose() is synchronous. Start the first async drain before
     // returning to dispose(), so watcher shutdown still overlaps that drain.
     void this.disposeStep(

@@ -1,0 +1,1 @@
+src/cli/sdkCli.ts(11,8): error TS2307: Cannot find module '@pilotdeck/sdk' or its corresponding type declarations.

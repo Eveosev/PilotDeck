@@ -50,6 +50,7 @@ export class LocalGatewayBootResources {
   private runtimeRefresh?: LocalGatewayRuntimeRefresh;
   private stopConfigWatching?: () => void;
   private stopExtensionWatching?: () => void;
+  private stopTcpSupervisor?: () => Promise<void>;
   private committed = false;
 
   constructor(options: LocalGatewayBootResourcesOptions) {
@@ -100,6 +101,12 @@ export class LocalGatewayBootResources {
     this.runtimeRefresh = runtimeRefresh;
   }
 
+  ownTcpSupervisor(stop: () => Promise<void>): void {
+    this.assertVacant("agent-loop tcp supervisor", this.stopTcpSupervisor);
+    this.bootstrap.own("agent-loop tcp supervisor", stop);
+    this.stopTcpSupervisor = stop;
+  }
+
   ownRouter(router: LocalGatewayRouter): void {
     this.assertVacant("session router", this.router);
     this.bootstrap.own("session router", () => router.shutdown());
@@ -128,6 +135,7 @@ export class LocalGatewayBootResources {
       stopConfigWatching: resources.stopConfigWatching,
       stopExtensionWatching: resources.stopExtensionWatching,
       disposeRuntimeRefresh: () => resources.runtimeRefresh.dispose(),
+      stopTcpSupervisor: this.stopTcpSupervisor,
       warn: this.warn,
     });
   }

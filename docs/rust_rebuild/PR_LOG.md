@@ -1,11 +1,16 @@
 # PR_LOG · rust_standalone_alpha1 已合并 PR
 
-来源：`git log --first-parent origin/rust_standalone_alpha1`（b243fa00 之后，tip `f44b3789`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42/#43/#45/#47）不合并、不入表。
+来源：`git log --first-parent`（b243fa00 之后，tip `d91ed18b`）+ GitHub PR 元数据。时间为 Asia/Shanghai（UTC+8）。证据类 draft PR（#17/#19/#22/#23/#25/#27/#29/#31/#33/#35/#38/#39/#42/#43/#45/#47）不合并、不入表。
 
-共 **28** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41、#44、#46。下表与 `git log --first-parent` 相同，新的在前。`8cffa40d` 之后的 first-parent 只有 #44（`4fe9bba1`）和 #46（`f44b3789`）。
+共 **33** 个。正向（`b243fa00` 之后、由旧到新）为 #2、#1、#3、#4、#5、#9、#10、#6、#8、#12、#7、#13、#16、#18、#20、#21、#24、#26、#28、#30、#32、#34、#36、#37、#40、#41、#44、#46、#48、#50、#51、#53、#56。下表与 `git log --first-parent` 相同，新的在前。`f44b3789` 之后的 first-parent 是 #48（`3f7dd8f7`）、#50（`113c16d9`）、#51（`2238c7ba`）、#53（`d740abe1`）、#56（`d91ed18b`）。#55 在 GitHub 上为 merged，合并 commit `54633c3e` 落在 #56 的历史里，不是 `rust_standalone_alpha1` 的 first-parent，因此不单独成行。
 
 | PR | 任务 | 标题 | 合并 commit | 合并时间 | 一句话 | 详情 |
 |---|---|---|---|---|---|---|
+| [#56](https://github.com/Eveosev/PilotDeck/pull/56) | T-P2-01 D | T-P2-01-D: Track D eliminate deadline_during_tool (restore 51/2) | `d91ed18b` | 2026-10-17 10:24 | `deadline_during_tool` 最小切片；同分支带入 #55 rust-core listen+token | — |
+| [#53](https://github.com/Eveosev/PilotDeck/pull/53) | T-P2-04 | T-P2-04: G-P2-ADOPT import rust-core four crates | `d740abe1` | 2026-10-16 19:36 | 引进 rust-core 四个 crate 为独立 workspace | — |
+| [#51](https://github.com/Eveosev/PilotDeck/pull/51) | T-P2-03 | T-P2-03: G-P2-PERF stdio rust-core vs native | `2238c7ba` | 2026-10-16 07:26 | stdio 性能对照 rust-core 与 native | — |
+| [#50](https://github.com/Eveosev/PilotDeck/pull/50) | T-P2-02 | T-P2-02: G-P2-PARITY stdio rust-core classification | `113c16d9` | 2026-10-16 07:25 | stdio parity 快速门与 53 场景分类 | — |
+| [#48](https://github.com/Eveosev/PilotDeck/pull/48) | —（docs） | docs: P2 合流计划（rust-core 核心 + 本仓门禁） | `3f7dd8f7` | 2026-10-16 03:04 | P2 计划改到 rust-core 合流路径 | — |
 | [#46](https://github.com/Eveosev/PilotDeck/pull/46) | T-P2-01 A+B | T-P2-01: Rust AgentLoop real model path, thinking signature, stdio parity, TCP hello token | `f44b3789` | 2026-10-15 22:10 | 真 host 模型路径、thinking signature、stdio/TCP 对齐、TCP hello token | [PR-46](prs/PR-46.md) |
 | [#44](https://github.com/Eveosev/PilotDeck/pull/44) | —（docs） | docs: 补记 #40/#41，Q1 改为有条件 Go | `4fe9bba1` | 2026-10-15 21:10 | 补记 #40/#41；Q1 改为有条件 Go | [PR-44](prs/PR-44.md) |
 | [#41](https://github.com/Eveosev/PilotDeck/pull/41) | —（docs） | docs: rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | `8cffa40d` | 2026-10-15 19:27 | rust_rebuild 已合并 PR 记录与 T-P1-06 决议 | [PR-41](prs/PR-41.md) |
@@ -40,6 +45,8 @@
 **注（#40、#41）**：`019a527a` 的父为 `1d7c8068`、`d8366d7f`。`8cffa40d` 的父为 `019a527a`、`2733ecc2`。第二父是 PR head。表序与 `git log --first-parent` 相同，新的在前。
 
 **注（#44、#46）**：`4fe9bba1` 的父为 `8cffa40d`、`66465d39`。`f44b3789` 的父为 `4fe9bba1`、`b7ece5bf`。第二父是 PR head。#45（`4fe9bba1` 的桌面 smoke）和 #47（`f44b3789` 的桌面 smoke）仍是 open draft，不入表。
+
+**注（#48、#50、#51、#53、#56）**：first-parent 依次为 `3f7dd8f7`、`113c16d9`、`2238c7ba`、`d740abe1`、`d91ed18b`。#55 的 GitHub merge commit 是 `54633c3e`，包含在 #56 历史中，不是本分支的 first-parent，不单独成行。本表没有为 #48/#50/#51/#53/#56 补 `prs/PR-<n>.md`。
 
 ## 维护规则
 - 每合入一个 PR，在同一 PR 或紧随的文档 PR 中追加一行 + `prs/PR-<n>.md`。
