@@ -1,6 +1,7 @@
 """Unit tests for the AgentLoop performance baseline harness."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -9,10 +10,24 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-import run as perf  # noqa: E402
+
+def _load_perf():
+    """Load this directory's run.py without claiming the shared module name ``run``."""
+    name = "agent_loop_perf_run_under_test"
+    cached = sys.modules.get(name)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(name, ROOT / "run.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load tools/agent-loop-perf/run.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+perf = _load_perf()
 
 
 class PercentileTests(unittest.TestCase):
@@ -256,6 +271,110 @@ class ReportTests(unittest.TestCase):
         branch, sha = perf.resolve_base(ROOT.parent.parent, "rust_standalone_alpha1")
         self.assertEqual(branch, "rust_standalone_alpha1")
         self.assertRegex(sha, r"^[0-9a-f]{7,}$")
+        origin = subprocess.run(
+            ["git", "merge-base", "HEAD", "origin/rust_standalone_alpha1"],
+            cwd=ROOT.parent.parent,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if origin.returncode == 0 and origin.stdout.strip():
+            self.assertEqual(sha, origin.stdout.strip())
+
+    def test_resolve_base_prefers_origin_over_stale_local_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "perf@example.test"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.name", "perf"], cwd=repo, check=True)
+            marker = repo / "marker"
+            marker.write_text("A\n", encoding="utf-8")
+            subprocess.run(["git", "add", "marker"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "A"], cwd=repo, check=True, capture_output=True)
+            stale = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+            subprocess.run(["git", "branch", "rust_standalone_alpha1"], cwd=repo, check=True)
+            marker.write_text("B\n", encoding="utf-8")
+            subprocess.run(["git", "add", "marker"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "B"], cwd=repo, check=True, capture_output=True)
+            origin = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+            subprocess.run(
+                ["git", "update-ref", "refs/remotes/origin/rust_standalone_alpha1", origin],
+                cwd=repo,
+                check=True,
+            )
+            marker.write_text("C\n", encoding="utf-8")
+            subprocess.run(["git", "add", "marker"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "C"], cwd=repo, check=True, capture_output=True)
+            branch, sha = perf.resolve_base(repo, "rust_standalone_alpha1")
+            self.assertEqual(branch, "rust_standalone_alpha1")
+            self.assertEqual(sha, origin)
+            self.assertNotEqual(sha, stale)
+            _branch, explicit = perf.resolve_base(repo, "rust_standalone_alpha1", base_sha=stale)
+            self.assertEqual(explicit, stale)
+            with self.assertRaises(RuntimeError):
+                perf.resolve_base(repo, "rust_standalone_alpha1", base_sha="not-a-commit")
+
+    def test_transport_label_distinguishes_native_ts_tcp_rust_tcp_rust_stdio(self) -> None:
+        ts = "node /repo/dist/src/cli/pilotdeck-agent-loop-sidecar.js"
+        self.assertEqual(perf.label_perf_transport("native"), "native")
+        self.assertEqual(perf.label_perf_transport("tcp", tcp_sidecar_cmd=ts), "ts-tcp")
+        self.assertEqual(
+            perf.label_perf_transport("tcp", tcp_sidecar_cmd="tools/agent-loop-parity/rust-tcp-sidecar.sh"),
+            "rust-tcp",
+        )
+        self.assertEqual(
+            perf.label_perf_transport(
+                "tcp",
+                tcp_sidecar_cmd="/tmp/proof/pilotdeck-agent-loop",
+            ),
+            "rust-tcp",
+        )
+        self.assertEqual(
+            perf.label_perf_transport(
+                "stdio",
+                stdio_sidecar_command="tools/agent-loop-parity/rust-stdio-sidecar.sh",
+            ),
+            "rust-stdio",
+        )
+        self.assertEqual(perf.label_perf_transport("stdio"), "stdio")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "pilotdeck-agent-loop-sidecar"
+            target.write_bytes(b"rust-core")
+            link = root / "pilotdeck-agent-loop"
+            link.symlink_to(target)
+            identity = perf.rust_core_identity(str(link))
+            self.assertIsNotNone(identity)
+            assert identity is not None
+            self.assertEqual(identity["proofBasename"], "pilotdeck-agent-loop")
+            self.assertEqual(identity["target"], str(target.resolve()))
+            self.assertEqual(len(identity["sha256"]), 64)
+
+    def test_comparison_baseline_records_d4_and_diff_over_d4(self) -> None:
+        native = {
+            "transport": "native",
+            "harnessTransport": "native",
+            "comparisonBaseline": {
+                "pure_text": {"turn_ms_net_of_model_ms": {"n": 1, "p50": 30.0, "p95": 40.0}},
+            },
+        }
+        rust = {
+            "transport": "rust-tcp",
+            "harnessTransport": "tcp",
+            "comparisonBaseline": {
+                "pure_text": {"turn_ms_net_of_model_ms": {"n": 1, "p50": 45.0, "p95": 50.0}},
+            },
+        }
+        perf.annotate_d4(native, native)
+        perf.annotate_d4(rust, native)
+        native_row = native["comparisonBaseline"]["pure_text"]
+        rust_row = rust["comparisonBaseline"]["pure_text"]
+        self.assertEqual(native_row["d4"], 5.0)
+        self.assertEqual(native_row["netP95DiffMs"], 0.0)
+        self.assertEqual(native_row["diffOverD4"], 0.0)
+        self.assertEqual(rust_row["d4"], 5.0)
+        self.assertEqual(rust_row["netP95DiffMs"], 10.0)
+        self.assertEqual(rust_row["diffOverD4"], 2.0)
 
     def test_write_evidence_includes_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

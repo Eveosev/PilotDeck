@@ -161,6 +161,42 @@ def d4_threshold(native_p95: float | None) -> float | None:
     return _round_ms(max(float(native_p95) * 0.10, 5.0))
 
 
+def _net_turn_p95(headline: Any) -> float | None:
+    if not isinstance(headline, dict):
+        return None
+    block = headline.get("turn_ms_net_of_model_ms")
+    if not isinstance(block, dict):
+        return None
+    value = block.get("p95")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return None
+
+
+def annotate_d4(report: dict[str, Any], native_report: dict[str, Any] | None) -> None:
+    """Write D4 and (candidate net P95 − native net P95) / D4 into comparisonBaseline."""
+    native_base: dict[str, Any] = {}
+    if isinstance(native_report, dict) and isinstance(native_report.get("comparisonBaseline"), dict):
+        native_base = native_report["comparisonBaseline"]
+    comparison = report.get("comparisonBaseline")
+    if not isinstance(comparison, dict):
+        return
+    for sid, headline in comparison.items():
+        if not isinstance(headline, dict):
+            continue
+        native_p95 = _net_turn_p95(native_base.get(sid))
+        candidate_p95 = _net_turn_p95(headline)
+        threshold = d4_threshold(native_p95)
+        diff: float | None = None
+        ratio: float | None = None
+        if threshold is not None and candidate_p95 is not None and native_p95 is not None and threshold != 0:
+            diff = _round_ms(candidate_p95 - native_p95)
+            ratio = _round_ms(diff / threshold)
+        headline["d4"] = threshold
+        headline["netP95DiffMs"] = diff
+        headline["diffOverD4"] = ratio
+
+
 def _round_ms(value: float) -> float:
     return round(float(value), 3)
 
@@ -185,9 +221,28 @@ def git_dirty(root: Path) -> bool:
     return bool((result.stdout or "").strip())
 
 
-def resolve_base(root: Path, branch: str) -> tuple[str, str]:
-    """Resolve (branch, sha) via merge-base; never hardcode a commit."""
-    for candidate in (branch, f"origin/{branch}"):
+def resolve_base(root: Path, branch: str, base_sha: str | None = None) -> tuple[str, str]:
+    """Resolve (branch, sha) for provenance.baseSha.
+
+    An explicit ``base_sha`` wins. Otherwise prefer ``origin/<branch>`` so a
+    stale local branch cannot supply the merge-base. This function does not
+    fetch; refresh ``origin/<branch>`` before the run when that ref is old,
+    or pass ``--base-sha``.
+    """
+    explicit = (base_sha or "").strip()
+    if explicit:
+        verified = subprocess.run(
+            ["git", "rev-parse", "--verify", f"{explicit}^{{commit}}"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        resolved = (verified.stdout or "").strip()
+        if verified.returncode != 0 or not resolved:
+            raise RuntimeError(f"--base-sha does not resolve to a commit: {explicit}")
+        return branch, resolved
+    for candidate in (f"origin/{branch}", branch):
         probe = subprocess.run(
             ["git", "rev-parse", "--verify", candidate],
             cwd=root,
@@ -242,6 +297,53 @@ def stdio_rust_intended(command: str | None) -> bool:
         stdio_sidecar_command=command,
         tcp_target=None,
     )
+
+
+def label_perf_transport(
+    transport: str,
+    *,
+    tcp_sidecar_cmd: str | None = None,
+    stdio_sidecar_command: str | None = None,
+) -> str:
+    """Public perf JSON transport: native / ts-tcp / rust-tcp / rust-stdio.
+
+    The harness CLI still says native|stdio|tcp. Product default stays native.
+    """
+    if transport == "native":
+        return "native"
+    if transport == "tcp":
+        if _parity.command_names_rust_sidecar(tcp_sidecar_cmd):
+            return "rust-tcp"
+        return "ts-tcp"
+    if transport == "stdio" and _parity.command_names_rust_sidecar(stdio_sidecar_command):
+        return "rust-stdio"
+    return transport
+
+
+def rust_core_identity(rust_bin: str | None) -> dict[str, Any] | None:
+    """Identity of the rust-core proof symlink, when PILOTDECK_RUST_SIDECAR_BIN is set."""
+    text = (rust_bin or "").strip()
+    if not text:
+        return None
+    link = Path(text)
+    identity: dict[str, Any] = {
+        "bin": text,
+        "proofBasename": "pilotdeck-agent-loop",
+        "target": None,
+        "sha256": None,
+    }
+    if link.name != "pilotdeck-agent-loop" or not link.is_symlink():
+        return identity
+    target = Path(os.path.realpath(link))
+    identity["target"] = str(target)
+    if not target.is_file():
+        return identity
+    digest = hashlib.sha256()
+    with target.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    identity["sha256"] = digest.hexdigest()
+    return identity
 
 
 def prepare_rust_stdio_identity(command: str | None, rust_bin: str | None) -> dict[str, Any] | None:
@@ -699,6 +801,11 @@ def run_transport(
     tcp_target = None
     tcp_process = None
     tcp_log = None
+    public_transport = label_perf_transport(
+        transport,
+        tcp_sidecar_cmd=tcp_sidecar_cmd,
+        stdio_sidecar_command=stdio_sidecar_command,
+    )
     sidecar_transport = None if transport == "native" else resolve_sidecar_transport(transport)
     if transport == "tcp":
         tcp_target = resolve_tcp_sidecar_target(
@@ -738,7 +845,7 @@ def run_transport(
                 print(
                     json.dumps({
                         "event": "iteration",
-                        "transport": transport,
+                        "transport": public_transport,
                         "scenarioId": sid,
                         "iteration": iteration,
                         "turn_ms": sample["turn_ms"],
@@ -762,8 +869,18 @@ def run_transport(
     comparison = {sid: scenario_headline(report) for sid, report in reports.items()}
     excluded = [sid for sid, report in reports.items() if report["delay_injected"]]
     stdio_active = transport == "stdio" and bool((stdio_sidecar_command or "").strip())
+    rust_identity = rust_core_identity(rust_sidecar_bin) if public_transport in {"rust-tcp", "rust-stdio"} else None
+    if public_transport in {"rust-tcp", "rust-stdio"} and rust_identity is None:
+        rust_identity = {
+            "bin": None,
+            "proofBasename": "pilotdeck-agent-loop",
+            "target": None,
+            "sha256": None,
+        }
     return {
-        "transport": transport,
+        "transport": public_transport,
+        "harnessTransport": transport,
+        "rustCoreIdentity": rust_identity,
         "sidecarTransport": sidecar_transport if transport != "native" else None,
         "tcpSidecarLog": str(tcp_log) if tcp_log is not None else None,
         "stdioSidecarCommand": stdio_sidecar_command if stdio_active else None,
@@ -837,6 +954,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Branch used for provenance merge-base (default: rust_standalone_alpha1).",
     )
     parser.add_argument(
+        "--base-sha",
+        default=os.environ.get("PERF_BASE_SHA"),
+        help=(
+            "Explicit provenance base commit. Wins over origin/<branch> and a stale local branch."
+        ),
+    )
+    parser.add_argument(
         "--allow-dirty",
         action="store_true",
         help="Allow collecting evidence on a dirty worktree. Default: refuse.",
@@ -860,7 +984,7 @@ def main(argv: list[str] | None = None) -> int:
     versions = capture_versions()
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     command = record_command(raw_argv, source)
-    base_branch, base_sha = resolve_base(source, args.base_branch)
+    base_branch, base_sha = resolve_base(source, args.base_branch, base_sha=args.base_sha)
     collect_sha, dirty = resolve_collect_sha(source, allow_dirty=args.allow_dirty)
     provenance_base = {
         "gitSha": collect_sha,
@@ -890,6 +1014,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with tempfile.TemporaryDirectory(prefix="pilotdeck-agent-loop-perf-") as temporary:
             work = Path(temporary)
+            pending: list[tuple[str, dict[str, Any], datetime]] = []
             for transport in transports:
                 transport_started = datetime.now(timezone.utc)
                 report = run_transport(
@@ -908,6 +1033,17 @@ def main(argv: list[str] | None = None) -> int:
                     stdio_sidecar_command=stdio_sidecar_command,
                     rust_sidecar_bin=rust_bin,
                 )
+                pending.append((transport, report, transport_started))
+            native_report = next(
+                (
+                    report
+                    for _name, report, _started in pending
+                    if report.get("harnessTransport") == "native" or report.get("transport") == "native"
+                ),
+                None,
+            )
+            for transport, report, transport_started in pending:
+                annotate_d4(report, native_report)
                 provenance = {
                     **provenance_base,
                     "startedAt": transport_started.isoformat(),
@@ -917,7 +1053,7 @@ def main(argv: list[str] | None = None) -> int:
                 write_transport_evidence(dest, report, provenance=provenance)
                 print(json.dumps({
                     "event": "wrote",
-                    "transport": transport,
+                    "transport": report["transport"],
                     "path": str(dest),
                     "primaryBaseline": report["primaryBaseline"],
                     "excludedFromPrimary": report["excludedFromPrimary"],
