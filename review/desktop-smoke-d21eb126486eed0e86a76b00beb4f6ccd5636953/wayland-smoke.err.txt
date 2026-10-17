@@ -1,0 +1,2 @@
+dbus-daemon[2147854]: [session uid=1000 pid=2147854 pidfd=4] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=2148033 comm="/workspace/pilotdeck-rust/wt-smoke-d21eb126/node_m" label="kernel")
+dbus-daemon[2147854]: [session uid=1000 pid=2147854 pidfd=4] Successfully activated service 'org.a11y.Bus'
