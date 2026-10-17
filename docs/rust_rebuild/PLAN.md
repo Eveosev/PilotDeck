@@ -52,7 +52,7 @@
 | T-P2-05 | 在 `pilotdeck-transport` 补 D7：`--listen` 只绑 loopback、hello `payload.token` 常量时间比较、错误码 `UNAUTHENTICATED`、不回显 token、stdio 不校验。对齐本仓 `tcp.rs` 与 #46，不把探针的 10ms 轮询带过去。2026-10-12 DECISION 里的 T-P2-05/06 指的是探针上的 TCP 认证；#46 只完成了探针上的最小面 | **已合**：rust-core `--listen` loopback + hello token 经 #55 栈进入 #56 `d91ed18b`。产品默认 transport 仍是 native。探针侧最小面已在 #46 |
 | T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | **已合** #58 `d21eb126`。opt-in `PILOTDECK_AGENT_LOOP_TCP_SUPERVISE=1` 或显式 bin；默认 transport 仍是 native |
 | T-P2-07 | 2026-10-12 的原意是「另建 pilotdeck-rs workspace」。合流后改为：**不**新建那份 7 crate workspace；P2 只引进 rust-core 已有的 4 个 crate。gateway / yaml / cli 留在 P5 | 决议已改，未实施 |
-| T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | **进行中**（本 PR，draft，未合）。workflow 已写入；ready/merge 仍等真 Payne |
+| T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | **进行中**（#60，draft，未合）。R1 已改 toolchain 钉法、skip 的 warning、失败标记。m2 / m4 是债务，见下。ready/merge 仍等真 Payne |
 | T-P2-09 | 基线差：本仓 `AgentLoop.ts` 的 status 事件带 `kind` / `text`（#2）。对拍期望以本仓 TS 为准。rust-core 若少这两个字段，补事件投影，不把 TS 改回去 | open，附在 T-P2-02 的 diff 分类里 |
 
 ## 门禁流程（每个 PR）
@@ -86,6 +86,8 @@
 5. **G-CI（T-P2-08，进行中，未合）**
    - 触及 `evidence/protocol-sync-gate.md` 所列路径的 PR，CI 跑 schema replay（检查清单 1–3 的可脚本化部分）。
    - sidecar 行为 PR 至少跑 parity 快速门。全量 53 仍可以 nightly，不在每个 PR 的路径过滤里假装已经在跑。
+   - **R1 债务 m2（本轮不修）**：CI 干净 checkout 没有 rust-core release 二进制，`parity-quick` 恒为 `PARITY_QUICK_RESULT=skip`。owner：后续 CI 切片，由真 Payne 决定是否在 CI 编译。下一步：在 `rust-core/` 用 1.99.1 跑 `cargo build --locked --release --bin pilotdeck-agent-loop-sidecar`（可加缓存），再走现有 proof symlink 跑 `pure_text` 与 `single_tool`。
+   - **R1 债务 m4（本轮不修）**：跟进要求记下这条，但送达的句子没有展开缺陷内容，GitHub #60 上也没有 review 正文。owner：Reviewer。下一步：原文到达后另开提交，不在 #60 里猜修。
 
 ## P1 当前进度（截至 tip `f44b3789`）
 

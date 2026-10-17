@@ -6,8 +6,8 @@
 
 | Workspace | 文件 | CI | 命令里看到的版本 |
 | --- | --- | --- | --- |
-| 根 hello / 探针 | `rust-toolchain.toml` `channel = "1.83.0"` | `dtolnay/rust-toolchain@1.83.0`，组件 rustfmt、clippy | 本地 `rustc 1.83.0 (90b35a623 2024-11-26)` |
-| `rust-core/` | `rust-core/rust-toolchain.toml` `channel = "1.99.1"` | `dtolnay/rust-toolchain@1.99.1`，`toolchain: 1.99.1`，组件 rustfmt、clippy | 本地 `rustc 1.99.1 (58cf8f9c3 2026-10-13)` |
+| 根 hello / 探针 | `rust-toolchain.toml` `channel = "1.83.0"` | `dtolnay/rust-toolchain@master`，`toolchain: 1.83.0`；`rust-workspaces.yml` 另加 rustfmt、clippy。`rust-hello.yml` 只构建，不加这两个组件 | 本地 `rustc 1.83.0 (90b35a623 2024-11-26)` |
+| `rust-core/` | `rust-core/rust-toolchain.toml` `channel = "1.99.1"` | `dtolnay/rust-toolchain@master`，`toolchain: 1.99.1`，组件 rustfmt、clippy | 本地 `rustc 1.99.1 (58cf8f9c3 2026-10-13)` |
 
 Node：CI `actions/setup-node@v7` 钉 **22.23.1**（与现有 hello / web workflow 相同）。本地证据是 **v22.14.0**。两者都在 engines `>=22.13.0 <23` 里，且高于 replay 要求的 22.6。pnpm **10.32.1**（`packageManager`）。
 
@@ -81,7 +81,7 @@ Job 步骤：
 
 1. 三处路径比对。
 2. `pnpm install --frozen-lockfile --ignore-scripts`。检查 1–3 只 `import` ajv；原生 postinstall 不在这几条里。`--frozen-lockfile` 禁止改写 lockfile。安装后 `git status --porcelain` 必须为空，否则后面的 generate / replay 会按文档 exit 2。
-3. 从 `CONTRIBUTING.md` 抽出唯一的 `bash` 命令块，`bash -e` 执行。块内是 1a、1c（generate + `git diff --exit-code`）、一次 replay + restore、检查 2、检查 3、检查 7。restore 在失败路径上也会执行。不第二次 replay。检查 4–6 不在这个 job 里。
+3. 从 `CONTRIBUTING.md` 抽出唯一的 `bash` 命令块，`bash -e` 执行。块内是 1a、1c（generate + `git diff --exit-code`）、一次 replay + restore、检查 2、检查 3、检查 7。restore 在失败路径上也会执行。不第二次 replay。检查 4–6 不在这个 job 里。抽块或 replay 非 0 时打印 `PROTOCOL_SYNC_RESULT=fail` 再带着该退出码结束；通过则打印 `PROTOCOL_SYNC_RESULT=pass`。路径比对脚本成功打印 `PROTOCOL_SYNC_PATHS_RESULT=pass`，失败打印 `PROTOCOL_SYNC_PATHS_RESULT=fail` 并 exit 1。没有 skip。
 
 Node 22。不给 1a / generate 加 `--experimental-strip-types`。
 
@@ -110,9 +110,11 @@ python3 tools/agent-loop-parity/run.py \
 
 `single_tool` 同样，只换 `--scenario` 和 output。证明链沿用 T-P2-02：默认二进制是 `rust-core/target/release/pilotdeck-agent-loop-sidecar` 时，脚本建 `rust-core/target/rust-core-proof/pilotdeck-agent-loop` → `../release/pilotdeck-agent-loop-sidecar`。`rust-stdio-sidecar.sh` 对这个 basename 用 `realpath -s`，不把证明改写成 `*-sidecar`。
 
-缺省 release 二进制：**显式 skip**，exit 0，打印 `PARITY_QUICK_RESULT=skip` 和 “not a scenario pass”。CI 不编译 release sidecar，避免每个 PR 做一次长编译。这不是场景通过。
+缺省 release 二进制：**显式 skip**，exit 0，打印 `PARITY_QUICK_RESULT=skip`，并打出 `::warning title=parity-quick skipped::rust-core release binary missing; pure_text/single_tool NOT executed`。这不是场景通过，也不是 fail。CI 不安装 Rust、不编译 release sidecar。m2（因此在干净 checkout 上恒 skip）本轮不修，见 PLAN。
 
-以下情况 **失败**（exit 1，`PARITY_QUICK_RESULT=fail`），不能当成 skip：
+`run.py` 返回 1 或 2 时先记下退出码，仍读 `summary.json`（没有这份文件也记失败），然后打印 `PARITY_QUICK_RESULT=fail`，再以 `run.py` 的非 0 码退出；只有 summary 检查失败时用 summary 的退出码。pass 只在两场景都过之后打印 `PARITY_QUICK_RESULT=pass`。
+
+以下情况 **失败**（非 0，`PARITY_QUICK_RESULT=fail`），不能当成 skip：
 
 - `PILOTDECK_RUST_SIDECAR_BIN` 已设置但路径不存在
 - 二进制在，但 basename 不是 `pilotdeck-agent-loop`，也不是默认的 release sidecar
@@ -124,7 +126,7 @@ python3 tools/agent-loop-parity/run.py \
 
 ### `.github/workflows/rust-hello.yml`
 
-保留。`paths` 仍包含 desktop hello 探针那一组（`apps/desktop/scripts/rust-hello.mjs`、`verify-rust-hello.mjs`、`resources/rust/**` 等）。本 PR 只在文件头加了注释，说明它和 `rust-workspaces.yml` 的分工：hello 继续 1.83，rust-core 不塞进这条。toolchain 仍是 `dtolnay/rust-toolchain@1.83.0`，Node 仍是 22.23.1。
+保留。`paths` 仍包含 desktop hello 探针那一组（`apps/desktop/scripts/rust-hello.mjs`、`verify-rust-hello.mjs`、`resources/rust/**` 等）。文件头注释说明它和 `rust-workspaces.yml` 的分工。R1 把 action 改为 `dtolnay/rust-toolchain@master`，`toolchain: 1.83.0`。hello 只 `cargo build`，不加 rustfmt / clippy。Node 仍是 22.23.1。两个 workspace 仍然分开。
 
 ## 本 PR 不改变的产品事实
 

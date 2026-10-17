@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +20,12 @@ CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 WORKFLOW = ROOT / ".github" / "workflows" / "protocol-sync.yml"
 BEGIN = "      # BEGIN protocol-sync-paths"
 END = "      # END protocol-sync-paths"
+
+
+def fail(message: str) -> NoReturn:
+    print(message)
+    print("PROTOCOL_SYNC_PATHS_RESULT=fail")
+    raise SystemExit(1)
 
 
 def unlabeled_fences(text: str) -> list[list[str]]:
@@ -44,7 +51,7 @@ def path_fence(text: str, label: str) -> list[str]:
         if "src/agent/modules/protocol.ts" in block and "pnpm-lock.yaml" in block
     ]
     if len(matches) != 1:
-        raise SystemExit(f"{label}: expected 1 trigger-path fence, found {len(matches)}")
+        fail(f"{label}: expected 1 trigger-path fence, found {len(matches)}")
     return matches[0]
 
 
@@ -52,7 +59,7 @@ def gate_paths(text: str) -> list[str]:
     heading = "## 触发路径"
     start = text.find(heading)
     if start < 0:
-        raise SystemExit("protocol-sync-gate.md: trigger-path heading missing")
+        fail("protocol-sync-gate.md: trigger-path heading missing")
     return path_fence(text[start:], "protocol-sync-gate.md")
 
 
@@ -62,16 +69,16 @@ def workflow_paths(text: str) -> list[str]:
         start = lines.index(BEGIN)
         end = lines.index(END)
     except ValueError as error:
-        raise SystemExit(f"protocol-sync.yml: path markers missing ({error})") from error
+        fail(f"protocol-sync.yml: path markers missing ({error})")
     if end < start:
-        raise SystemExit("protocol-sync.yml: path markers out of order")
+        fail("protocol-sync.yml: path markers out of order")
     paths: list[str] = []
     for line in lines[start + 1 : end]:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
         if not stripped.startswith("- "):
-            raise SystemExit(f"protocol-sync.yml: bad path line: {stripped}")
+            fail(f"protocol-sync.yml: bad path line: {stripped}")
         paths.append(stripped[2:].strip().strip("'\""))
     return paths
 
@@ -88,13 +95,16 @@ def main() -> int:
         print("\n".join(contributing))
         print("--- .github/workflows/protocol-sync.yml ---")
         print("\n".join(workflow))
+        print("PROTOCOL_SYNC_PATHS_RESULT=fail")
         return 1
     if "rust-core/**" not in gate:
         print("FAIL rust-core/** missing from trigger paths")
+        print("PROTOCOL_SYNC_PATHS_RESULT=fail")
         return 1
     print(f"PASS protocol-sync paths identical ({len(gate)} entries, includes rust-core/**)")
     for path in gate:
         print(path)
+    print("PROTOCOL_SYNC_PATHS_RESULT=pass")
     return 0
 
 

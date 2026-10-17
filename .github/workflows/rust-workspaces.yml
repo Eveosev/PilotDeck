@@ -30,8 +30,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@1.83.0
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.83.0
           components: rustfmt, clippy
 
       - name: fmt, clippy -D warnings, test
@@ -54,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.99.1
           components: rustfmt, clippy

@@ -36,6 +36,7 @@ if [ ! -e "$bin" ]; then
   say "Scenarios not executed: pure_text single_tool"
   say "This is an explicit skip, not a scenario pass."
   say "Full 53-scenario gate is not part of this job."
+  say "::warning title=parity-quick skipped::rust-core release binary missing; pure_text/single_tool NOT executed"
   say "PARITY_QUICK_RESULT=skip"
   exit 0
 fi
@@ -92,6 +93,9 @@ for scenario in pure_text single_tool; do
   out="/tmp/pilotdeck-parity-quick-$scenario"
   rm -rf "$out"
   say "RUN scenario=$scenario output=$out"
+  # set -eu would otherwise exit before PARITY_QUICK_RESULT=fail when run.py
+  # returns 1 or 2. Capture the code, always read the summary, then fail.
+  rc=0
   python3 tools/agent-loop-parity/run.py \
     --pilotdeck-root "$root" \
     --comparison same-version \
@@ -99,8 +103,10 @@ for scenario in pure_text single_tool; do
     --sidecar-transport stdio \
     --pilotdeck-stdio-sidecar-cmd tools/agent-loop-parity/rust-stdio-sidecar.sh \
     --scenario "$scenario" \
-    --output "$out"
-  python3 - "$out/summary.json" "$scenario" <<'PY'
+    --output "$out" || rc=$?
+  sum_rc=0
+  if [ -f "$out/summary.json" ]; then
+    python3 - "$out/summary.json" "$scenario" <<'PY' || sum_rc=$?
 import json, sys
 path, scenario = sys.argv[1], sys.argv[2]
 summary = json.load(open(path, encoding="utf-8"))
@@ -125,6 +131,17 @@ ok = (
 )
 sys.exit(0 if ok else 1)
 PY
+  else
+    say "FAIL parity-quick: summary.json missing for scenario=$scenario (run.py exit $rc)"
+    sum_rc=1
+  fi
+  if [ "$rc" -ne 0 ] || [ "$sum_rc" -ne 0 ]; then
+    say "PARITY_QUICK_RESULT=fail"
+    if [ "$rc" -ne 0 ]; then
+      exit "$rc"
+    fi
+    exit "$sum_rc"
+  fi
 done
 
 say "PASS parity-quick: pure_text single_tool"

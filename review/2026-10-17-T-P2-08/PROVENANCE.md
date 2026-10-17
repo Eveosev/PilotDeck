@@ -51,7 +51,27 @@
 | P6 hello 保留 | `rust-hello.yml` 仍在，`on.pull_request.paths` 仍覆盖 desktop hello 探针 |
 | P7 PLAN | `docs/rust_rebuild/PLAN.md` 把 T-P2-08 标成进行中（本 PR，draft，未合）。记下 #58 / `d21eb126` 已合、T-P2-06 完成。没有写成 T-P2-08 已合 |
 | P8 证据 | 本目录 `CI_CONTRACT.md` + `raw/*`。rust-core toolchain **1.99.1** 写在契约和原始日志里 |
-| P9 无 force-push | 实现提交之后只追加证据提交 |
+| P9 无 force-push | `ada7317e`、`1126180b` 之后 R1 再追加一次普通提交，不 rebase / amend / force-push |
 | P10 默认路径 | 未改 supervisor，未改产品默认 transport。PLAN 仍写 native |
 
 ready / merge 不在本 PR 里做。
+
+## R1（conditional_pass 跟进）
+
+仍在 `cursor/t-p2-08-g-ci-9b0a`，基线提交 `1126180b`。一次普通提交。PR #60 保持 draft。
+
+| 项 | 处理 |
+| --- | --- |
+| m1 | 已修。默认 release 二进制缺失时，`scripts/ci/parity-quick.sh` 除 `PARITY_QUICK_RESULT=skip` 外再打印 `::warning title=parity-quick skipped::rust-core release binary missing; pure_text/single_tool NOT executed`。job 仍 exit 0。skip 不是 pass，也不是 fail |
+| m2 | **不修**。CI 干净 checkout 没有 release 二进制，快速门恒 skip。owner：后续 CI 切片，真 Payne 决定是否在 CI 编译。下一步：`rust-core/` 里用 1.99.1 `cargo build --locked --release --bin pilotdeck-agent-loop-sidecar`（可加缓存），再跑 `pure_text` 与 `single_tool` |
+| m3 | 已修。装 Rust 的 workflow 改为 `dtolnay/rust-toolchain@master`，并写明 `toolchain`。根与 `rust-hello.yml` 是 `1.83.0`；`rust-core` job 是 `1.99.1`，并带 rustfmt、clippy。hello 只构建，不加 fmt/clippy 组件。`parity-quick.yml` 不装 Rust（那是 m2，本轮不补安装）。两个 workspace 仍分开 |
+| m4 | **不修**。本轮跟进把 m4 标成债务，但没有附上缺陷原文；GitHub #60 的 review 评论也是空的。owner：Reviewer。下一步：原文到达后另开提交，不在这次提交里猜修 |
+| m5 | 已修。`run.py` 非 0 时先把退出码放进 `rc`，脚本不在这里停，仍然检查 summary，再打印 `PARITY_QUICK_RESULT=fail` 并带着该码退出。pass 与 skip 的标记不变。路径比对失败打印 `PROTOCOL_SYNC_PATHS_RESULT=fail`（成功为 `pass`）。protocol-sync 抽块或 replay 失败打印 `PROTOCOL_SYNC_RESULT=fail`（成功为 `pass`）。这两条没有 skip |
+| n1–n4 | Reviewer 标为可选。本轮跳过 |
+
+### Actions
+
+截至 2026-10-17，`gh run list --repo Eveosev/PilotDeck` 最新一条是 `2026-10-14T18:40:50Z`（Web Regression，pull_request，success）。没有比这更新的 run。跟进记录：`workflow_dispatch` 返回 422。这是仓库级问题（Actions 关闭或账单），不是 #60 造成的：本 PR 的 workflow 在 `pull_request` 上没有 `branches:` 过滤；draft 也不阻止 `pull_request`。别的 workflow 只在 `push` 上写了 `branches: [main]`。GHA 转绿仍等仓库主人豁免（waiver-pending）。
+
+R1 本地复核（提交前）：workflow YAML parse exit 0（`raw/r1-yaml-parse.txt`）。路径比对 `PROTOCOL_SYNC_PATHS_RESULT=pass`（`raw/r1-path-sync.txt`）；合成失败打印 `PROTOCOL_SYNC_PATHS_RESULT=fail` 且退出码 1（`raw/r1-path-sync-fail.txt`）。根 workspace fmt / clippy / test exit 0，rustc 1.83.0（`raw/r1-root-fmt-clippy-test.txt`）。rust-core 同样三条 exit 0，rustc 1.99.1（`raw/r1-rust-core-fmt-clippy-test.txt`）。skip 日志含 warning 与 `PARITY_QUICK_RESULT=skip`（`raw/r1-parity-quick-skip.txt`）。显式缺失二进制是 `PARITY_QUICK_RESULT=fail`、exit 1。残缺 dist 上 `run.py` 退出 2，summary 仍然被读到，然后打印 `PARITY_QUICK_RESULT=fail`，脚本退出码 2（`raw/r1-parity-quick-runpy-fail.txt`）。
+

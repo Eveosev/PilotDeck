@@ -67,6 +67,8 @@ jobs:
         run: |
           set -euo pipefail
           node -v
+          # A non-zero extract or replay must still print PROTOCOL_SYNC_RESULT=fail.
+          set +e
           python3 - <<'PY'
           from pathlib import Path
           text = Path("CONTRIBUTING.md").read_text(encoding="utf-8")
@@ -84,4 +86,16 @@ jobs:
           Path("/tmp/protocol-sync-checks.sh").write_text(block, encoding="utf-8")
           print(f"extracted_bytes={len(block.encode())}")
           PY
+          extract_rc=$?
+          if [ "$extract_rc" -ne 0 ]; then
+            echo "PROTOCOL_SYNC_RESULT=fail"
+            exit "$extract_rc"
+          fi
           bash -e /tmp/protocol-sync-checks.sh
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "PROTOCOL_SYNC_RESULT=fail"
+            exit "$rc"
+          fi
+          echo "PROTOCOL_SYNC_RESULT=pass"

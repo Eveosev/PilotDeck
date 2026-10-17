@@ -1,7 +1,8 @@
 # Sidecar quick parity. Runs pure_text and single_tool only.
 # Does not pass --scenario all. A missing rust-core release binary is an
-# explicit skip (scripts/ci/parity-quick.sh prints PARITY_QUICK_RESULT=skip),
-# not a green scenario pass. CI does not compile the release sidecar.
+# explicit skip (scripts/ci/parity-quick.sh prints PARITY_QUICK_RESULT=skip
+# and a ::warning annotation). Skip is not a scenario pass and not a fail.
+# This workflow does not install Rust and does not compile the release sidecar.
 name: Parity quick
 
 on:
