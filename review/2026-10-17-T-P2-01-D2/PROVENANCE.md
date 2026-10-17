@@ -4,6 +4,7 @@
 - 分支：`cursor/t-p2-01-d2-track-d-rest`
 - 代码提交：`fcf765b51360cafe27242943b8003738bb8f4336`（tools）。D0 文档提交在它之前。
 - 本文件与 `raw/` 是证据提交，不改产品代码。
+- M-1：E1 在 fetch `origin/rust_standalone_alpha1` 之后重采，显式 `--base-sha fbcfa7a9471045354de1dd33fefe9fc27bfd856b`。`provenance.baseSha` 与 `git merge-base HEAD origin/rust_standalone_alpha1` 都是该 SHA。无参 `resolve_base` 返回同一值。
 - PR 保持 **draft**。ready / merge 仍等真 Payne。
 - 默认 transport 仍是 native。supervisor 仍是 opt-in。53 分母与 allowlist 未改。未改 `rust-core/**`。
 
@@ -38,7 +39,7 @@
 | `readlink -f "$PILOTDECK_RUST_SIDECAR_BIN"` | `/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar` | `raw/readlink.txt` |
 | stdio `pure_text` / `single_tool` | 两次 EXIT 0，`failed` 为空；报告均为 `PASS: no semantic differences after projection.` `sidecarImplementation=rust`，`rustSidecarIntended=true` | `raw/stdio-quick.txt`，`raw/stdio-pure_text-pilotdeck.txt`，`raw/stdio-single_tool-pilotdeck.txt` |
 | stdio full-53 | 进程 EXIT 1（两条 trace_diff 使 run.py 非 0，与 #56 后的门一致）。53 分母。`blocked` / `oracleFailures` / `knownGaps` 为空。failed 只有 `deadline`（3 semantic）与 `sidecar_budget_limit`（1 semantic）。51/2/0/0 | `raw/full53.txt`，`raw/full53-counts.txt`，`raw/deadline-pilotdeck.txt`，`raw/sidecar_budget_limit-pilotdeck.txt` |
-| E1 perf 产物 | `provenance.baseSha` = `d740abe1330bbc4a7ca9e2264fed0dad72b9a866`，与 `git merge-base HEAD origin/rust_standalone_alpha1` 相同。`productDefaultTransport=native`。native 行 `d4=52.283`，`diffOverD4=0.0` | `raw/e1-base-sha.txt` |
+| E1 perf 产物 | `provenance.baseSha` = `fbcfa7a9471045354de1dd33fefe9fc27bfd856b`，与 fetch 后的 `git merge-base HEAD origin/rust_standalone_alpha1` 相同。`productDefaultTransport=native`。native 行 `d4=66.569`，`diffOverD4=0.0` | `raw/e1-base-sha.txt` |
 | rust-core fmt / clippy / test | 未改 `rust-core/**`，P7 不适用，未跑 | — |
 
 符号链接 `rust-core/target/rust-core-proof/pilotdeck-agent-loop` 指向 release 二进制，被 `rust-core/.gitignore` 忽略，不入库。
@@ -54,6 +55,6 @@
 | P5 | 未改 `.mjs`。既有 mjs 测例 16 pass |
 | P6 | release sidecar EXIT 0。身份是 proof symlink 的 `readlink -f`。stdio 两场景 0 semantic diff。full-53 = 51/2/0/0，名仅 `deadline` 与 `sidecar_budget_limit` |
 | P7 | 未改 rust-core，不适用 |
-| P8 | `TRIAGE_53.md` + `raw/*`。perf `baseSha` 与 `git merge-base HEAD origin/rust_standalone_alpha1` 一致 |
+| P8 | `TRIAGE_53.md` + `raw/*`。perf `baseSha` = `fbcfa7a9471045354de1dd33fefe9fc27bfd856b`，与 fetch 后的 `git merge-base HEAD origin/rust_standalone_alpha1` 一致。显式 `--base-sha` 与无参 `resolve_base` 相同 |
 | P9 | G-GHA = **WAIVER-PENDING**，不是 PASS |
 | P10 | 只追加普通 commit。无 force-push / rebase / amend。PR draft。默认 transport 仍 native |

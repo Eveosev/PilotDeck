@@ -1,6 +1,6 @@
-=== perf native pure_text n=1 (E1 baseSha) ===
-{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 522.827, "delay_injected": false}
-{"event": "wrote", "transport": "native", "path": "/tmp/tp201d2/perf-e1/native.json", "primaryBaseline": {"pure_text": {"delay_injected": false, "configuredModelMs": 0.0, "turn_ms": {"n": 1, "p50": 522.827, "p95": 522.827}, "turn_ms_net_of_model_ms": {"n": 1, "p50": 522.827, "p95": 522.827}, "model_iter_ms": {"n": 1, "p50": 13.236, "p95": 13.236}, "model_iter_ms_net_of_model_ms": {"n": 1, "p50": 13.236, "p95": 13.236}, "non_model_ms": {"n": 1, "p50": 509.591, "p95": 509.591}, "stream_chunk_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_net_of_model_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_interval0": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_interval0_net_of_model_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_after_first": {"n": 0, "p50": null, "p95": null}, "segments": {"first_gateway_event_ms": {"n": 1, "p50": 73.938, "p95": 73.938}, "pre_model_ms": {"n": 1, "p50": 497.113, "p95": 497.113}, "post_model_ms": {"n": 1, "p50": 12.478, "p95": 12.478}, "between_model_ms": {"n": 0, "p50": null, "p95": null}, "tool_ms": {"n": 0, "p50": null, "p95": null}, "handshake_ms": {"n": 0, "p50": null, "p95": null}, "gateway_outside_turn_ms": {"n": 1, "p50": 680.409, "p95": 680.409}}}}, "excludedFromPrimary": []}
+=== perf native pure_text n=1 (E1 baseSha, explicit --base-sha) ===
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 665.69, "delay_injected": false}
+{"event": "wrote", "transport": "native", "path": "/tmp/tp201d2/perf-e1/native.json", "primaryBaseline": {"pure_text": {"delay_injected": false, "configuredModelMs": 0.0, "turn_ms": {"n": 1, "p50": 665.69, "p95": 665.69}, "turn_ms_net_of_model_ms": {"n": 1, "p50": 665.69, "p95": 665.69}, "model_iter_ms": {"n": 1, "p50": 14.321, "p95": 14.321}, "model_iter_ms_net_of_model_ms": {"n": 1, "p50": 14.321, "p95": 14.321}, "non_model_ms": {"n": 1, "p50": 651.369, "p95": 651.369}, "stream_chunk_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_net_of_model_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_interval0": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_interval0_net_of_model_ms": {"n": 0, "p50": null, "p95": null}, "stream_chunk_ms_after_first": {"n": 0, "p50": null, "p95": null}, "segments": {"first_gateway_event_ms": {"n": 1, "p50": 99.144, "p95": 99.144}, "pre_model_ms": {"n": 1, "p50": 636.615, "p95": 636.615}, "post_model_ms": {"n": 1, "p50": 14.754, "p95": 14.754}, "between_model_ms": {"n": 0, "p50": null, "p95": null}, "tool_ms": {"n": 0, "p50": null, "p95": null}, "handshake_ms": {"n": 0, "p50": null, "p95": null}, "gateway_outside_turn_ms": {"n": 1, "p50": 1225.487, "p95": 1225.487}}}}, "excludedFromPrimary": []}
 {
   "output": "/tmp/tp201d2/perf-e1",
   "transports": [
@@ -10,16 +10,16 @@
     "pure_text"
   ],
   "iterations": 1,
-  "startedAt": "2026-10-17T13:09:12.852551+00:00",
-  "finishedAt": "2026-10-17T13:09:14.057900+00:00",
+  "startedAt": "2026-10-17T15:08:09.568155+00:00",
+  "finishedAt": "2026-10-17T15:08:11.462425+00:00",
   "provenance": {
-    "gitSha": "fcf765b51360cafe27242943b8003738bb8f4336",
-    "collectSha": "fcf765b51360cafe27242943b8003738bb8f4336",
-    "gitDirty": true,
+    "gitSha": "a82dd2a5b763a4044a19e0dfa408a58062b6ab64",
+    "collectSha": "a82dd2a5b763a4044a19e0dfa408a58062b6ab64",
+    "gitDirty": false,
     "node": "v22.14.0",
     "python": "3.12.3",
     "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
-    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --scenarios pure_text --transports native --iterations 1 --allow-dirty --output /tmp/tp201d2/perf-e1",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --scenarios pure_text --transports native --iterations 1 --base-sha fbcfa7a9471045354de1dd33fefe9fc27bfd856b --output /tmp/tp201d2/perf-e1",
     "pilotdeckRoot": "$PWD",
     "iterationsRequested": 1,
     "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
@@ -28,7 +28,7 @@
     "metrics": "tools/agent-loop-perf/METRICS.md",
     "productDefaultTransport": "native",
     "baseBranch": "rust_standalone_alpha1",
-    "baseSha": "d740abe1330bbc4a7ca9e2264fed0dad72b9a866",
+    "baseSha": "fbcfa7a9471045354de1dd33fefe9fc27bfd856b",
     "stdioSidecarCommand": null,
     "rustSidecarBin": null,
     "rustSidecarTarget": null,
@@ -37,14 +37,18 @@
   }
 }
 EXIT:0
-=== merge-base ===
-d740abe1330bbc4a7ca9e2264fed0dad72b9a866
+=== merge-base HEAD origin/rust_standalone_alpha1 (after fetch) ===
+fbcfa7a9471045354de1dd33fefe9fc27bfd856b
 EXIT:0
+=== origin/rust_standalone_alpha1 ===
+fbcfa7a9471045354de1dd33fefe9fc27bfd856b
+=== resolve_base without --base-sha ===
+rust_standalone_alpha1 fbcfa7a9471045354de1dd33fefe9fc27bfd856b
 transport native
 harnessTransport native
 baseBranch rust_standalone_alpha1
-baseSha d740abe1330bbc4a7ca9e2264fed0dad72b9a866
+baseSha fbcfa7a9471045354de1dd33fefe9fc27bfd856b
 productDefaultTransport native
-d4 52.283
+d4 66.569
 diffOverD4 0.0
 netP95DiffMs 0.0
