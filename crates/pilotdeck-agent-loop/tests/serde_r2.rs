@@ -162,7 +162,10 @@ fn s3_duplicate_keys_last_wins_like_json_parse() {
     assert_eq!(rust["payload"]["tools"][0]["name"], "lookup");
     assert_eq!(ts["jsAfterJSONParse"]["requestId"], "second");
     assert_eq!(ts["jsAfterJSONParse"]["payload"]["prompt"], "B");
-    assert_eq!(ts["jsAfterJSONParse"]["payload"]["agent"]["id"], "pilotdeck-stub");
+    assert_eq!(
+        ts["jsAfterJSONParse"]["payload"]["agent"]["id"],
+        "pilotdeck-stub"
+    );
     assert!(validate_module_message(&rust).is_ok());
 }
 
@@ -229,8 +232,7 @@ fn s3_seven_cases_record_explicit_decisions() {
         assert!(case.get("ts").is_some(), "{case}");
         assert!(case.get("rust").is_some(), "{case}");
         assert!(
-            case["decision"] == "aligned"
-                || case["decision"] == "documented-divergence",
+            case["decision"] == "aligned" || case["decision"] == "documented-divergence",
             "silent divergence is not allowed: {case}"
         );
         if case["decision"] == "documented-divergence" {

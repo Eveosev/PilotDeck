@@ -1,0 +1,5 @@
+SKIP parity-quick: rust-core release binary missing at /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+Scenarios not executed: pure_text single_tool
+This is an explicit skip, not a scenario pass.
+Full 53-scenario gate is not part of this job.
+PARITY_QUICK_RESULT=skip

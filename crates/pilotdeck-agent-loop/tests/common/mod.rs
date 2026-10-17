@@ -314,20 +314,18 @@ fn last_user_text(messages: Option<&Value>) -> String {
 }
 
 fn conversation_has_tool_result(messages: Option<&Value>) -> bool {
-    messages
-        .and_then(Value::as_array)
-        .is_some_and(|messages| {
-            messages.iter().any(|message| {
-                message
-                    .get("content")
-                    .and_then(Value::as_array)
-                    .is_some_and(|blocks| {
-                        blocks.iter().any(|block| {
-                            block.get("type").and_then(Value::as_str) == Some("tool_result")
-                        })
+    messages.and_then(Value::as_array).is_some_and(|messages| {
+        messages.iter().any(|message| {
+            message
+                .get("content")
+                .and_then(Value::as_array)
+                .is_some_and(|blocks| {
+                    blocks.iter().any(|block| {
+                        block.get("type").and_then(Value::as_str) == Some("tool_result")
                     })
-            })
+                })
         })
+    })
 }
 
 /// Host-side mock: `Look up` / `lookup` on the last user text with no tool
@@ -338,10 +336,19 @@ pub fn mock_backend_reply(message: &Value) -> Option<Value> {
     {
         return None;
     }
-    let message_id = message.get("messageId").and_then(Value::as_str).unwrap_or("");
-    let request_id = message.get("requestId").and_then(Value::as_str).unwrap_or("");
+    let message_id = message
+        .get("messageId")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let request_id = message
+        .get("requestId")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let payload = match message.get("module").and_then(Value::as_str) {
-        Some("model") => match message.pointer("/payload/operation").and_then(Value::as_str) {
+        Some("model") => match message
+            .pointer("/payload/operation")
+            .and_then(Value::as_str)
+        {
             Some("prepare") => {
                 let request = message
                     .pointer("/payload/request")

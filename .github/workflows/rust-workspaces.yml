@@ -1,0 +1,79 @@
+# Two Cargo workspaces, two toolchains.
+# Root hello/probe stays on 1.83.0 (rust-toolchain.toml). rust-core stays on
+# 1.99.1 (rust-core/rust-toolchain.toml, edition 2024). Do not merge them.
+# Desktop hello packaging remains .github/workflows/rust-hello.yml.
+name: Rust workspaces
+
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**
+      - rust-core/**
+      - .github/workflows/rust-workspaces.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CARGO_TERM_COLOR: never
+
+jobs:
+  root:
+    name: Root workspace (1.83 hello/probe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.83.0
+          components: rustfmt, clippy
+
+      - name: fmt, clippy -D warnings, test
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          rustc --version | grep -q ' 1.83.'
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+
+  rust-core:
+    name: rust-core workspace (1.99.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: rust-core
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+
+      - name: fmt, clippy -D warnings, test
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          rustc --version | grep -q ' 1.99.1 '
+          # --all also formats path deps. Vendored tiktoken-rs is excluded from
+          # this workspace and has no [workspace] table, so Cargo then binds it
+          # to the root workspace. -p stays on the four members and does not
+          # merge workspaces or reformat the fork.
+          cargo fmt --check \
+            -p pilotdeck-protocol \
+            -p pilotdeck-tokenizer \
+            -p pilotdeck-agent \
+            -p pilotdeck-transport
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --all-targets --locked

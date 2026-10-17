@@ -2,7 +2,7 @@
 
 > 历史决议：`review/2026-10-09-rust-proposal-v2/TASK_PLAN.md`、同目录 `DECISION.md`（本地证据，未入库；v2.1，基线 OpenBMB/PilotDeck @ `b243fa00`）。D0–D9 仍以那份决议为准。
 > **2026-10-15 合流修订以本文为准。** 依据是 `REVIEW-RustReview-2026-10-15.md`（对照 AgentCPM rust-core 调查与本仓代码）。本文不把未合并的 PR 写成已合并，也不把尚未跑过的对拍写成已切换核心。
-> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `d91ed18b`（2026-10-17，#56 合并）。已合并 PR 见 [PR_LOG.md](PR_LOG.md)。
+> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `d21eb126`（2026-10-17，#58 合并，含 T-P2-06）。[PR_LOG.md](PR_LOG.md) 仍记到 #56，本任务不补表。T-P2-08 进行中，未合。
 
 ## 终局目标
 
@@ -26,7 +26,7 @@
 | P0a | 契约与基线：parity TCP、schema、comparator、性能基线、打包骨架、协议门禁 | P1 入口 = 00/01/02/03 + D4 暂定 | 入口项已合（#1 #2 #3 #4 #5 #7）；T-P0a-04/06/08 本稿未见合并记录 |
 | P0b | 黄金样本、ST 复核、缺口清单、回滚、签名、覆盖率（与 P1/P2 并行） | 见 TASK_PLAN §P0b | 本稿未见合并记录 |
 | P1 | 技术探针：Rust loop、harness、parity、流块、对照、go/no-go | 两场景一致 + 流块数据 + 书面决议 | **已关闸，有条件**（见下） |
-| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d91ed18b`）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56，tools 缺口仍 open。T-P2-06 supervisor 进行中，未合。PC1#3、PC2、PC3 仍 open |
+| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d21eb126`，#58）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56，tools 缺口仍 open。T-P2-06 已合 #58 `d21eb126`。T-P2-08 进行中，未合。PC1#3、PC2、PC3 仍 open |
 | P3 | 按调用频率把宿主模块收回 Rust。缝在 `HostCall`：反向 RPC 换本地实现，顺序仍是 model → tool/MCP → budget → turn → 其余 | 对应 `module_call` 消失；每模块可回滚 | 未开始。T-P2-04 未合入之前不开工 |
 | P4 | session 与存储（格式版本、单一写者） | ST 对拍、零丢失 | 未开始 |
 | P5 | Rust gateway + adapters。rust-core **不含** gateway / yaml / cli，这三块仍在 P5，不并进 P2 | 黄金样本 100%；desktop 切 Rust gateway | 未开始 |
@@ -50,9 +50,9 @@
 | T-P2-03 | 用 `tools/agent-loop-perf` 做同场景对照，回答 PC2。stdio 先比「每 turn 拉起」；关掉 PC2 必须等 T-P2-05 的常驻 TCP 重采 | **已合** #51 `2238c7ba`。stdio 对照已入库。PC2 仍未关闭 |
 | T-P2-04 | 两道门通过后，把四个 crate 引进 `rust-core/` 独立 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | 已合入 `d740abe1` |
 | T-P2-05 | 在 `pilotdeck-transport` 补 D7：`--listen` 只绑 loopback、hello `payload.token` 常量时间比较、错误码 `UNAUTHENTICATED`、不回显 token、stdio 不校验。对齐本仓 `tcp.rs` 与 #46，不把探针的 10ms 轮询带过去。2026-10-12 DECISION 里的 T-P2-05/06 指的是探针上的 TCP 认证；#46 只完成了探针上的最小面 | **已合**：rust-core `--listen` loopback + hello token 经 #55 栈进入 #56 `d91ed18b`。产品默认 transport 仍是 native。探针侧最小面已在 #46 |
-| T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | **进行中**（本 PR，draft，未合）。opt-in `PILOTDECK_AGENT_LOOP_TCP_SUPERVISE=1` 或显式 bin；默认 transport 仍是 native |
+| T-P2-06 | TS supervisor：产品进程拉起并在崩溃后续上 TCP listener。现在只有 harness 和包装脚本会拉起 sidecar | **已合** #58 `d21eb126`。opt-in `PILOTDECK_AGENT_LOOP_TCP_SUPERVISE=1` 或显式 bin；默认 transport 仍是 native |
 | T-P2-07 | 2026-10-12 的原意是「另建 pilotdeck-rs workspace」。合流后改为：**不**新建那份 7 crate workspace；P2 只引进 rust-core 已有的 4 个 crate。gateway / yaml / cli 留在 P5 | 决议已改，未实施 |
-| T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | open |
+| T-P2-08 | CI：两个 workspace 各跑 fmt、`clippy -D warnings`、`cargo test`；协议同步从文档门禁升为 schema replay，protocol-sync-gate 触发路径加 `rust-core/**`；parity 至少跑 `pure_text` 与 `single_tool`。现有 `rust-hello.yml` 在 hello 探针仍被 desktop 引用时保留 | **进行中**（#60，draft，未合）。R1 已改 toolchain 钉法、skip 的 warning、失败标记。m2 / m4 是债务，见下。ready/merge 仍等真 Payne |
 | T-P2-09 | 基线差：本仓 `AgentLoop.ts` 的 status 事件带 `kind` / `text`（#2）。对拍期望以本仓 TS 为准。rust-core 若少这两个字段，补事件投影，不把 TS 改回去 | open，附在 T-P2-02 的 diff 分类里 |
 
 ## 门禁流程（每个 PR）
@@ -79,13 +79,15 @@
 3. **G-P2-D7（T-P2-05 + T-P2-06）**
    - 未设置 token：行为与现在的开放 loopback 相同。
    - 设置 token：错误或缺失 hello 为 `UNAUTHENTICATED`，后续方法在认证前同样拒绝，响应不带回 token。stdio 部署档继续从子进程环境删掉该变量。
-   - supervisor 能拉起 listener，并在进程退出后续上。TS supervisor 归 T-P2-06（本 PR，进行中，未合）。UDS / mTLS 仍按 D7 原文留到生产默认之前，不作为 P2 出口。
+   - supervisor 能拉起 listener，并在进程退出后续上。TS supervisor 归 T-P2-06（已合 #58 `d21eb126`）。默认 transport 仍是 native。UDS / mTLS 仍按 D7 原文留到生产默认之前，不作为 P2 出口。
 4. **G-P2-ADOPT（T-P2-04）**
    - 只在 1 和 2 的快速门都过之后引进 crate。全量 53 的红场景进 T-P2-01 D，不阻塞「把源码放进仓库」，但阻塞「把产品默认路径指过去」。
    - 引进时工具链跟 rust-core 的 workspace 清单：`resolver = "3"`，`edition = "2024"`，`rust-version = "1.93"`，CI 钉 `rust-toolchain.toml` 的 1.99；`unsafe_code = "forbid"`；依赖精确 `=` 版本；clippy `-D warnings`。不降到本仓探针的 2021 / 1.83。
-5. **G-CI（T-P2-08）**
+5. **G-CI（T-P2-08，进行中，未合）**
    - 触及 `evidence/protocol-sync-gate.md` 所列路径的 PR，CI 跑 schema replay（检查清单 1–3 的可脚本化部分）。
    - sidecar 行为 PR 至少跑 parity 快速门。全量 53 仍可以 nightly，不在每个 PR 的路径过滤里假装已经在跑。
+   - **R1 债务 m2（本轮不修）**：CI 干净 checkout 没有 rust-core release 二进制，`parity-quick` 恒为 `PARITY_QUICK_RESULT=skip`。owner：后续 CI 切片，由真 Payne 决定是否在 CI 编译。下一步：在 `rust-core/` 用 1.99.1 跑 `cargo build --locked --release --bin pilotdeck-agent-loop-sidecar`（可加缓存），再走现有 proof symlink 跑 `pure_text` 与 `single_tool`。
+   - **R1 债务 m4（本轮不修）**：`protocol-sync.yml` 必须把触发路径写成门禁列表逐字加上 `rust-core/**`，因此不包含 `protocol-sync.yml` 自身、`.github/workflows/check-protocol-sync-paths.py` 和 `CONTRIBUTING.md`（CI 实际执行的 bash 块）。只改这三个文件的 PR 不会触发该 job，削弱这个块（例如删掉 `git diff --exit-code`）也得不到 CI 信号。Follow-up：另加 `protocol-sync-meta.yml`，由这三个文件触发，跑路径比对和同一段 bash 块。owner：后续 CI 切片。
 
 ## P1 当前进度（截至 tip `f44b3789`）
 
@@ -124,9 +126,9 @@
 | R3 | 对拍身份检查要求解析后的路径以 `pilotdeck-agent-loop` 结尾。rust-core 二进制名是 `pilotdeck-agent-loop-sidecar`，直接填命令会被判 BLOCKED | T-P2-02 用现有包装脚本加一个同名符号链接。不改产品协议 |
 | R4 | rust-core 设了 TCP 端口或 factory 就 exit 2。`agent-loop-perf` 的 TCP 开关因此跑不了它；stdio 数字含每 turn 进程启动，和 #37 的常驻 TCP 不是同一形态 | 性能分两轮，写在 G-P2-PERF |
 | R5 | 探针 PC2（model 净 P95 比 native 多 13–21ms）相对同机 TS-tcp 是实现开销，但 10ms 轮询不是充分解释：`recv_timeout` 在回复到达时立刻返回。#40 之后没有重采 model 迭代 | T-P2-03 实测。在那之前不把 PC2 写成「换 rust-core 就会过」 |
-| R6 | 工具链：本仓 edition 2021 / MSRV 1.83 / CI 1.83，只编 hello 握手；rust-core 下限 1.93、CI 钉 1.99，且禁止 unsafe。混在一个 workspace 里，现有 CI 会编不过或完全不跑测试 | T-P2-08 跟 rust-core 的下限和钉扎。hello 工作流单独留到探针还在包里 |
+| R6 | 工具链：本仓 edition 2021 / MSRV 1.83 / CI 1.83，只编 hello 握手；rust-core 下限 1.93、CI 钉 1.99，且禁止 unsafe。混在一个 workspace 里，现有 CI 会编不过或完全不跑测试 | T-P2-08（进行中，未合）跟 rust-core 的下限和钉扎，不降到 1.83，也不并进单一 workspace。hello 工作流单独留到探针还在包里 |
 | R7 | 行为基线：OpenBMB `cc7c4e65` 与本仓 `b243fa00` 对 `src/agent/loop`、`src/agent/modules` 零差异，但本仓另有 3 处 TS 改动。其中 status 的 `kind`/`text` 会让 rust-core 的事件投影和本仓期望不一致 | 对拍以本仓树为准（T-P2-09）。不把 StaffDeck 那两个 gateway 接线提交并进 Rust 线 |
-| R8 | 产品默认没有常驻 supervisor。desktop 只打包 `pilotdeck-agent-loop-hello`。历史回放的 moduleId（sidecar 报 `pilotdeck-agent-loop`，前端认 `pilotdeck.chat`）在本仓仍在；拼装仓的 shim 没有进产品 | T-P2-06（本 PR，未合）给显式 tcp 部署加 opt-in TS supervisor，不改 desktop 打包，也不翻转默认 transport。moduleId 兼容若要做，单独开任务，不塞进核心引进 |
+| R8 | 产品默认没有常驻 supervisor。desktop 只打包 `pilotdeck-agent-loop-hello`。历史回放的 moduleId（sidecar 报 `pilotdeck-agent-loop`，前端认 `pilotdeck.chat`）在本仓仍在；拼装仓的 shim 没有进产品 | T-P2-06 已合 #58 `d21eb126`：显式 tcp 部署有 opt-in TS supervisor，不改 desktop 打包，也不翻转默认 transport。moduleId 兼容若要做，单独开任务，不塞进核心引进 |
 | R9 | `turn.rs` 仍然会很大。协议文档把 `hello`/`execute` 写进 `kind`，与 TS 的四种 `kind` 不一致 | 引进时不要求先拆文件。协议描述以 `protocol.ts` 和本仓 schema 为准，修正 rust-core `PROTOCOL.md` 时另开文档 PR |
 
 ## 维护

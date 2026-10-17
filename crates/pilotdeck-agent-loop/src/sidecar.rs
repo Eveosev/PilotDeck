@@ -910,7 +910,13 @@ fn run_tool_calls(
         let tool_call_id = call.get("id").and_then(Value::as_str).unwrap_or("");
         let tool_name = call.get("name").and_then(Value::as_str).unwrap_or("");
         let tool_input = call.get("input").cloned().unwrap_or(json!({}));
-        assistant_blocks.push(tool_call_block(call, tool_call_id, tool_name, &tool_input, timeline));
+        assistant_blocks.push(tool_call_block(
+            call,
+            tool_call_id,
+            tool_name,
+            &tool_input,
+            timeline,
+        ));
     }
     let assistant_call = json!({
         "role": "assistant",
@@ -940,10 +946,7 @@ fn run_tool_calls(
         .iter()
         .map(|call| {
             let id = call.get("id").cloned().unwrap_or(Value::Null);
-            let timeline_id = format!(
-                "tool:{}",
-                id.as_str().unwrap_or("")
-            );
+            let timeline_id = format!("tool:{}", id.as_str().unwrap_or(""));
             json!({
                 "id": id,
                 "name": call.get("name").cloned().unwrap_or(Value::Null),
@@ -1016,9 +1019,14 @@ fn run_tool_calls(
                 }
                 let message = host_call_error_message(&other);
                 for outstanding in std::iter::once(call).chain(call_iter) {
-                    let outstanding_id = outstanding.get("id").and_then(Value::as_str).unwrap_or("");
-                    let outstanding_name = outstanding.get("name").and_then(Value::as_str).unwrap_or("");
-                    let result = missing_tool_result(job, outstanding_id, outstanding_name, &message);
+                    let outstanding_id =
+                        outstanding.get("id").and_then(Value::as_str).unwrap_or("");
+                    let outstanding_name = outstanding
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let result =
+                        missing_tool_result(job, outstanding_id, outstanding_name, &message);
                     emit_tool_result_event(job, sequence, &result);
                     if stub_interrupted(job) {
                         emit_cancelled_terminal(job, *sequence);
@@ -1571,7 +1579,8 @@ fn value_as_u64(value: &Value) -> Option<u64> {
 }
 
 fn last_user_text_block(payload: &Value) -> String {
-    last_user_text_from_messages(payload.get("messages")).unwrap_or_else(|| DEFAULT_STUB_TEXT.to_string())
+    last_user_text_from_messages(payload.get("messages"))
+        .unwrap_or_else(|| DEFAULT_STUB_TEXT.to_string())
 }
 
 fn last_user_text_from_messages(messages: Option<&Value>) -> Option<String> {
@@ -1639,7 +1648,10 @@ struct AssembledModel {
 }
 
 fn model_tool_definition(tool: &Value) -> Option<Value> {
-    let name = tool.get("name").and_then(Value::as_str).filter(|name| !name.is_empty())?;
+    let name = tool
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|name| !name.is_empty())?;
     Some(json!({
         "name": name,
         "description": tool.get("description").and_then(Value::as_str).unwrap_or(""),
@@ -1976,11 +1988,15 @@ fn prepared_model_request(response: &Value, fallback: &Value) -> Value {
 }
 
 fn host_supports_pull_stream(payload: &Value) -> bool {
-    host_model_methods(payload).iter().any(|method| *method == "stream_next")
+    host_model_methods(payload)
+        .iter()
+        .any(|method| *method == "stream_next")
 }
 
 fn host_supports_close_stream(payload: &Value) -> bool {
-    host_model_methods(payload).iter().any(|method| *method == "close_stream")
+    host_model_methods(payload)
+        .iter()
+        .any(|method| *method == "close_stream")
 }
 
 fn invalid_model_response(message: &str) -> HostCall {
@@ -2138,12 +2154,8 @@ fn pull_host_model_stream(
         }
         let mut stop_for_error = false;
         for event in frame_events {
-            let block_id = stream_event_block_id(
-                job,
-                &event,
-                &mut text_block_id,
-                &mut thinking_block_id,
-            );
+            let block_id =
+                stream_event_block_id(job, &event, &mut text_block_id, &mut thinking_block_id);
             emit_model_event(job, sequence, &event, block_id);
             let is_error = event.get("type").and_then(Value::as_str) == Some("error");
             if is_error {
@@ -2273,7 +2285,9 @@ fn normalize_tool_call(value: &Value) -> Option<Value> {
             value
                 .pointer("/function/arguments")
                 .map(|arguments| match arguments {
-                    Value::String(raw) => serde_json::from_str(raw).unwrap_or(json!({ "raw": raw })),
+                    Value::String(raw) => {
+                        serde_json::from_str(raw).unwrap_or(json!({ "raw": raw }))
+                    }
                     other => other.clone(),
                 })
         })
@@ -2292,7 +2306,10 @@ fn is_plain_string_array(blocks: &[Value]) -> bool {
 fn file_block_text(block: &Value) -> String {
     let path = block.get("path").and_then(Value::as_str).unwrap_or("");
     let mime = block.get("mimeType").and_then(Value::as_str).unwrap_or("");
-    let description = block.get("description").and_then(Value::as_str).unwrap_or("");
+    let description = block
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let mut text = format!("[File: {path}");
     if !mime.is_empty() {
         text.push_str(", ");
@@ -2363,7 +2380,9 @@ fn sanitize_tool_result_raw(result: &Value) -> Value {
     let mut raw = result.clone();
     if let Some(content) = raw.get("content").cloned() {
         raw["content"] = match content {
-            Value::Array(blocks) => json!(blocks.iter().map(sanitize_raw_content).collect::<Vec<_>>()),
+            Value::Array(blocks) => {
+                json!(blocks.iter().map(sanitize_raw_content).collect::<Vec<_>>())
+            }
             other => other,
         };
     }
@@ -2393,10 +2412,8 @@ fn sanitize_tool_result_raw(result: &Value) -> Value {
 fn capability_result(response: &Value, tool_call_id: &str, tool_name: &str) -> Value {
     let payload = response.get("payload").cloned().unwrap_or(json!({}));
     let mut result = payload.get("result").cloned().unwrap_or(payload);
-    let content = normalize_outbound_content(
-        result.get("content"),
-        "Tool completed with no output.",
-    );
+    let content =
+        normalize_outbound_content(result.get("content"), "Tool completed with no output.");
     if let Some(object) = result.as_object_mut() {
         if !object.contains_key("type") {
             object.insert("type".into(), json!("success"));
@@ -2747,7 +2764,10 @@ mod tests {
                 reply_model_ops(call, events)
             }
             Some("capability") => {
-                let name = call.pointer("/payload/name").and_then(Value::as_str).unwrap_or("lookup");
+                let name = call
+                    .pointer("/payload/name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("lookup");
                 let prompt = call
                     .pointer("/payload/arguments/q")
                     .and_then(Value::as_str)
@@ -2843,7 +2863,13 @@ mod tests {
         .to_string()
     }
 
-    fn execute_line(message_id: &str, run_id: &str, operation_id: &str, request_id: &str, payload: &str) -> String {
+    fn execute_line(
+        message_id: &str,
+        run_id: &str,
+        operation_id: &str,
+        request_id: &str,
+        payload: &str,
+    ) -> String {
         format!(
             r#"{{"kind":"request","messageId":"{message_id}","method":"execute","runId":"{run_id}","operationId":"{operation_id}","requestId":"{request_id}","payload":{payload}}}"#
         )
@@ -2959,10 +2985,7 @@ mod tests {
             .find(|m| m["eventType"] == "agent.assistant_message")
             .expect("pure_text agent.assistant_message");
         assert_eq!(message["payload"]["type"], "assistant_message");
-        assert_eq!(
-            message["payload"]["message"]["content"][0]["type"],
-            "text"
-        );
+        assert_eq!(message["payload"]["message"]["content"][0]["type"], "text");
         assert_eq!(
             message["payload"]["message"]["content"][0]["text"],
             "HOST[What is the status?]"
@@ -3049,8 +3072,10 @@ mod tests {
         assert!(result_text.contains("Look up the status"));
         assert!(result_text.contains("lookup"));
 
-        assert!(events.iter().any(|m| m["eventType"] == "agent.turn_continued"
-            && m["payload"]["reason"] == "next_turn"));
+        assert!(events
+            .iter()
+            .any(|m| m["eventType"] == "agent.turn_continued"
+                && m["payload"]["reason"] == "next_turn"));
 
         let assistant = events
             .iter()
@@ -3095,17 +3120,26 @@ mod tests {
         assert!(terminal["payload"]["messages"][0]["content"][0]["timeline"]
             .get("previousId")
             .is_none());
-        assert!(terminal["payload"]["messages"][0]["content"][0].get("raw").is_none());
+        assert!(terminal["payload"]["messages"][0]["content"][0]
+            .get("raw")
+            .is_none());
         assert_eq!(
             terminal["payload"]["messages"][0]["metadata"]["model"],
             "pilotdeck-stub"
         );
-        assert_eq!(terminal["payload"]["messages"][1]["content"].as_array().map(|c| c.len()), Some(1));
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"]
+                .as_array()
+                .map(|c| c.len()),
+            Some(1)
+        );
         assert_eq!(
             terminal["payload"]["messages"][1]["content"][0]["type"],
             "tool_result"
         );
-        assert!(terminal["payload"]["messages"][1]["content"][0].get("raw").is_some());
+        assert!(terminal["payload"]["messages"][1]["content"][0]
+            .get("raw")
+            .is_some());
         assert_eq!(
             terminal["payload"]["messages"][1]["content"][0]["timeline"]["order"],
             1
@@ -3164,7 +3198,9 @@ mod tests {
         let detected = idx("agent.tool_calls_detected", &|_| true);
         let tool_result = idx("agent.tool_result", &|_| true);
         let projected = idx("agent.tool_results_projected", &|_| true);
-        let continued = idx("agent.turn_continued", &|m| m["payload"]["reason"] == "next_turn");
+        let continued = idx("agent.turn_continued", &|m| {
+            m["payload"]["reason"] == "next_turn"
+        });
         let assistant_final = idx("agent.assistant_message", &|m| {
             m["payload"]["message"]["content"][0]["type"] == "text"
         });
@@ -3207,7 +3243,10 @@ mod tests {
         assert_eq!(tool_msg["payload"]["turnId"], "turn-dur");
         assert_eq!(tool_msg["payload"]["message"]["role"], "assistant");
         assert!(tool_msg["payload"]["message"]["content"].is_array());
-        assert_eq!(tool_msg["payload"]["message"]["content"][0]["type"], "tool_call");
+        assert_eq!(
+            tool_msg["payload"]["message"]["content"][0]["type"],
+            "tool_call"
+        );
         let tool_call_id = tool_msg["payload"]["message"]["content"][0]["id"]
             .as_str()
             .expect("tool call id");
@@ -3356,9 +3395,9 @@ mod tests {
             message["payload"]["message"]["content"][0]["text"],
             "HOST[block-prompt]"
         );
-        assert!(lines
-            .iter()
-            .all(|m| m.get("eventType").and_then(Value::as_str) != Some("agent.tool_calls_detected")));
+        assert!(lines.iter().all(
+            |m| m.get("eventType").and_then(Value::as_str) != Some("agent.tool_calls_detected")
+        ));
     }
 
     #[test]
@@ -3405,16 +3444,19 @@ mod tests {
     }
 
     fn assert_content_is_block_array(content: &Value, where_: &str) {
-        let blocks = content.as_array().unwrap_or_else(|| {
-            panic!("{where_}: content must be a block array, have {content}")
-        });
+        let blocks = content
+            .as_array()
+            .unwrap_or_else(|| panic!("{where_}: content must be a block array, have {content}"));
         assert!(
             !blocks.is_empty(),
             "{where_}: content blocks must not be empty"
         );
         for block in blocks {
             assert!(
-                block.get("type").and_then(Value::as_str).is_some_and(|ty| !ty.is_empty()),
+                block
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .is_some_and(|ty| !ty.is_empty()),
                 "{where_}: each block needs type, have {block}"
             );
         }
@@ -3422,7 +3464,9 @@ mod tests {
 
     fn assert_outbound_contents_are_blocks(lines: &[Value]) {
         for message in lines {
-            if let Some(messages) = message.pointer("/payload/messages").and_then(Value::as_array)
+            if let Some(messages) = message
+                .pointer("/payload/messages")
+                .and_then(Value::as_array)
             {
                 for (index, item) in messages.iter().enumerate() {
                     if item.get("content").is_some() {
@@ -3527,7 +3571,9 @@ mod tests {
         );
     }
 
-    fn capability_string_or_blocks_host(content: Value) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
+    fn capability_string_or_blocks_host(
+        content: Value,
+    ) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
         move |call: &Value| match call.get("module").and_then(Value::as_str) {
             Some("model") => single_tool_host(call),
             Some("capability") => Some(host_ok(
@@ -3695,7 +3741,10 @@ mod tests {
         assert_eq!(request["stream"], true);
         assert_eq!(request["tools"][0]["name"], "lookup");
         assert_eq!(request["tools"][0]["description"], "Look up a value");
-        assert_eq!(request["tools"][0]["inputSchema"], json!({ "type": "object" }));
+        assert_eq!(
+            request["tools"][0]["inputSchema"],
+            json!({ "type": "object" })
+        );
         assert!(request["tools"][0].get("permission").is_none());
         assert!(request["tools"][0].get("extraManifestField").is_none());
     }
@@ -3816,7 +3865,8 @@ mod tests {
 
     #[test]
     fn prepare_for_model_supplies_system_prompt_and_filtered_tools() {
-        let (sidecar, sink) = collect_with_host(with_budget_host(with_prepared_context_host(text_host)));
+        let (sidecar, sink) =
+            collect_with_host(with_budget_host(with_prepared_context_host(text_host)));
         sidecar.handle_line(&execute_line(
             "ex-prep",
             "run-prep",
@@ -3921,7 +3971,12 @@ mod tests {
         assert_eq!(content[0]["type"], "text");
         assert_eq!(content[0]["text"], "before-tool:Look up the status");
         assert_eq!(content[1]["type"], "tool_call");
-        assert_eq!(terminal["payload"]["messages"][1]["content"].as_array().map(|c| c.len()), Some(1));
+        assert_eq!(
+            terminal["payload"]["messages"][1]["content"]
+                .as_array()
+                .map(|c| c.len()),
+            Some(1)
+        );
         assert_eq!(
             lines
                 .iter()
@@ -4031,7 +4086,10 @@ mod tests {
         assert_eq!(terminal["code"], "UNEXPECTED_SECOND_TURN_TOOL_CALLS");
     }
 
-    fn capability_error_or_filter_host(content: Value, error: Option<Value>) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
+    fn capability_error_or_filter_host(
+        content: Value,
+        error: Option<Value>,
+    ) -> impl Fn(&Value) -> Option<Value> + Send + Sync + 'static {
         move |call: &Value| match call.get("module").and_then(Value::as_str) {
             Some("model") => single_tool_host(call),
             Some("capability") => {
@@ -4070,7 +4128,10 @@ mod tests {
             .find(|m| m["eventType"] == "agent.tool_result")
             .expect("tool_result");
         assert_eq!(tool_result["payload"]["result"]["type"], "error");
-        assert_eq!(tool_result["payload"]["result"]["error"]["code"], "tool_failed");
+        assert_eq!(
+            tool_result["payload"]["result"]["error"]["code"],
+            "tool_failed"
+        );
         let terminal = lines
             .iter()
             .find(|m| m["eventType"] == "agent.execute.completed")
@@ -4202,12 +4263,16 @@ mod tests {
         assert_eq!(result["content"][0]["text"], expected.message);
         assert_eq!(result["metadata"]["recovery"], expected.advice.to_json());
         assert!(
-            result["startedAt"].as_str().is_some_and(|ts| parse_iso_ms(ts).is_some()),
+            result["startedAt"]
+                .as_str()
+                .is_some_and(|ts| parse_iso_ms(ts).is_some()),
             "startedAt must be ISO-8601, got {}",
             result["startedAt"]
         );
         assert!(
-            result["completedAt"].as_str().is_some_and(|ts| parse_iso_ms(ts).is_some()),
+            result["completedAt"]
+                .as_str()
+                .is_some_and(|ts| parse_iso_ms(ts).is_some()),
             "completedAt must be ISO-8601, got {}",
             result["completedAt"]
         );
@@ -4410,7 +4475,10 @@ mod tests {
         assert_eq!(results.len(), 2, "one tool_result per tool_call: {lines:?}");
         assert_eq!(results[0]["payload"]["result"]["type"], "success");
         assert_eq!(results[0]["payload"]["result"]["toolCallId"], "t1");
-        assert_eq!(results[0]["payload"]["result"]["content"][0]["text"], "ok-one");
+        assert_eq!(
+            results[0]["payload"]["result"]["content"][0]["text"],
+            "ok-one"
+        );
         assert_eq!(results[1]["payload"]["result"]["type"], "error");
         assert_eq!(results[1]["payload"]["result"]["toolCallId"], "t2");
         assert_synthesized_recovery_result(
@@ -4470,7 +4538,10 @@ mod tests {
             .find(|m| m["eventType"] == "agent.tool_results_projected")
             .expect("projected");
         let raw = &projected["payload"]["message"]["content"][0]["raw"];
-        assert_eq!(raw["metadata"]["recovery"]["failureClass"], "environment_issue");
+        assert_eq!(
+            raw["metadata"]["recovery"]["failureClass"],
+            "environment_issue"
+        );
         assert!(raw["content"][0]["text"]
             .as_str()
             .is_some_and(|text| text.starts_with("TOOL_ERROR[tool_execution_failed][lookup]")));
@@ -4532,7 +4603,9 @@ mod tests {
             "/tmp/test-home",
             "bypassPermissions",
         );
-        let text = result["content"][0]["text"].as_str().expect("recovery text");
+        let text = result["content"][0]["text"]
+            .as_str()
+            .expect("recovery text");
         assert!(
             text.contains("Current permission mode: bypassPermissions."),
             "non-default permissionMode must appear in recovery text, got {text}"
@@ -4568,7 +4641,10 @@ mod tests {
             "content": [{ "type": "text", "text": "boom" }],
         });
         let err_block = tool_result_block(&with_type, "t-a3-err", &mut typed);
-        assert_eq!(err_block["isError"], true, "type:error must still set isError");
+        assert_eq!(
+            err_block["isError"], true,
+            "type:error must still set isError"
+        );
     }
 
     #[test]
@@ -4588,8 +4664,7 @@ mod tests {
             .find(|m| m["eventType"] == "agent.tool_result")
             .expect("tool_result");
         assert_ne!(
-            tool_result["payload"]["result"]["type"],
-            "error",
+            tool_result["payload"]["result"]["type"], "error",
             "omitted type must not become type:error: {}",
             tool_result["payload"]["result"]
         );
@@ -4636,8 +4711,7 @@ mod tests {
         assert_eq!(content[1]["type"], "text");
         assert_eq!(content[1]["text"], "[File: /tmp/x, text/plain, note]");
 
-        let (sidecar, sink) =
-            collect_with_host(capability_error_or_filter_host(json!([]), None));
+        let (sidecar, sink) = collect_with_host(capability_error_or_filter_host(json!([]), None));
         sidecar.handle_line(&execute_line(
             "ex-empty",
             "run-empty",
@@ -4651,10 +4725,15 @@ mod tests {
             .iter()
             .find(|m| m["eventType"] == "agent.tool_result")
             .unwrap()["payload"]["result"]["content"];
-        assert_eq!(empty, &json!([{ "type": "text", "text": "Tool completed with no output." }]));
+        assert_eq!(
+            empty,
+            &json!([{ "type": "text", "text": "Tool completed with no output." }])
+        );
 
-        let (sidecar, sink) =
-            collect_with_host(capability_error_or_filter_host(json!(["plain", "strings"]), None));
+        let (sidecar, sink) = collect_with_host(capability_error_or_filter_host(
+            json!(["plain", "strings"]),
+            None,
+        ));
         sidecar.handle_line(&execute_line(
             "ex-str",
             "run-str",
@@ -4801,7 +4880,9 @@ mod tests {
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
-        assert!(lines.iter().any(|m| m["kind"] == "request" && m["method"] == "module_call"));
+        assert!(lines
+            .iter()
+            .any(|m| m["kind"] == "request" && m["method"] == "module_call"));
         let terminal = lines
             .iter()
             .find(|m| m["kind"] == "event" && m["final"] == true)
@@ -4823,7 +4904,9 @@ mod tests {
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
-        assert!(lines.iter().any(|m| m["kind"] == "request" && m["method"] == "module_call"));
+        assert!(lines
+            .iter()
+            .any(|m| m["kind"] == "request" && m["method"] == "module_call"));
         let terminal = lines
             .iter()
             .find(|m| m["kind"] == "event" && m["final"] == true)
@@ -5155,9 +5238,11 @@ mod tests {
         assert_eq!(status_b["payload"]["state"], "cancelled");
         assert_eq!(status_b["payload"]["runId"], "run-a");
         assert!(
-            status_b["payload"]["requestIds"].as_array().is_some_and(|ids| {
-                ids.iter().any(|id| id == "req-a") && ids.iter().any(|id| id == "req-b")
-            }),
+            status_b["payload"]["requestIds"]
+                .as_array()
+                .is_some_and(|ids| {
+                    ids.iter().any(|id| id == "req-a") && ids.iter().any(|id| id == "req-b")
+                }),
             "both requestIds stay on the first snapshot, have {status_b}"
         );
     }
@@ -5237,9 +5322,7 @@ mod tests {
     fn model_operations(lines: &[Value]) -> Vec<&str> {
         lines
             .iter()
-            .filter(|message| {
-                message["kind"] == "request" && message["method"] == "module_call"
-            })
+            .filter(|message| message["kind"] == "request" && message["method"] == "module_call")
             .map(|message| message["payload"]["operation"].as_str().unwrap_or(""))
             .collect()
     }
@@ -5326,8 +5409,7 @@ mod tests {
             .iter()
             .enumerate()
             .filter(|(_, message)| {
-                message["kind"] == "request"
-                    && message["payload"]["operation"] == "stream_next"
+                message["kind"] == "request" && message["payload"]["operation"] == "stream_next"
             })
             .nth(1)
             .expect("second stream_next")
@@ -5340,10 +5422,7 @@ mod tests {
             .iter()
             .find(|message| message["eventType"] == "agent.assistant_message")
             .expect("assistant_message");
-        assert_eq!(
-            assistant["payload"]["message"]["content"][0]["text"],
-            "ABC"
-        );
+        assert_eq!(assistant["payload"]["message"]["content"][0]["text"], "ABC");
         assert_eq!(
             assistant["payload"]["message"]["content"][0]["blockId"],
             block_id
@@ -5466,10 +5545,7 @@ mod tests {
             "run-err",
             "op-err",
             "req-err",
-            &pull_methods_payload(
-                "error frame",
-                &["prepare", "stream_next", "close_stream"],
-            ),
+            &pull_methods_payload("error frame", &["prepare", "stream_next", "close_stream"]),
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
@@ -5487,7 +5563,10 @@ mod tests {
                     && message["payload"]["event"]["type"] == "error"
             })
             .expect("error model_event");
-        assert_eq!(error["payload"]["event"]["error"]["code"], "stream_interrupted");
+        assert_eq!(
+            error["payload"]["event"]["error"]["code"],
+            "stream_interrupted"
+        );
         let delta_at = lines
             .iter()
             .position(|message| {
@@ -5558,7 +5637,10 @@ mod tests {
             model_operations(&lines),
             ["prepare", "stream_next", "stream_next"]
         );
-        assert_eq!(text_delta_events(&lines)[0]["payload"]["event"]["text"], "done-with");
+        assert_eq!(
+            text_delta_events(&lines)[0]["payload"]["event"]["text"],
+            "done-with"
+        );
         assert_eq!(
             lines
                 .iter()
@@ -5617,7 +5699,10 @@ mod tests {
             model_operations(&lines),
             ["prepare", "stream_next", "stream_next", "close_stream"]
         );
-        assert_eq!(text_delta_events(&lines)[0]["payload"]["event"]["text"], "kept");
+        assert_eq!(
+            text_delta_events(&lines)[0]["payload"]["event"]["text"],
+            "kept"
+        );
         let terminal = lines
             .iter()
             .find(|message| message["final"] == true)
@@ -5725,58 +5810,63 @@ mod tests {
     fn stream_next_tool_call_keeps_pre_tool_text_block_id() {
         let before = AtomicUsize::new(0);
         let after = AtomicUsize::new(0);
-        let (sidecar, sink) = collect_with_host(move |call: &Value| match call.get("module").and_then(Value::as_str) {
-            Some("capability") => single_tool_host(call),
-            Some("model") => match call.pointer("/payload/operation").and_then(Value::as_str) {
-                Some("prepare") => Some(host_prepared(call)),
-                Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
-                Some("stream_next") => {
-                    let payload = if conversation_has_tool_result(call) {
-                        let index = after.fetch_add(1, Ordering::SeqCst);
-                        if index == 0 {
-                            json!({
-                                "events": [{ "type": "text_delta", "text": "after" }],
-                                "done": true
-                            })
+        let (sidecar, sink) = collect_with_host(move |call: &Value| {
+            match call.get("module").and_then(Value::as_str) {
+                Some("capability") => single_tool_host(call),
+                Some("model") => match call.pointer("/payload/operation").and_then(Value::as_str) {
+                    Some("prepare") => Some(host_prepared(call)),
+                    Some("close_stream") => Some(host_ok(call, json!({ "closed": true }))),
+                    Some("stream_next") => {
+                        let payload = if conversation_has_tool_result(call) {
+                            let index = after.fetch_add(1, Ordering::SeqCst);
+                            if index == 0 {
+                                json!({
+                                    "events": [{ "type": "text_delta", "text": "after" }],
+                                    "done": true
+                                })
+                            } else {
+                                json!({ "events": [], "done": true })
+                            }
                         } else {
-                            json!({ "events": [], "done": true })
-                        }
-                    } else {
-                        let index = before.fetch_add(1, Ordering::SeqCst);
-                        match index {
-                            0 => json!({
-                                "events": [{ "type": "text_delta", "text": "before-tool" }],
-                                "done": false
-                            }),
-                            1 => json!({
-                                "events": [{
-                                    "type": "tool_call_end",
-                                    "toolCall": {
-                                        "id": "host-tool-1",
-                                        "name": "lookup",
-                                        "input": { "q": "Look up the status" }
-                                    }
-                                }],
-                                "done": false
-                            }),
-                            _ => json!({
-                                "events": [{ "type": "message_end", "finishReason": "tool_call" }],
-                                "done": true
-                            }),
-                        }
-                    };
-                    Some(host_ok(call, payload))
-                }
+                            let index = before.fetch_add(1, Ordering::SeqCst);
+                            match index {
+                                0 => json!({
+                                    "events": [{ "type": "text_delta", "text": "before-tool" }],
+                                    "done": false
+                                }),
+                                1 => json!({
+                                    "events": [{
+                                        "type": "tool_call_end",
+                                        "toolCall": {
+                                            "id": "host-tool-1",
+                                            "name": "lookup",
+                                            "input": { "q": "Look up the status" }
+                                        }
+                                    }],
+                                    "done": false
+                                }),
+                                _ => json!({
+                                    "events": [{ "type": "message_end", "finishReason": "tool_call" }],
+                                    "done": true
+                                }),
+                            }
+                        };
+                        Some(host_ok(call, payload))
+                    }
+                    _ => None,
+                },
                 _ => None,
-            },
-            _ => None,
+            }
         });
         sidecar.handle_line(&execute_line(
             "ex-tool",
             "run-tool",
             "op-tool",
             "req-tool",
-            &pull_methods_payload("Look up the status", &["prepare", "stream_next", "close_stream"]),
+            &pull_methods_payload(
+                "Look up the status",
+                &["prepare", "stream_next", "close_stream"],
+            ),
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
@@ -5791,7 +5881,9 @@ mod tests {
                 message["eventType"] == "agent.assistant_message"
                     && message["payload"]["message"]["content"]
                         .as_array()
-                        .is_some_and(|blocks| blocks.iter().any(|block| block["type"] == "tool_call"))
+                        .is_some_and(|blocks| {
+                            blocks.iter().any(|block| block["type"] == "tool_call")
+                        })
             })
             .expect("pre-tool assistant");
         let text_block = pretool["payload"]["message"]["content"]
@@ -5802,7 +5894,9 @@ mod tests {
             .expect("text block");
         assert_eq!(text_block["text"], "before-tool");
         assert_eq!(text_block["blockId"], block_id);
-        assert!(lines.iter().any(|message| message["eventType"] == "agent.tool_result"));
+        assert!(lines
+            .iter()
+            .any(|message| message["eventType"] == "agent.tool_result"));
         let terminal = lines
             .iter()
             .find(|message| message["final"] == true)
@@ -5839,7 +5933,10 @@ mod tests {
             "run-cancel",
             "op-cancel",
             "req-cancel",
-            &pull_methods_payload("cancel mid pull", &["prepare", "stream_next", "close_stream"]),
+            &pull_methods_payload(
+                "cancel mid pull",
+                &["prepare", "stream_next", "close_stream"],
+            ),
         ));
         let _ = wait_for(
             &sink,
@@ -5855,7 +5952,9 @@ mod tests {
         );
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
-        assert!(lines.iter().any(|message| message["payload"]["operation"] == "close_stream"));
+        assert!(lines
+            .iter()
+            .any(|message| message["payload"]["operation"] == "close_stream"));
         assert_eq!(
             lines
                 .iter()
@@ -5901,7 +6000,10 @@ mod tests {
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
-        assert_eq!(text_delta_events(&lines)[0]["payload"]["event"]["text"], "partial");
+        assert_eq!(
+            text_delta_events(&lines)[0]["payload"]["event"]["text"],
+            "partial"
+        );
         assert!(model_operations(&lines).contains(&"close_stream"));
         let terminal = lines
             .iter()
@@ -5923,9 +6025,11 @@ mod tests {
                 _ => None,
             }
         });
-        let mut payload: Value =
-            serde_json::from_str(&pull_methods_payload("timeout", &["prepare", "stream_next", "close_stream"]))
-                .expect("payload");
+        let mut payload: Value = serde_json::from_str(&pull_methods_payload(
+            "timeout",
+            &["prepare", "stream_next", "close_stream"],
+        ))
+        .expect("payload");
         payload["moduleCallTimeoutMs"] = json!(40);
         sidecar.handle_line(&execute_line(
             "ex-pull-to",
@@ -5983,7 +6087,10 @@ mod tests {
         ));
         sidecar.join();
         let lines = sink.lock().expect("sink").clone();
-        assert_eq!(model_operations(&lines), ["prepare", "stream", "close_stream"]);
+        assert_eq!(
+            model_operations(&lines),
+            ["prepare", "stream", "close_stream"]
+        );
         let error = lines
             .iter()
             .find(|message| {
@@ -5991,7 +6098,10 @@ mod tests {
                     && message["payload"]["event"]["type"] == "error"
             })
             .expect("error event");
-        assert_eq!(error["payload"]["event"]["error"]["code"], "stream_interrupted");
+        assert_eq!(
+            error["payload"]["event"]["error"]["code"],
+            "stream_interrupted"
+        );
         assert!(lines
             .iter()
             .all(|message| message["eventType"] != "agent.assistant_message"));
@@ -6052,7 +6162,9 @@ mod tests {
             })
             .collect();
         assert_eq!(thinking.len(), 2);
-        let thinking_id = thinking[0]["payload"]["blockId"].as_str().expect("thinking id");
+        let thinking_id = thinking[0]["payload"]["blockId"]
+            .as_str()
+            .expect("thinking id");
         assert_eq!(thinking[1]["payload"]["blockId"], thinking_id);
         let assistant = lines
             .iter()
@@ -6110,7 +6222,9 @@ mod tests {
                     };
                     Some(host_ok(call, payload))
                 }
-                (Some("model"), Some("close_stream")) => Some(host_ok(call, json!({ "closed": true }))),
+                (Some("model"), Some("close_stream")) => {
+                    Some(host_ok(call, json!({ "closed": true })))
+                }
                 (Some("capability"), Some("execute")) => single_tool_host(call),
                 _ => None,
             }
@@ -6153,9 +6267,9 @@ mod tests {
         assert_eq!(replayed_thinking["signature"], "sig-b");
         assert_eq!(replayed_thinking["reasoningContent"], "r1r2");
         assert_eq!(replayed_thinking["text"], "plan more");
-        assert!(lines.iter().any(|message| {
-            message["final"] == true && message["outcome"] == "completed"
-        }));
+        assert!(lines
+            .iter()
+            .any(|message| { message["final"] == true && message["outcome"] == "completed" }));
     }
 
     #[test]
@@ -6222,10 +6336,11 @@ mod tests {
                     ))
                 }
                 Some("stream_next") => {
-                    seen_stream
-                        .lock()
-                        .expect("seen")
-                        .push(call.pointer("/payload/request").cloned().unwrap_or(json!({})));
+                    seen_stream.lock().expect("seen").push(
+                        call.pointer("/payload/request")
+                            .cloned()
+                            .unwrap_or(json!({})),
+                    );
                     Some(host_ok(
                         call,
                         json!({
@@ -6256,9 +6371,15 @@ mod tests {
             .iter()
             .find(|message| message["eventType"] == "agent.assistant_message")
             .expect("assistant");
-        assert_eq!(assistant["payload"]["message"]["content"][0]["text"], "FROM_PROVIDER");
         assert_eq!(
-            lines.iter().find(|message| message["final"] == true).expect("terminal")["outcome"],
+            assistant["payload"]["message"]["content"][0]["text"],
+            "FROM_PROVIDER"
+        );
+        assert_eq!(
+            lines
+                .iter()
+                .find(|message| message["final"] == true)
+                .expect("terminal")["outcome"],
             "completed"
         );
     }
@@ -6291,7 +6412,10 @@ mod tests {
         let accepted = rx.recv_timeout(Duration::from_secs(1)).unwrap();
         assert_eq!(accepted["ok"], true);
         assert_eq!(accepted["inReplyTo"], "hello-ok");
-        assert!(accepted.get("payload").and_then(|payload| payload.get("token")).is_none());
+        assert!(accepted
+            .get("payload")
+            .and_then(|payload| payload.get("token"))
+            .is_none());
         sidecar.handle_line(
             r#"{"kind":"request","messageId":"caps-ok","method":"capabilities","payload":{}}"#,
         );

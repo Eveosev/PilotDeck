@@ -1,0 +1,101 @@
+# Protocol-sync checks 1–3. paths below are the trigger list from
+# evidence/protocol-sync-gate.md, copied verbatim, including rust-core/**.
+# The same list is in CONTRIBUTING.md. check-protocol-sync-paths.py fails
+# the job if the three copies diverge.
+name: Protocol sync
+
+on:
+  pull_request:
+    paths:
+      # BEGIN protocol-sync-paths
+      - src/agent/modules/protocol.ts
+      - scripts/lib/module-protocol-schema.mjs
+      - scripts/generate-module-protocol-schema.mjs
+      - scripts/replay-module-protocol-schema.mjs
+      - evidence/schema/fixtures/negative-samples.json
+      - evidence/schema/fixtures/edge-samples.json
+      - evidence/schema/module-protocol.schema.json
+      - evidence/schema/replay-report.json
+      - evidence/schema/replay-report.md
+      - evidence/protocol-sync-gate.md
+      - tools/agent-loop-parity/run.py
+      - tools/agent-loop-parity/scenarios.json
+      - package.json
+      - pnpm-lock.yaml
+      - rust-core/**
+      # END protocol-sync-paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  schema-replay:
+    name: Checks 1–3 (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Trigger paths match gate doc and CONTRIBUTING
+        run: python3 .github/workflows/check-protocol-sync-paths.py
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.1
+          cache: pnpm
+
+      - name: Install JS dependencies
+        # Schema generate/replay only imports ajv. Native postinstalls are not
+        # part of checks 1–3. --frozen-lockfile keeps the lockfile from being
+        # rewritten, so the dirty-tree rule still sees a clean checkout.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Tree still clean after install
+        run: test -z "$(git status --porcelain)"
+
+      - name: CONTRIBUTING block (1a, 1c, one replay, checks 2, 3, 7)
+        # Checks 4–6 stay manual. Check 7 is the same replay's clean-tree
+        # assertion inside the CONTRIBUTING block; it does not start a second replay.
+        run: |
+          set -euo pipefail
+          node -v
+          # A non-zero extract or replay must still print PROTOCOL_SYNC_RESULT=fail.
+          set +e
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("CONTRIBUTING.md").read_text(encoding="utf-8")
+          marker = "```bash\n"
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit("CONTRIBUTING.md bash block missing")
+          start += len(marker)
+          end = text.find("\n```", start)
+          if end < 0:
+              raise SystemExit("CONTRIBUTING.md bash block not closed")
+          block = text[start:end] + "\n"
+          if "PROTOCOL_REPLAY_OUT" not in block or "PASS schema-current" not in block:
+              raise SystemExit("extracted block is not the protocol-sync checklist")
+          Path("/tmp/protocol-sync-checks.sh").write_text(block, encoding="utf-8")
+          print(f"extracted_bytes={len(block.encode())}")
+          PY
+          extract_rc=$?
+          if [ "$extract_rc" -ne 0 ]; then
+            echo "PROTOCOL_SYNC_RESULT=fail"
+            exit "$extract_rc"
+          fi
+          bash -e /tmp/protocol-sync-checks.sh
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "PROTOCOL_SYNC_RESULT=fail"
+            exit "$rc"
+          fi
+          echo "PROTOCOL_SYNC_RESULT=pass"

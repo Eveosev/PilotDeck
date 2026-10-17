@@ -22,12 +22,14 @@ tools/agent-loop-parity/run.py
 tools/agent-loop-parity/scenarios.json
 package.json
 pnpm-lock.yaml
+rust-core/**
 ```
 
 This list must stay **byte-for-byte identical** to the trigger-path list in
-[`evidence/protocol-sync-gate.md`](evidence/protocol-sync-gate.md). Change both
-files together. CONTRIBUTING is the QA source of truth: verbatim reruns execute
-**this** command block.
+[`evidence/protocol-sync-gate.md`](evidence/protocol-sync-gate.md) and to
+`paths:` in [`.github/workflows/protocol-sync.yml`](.github/workflows/protocol-sync.yml).
+Change all three together. CONTRIBUTING is the QA source of truth: verbatim
+reruns execute **this** command block.
 
 Comment-only / formatting edits to `protocol.ts` may mark checks 4–6 N/A
 in the PR body, but still run 1a + 2. `package.json` / `pnpm-lock.yaml` are
@@ -35,8 +37,11 @@ listed because an ajv bump is written into the generated schema and would
 make 1a stale. Prerequisite: **Node 22** (engines `>=22.13.0 <23`),
 `pnpm install`, clean git tree. The protocol is
 **not frozen**. Schema is **hand-mapped + source anchors + replay** (limit
-**F-5**). Field-mutation fuzz is **R2-1** (T-P0a-04). Path-triggered CI is
-**not** enabled yet.
+**F-5**). Field-mutation fuzz is **R2-1** (T-P0a-04). Path-triggered CI runs
+**this** copy-paste block (checks 1a, 1c, one replay + restore, checks 2, 3,
+and 7) from [`.github/workflows/protocol-sync.yml`](.github/workflows/protocol-sync.yml)
+on Node 22. Checks 4–6 stay manual. The quick parity job is not the full-53
+check 4.
 
 Do **not** add `--experimental-strip-types` to generate / 1a. Replay re-execs
 itself with that flag; **Node < 22.6** (including Node 20) exits **9**.

@@ -1,0 +1,60 @@
+v22.14.0
+ada7317e6743ab7c07d852aa6522ea1ae240e302
+PASS schema-current
+generated evidence/schema/module-protocol.schema.json from src/agent/modules/protocol.ts
+protocolVersion=2.0
+capabilitiesVersion=capabilitiesVersion
+notContract=storageConfigVersion
+{
+  "gitSha": "ada7317e6743ab7c07d852aa6522ea1ae240e302",
+  "gitDirty": false,
+  "A1": {
+    "ok": true
+  },
+  "A2": {
+    "totalCompared": 648,
+    "decisions": {
+      "accept": 648,
+      "reject": 0
+    },
+    "expressibleMismatches": 0,
+    "inexpressibleRules": 0
+  },
+  "A3": {
+    "allRejectedByBoth": true,
+    "loosened": "FAIL"
+  },
+  "A4": {
+    "protocolVersion": {
+      "field": "protocolVersion",
+      "value": "2.0"
+    },
+    "capabilitiesVersion": {
+      "field": "capabilitiesVersion",
+      "value": null,
+      "negotiated": true
+    },
+    "annotationsOnly": true,
+    "storageConfigVersionWrittenAsContract": false,
+    "notContractVersions": [
+      "storageConfigVersion"
+    ],
+    "matchesSource": true
+  }
+}
+wrote /workspace/evidence/schema/replay-report.json
+wrote /workspace/evidence/schema/replay-report.md
+(node:15829) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+expressibleMismatches 0
+inexpressibleRules 0
+A1.reproducible True dirtyTreeRefused True
+allRejectedByBoth True
+loosened FAIL
+missingMessageTypes []
+missingConditionals []
+edgesMatchExpect True
+ada7317e6743ab7c07d852aa6522ea1ae240e302
+gitSha ada7317e6743ab7c07d852aa6522ea1ae240e302
+gitDirty False
+HEAD ada7317e6743ab7c07d852aa6522ea1ae240e302

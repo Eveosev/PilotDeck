@@ -60,7 +60,11 @@ fn handle_message(value: &Value, module_instance_id: &str, connection_generation
             "Hello sidecar only accepts Module Protocol request frames.",
         );
     }
-    let Some(message_id) = value.get("messageId").and_then(Value::as_str).filter(|id| !id.is_empty()) else {
+    let Some(message_id) = value
+        .get("messageId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+    else {
         return protocol_error("MISSING_MESSAGE_ID", "Message messageId is required.");
     };
     match value.get("method").and_then(Value::as_str).unwrap_or("") {
@@ -68,7 +72,12 @@ fn handle_message(value: &Value, module_instance_id: &str, connection_generation
             if !value.get("payload").is_some_and(Value::is_object) {
                 return protocol_error("INVALID_HANDSHAKE_REQUEST", "Handshake requires payload.");
             }
-            handshake_response(method, message_id, module_instance_id, connection_generation)
+            handshake_response(
+                method,
+                message_id,
+                module_instance_id,
+                connection_generation,
+            )
         }
         method @ ("execute" | "cancel" | "status" | "resume" | "ack" | "module_call") => json!({
             "kind": "response",

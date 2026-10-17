@@ -1,0 +1,53 @@
+PILOTDECK_RUST_SIDECAR_BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+RUN scenario=pure_text output=/tmp/pilotdeck-parity-quick-pure_text
+{
+  "scenarios": 1,
+  "gateScenarioCount": 53,
+  "sidecarTransport": "stdio",
+  "sidecarImplementation": "ts",
+  "sidecarImplementationSource": "none",
+  "rustFingerprint": "n/a",
+  "rustSidecarIntended": true,
+  "stdioSidecarCommand": "tools/agent-loop-parity/rust-stdio-sidecar.sh",
+  "tcpSidecarLog": null,
+  "provenance": {
+    "current": "1126180b3ca4b25a92c5e762846c3080ecd5d0b7",
+    "baseline": null,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "node": "v22.14.0"
+  },
+  "blocked": [
+    "pure_text/pilotdeck-current-native: BLOCKED: adapter exited 1:     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36) |     at TracingChannel.tracePromise (node:diagnostics_channel:344:14) |     at ModuleLoader.import (node:internal/modules/esm/loader:576:21) { |   code: 'ERR_MODULE_NOT_FOUND', |   url: 'file:///workspace/dist/src/cli/pilotdeckServer.js' | } |  | Node.js v22.14.0",
+    "pure_text/pilotdeck-current-sidecar: BLOCKED: adapter exited 1:     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36) |     at TracingChannel.tracePromise (node:diagnostics_channel:344:14) |     at ModuleLoader.import (node:internal/modules/esm/loader:576:21) { |   code: 'ERR_MODULE_NOT_FOUND', |   url: 'file:///workspace/dist/src/cli/pilotdeckServer.js' | } |  | Node.js v22.14.0"
+  ],
+  "failed": [],
+  "oracleFailures": [],
+  "knownGaps": [],
+  "expectedExtensions": [],
+  "notApplicable": [],
+  "formatWarnings": [],
+  "formatWarningTaxonomy": {
+    "envelope": 0,
+    "budget": 0,
+    "modelView": 0,
+    "request": 0,
+    "requestEvidence": 0,
+    "response": 0,
+    "state": 0,
+    "kind": 0,
+    "source": 0,
+    "attempt": 0
+  },
+  "formatWarningNote": "Format warnings do not change exit status. Categories cover envelope + budget + modelView.* + request/requestEvidence/response/state/kind/source/attempt (envelope, budget, modelView, request, requestEvidence, response, state, kind, source, attempt). This run: none. modelView format diffs are order/envelope (canonicalize sorts keys); semantic modelView content remains a FAIL.",
+  "comparatorVersion": "1.1.0",
+  "runs": [],
+  "output": "/tmp/pilotdeck-parity-quick-pure_text"
+}
+scenario pure_text
+scenarios 1 gateScenarioCount 53
+sidecarImplementation ts
+blocked ["pure_text/pilotdeck-current-native: BLOCKED: adapter exited 1:     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36) |     at TracingChannel.tracePromise (node:diagnostics_channel:344:14) |     at ModuleLoader.import (node:internal/modules/esm/loader:576:21) { |   code: 'ERR_MODULE_NOT_FOUND', |   url: 'file:///workspace/dist/src/cli/pilotdeckServer.js' | } |  | Node.js v22.14.0", "pure_text/pilotdeck-current-sidecar: BLOCKED: adapter exited 1:     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36) |     at TracingChannel.tracePromise (node:diagnostics_channel:344:14) |     at ModuleLoader.import (node:internal/modules/esm/loader:576:21) { |   code: 'ERR_MODULE_NOT_FOUND', |   url: 'file:///workspace/dist/src/cli/pilotdeckServer.js' | } |  | Node.js v22.14.0"]
+failed []
+oracleFailures []
+PARITY_QUICK_RESULT=fail
+EXIT:2

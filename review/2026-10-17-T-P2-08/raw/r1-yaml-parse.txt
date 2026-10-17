@@ -1,0 +1,5 @@
+YAML_OK .github/workflows/rust-workspaces.yml name=Rust workspaces
+YAML_OK .github/workflows/rust-hello.yml name=Rust hello
+YAML_OK .github/workflows/parity-quick.yml name=Parity quick
+YAML_OK .github/workflows/protocol-sync.yml name=Protocol sync
+PIN_OK dtolnay/rust-toolchain@master with explicit toolchain
