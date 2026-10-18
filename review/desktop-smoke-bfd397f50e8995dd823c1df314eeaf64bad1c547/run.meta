@@ -1,0 +1,14 @@
+tip=bfd397f50e8995dd823c1df314eeaf64bad1c547
+branch=rust_standalone_alpha1
+merged_prs=66
+N=1
+overall=PASS
+x11_exit=0
+x11_seconds=26.849
+wayland_exit=0
+wayland_seconds=23.456
+gha=422
+issue14_fixed_claimed=false
+entry=apps/desktop/scripts/run-linux-chrome-smoke.sh
+wrapper=timeout 600
+runner=Grok Bot shared box local
