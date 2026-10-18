@@ -1,0 +1,31 @@
+{
+  "tip": "04e04ae33217288b226c13cec56ba1203f1ba333",
+  "branch": "rust_standalone_alpha1",
+  "merged_prs": [64],
+  "N": 1,
+  "overall": "PASS",
+  "issue14_fixed_claimed": false,
+  "gha": 422,
+  "x11": {
+    "exit": 0,
+    "seconds": 27.391,
+    "start": "2026-10-18T07:49:24.431Z",
+    "end": "2026-10-18T07:49:51.822Z",
+    "screenshots": 9,
+    "passed": true,
+    "file_click_timeout": 0,
+    "file_click_stable": 1,
+    "file_click_sites_completed": 3
+  },
+  "wayland": {
+    "exit": 0,
+    "seconds": 23.049,
+    "start": "2026-10-18T07:49:54.626Z",
+    "end": "2026-10-18T07:50:17.675Z",
+    "screenshots": 9,
+    "passed": true,
+    "file_click_timeout": 0,
+    "file_click_stable": 1,
+    "file_click_sites_completed": 3
+  }
+}
