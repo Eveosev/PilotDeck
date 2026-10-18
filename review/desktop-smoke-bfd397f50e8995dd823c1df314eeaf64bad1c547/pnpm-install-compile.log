@@ -1,0 +1,21 @@
+=== pnpm install --frozen-lockfile 2026-10-18T17:50:58+08:00 ===
+node_modules present; verifying with pnpm install --frozen-lockfile
+ WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+packages/sdk                             |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+ui                                       |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+Scope: all 4 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1
++
+Progress: resolved 1, reused 1, downloaded 0, added 1, done
+
+ui postinstall$ node scripts/fix-node-pty.js
+ui postinstall: Done
+Done in 1.7s using pnpm v10.32.1
+=== pnpm --filter @pilotdeck/desktop compile 2026-10-18T17:51:00+08:00 ===
+
+> pilotdeck-desktop@0.1.0 compile /workspace/pilotdeck-rust/wt-smoke-bfd397f5/apps/desktop
+> tsc -p tsconfig.json
+
+=== done 2026-10-18T17:51:02+08:00 ===

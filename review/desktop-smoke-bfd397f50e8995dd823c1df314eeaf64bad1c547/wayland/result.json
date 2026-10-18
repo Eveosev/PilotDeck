@@ -1,0 +1,13 @@
+{
+  "backend": "wayland",
+  "exit": 0,
+  "seconds": 23.456,
+  "start": "2026-10-18T09:51:39.433Z",
+  "end": "2026-10-18T09:52:02.889Z",
+  "screenshots": 9,
+  "passed": true,
+  "file_click_timeout": 0,
+  "file_click_stable": 1,
+  "file_click_sites_completed": 3,
+  "N": 1
+}

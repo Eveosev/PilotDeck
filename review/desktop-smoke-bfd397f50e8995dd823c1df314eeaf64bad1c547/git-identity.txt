@@ -1,0 +1,6 @@
+worktree=/workspace/pilotdeck-rust/wt-smoke-bfd397f5
+HEAD=bfd397f50e8995dd823c1df314eeaf64bad1c547
+branch_ref=eveosev/rust_standalone_alpha1
+user.name=Payne_Wu
+user.email=44869963+Eveosev@users.noreply.github.com
+remote.eveosev=https://github.com/Eveosev/PilotDeck.git
