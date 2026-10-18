@@ -1,0 +1,39 @@
+{
+  "sha": "e09405bb62f55db0e1a6307c1317ea2fac3b2c2f",
+  "repo": "https://github.com/Eveosev/PilotDeck",
+  "branch": "rust_standalone_alpha1",
+  "merged_prs": [
+    68
+  ],
+  "merged_by": "Eveosev (Payne_Wu)",
+  "merged_at": "2026-10-18T11:58:38Z (2026-10-18 19:58:38 CST)",
+  "parents": [
+    "bfd397f50e8995dd823c1df314eeaf64bad1c547",
+    "28ce5bb8c8e21c2874a921fa8fc6461ca3859f75"
+  ],
+  "diff_vs_first_parent": "3 files changed, 49 insertions(+), 6 deletions(-) \u2014 docs-only PLAN PC1#3 close (docs/rust_rebuild/PLAN.md + review/2026-10-18-T-PC1-3-close/{TASK_DEF,UNLOCK}.md; no apps/desktop, ui, packages, or crates change)",
+  "diff_vs_prior_smoke_bfd397f5_desktop": "0 files under apps/desktop, ui, packages, crates",
+  "runner": "Grok Bot shared box, local run (GHA disabled)",
+  "entry": "apps/desktop/scripts/run-linux-chrome-smoke.sh (unmodified)",
+  "script_sha256": "3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825",
+  "smoke_mjs_sha256": "89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130",
+  "transport": "default native (no PILOTDECK_AGENT_LOOP_TCP_SUPERVISE / sidecar opt-in)",
+  "weston_log_capture": "20ms poller copying /tmp/tmp.*/weston.log before EXIT trap rm -rf (weston-copy-trace.txt)",
+  "environment_note": "make/g++/weston 14.0.2 already present from post-#60/#62/#64/#66 box apt; raised fs.inotify.max_user_watches to 1048576 (box ENOSPC on first vite start before this evidence run; successful X11/Wayland each smoked once after the raise); pnpm install --frozen-lockfile + apps/desktop compile once before smoke (node_modules hardlink-copied from wt-smoke-bfd397f5, lockfile identical); each backend smoked once (no product-failure retry)",
+  "runs": {
+    "x11": {
+      "exit": 0,
+      "seconds": 27.9,
+      "start": "2026-10-18T12:01:33.278Z",
+      "end": "2026-10-18T12:02:01.177Z",
+      "screenshots": 9
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 25.953,
+      "start": "2026-10-18T12:02:05.996Z",
+      "end": "2026-10-18T12:02:31.950Z",
+      "screenshots": 9
+    }
+  }
+}

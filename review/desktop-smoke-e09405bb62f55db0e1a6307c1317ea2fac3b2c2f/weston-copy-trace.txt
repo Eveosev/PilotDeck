@@ -1,0 +1,8 @@
+# copier: poll /tmp/tmp.*/weston.log every 20ms during wayland run, cp to ./weston.log before EXIT-trap rm -rf
+WL_START=2026-10-18T12:02:05.996Z
+2026-10-18T12:02:06.924Z retained /tmp/tmp.TToz2nwX4N/weston.log 1713B
+2026-10-18T12:02:06.949Z retained /tmp/tmp.TToz2nwX4N/weston.log 1845B
+2026-10-18T12:02:31.893Z retained /tmp/tmp.TToz2nwX4N/weston.log 1921B
+# wayland wall: 2026-10-18T12:02:05.996Z .. 2026-10-18T12:02:31.950Z (25.953s)
+# poller ran as background bash loop; EXIT trap rm -rf of XDG_RUNTIME_DIR did not erase evidence copy
+2026-10-18T12:02:31.953Z retained ./weston.log 1921B (after smoke exit, before reporting)

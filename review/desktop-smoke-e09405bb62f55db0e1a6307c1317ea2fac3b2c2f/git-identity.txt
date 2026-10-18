@@ -1,0 +1,4 @@
+user.name=Payne_Wu
+user.email=44869963+Eveosev@users.noreply.github.com
+HEAD=e09405bb62f55db0e1a6307c1317ea2fac3b2c2f
+detached=detached
