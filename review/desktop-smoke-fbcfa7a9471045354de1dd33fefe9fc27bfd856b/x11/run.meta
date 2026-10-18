@@ -1,0 +1,14 @@
+backend=x11
+exit=0
+seconds=26.078
+start=2026-10-17T12:53:22.801Z
+end=2026-10-17T12:53:48.878Z
+screenshots=9
+N=1
+passed=true
+file_click_timeout=0
+file_click_stable=1
+file_click_sites_completed=3
+tip=fbcfa7a9471045354de1dd33fefe9fc27bfd856b
+entry=apps/desktop/scripts/run-linux-chrome-smoke.sh
+wrapper=timeout 600

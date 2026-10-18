@@ -1,0 +1,165 @@
+# attempt 2 after box apt install of make/g++/weston (box was reprovisioned: pnpm store, make, weston absent; attempt 1 log: pnpm-install-attempt1-failed-no-make.log)
+=== pnpm install --frozen-lockfile @ 2026-10-17T20:51:51+08:00 ===
+ WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+packages/sdk                             |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+ui                                       |  WARN  Unsupported engine: wanted: {"node":">=22.13.0 <23"} (current: {"node":"v20.19.2","pnpm":"10.32.1"})
+Scope: all 4 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1478
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1478, reused 1477, downloaded 0, added 620
+Progress: resolved 1478, reused 1477, downloaded 0, added 1478, done
+.../node-pty@1.1.0/node_modules/node-pty install$ node scripts/prebuild.js || node-gyp rebuild
+.../node_modules/better-sqlite3 install$ prebuild-install || node-gyp rebuild --release
+.../node-pty@1.1.0/node_modules/node-pty install: [32m> Checking prebuilds...[0m
+.../node-pty@1.1.0/node_modules/node-pty install: [33m> Rebuilding because directory /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/prebuilds/linux-x64 does not exist[0m
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info it worked if it ends with ok
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info using node-gyp@11.5.0
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info using node@20.19.2 | linux | x64
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info find Python using Python version 3.13.5 found at "/usr/bin/python3"
+.../node_modules/better-sqlite3 install: prebuild-install warn install No prebuilt binaries found (target=20.19.2 runtime=node arch=x64 libc= platform=linux)
+.../node_modules/better-sqlite3 install: gyp info it worked if it ends with ok
+.../node_modules/better-sqlite3 install: gyp info using node-gyp@11.5.0
+.../node_modules/better-sqlite3 install: gyp info using node@20.19.2 | linux | x64
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn /usr/bin/python3
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args [
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'binding.gyp',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-f',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'make',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/build/config.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/addon.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-I',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '/home/box/.cache/node-gyp/20.19.2/include/node/common.gypi',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dlibrary=shared_library',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dvisibility=default',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_root_dir=/home/box/.cache/node-gyp/20.19.2',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_gyp_dir=/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_lib_file=/home/box/.cache/node-gyp/20.19.2/<(target_arch)/node.lib',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dmodule_root_dir=/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Dnode_engine=v8',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--depth=.',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--no-parallel',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '--generator-output',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args 'build',
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args '-Goutput_dir=.'
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args ]
+.../node_modules/better-sqlite3 install: gyp info find Python using Python version 3.13.5 found at "/usr/bin/python3"
+.../node_modules/better-sqlite3 install: gyp info spawn /usr/bin/python3
+.../node_modules/better-sqlite3 install: gyp info spawn args [
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/gyp/gyp_main.py',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'binding.gyp',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-f',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'make',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3/build/config.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp/addon.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-I',
+.../node_modules/better-sqlite3 install: gyp info spawn args '/home/box/.cache/node-gyp/20.19.2/include/node/common.gypi',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dlibrary=shared_library',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dvisibility=default',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_root_dir=/home/box/.cache/node-gyp/20.19.2',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_gyp_dir=/home/box/.local/lib/node_modules/pnpm/dist/node_modules/node-gyp',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_lib_file=/home/box/.cache/node-gyp/20.19.2/<(target_arch)/node.lib',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dmodule_root_dir=/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Dnode_engine=v8',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--depth=.',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--no-parallel',
+.../node_modules/better-sqlite3 install: gyp info spawn args '--generator-output',
+.../node_modules/better-sqlite3 install: gyp info spawn args 'build',
+.../node_modules/better-sqlite3 install: gyp info spawn args '-Goutput_dir=.'
+.../node_modules/better-sqlite3 install: gyp info spawn args ]
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn make
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info spawn args [ 'BUILDTYPE=Release', '-C', 'build' ]
+.../node-pty@1.1.0/node_modules/node-pty install: make: Entering directory '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/build'
+.../node-pty@1.1.0/node_modules/node-pty install:   TOUCH Release/obj.target/../../../node-addon-api@7.1.1/node_modules/node-addon-api/node_addon_api_except.stamp
+.../node-pty@1.1.0/node_modules/node-pty install:   CXX(target) Release/obj.target/pty/src/unix/pty.o
+.../node_modules/better-sqlite3 install: gyp info spawn make
+.../node_modules/better-sqlite3 install: gyp info spawn args [ 'BUILDTYPE=Release', '-C', 'build' ]
+.../node_modules/better-sqlite3 install: make: Entering directory '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3/build'
+.../node_modules/better-sqlite3 install:   TOUCH ba23eeee118cd63e16015df367567cb043fed872.intermediate
+.../node_modules/better-sqlite3 install:   ACTION deps_sqlite3_gyp_locate_sqlite3_target_copy_builtin_sqlite3 ba23eeee118cd63e16015df367567cb043fed872.intermediate
+.../node_modules/better-sqlite3 install:   TOUCH Release/obj.target/deps/locate_sqlite3.stamp
+.../node_modules/better-sqlite3 install:   CC(target) Release/obj.target/sqlite3/gen/sqlite3/sqlite3.o
+.../node-pty@1.1.0/node_modules/node-pty install:   SOLINK_MODULE(target) Release/obj.target/pty.node
+.../node-pty@1.1.0/node_modules/node-pty install:   COPY Release/pty.node
+.../node-pty@1.1.0/node_modules/node-pty install: make: Leaving directory '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/build'
+.../node-pty@1.1.0/node_modules/node-pty install: gyp info ok 
+.../node-pty@1.1.0/node_modules/node-pty install: Done
+.../node-pty@1.1.0/node_modules/node-pty postinstall$ node scripts/post-install.js
+.../node-pty@1.1.0/node_modules/node-pty postinstall: [32m> Cleaning release folder...[0m
+.../node-pty@1.1.0/node_modules/node-pty postinstall: [32m> Moving conpty.dll...[0m
+.../node-pty@1.1.0/node_modules/node-pty postinstall:   SKIPPED (not Windows)
+.../node-pty@1.1.0/node_modules/node-pty postinstall: Done
+.../node_modules/better-sqlite3 install: rm -f Release/obj.target/deps/sqlite3.a Release/obj.target/deps/sqlite3.a.ar-file-list; mkdir -p `dirname Release/obj.target/deps/sqlite3.a`
+.../node_modules/better-sqlite3 install: ar crs Release/obj.target/deps/sqlite3.a @Release/obj.target/deps/sqlite3.a.ar-file-list
+.../node_modules/better-sqlite3 install:   COPY Release/sqlite3.a
+.../node_modules/better-sqlite3 install:   CXX(target) Release/obj.target/better_sqlite3/src/better_sqlite3.o
+.../node_modules/better-sqlite3 install: In file included from ../src/better_sqlite3.cpp:11:
+.../node_modules/better-sqlite3 install: /home/box/.cache/node-gyp/20.19.2/include/node/node.h:1246:7: warning: cast between incompatible function types from ‘void (*)(v8::Local<v8::Object>, v8::Local<v8::Value>, v8::Local<v8::Context>)’ to ‘node::addon_context_register_func’ {aka ‘void (*)(v8::Local<v8::Object>, v8::Local<v8::Value>, v8::Local<v8::Context>, void*)’} [-Wcast-function-type]
+.../node_modules/better-sqlite3 install:  1246 |       (node::addon_context_register_func) (regfunc),                  \
+.../node_modules/better-sqlite3 install:       |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: /home/box/.cache/node-gyp/20.19.2/include/node/node.h:1264:3: note: in expansion of macro ‘NODE_MODULE_CONTEXT_AWARE_X’
+.../node_modules/better-sqlite3 install:  1264 |   NODE_MODULE_CONTEXT_AWARE_X(modname, regfunc, NULL, 0)
+.../node_modules/better-sqlite3 install:       |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: /home/box/.cache/node-gyp/20.19.2/include/node/node.h:1295:3: note: in expansion of macro ‘NODE_MODULE_CONTEXT_AWARE’
+.../node_modules/better-sqlite3 install:  1295 |   NODE_MODULE_CONTEXT_AWARE(NODE_GYP_MODULE_NAME,                     \
+.../node_modules/better-sqlite3 install:       |   ^~~~~~~~~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: ../src/better_sqlite3.cpp:48:1: note: in expansion of macro ‘NODE_MODULE_INIT’
+.../node_modules/better-sqlite3 install:    48 | NODE_MODULE_INIT(/* exports, context */) {
+.../node_modules/better-sqlite3 install:       | ^~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: In file included from ../src/better_sqlite3.cpp:26:
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp: In function ‘v8::Local<v8::Value> Data::GetValueJS(v8::Isolate*, sqlite3_stmt*, int, bool)’:
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:36:17: warning: this statement may fall through [-Wimplicit-fallthrough=]
+.../node_modules/better-sqlite3 install:    36 |                 if (safe_ints) {                                                       \
+.../node_modules/better-sqlite3 install:       |                 ^~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:73:17: note: in expansion of macro ‘SQLITE_VALUE_TO_JS’
+.../node_modules/better-sqlite3 install:    73 |                 SQLITE_VALUE_TO_JS(column, isolate, safe_ints, handle, column);
+.../node_modules/better-sqlite3 install:       |                 ^~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:42:9: note: here
+.../node_modules/better-sqlite3 install:    42 |         case SQLITE_FLOAT:                                                         \
+.../node_modules/better-sqlite3 install:       |         ^~~~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:73:17: note: in expansion of macro ‘SQLITE_VALUE_TO_JS’
+.../node_modules/better-sqlite3 install:    73 |                 SQLITE_VALUE_TO_JS(column, isolate, safe_ints, handle, column);
+.../node_modules/better-sqlite3 install:       |                 ^~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp: In function ‘v8::Local<v8::Value> Data::GetValueJS(v8::Isolate*, sqlite3_value*, bool)’:
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:36:17: warning: this statement may fall through [-Wimplicit-fallthrough=]
+.../node_modules/better-sqlite3 install:    36 |                 if (safe_ints) {                                                       \
+.../node_modules/better-sqlite3 install:       |                 ^~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:77:17: note: in expansion of macro ‘SQLITE_VALUE_TO_JS’
+.../node_modules/better-sqlite3 install:    77 |                 SQLITE_VALUE_TO_JS(value, isolate, safe_ints, value);
+.../node_modules/better-sqlite3 install:       |                 ^~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:42:9: note: here
+.../node_modules/better-sqlite3 install:    42 |         case SQLITE_FLOAT:                                                         \
+.../node_modules/better-sqlite3 install:       |         ^~~~
+.../node_modules/better-sqlite3 install: ../src/util/data.cpp:77:17: note: in expansion of macro ‘SQLITE_VALUE_TO_JS’
+.../node_modules/better-sqlite3 install:    77 |                 SQLITE_VALUE_TO_JS(value, isolate, safe_ints, value);
+.../node_modules/better-sqlite3 install:       |                 ^~~~~~~~~~~~~~~~~~
+.../node_modules/better-sqlite3 install:   SOLINK_MODULE(target) Release/obj.target/better_sqlite3.node
+.../node_modules/better-sqlite3 install:   COPY Release/better_sqlite3.node
+.../node_modules/better-sqlite3 install:   CC(target) Release/obj.target/test_extension/deps/test_extension.o
+.../node_modules/better-sqlite3 install:   SOLINK_MODULE(target) Release/obj.target/test_extension.node
+.../node_modules/better-sqlite3 install:   COPY Release/test_extension.node
+.../node_modules/better-sqlite3 install: rm ba23eeee118cd63e16015df367567cb043fed872.intermediate
+.../node_modules/better-sqlite3 install: make: Leaving directory '/workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/node_modules/.pnpm/better-sqlite3@12.10.0/node_modules/better-sqlite3/build'
+.../node_modules/better-sqlite3 install: gyp info ok 
+.../node_modules/better-sqlite3 install: Done
+.../node_modules/@google/genai preinstall$ echo 'preinstall: no-op'
+.../node_modules/@google/genai preinstall: preinstall: no-op
+.../node_modules/@google/genai preinstall: Done
+
+ui postinstall$ node scripts/fix-node-pty.js
+ui postinstall: Done
+Done in 1m 15.8s using pnpm v10.32.1
+install_exit=0
+=== pnpm compile (apps/desktop) @ 2026-10-17T20:53:07+08:00 ===
+
+> pilotdeck-desktop@0.1.0 compile /workspace/pilotdeck-rust/wt-smoke-fbcfa7a9/apps/desktop
+> tsc -p tsconfig.json
+
+compile_exit=0
+=== done @ 2026-10-17T20:53:09+08:00 ===
