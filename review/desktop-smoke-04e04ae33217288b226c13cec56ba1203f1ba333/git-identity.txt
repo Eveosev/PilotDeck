@@ -1,0 +1,8 @@
+repo=https://github.com/Eveosev/PilotDeck.git
+HEAD=04e04ae33217288b226c13cec56ba1203f1ba333
+branch_expected=rust_standalone_alpha1
+subject=Merge pull request #64 from Eveosev/cursor/t-p2-09-agent-status-kind-text
+author=Payne_Wu <44869963+Eveosev@users.noreply.github.com>
+committer=GitHub <noreply@github.com>
+ci=2026-10-18 15:46:56 +0800
+2026-10-18 15:46:56 +0800

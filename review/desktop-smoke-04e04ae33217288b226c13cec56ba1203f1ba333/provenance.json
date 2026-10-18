@@ -1,0 +1,37 @@
+{
+  "sha": "04e04ae33217288b226c13cec56ba1203f1ba333",
+  "repo": "https://github.com/Eveosev/PilotDeck",
+  "branch": "rust_standalone_alpha1",
+  "merged_prs": [64],
+  "merged_by": "Eveosev (Payne_Wu)",
+  "merged_at": "2026-10-18T07:46:57Z (2026-10-18 15:46:57 CST)",
+  "parents": [
+    "da96f0546bb6cf3f9123c70a348477c65ab07038",
+    "5bccc465dd4b04b96263b7149a208194c8d7087f"
+  ],
+  "diff_vs_first_parent": " 25 files changed, 7316 insertions(+), 22 deletions(-) — T-P2-09 agent_status kind+text (rust-core/pilotdeck-agent/src/{turn.rs,turn_wire.rs} + docs/PLAN + review/T-P2-09; no apps/desktop, ui, packages, or crates change)",
+  "diff_vs_prior_smoke_da96f054_desktop": "0 files under apps/desktop, ui, packages, crates",
+  "runner": "Grok Bot shared box, local run (GHA disabled)",
+  "entry": "apps/desktop/scripts/run-linux-chrome-smoke.sh (unmodified)",
+  "script_sha256": "3861251e64560eb9868d0c042b884b6e41ee831f0716af6022ed9ef3b4cd3825",
+  "smoke_mjs_sha256": "89e6f1860250c5b8399aff79ae469e93580b8b1bdeb2b532c051281fe23bf130",
+  "transport": "default native (no PILOTDECK_AGENT_LOOP_TCP_SUPERVISE / sidecar opt-in)",
+  "weston_log_capture": "20ms poller copying /tmp/tmp.*/weston.log before EXIT trap rm -rf (weston-copy-trace.txt)",
+  "environment_note": "make/g++/weston 14.0.2 already present from post-#60/#62 box apt; no reinstall this round; pnpm install --frozen-lockfile + apps/desktop compile once before smoke; each backend smoked once (no retry)",
+  "runs": {
+    "x11": {
+      "exit": 0,
+      "seconds": 27.391,
+      "start": "2026-10-18T07:49:24.431Z",
+      "end": "2026-10-18T07:49:51.822Z",
+      "screenshots": 9
+    },
+    "wayland": {
+      "exit": 0,
+      "seconds": 23.049,
+      "start": "2026-10-18T07:49:54.626Z",
+      "end": "2026-10-18T07:50:17.675Z",
+      "screenshots": 9
+    }
+  }
+}
