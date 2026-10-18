@@ -2,7 +2,7 @@
 
 > 历史决议：`review/2026-10-09-rust-proposal-v2/TASK_PLAN.md`、同目录 `DECISION.md`（本地证据，未入库；v2.1，基线 OpenBMB/PilotDeck @ `b243fa00`）。D0–D9 仍以那份决议为准。
 > **2026-10-15 合流修订以本文为准。** 依据是 `REVIEW-RustReview-2026-10-15.md`（对照 AgentCPM rust-core 调查与本仓代码）。本文不把未合并的 PR 写成已合并，也不把尚未跑过的对拍写成已切换核心。
-> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `04e04ae3`（#64 合并，T-P2-09；tip `5bccc465`；G-GHA 由真 Payne 豁免，本地等效证据）。[PR_LOG.md](PR_LOG.md) 仍记到 #56，本任务不补表。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-01-D2 已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。
+> 工作分支：Eveosev/PilotDeck `rust_standalone_alpha1`。本稿核对 tip `bfd397f5`（#66 合并，T-PC1-3；tip `3731d36e`；G-GHA 由真 Payne 豁免，本地等效证据）。[PR_LOG.md](PR_LOG.md) 仍记到 #56，本任务不补表。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-01-D2 已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-09 已合 #64 `04e04ae3`（tip `5bccc465`；G-GHA 由真 Payne 豁免，本地等效证据）。
 
 ## 终局目标
 
@@ -26,7 +26,7 @@
 | P0a | 契约与基线：parity TCP、schema、comparator、性能基线、打包骨架、协议门禁 | P1 入口 = 00/01/02/03 + D4 暂定 | 入口项已合（#1 #2 #3 #4 #5 #7）；T-P0a-04/06/08 本稿未见合并记录 |
 | P0b | 黄金样本、ST 复核、缺口清单、回滚、签名、覆盖率（与 P1/P2 并行） | 见 TASK_PLAN §P0b | 本稿未见合并记录 |
 | P1 | 技术探针：Rust loop、harness、parity、流块、对照、go/no-go | 两场景一致 + 流块数据 + 书面决议 | **已关闸，有条件**（见下） |
-| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d21eb126`，#58）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56。T-P2-06 已合 #58 `d21eb126`。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-01-D2 已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-09 已合 #64 `04e04ae3`（tip `5bccc465`；G-GHA 由真 Payne 豁免，本地等效证据）。T-PC1-3 数据已交付（本 PR，draft，未合）：PC1#3 chars 1/50 after-first 差/D4 ≤ 1，建议关闭，未标已关（关闭权归 QA Formal / 真 Payne）；PC3 待 QA Formal / 真 Payne 判。PC2 仍 open |
+| **P2** | 见下表。领域循环改走 rust-core；53/53、supervisor、D7 仍是本阶段出口 | 全场景绿 + P2 性能线 + supervisor 拉起 TCP | **已开始**（tip `d21eb126`，#58）。T-P2-02 #50、T-P2-03 #51、T-P2-04 #53 已合，四 crate 在 `rust-core/`。T-P2-05 listen+token 经 #55 进入 #56。T-P2-01 D 的 `deadline_during_tool` 最小切片已合 #56。T-P2-06 已合 #58 `d21eb126`。T-P2-08 已合 #60 `fbcfa7a9`（tip `31a462e6`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-01-D2 已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）。T-P2-09 已合 #64 `04e04ae3`（tip `5bccc465`；G-GHA 由真 Payne 豁免，本地等效证据）。#66 / T-PC1-3 已合 `bfd397f5`（tip `3731d36e`；G-GHA 由真 Payne 豁免，本地等效证据）。PC1#3 已关（chars 1 after-first 差/D4 = 0.095，chars 50 = -0.103，均 ≤ 1；真 Payne 授权关）。PC3 数据已交付并随 #66 合入（Formal PASS）。PC2 仍 open |
 | P3 | 按调用频率把宿主模块收回 Rust。缝在 `HostCall`：反向 RPC 换本地实现，顺序仍是 model → tool/MCP → budget → turn → 其余 | 对应 `module_call` 消失；每模块可回滚 | 未开始。T-P2-04 未合入之前不开工 |
 | P4 | session 与存储（格式版本、单一写者） | ST 对拍、零丢失 | 未开始 |
 | P5 | Rust gateway + adapters。rust-core **不含** gateway / yaml / cli，这三块仍在 P5，不并进 P2 | 黄金样本 100%；desktop 切 Rust gateway | 未开始 |
@@ -44,8 +44,8 @@
 | T-P2-01 A+B | 真 host `prepare` 请求、thinking signature、stdio 与 TCP 的 G5/B4、TCP hello token（`PILOTDECK_AGENT_LOOP_TCP_TOKEN`，未设置仍是开放 loopback；stdio 子进程环境删除该变量） | **已合** #46 `f44b3789` |
 | T-P2-01 C | FT-2a：模型迭代按需重采。2026-10-15 18:01 取消为「接上真模型后若仍超 Q2 再开」。只有带 key 的运行仍超过 Q2 才另开。T-P2-03 先回答探针 PC2 是不是实现问题 | 条件触发，未开 |
 | T-P2-01 D | 53 场景分诊，以及 tools 缺口 m2/m4/m5/m6/E1/n1/n3。输入改为 T-P2-02 的 rust-core 结果，不在 `sidecar.rs` 上补场景 | `deadline_during_tool` 最小切片已合 #56 `d91ed18b`。T-P2-01 D / Track D rest **已合 #62 `da96f054`（tip `f71bd5a7`；G-GHA 由真 Payne 豁免，本地等效证据）**。`deadline` / `sidecar_budget_limit` 仍可作余债（非本切片强制修绿） |
-| PC1#3 | 关闭条件：流块 after-first 净 P95 差/D4 ≤ 1（chars 1 与 50）。探针旧实测 1.394 / 1.822 不作本轮结果。本 PR rust-core TCP n=30：chars 1 = 0.095，chars 50 = -0.103，chars 500 = -0.841（`review/2026-10-18-T-PC1-3/PC1_3_STREAM.md`）。建议关闭 | **数据已交付，建议关闭，未标已关**（本 PR，draft，未合；关闭权归 QA Formal / 真 Payne） |
-| PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确。本轮 JSON `provenance.baseSha=04e04ae33217288b226c13cec56ba1203f1ba333`（采集时传入 `--base-sha`；E1 开关已在 `run.py`，本切片未再改该开关）。表见 `review/2026-10-18-T-PC1-3/PC3_TABLE.md`。不关 PC2 | **数据已交付，待 QA Formal / 真 Payne 判**（本 PR，draft，未合） |
+| PC1#3 | 关闭条件：流块 after-first 净 P95 差/D4 ≤ 1（chars 1 与 50）。探针旧实测 1.394 / 1.822 不作本轮结果。#66 rust-core TCP n=30：chars 1 = 0.095，chars 50 = -0.103，chars 500 = -0.841（`review/2026-10-18-T-PC1-3/PC1_3_STREAM.md`） | **已关**（#66 `bfd397f5` tip `3731d36e`；chars 1 = 0.095、chars 50 = -0.103；真 Payne 授权关） |
+| PC3 | 同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确。本轮 JSON `provenance.baseSha=04e04ae33217288b226c13cec56ba1203f1ba333`（采集时传入 `--base-sha`；E1 开关已在 `run.py`，本切片未再改该开关）。表见 `review/2026-10-18-T-PC1-3/PC3_TABLE.md`。不关 PC2 | **已合 #66**（数据交付 + Formal PASS；PC2 仍 open） |
 | T-P2-02 | 用本仓 `tools/agent-loop-parity` 的 **stdio** 跑 rust-core 二进制。身份、命令和预计会撞上 `profile_gap` 的场景见评审意见第 2 问 | **已合** #50 `113c16d9`。stdio 全量 53：pass 51，trace_diff 2，profile_gap 0，BLOCKED 0 |
 | T-P2-03 | 用 `tools/agent-loop-perf` 做同场景对照，回答 PC2。stdio 先比「每 turn 拉起」；关掉 PC2 必须等 T-P2-05 的常驻 TCP 重采 | **已合** #51 `2238c7ba`。stdio 对照已入库。PC2 仍未关闭 |
 | T-P2-04 | 两道门通过后，把四个 crate 引进 `rust-core/` 独立 workspace。探针 crate 与 hello crate 保留。不过门则本任务不做 | 已合入 `d740abe1` |
@@ -108,9 +108,9 @@
 本决议记在 `docs/rust_rebuild/`。`evidence/p1/go-nogo.md` 在 `1d7c8068` 仍只给对照数据，没有本节。
 
 - **Q1**：有条件 Go。出处：真人 Payne 1:1 2026-10-15 19:27 (UTC+8)。条件按 `.review/2026-10-15-FT-1-r1/review-40-27556745/TASK_DEF-FT1.md`（Mac 本地证据）的 PC1–PC3：
-  - **PC1**：`stream_next` 已合入（#40）。重采后 Rust-tcp `firstDeltaBeforeProviderCompletion=true`（chars 1/50/500）、`perf_n_chunks` = harness n_chunks、流块 after-first 净 P95 差/D4 ≤ 1。第 3 项本轮 rust-core TCP n=30 实测 chars 1 = 0.095、chars 50 = -0.103（均 ≤ 1），chars 500 = -0.841。探针旧实测 1.394 / 1.822 不作本轮结果。重采主体改为 rust-core TCP（T-P2-04/05 后）。建议关闭，本 PR **未标已关**（关闭权归 QA Formal / 真 Payne）。#40 修的是「流块退化成 1」；`go-nogo.md` 里 live-stream model 差/D4 = 19.358 是修之前的数，不能再当成当前缺口。
+  - **PC1**：`stream_next` 已合入（#40）。重采后 Rust-tcp `firstDeltaBeforeProviderCompletion=true`（chars 1/50/500）、`perf_n_chunks` = harness n_chunks、流块 after-first 净 P95 差/D4 ≤ 1。第 3 项 **已关**（#66 `bfd397f5` tip `3731d36e`；rust-core TCP n=30 实测 chars 1 = 0.095、chars 50 = -0.103，均 ≤ 1；chars 500 = -0.841；真 Payne 授权关）。探针旧实测 1.394 / 1.822 不作本轮结果。重采主体改为 rust-core TCP（T-P2-04/05 后）。#40 修的是「流块退化成 1」；`go-nogo.md` 里 live-stream model 差/D4 = 19.358 是修之前的数，不能再当成当前缺口。
   - **PC2**：model 迭代开销归因；修复后（或 Payne 书面接受的新口径下）pure_text / single_tool 差/D4 ≤ 1。FT-2a 于 18:01 取消，转入 P2。T-P2-03 负责回答这是不是探针实现问题。**未关闭。**
-  - **PC3**：同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。重采主体改为 rust-core TCP（T-P2-04/05 后）。本 PR 已交出同机 n=30 JSON（`provenance.baseSha` 等于 `04e04ae3`）。**完成记录仍等 QA Formal / 真 Payne**，本 PR 未标完成。PC2 仍未关闭。
+  - **PC3**：同一套 `--model-ms 200`、n=30，QA Formal 复核，`baseSha` 正确（E1 修复或手工核对）。重采主体改为 rust-core TCP（T-P2-04/05 后）。同机 n=30 JSON 已随 #66 合入完成（`provenance.baseSha` 等于 `04e04ae3`；Formal PASS）。PC2 仍未关闭。
 - **Q2**：mock 阶段，单次 model 迭代开销阈值 `max(native 净 P95 的 10%, 100ms)`；整 turn 仍为 `max(10%, 5ms)`。P2 接上真模型之后，只要求正常返回。
 - **Q3**：53 场景 live 门禁留在 **P1**；真模型、stdio、D7 认证移到 P2 入口。
 - 现状：P1 已按 Q1 有条件关闸，53 场景 live 未在 P1 跑，实际承接为 P2 出口（见 PLAN 任务表）。
