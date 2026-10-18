@@ -650,6 +650,15 @@ def adapter_env(
     if sidecar_transport == "tcp" and tcp_target is not None:
         env["PARITY_TCP_HOST"] = tcp_target.host
         env["PARITY_TCP_PORT"] = str(tcp_target.port)
+        if tcp_target.start_command:
+            # T-P2-06 treats PILOTDECK_RUST_SIDECAR_BIN (and an explicit sidecar
+            # command) as supervise opt-in. The harness has already spawned the
+            # listener; rust-tcp-sidecar.sh still sees the bin in its own
+            # process environment. Forwarding it here binds the same port twice
+            # (os error 98) and the turn never records handshake_completed.
+            env.pop("PILOTDECK_RUST_SIDECAR_BIN", None)
+            env.pop("PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND", None)
+            env["PILOTDECK_AGENT_LOOP_TCP_SUPERVISE"] = "0"
     override = (stdio_sidecar_command or "").strip()
     if override:
         env["PARITY_STDIO_SIDECAR_COMMAND"] = override

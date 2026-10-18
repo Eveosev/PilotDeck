@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from pathlib import Path
 
@@ -869,6 +870,41 @@ class SubagentTraceNormalizationTests(unittest.TestCase):
         self.assertEqual(env["PARITY_TCP_HOST"], "127.0.0.1")
         self.assertEqual(env["PARITY_TCP_PORT"], "9345")
         self.assertNotEqual(env.get("PILOTDECK_AGENT_LOOP_TRANSPORT"), "tcp")
+
+    def test_adapter_env_hides_rust_bin_when_harness_spawns_tcp_listener(self) -> None:
+        scenario = {"scenarioId": "pure_text", "q": "status"}
+        target = resolve_tcp_sidecar_target(
+            host=None,
+            port=None,
+            command="tools/agent-loop-parity/rust-tcp-sidecar.sh",
+            source=Path("/tmp/unused"),
+            allocate_port=lambda: 41012,
+        )
+        self.assertIsNotNone(target.start_command)
+        previous_bin = os.environ.get("PILOTDECK_RUST_SIDECAR_BIN")
+        previous_command = os.environ.get("PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND")
+        os.environ["PILOTDECK_RUST_SIDECAR_BIN"] = "/tmp/proof/pilotdeck-agent-loop"
+        os.environ["PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND"] = "/tmp/should-not-forward"
+        try:
+            env = adapter_env(
+                scenario, "sidecar", Path("/tmp/src"), "http://127.0.0.1:9",
+                Path("/tmp/out.jsonl"), "working-tree", "inv-1",
+                sidecar_transport="tcp",
+                tcp_target=target,
+            )
+        finally:
+            if previous_bin is None:
+                os.environ.pop("PILOTDECK_RUST_SIDECAR_BIN", None)
+            else:
+                os.environ["PILOTDECK_RUST_SIDECAR_BIN"] = previous_bin
+            if previous_command is None:
+                os.environ.pop("PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND", None)
+            else:
+                os.environ["PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND"] = previous_command
+        self.assertNotIn("PILOTDECK_RUST_SIDECAR_BIN", env)
+        self.assertNotIn("PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND", env)
+        self.assertEqual(env.get("PILOTDECK_AGENT_LOOP_TCP_SUPERVISE"), "0")
+        self.assertEqual(env["PARITY_TCP_PORT"], "41012")
 
     def test_adapter_env_forwards_stdio_rust_sidecar_command(self) -> None:
         scenario = {"scenarioId": "pure_text", "q": "status"}
