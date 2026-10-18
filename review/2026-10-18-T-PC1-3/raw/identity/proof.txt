@@ -1,0 +1,7 @@
+pid=13514
+exe=/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+cmdline=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop --listen 127.0.0.1:50792 
+bin_env=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+readlink_bin=/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+sha256=47a5239179068f3d3a5a9caf0b5dbed4c89398b631ac6cbecad94664bf8285f6  /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+listen=listening 127.0.0.1:50792
