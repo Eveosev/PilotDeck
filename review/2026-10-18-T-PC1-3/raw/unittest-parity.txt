@@ -1,0 +1,18 @@
+................................................................................................error: no sidecar or native trace for sidecar_live_model_stream_chars_1 under /tmp/tmpx2mecunq/raw-1: missing sidecar_live_model_stream_chars_1.pilotdeck-current-sidecar.jsonl and sidecar_live_model_stream_chars_1.pilotdeck-current-native.jsonl
+...{"event": "run-gateway-nonzero", "scenarioId": "sidecar_live_model_stream_chars_1", "returncode": 1, "note": "fresh traces exist; a stale trace is not read"}
+....usage: python3 -m unittest [-h] [--pilotdeck-root PILOTDECK_ROOT]
+                           [--output OUTPUT] [--run-gateway]
+                           [--sidecar-transport {stdio,tcp}]
+                           [--pilotdeck-tcp-host PILOTDECK_TCP_HOST]
+                           [--pilotdeck-tcp-port PILOTDECK_TCP_PORT]
+                           [--pilotdeck-tcp-sidecar-cmd PILOTDECK_TCP_SIDECAR_CMD]
+                           [--pilotdeck-stdio-sidecar-cmd PILOTDECK_STDIO_SIDECAR_CMD]
+                           [--transport {native,ts-tcp,rust-tcp,stdio}]
+                           [--run-gateway-arg RUN_GATEWAY_ARGS]
+                           [--trace-source {sidecar,native}]
+python3 -m unittest: error: argument --transport: invalid choice: 'bogus' (choose from 'native', 'ts-tcp', 'rust-tcp', 'stdio')
+....
+----------------------------------------------------------------------
+Ran 107 tests in 0.517s
+
+OK

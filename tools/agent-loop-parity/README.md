@@ -123,7 +123,7 @@ python tools/agent-loop-parity/run.py \
   --output /tmp/pilotdeck-agent-loop-parity-tcp-rust
 ```
 
-或者让 harness 代为启动。它会注入 HOST/PORT；必须走 wrapper（或自行加 `--listen`），不要把裸二进制当命令：
+或者让 harness 代为启动。它会注入 HOST/PORT；必须走 wrapper（或自行加 `--listen`），不要把裸二进制当命令。T-P2-06 起，`PILOTDECK_RUST_SIDECAR_BIN` 非空会让产品 supervisor 再 bind 同一端口。harness 已经拉起 listener 时，adapter 环境会去掉这个变量和 `PILOTDECK_AGENT_LOOP_SIDECAR_COMMAND`，并写 `PILOTDECK_AGENT_LOOP_TCP_SUPERVISE=0`。wrapper 进程仍保留该变量。reuse（只给 host/port、不 spawn）不改环境。
 
 ```bash
 PILOTDECK_RUST_SIDECAR_BIN="$PWD/rust-core/target/rust-core-proof/pilotdeck-agent-loop" \

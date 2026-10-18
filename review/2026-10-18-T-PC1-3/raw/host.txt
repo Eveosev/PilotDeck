@@ -1,0 +1,13 @@
+HEAD=e6566d45aed490aa36386569b0548e83130ab02c
+BIN=/workspace/rust-core/target/rust-core-proof/pilotdeck-agent-loop
+READLINK=/workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+47a5239179068f3d3a5a9caf0b5dbed4c89398b631ac6cbecad94664bf8285f6  /workspace/rust-core/target/release/pilotdeck-agent-loop-sidecar
+Linux cursor 6.12.94+ #1 SMP PREEMPT_DYNAMIC Fri Oct 16 00:53:04 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+4
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi        10Gi       1.7Gi        17Mi       3.5Gi       4.8Gi
+Swap:             0B          0B          0B
+v22.23.3
+Python 3.12.3
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-10-18T07:59:29Z

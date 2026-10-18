@@ -1,0 +1,7 @@
+collect_stream_chunks rust-tcp live run
+Each chars variant's parity summary exited 2 with:
+BLOCKED: rust sidecar fingerprint missing: context.budget did not precede model.request
+Fresh sidecar traces were still written. collect_stream_chunks read those traces
+(firstDeltaBeforeProviderCompletion=true, harness n_chunks = perf_n_chunks).
+This fingerprint is the budget-before-model label, not a missing stream_next.
+The n=30 perf run returned EXIT 0 for every native and rust-tcp iteration.

@@ -1,0 +1,6 @@
+8618956b5545d3d5d7fc70f96cc13c0a6b06bb0c26ddd561e4ca95a301257be6  review/2026-10-18-T-PC1-3/TASK_DEF.md
+cda56d3f9c25997ab5a45de586fc2d2a72401293cf1715afa8de7f2233670e43  review/2026-10-18-T-PC1-3/UNLOCK.md
+97748dbd7c474e2c395b5a1ae1dd4c2f47f4cccb66e7f7299d67514b5712c84b  evidence/p2/pc1-3-pc3/native.json
+6156e89d4a8e6b8ca0eaaa62731e918fef475dd715cfa70ac30a4f4cf9093730  evidence/p2/pc1-3-pc3/summary.json
+e4c07d4c9e0091056105fd809dc6da2ef7ae57334e07d5f47b94898ae93e671c  evidence/p2/pc1-3-pc3/tcp.json
+47a5239179068f3d3a5a9caf0b5dbed4c89398b631ac6cbecad94664bf8285f6  rust-core/target/release/pilotdeck-agent-loop-sidecar

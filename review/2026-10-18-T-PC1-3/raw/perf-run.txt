@@ -1,0 +1,343 @@
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 741.818, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 2, "turn_ms": 826.481, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 3, "turn_ms": 866.956, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 4, "turn_ms": 824.26, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 5, "turn_ms": 842.258, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 6, "turn_ms": 803.428, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 7, "turn_ms": 817.02, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 8, "turn_ms": 820.106, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 9, "turn_ms": 824.349, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 10, "turn_ms": 919.384, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 11, "turn_ms": 799.537, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 12, "turn_ms": 823.946, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 13, "turn_ms": 805.307, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 14, "turn_ms": 827.952, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 15, "turn_ms": 832.172, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 16, "turn_ms": 832.011, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 17, "turn_ms": 811.954, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 18, "turn_ms": 808.531, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 19, "turn_ms": 830.826, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 20, "turn_ms": 903.411, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 21, "turn_ms": 855.465, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 22, "turn_ms": 835.111, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 23, "turn_ms": 807.451, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 24, "turn_ms": 803.94, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 25, "turn_ms": 859.035, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 26, "turn_ms": 858.7, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 27, "turn_ms": 809.684, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 28, "turn_ms": 830.503, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 29, "turn_ms": 871.28, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "pure_text", "iteration": 30, "turn_ms": 876.53, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 1, "turn_ms": 1192.765, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 2, "turn_ms": 1185.379, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 3, "turn_ms": 1150.415, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 4, "turn_ms": 1156.351, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 5, "turn_ms": 1221.479, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 6, "turn_ms": 1189.052, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 7, "turn_ms": 1172.168, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 8, "turn_ms": 1137.966, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 9, "turn_ms": 1094.688, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 10, "turn_ms": 1145.237, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 11, "turn_ms": 1090.675, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 12, "turn_ms": 1089.582, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 13, "turn_ms": 1140.688, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 14, "turn_ms": 1132.987, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 15, "turn_ms": 1188.766, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 16, "turn_ms": 1201.639, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 17, "turn_ms": 1198.647, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 18, "turn_ms": 1259.868, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 19, "turn_ms": 1151.154, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 20, "turn_ms": 1178.118, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 21, "turn_ms": 1153.886, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 22, "turn_ms": 1154.83, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 23, "turn_ms": 1134.495, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 24, "turn_ms": 1148.681, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 25, "turn_ms": 1154.543, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 26, "turn_ms": 1193.524, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 27, "turn_ms": 1218.624, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 28, "turn_ms": 1139.613, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 29, "turn_ms": 1141.713, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "single_tool", "iteration": 30, "turn_ms": 1173.531, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 1, "turn_ms": 1082.054, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 2, "turn_ms": 1128.018, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 3, "turn_ms": 1060.055, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 4, "turn_ms": 955.477, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 5, "turn_ms": 979.453, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 6, "turn_ms": 973.436, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 7, "turn_ms": 965.044, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 8, "turn_ms": 963.415, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 9, "turn_ms": 1014.062, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 10, "turn_ms": 992.85, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 11, "turn_ms": 1001.7, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 12, "turn_ms": 973.618, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 13, "turn_ms": 980.419, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 14, "turn_ms": 984.34, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 15, "turn_ms": 986.174, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 16, "turn_ms": 954.002, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 17, "turn_ms": 995.732, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 18, "turn_ms": 974.282, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 19, "turn_ms": 1054.462, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 20, "turn_ms": 940.512, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 21, "turn_ms": 971.005, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 22, "turn_ms": 954.239, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 23, "turn_ms": 953.712, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 24, "turn_ms": 966.12, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 25, "turn_ms": 982.31, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 26, "turn_ms": 998.899, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 27, "turn_ms": 1009.253, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 28, "turn_ms": 994.342, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 29, "turn_ms": 1004.97, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 30, "turn_ms": 1019.719, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 1, "turn_ms": 979.601, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 2, "turn_ms": 976.362, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 3, "turn_ms": 969.663, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 4, "turn_ms": 1006.072, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 5, "turn_ms": 978.908, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 6, "turn_ms": 954.847, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 7, "turn_ms": 964.5, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 8, "turn_ms": 946.798, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 9, "turn_ms": 1072.857, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 10, "turn_ms": 1141.88, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 11, "turn_ms": 1016.566, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 12, "turn_ms": 1082.811, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 13, "turn_ms": 1104.022, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 14, "turn_ms": 1098.947, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 15, "turn_ms": 1039.64, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 16, "turn_ms": 1035.636, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 17, "turn_ms": 1030.187, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 18, "turn_ms": 978.164, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 19, "turn_ms": 984.382, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 20, "turn_ms": 959.719, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 21, "turn_ms": 1040.029, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 22, "turn_ms": 945.985, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 23, "turn_ms": 969.442, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 24, "turn_ms": 1016.528, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 25, "turn_ms": 1026.235, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 26, "turn_ms": 987.012, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 27, "turn_ms": 975.89, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 28, "turn_ms": 1001.701, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 29, "turn_ms": 992.301, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 30, "turn_ms": 997.174, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 1, "turn_ms": 983.321, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 2, "turn_ms": 965.26, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 3, "turn_ms": 983.225, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 4, "turn_ms": 930.179, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 5, "turn_ms": 921.426, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 6, "turn_ms": 944.185, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 7, "turn_ms": 946.851, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 8, "turn_ms": 1001.898, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 9, "turn_ms": 938.416, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 10, "turn_ms": 956.998, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 11, "turn_ms": 933.576, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 12, "turn_ms": 939.94, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 13, "turn_ms": 955.22, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 14, "turn_ms": 983.301, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 15, "turn_ms": 1009.547, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 16, "turn_ms": 962.08, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 17, "turn_ms": 933.458, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 18, "turn_ms": 924.316, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 19, "turn_ms": 1006.821, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 20, "turn_ms": 958.186, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 21, "turn_ms": 944.32, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 22, "turn_ms": 924.999, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 23, "turn_ms": 943.087, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 24, "turn_ms": 1011.727, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 25, "turn_ms": 945.796, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 26, "turn_ms": 936.072, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 27, "turn_ms": 924.391, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 28, "turn_ms": 963.934, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 29, "turn_ms": 1113.674, "delay_injected": true}
+{"event": "iteration", "transport": "native", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 30, "turn_ms": 947.074, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 1, "turn_ms": 832.525, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 2, "turn_ms": 864.329, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 3, "turn_ms": 805.513, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 4, "turn_ms": 789.722, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 5, "turn_ms": 817.366, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 6, "turn_ms": 779.109, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 7, "turn_ms": 817.75, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 8, "turn_ms": 831.632, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 9, "turn_ms": 863.597, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 10, "turn_ms": 833.697, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 11, "turn_ms": 874.03, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 12, "turn_ms": 808.674, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 13, "turn_ms": 804.148, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 14, "turn_ms": 834.374, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 15, "turn_ms": 952.316, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 16, "turn_ms": 817.856, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 17, "turn_ms": 812.262, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 18, "turn_ms": 818.223, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 19, "turn_ms": 786.138, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 20, "turn_ms": 802.015, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 21, "turn_ms": 791.749, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 22, "turn_ms": 771.528, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 23, "turn_ms": 780.047, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 24, "turn_ms": 785.146, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 25, "turn_ms": 828.133, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 26, "turn_ms": 813.059, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 27, "turn_ms": 798.375, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 28, "turn_ms": 786.494, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 29, "turn_ms": 829.127, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "pure_text", "iteration": 30, "turn_ms": 801.323, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 1, "turn_ms": 1186.748, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 2, "turn_ms": 1136.255, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 3, "turn_ms": 1109.62, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 4, "turn_ms": 1154.569, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 5, "turn_ms": 1111.489, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 6, "turn_ms": 1141.692, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 7, "turn_ms": 1105.53, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 8, "turn_ms": 1189.196, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 9, "turn_ms": 1125.044, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 10, "turn_ms": 1129.042, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 11, "turn_ms": 1171.462, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 12, "turn_ms": 1125.401, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 13, "turn_ms": 1139.594, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 14, "turn_ms": 1178.096, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 15, "turn_ms": 1162.112, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 16, "turn_ms": 1135.989, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 17, "turn_ms": 1128.232, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 18, "turn_ms": 1155.762, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 19, "turn_ms": 1147.855, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 20, "turn_ms": 1129.088, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 21, "turn_ms": 1123.683, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 22, "turn_ms": 1202.608, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 23, "turn_ms": 1178.839, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 24, "turn_ms": 1266.808, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 25, "turn_ms": 1256.812, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 26, "turn_ms": 1199.514, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 27, "turn_ms": 1203.031, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 28, "turn_ms": 1285.179, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 29, "turn_ms": 1174.618, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "single_tool", "iteration": 30, "turn_ms": 1204.774, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 1, "turn_ms": 1139.38, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 2, "turn_ms": 1062.328, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 3, "turn_ms": 1045.842, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 4, "turn_ms": 1079.033, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 5, "turn_ms": 1054.866, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 6, "turn_ms": 1087.986, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 7, "turn_ms": 1086.677, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 8, "turn_ms": 1165.794, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 9, "turn_ms": 1090.24, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 10, "turn_ms": 1079.462, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 11, "turn_ms": 1117.984, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 12, "turn_ms": 1064.429, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 13, "turn_ms": 1081.222, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 14, "turn_ms": 1100.755, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 15, "turn_ms": 1103.72, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 16, "turn_ms": 1080.726, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 17, "turn_ms": 1039.272, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 18, "turn_ms": 1107.968, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 19, "turn_ms": 1072.183, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 20, "turn_ms": 1053.708, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 21, "turn_ms": 1073.346, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 22, "turn_ms": 1041.363, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 23, "turn_ms": 1045.153, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 24, "turn_ms": 1073.318, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 25, "turn_ms": 1055.069, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 26, "turn_ms": 1117.511, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 27, "turn_ms": 1113.558, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 28, "turn_ms": 1093.337, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 29, "turn_ms": 1057.52, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_1", "iteration": 30, "turn_ms": 1044.251, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 1, "turn_ms": 991.201, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 2, "turn_ms": 1063.292, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 3, "turn_ms": 1030.94, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 4, "turn_ms": 1062.503, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 5, "turn_ms": 1005.368, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 6, "turn_ms": 1031.495, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 7, "turn_ms": 1052.139, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 8, "turn_ms": 1014.117, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 9, "turn_ms": 1001.194, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 10, "turn_ms": 1026.543, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 11, "turn_ms": 976.034, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 12, "turn_ms": 993.767, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 13, "turn_ms": 1011.366, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 14, "turn_ms": 975.023, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 15, "turn_ms": 1016.881, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 16, "turn_ms": 1049.251, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 17, "turn_ms": 1043.518, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 18, "turn_ms": 1077.76, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 19, "turn_ms": 1080.737, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 20, "turn_ms": 1016.861, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 21, "turn_ms": 1018.199, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 22, "turn_ms": 1007.079, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 23, "turn_ms": 1130.098, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 24, "turn_ms": 1030.678, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 25, "turn_ms": 1012.11, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 26, "turn_ms": 997.857, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 27, "turn_ms": 998.02, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 28, "turn_ms": 1019.74, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 29, "turn_ms": 1036.761, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_50", "iteration": 30, "turn_ms": 1028.674, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 1, "turn_ms": 976.119, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 2, "turn_ms": 974.633, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 3, "turn_ms": 972.109, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 4, "turn_ms": 999.836, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 5, "turn_ms": 957.968, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 6, "turn_ms": 966.773, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 7, "turn_ms": 1012.502, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 8, "turn_ms": 961.383, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 9, "turn_ms": 971.192, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 10, "turn_ms": 973.499, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 11, "turn_ms": 1043.804, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 12, "turn_ms": 947.545, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 13, "turn_ms": 953.129, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 14, "turn_ms": 936.054, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 15, "turn_ms": 967.831, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 16, "turn_ms": 967.554, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 17, "turn_ms": 957.583, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 18, "turn_ms": 952.893, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 19, "turn_ms": 971.617, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 20, "turn_ms": 950.853, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 21, "turn_ms": 1059.145, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 22, "turn_ms": 969.686, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 23, "turn_ms": 981.561, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 24, "turn_ms": 981.312, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 25, "turn_ms": 1040.294, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 26, "turn_ms": 965.58, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 27, "turn_ms": 970.017, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 28, "turn_ms": 972.599, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 29, "turn_ms": 953.843, "delay_injected": true}
+{"event": "iteration", "transport": "rust-tcp", "scenarioId": "sidecar_live_model_stream_chars_500", "iteration": 30, "turn_ms": 956.403, "delay_injected": true}
+{"event": "wrote", "transport": "native", "path": "/tmp/tpc13/perf/native.json", "primaryBaseline": {}, "excludedFromPrimary": ["pure_text", "single_tool", "sidecar_live_model_stream_chars_1", "sidecar_live_model_stream_chars_50", "sidecar_live_model_stream_chars_500"]}
+{"event": "wrote", "transport": "rust-tcp", "path": "/tmp/tpc13/perf/tcp.json", "primaryBaseline": {}, "excludedFromPrimary": ["pure_text", "single_tool", "sidecar_live_model_stream_chars_1", "sidecar_live_model_stream_chars_50", "sidecar_live_model_stream_chars_500"]}
+{
+  "output": "/tmp/tpc13/perf",
+  "transports": [
+    "native",
+    "tcp"
+  ],
+  "scenarios": [
+    "pure_text",
+    "single_tool",
+    "sidecar_live_model_stream_chars_1",
+    "sidecar_live_model_stream_chars_50",
+    "sidecar_live_model_stream_chars_500"
+  ],
+  "iterations": 30,
+  "startedAt": "2026-10-18T07:59:29.251680+00:00",
+  "finishedAt": "2026-10-18T08:08:55.275727+00:00",
+  "provenance": {
+    "gitSha": "e6566d45aed490aa36386569b0548e83130ab02c",
+    "collectSha": "e6566d45aed490aa36386569b0548e83130ab02c",
+    "gitDirty": false,
+    "node": "v22.23.3",
+    "python": "3.12.3",
+    "pythonFull": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "command": "python3 tools/agent-loop-perf/run.py --pilotdeck-root $PWD --scenarios pure_text,single_tool,sidecar_live_model_stream_chars_1,sidecar_live_model_stream_chars_50,sidecar_live_model_stream_chars_500 --model-ms 200 --iterations 30 --transports native,tcp --pilotdeck-tcp-sidecar-cmd tools/agent-loop-parity/rust-tcp-sidecar.sh --base-sha 04e04ae33217288b226c13cec56ba1203f1ba333 --output /tmp/tpc13/perf",
+    "pilotdeckRoot": "$PWD",
+    "iterationsRequested": 30,
+    "hostOverheadDefinition": "native has no sidecar/module_call. This gate treats turn_ms(native) as the in-process host baseline. P1 relative overhead is (candidate_P95 - native_P95) compared with max(native_P95 * 10%, 5ms).",
+    "delayPolicy": "zero+modelMs:200",
+    "configuredModelMs": 200.0,
+    "metrics": "tools/agent-loop-perf/METRICS.md",
+    "productDefaultTransport": "native",
+    "baseBranch": "rust_standalone_alpha1",
+    "baseSha": "04e04ae33217288b226c13cec56ba1203f1ba333",
+    "stdioSidecarCommand": null,
+    "rustSidecarBin": null,
+    "rustSidecarTarget": null,
+    "rustSidecarSha256": null,
+    "tcpSidecarCommand": "tools/agent-loop-parity/rust-tcp-sidecar.sh"
+  }
+}
+EXIT:0

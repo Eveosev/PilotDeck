@@ -1,0 +1,12 @@
+{
+  "task": "T-P1-05",
+  "fieldPath": "scenarios[].streamChunkChars",
+  "unit": "chars",
+  "collectedAt": "2026-10-18T08:10:20.979783+00:00",
+  "t_p1_05": "T-P1-05 consumes live stream-chunks-live-*.json plus turn/model JSON. This collector does not write a go-nogo decision.",
+  "variants": {
+    "1": "/tmp/tpc13/stream-rust/stream-chunks-live-rust-tcp-1.json",
+    "50": "/tmp/tpc13/stream-rust/stream-chunks-live-rust-tcp-50.json",
+    "500": "/tmp/tpc13/stream-rust/stream-chunks-live-rust-tcp-500.json"
+  }
+}
