@@ -1,0 +1,19 @@
+# Verified immediately after clean checkout of the merge commit,
+# before any evidence files were written (see SUMMARY.md).
+#
+# Commands:
+#   git fetch origin && git checkout ae87ea78
+#   git rev-parse ae87ea78
+#   git rev-parse HEAD
+#   git status --porcelain
+#
+# Results:
+gitSha=ae87ea787ff30a203fdc0430e2ebec0d16e3a0e2
+gitDirty=false
+porcelainByteCount=0
+verifiedAtUtc=2026-10-14T14:18:15Z
+branchAtVerify=evidence/desktop-smoke-ae87ea78
+refMessage=Merge pull request #26 from Eveosev/cursor/t-p1-03-pr-b-evidence
+parents=3a26dd9d34adeaad93de1350ee8dea576988dc50 fec72e032f9fb0a2ff8c96d4c10893a1d06fcf35
+remoteBranch=origin/rust_standalone_alpha1
+remoteSha=ae87ea787ff30a203fdc0430e2ebec0d16e3a0e2
