@@ -1,0 +1,10 @@
+capturedAtUtc=2026-10-15T03:45:41Z
+gitRevParseHead=30883a1359cb7e04284575c8cae5fb839d510d17
+gitRevParseFull=30883a1359cb7e04284575c8cae5fb839d510d17
+gitLog1=30883a1359cb7e04284575c8cae5fb839d510d17 f4e40243533b6db423fe8da03e2475ee82c8e51d 11adafa29998326ccdf12c871850a4dc2b65c7b0 Merge pull request #34 from Eveosev/cursor/t-p1-04-stream-chunks-db55
+gitStatusPorcelainBytes=0
+gitStatusPorcelain=
+branch=cursor/desktop-smoke-30883a13-a764
+origin/rust_standalone_alpha1=30883a1359cb7e04284575c8cae5fb839d510d17
+gitDirty=false
+note=Identity captured on the merge commit before any evidence files were written.
