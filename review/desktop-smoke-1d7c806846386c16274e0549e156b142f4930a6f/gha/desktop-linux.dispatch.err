@@ -1,0 +1,11 @@
+COMMAND: gh workflow run desktop-linux.yml --ref 1d7c806846386c16274e0549e156b142f4930a6f
+EXIT:1
+HTTP 404: workflow desktop-linux.yml not found on the default branch (https://api.github.com/repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml)
+
+COMMAND: gh api --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches -f ref=1d7c806846386c16274e0549e156b142f4930a6f
+EXIT:1
+gh: Resource not accessible by integration (HTTP 403)
+
+COMMAND: gh api --method POST repos/Eveosev/PilotDeck/actions/workflows/desktop-linux.yml/dispatches -f ref=rust_standalone_alpha1
+EXIT:1
+gh: Resource not accessible by integration (HTTP 403)
