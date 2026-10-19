@@ -1,0 +1,18 @@
+# Verified immediately after clean checkout of the merge commit,
+# before any evidence files were written (see SUMMARY.md for the
+# post-checkout re-verify that still showed a clean tree).
+#
+# Commands:
+#   git rev-parse HEAD
+#   git status --porcelain
+#
+# Results:
+gitSha=61ef132170b642fecf7e0acaf65b8f121319a651
+gitDirty=false
+porcelainByteCount=0
+verifiedAtUtc=2026-10-13T18:34:20Z
+branchAtVerify=cursor/desktop-smoke-61ef1321-bfaf
+refMessage=fix(desktop): Linux Wayland File-click hang (#16)
+parents=008dcd163fc04008c6c4236f036c4e566ee59106 a1a114bb9ec809b594373788fef62a33c85a0ca7
+remoteBranch=origin/rust_standalone_alpha1
+remoteSha=61ef132170b642fecf7e0acaf65b8f121319a651
