@@ -1,0 +1,11 @@
+# gh run list --commit f376b4a5b6c487367a9671ddb47fd2fefe9eba8a
+# capturedAtUtc=2026-10-14T18:35:51Z
+
+===== gh run list --commit f376b4a5b6c487367a9671ddb47fd2fefe9eba8a =====
+exit=0
+
+===== gh run list --workflow Desktop --commit f376b4a5b6c487367a9671ddb47fd2fefe9eba8a =====
+exit=0
+
+===== gh run list --workflow desktop-smoke.yml --commit f376b4a5b6c487367a9671ddb47fd2fefe9eba8a =====
+exit=0
