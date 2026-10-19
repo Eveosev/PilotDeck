@@ -1,0 +1,29 @@
+{
+  "backend": "wayland",
+  "command": "bash apps/desktop/scripts/run-linux-chrome-smoke.sh wayland",
+  "n": 1,
+  "exitCode": 0,
+  "wallSeconds": 21,
+  "startUtc": "2026-10-15T07:14:03Z",
+  "endUtc": "2026-10-15T07:14:24Z",
+  "passed": true,
+  "fileClickTimeoutCount": null,
+  "fileClickStableCount": null,
+  "fileClickCountersEmitted": false,
+  "fileClickNote": "run-linux-chrome-smoke.sh does not print file-click timeout/stable counts. stdout has zero Playwright timeout lines and no WAYLAND_FILE_CLICK_GATE / trulyHung record. This N=1 chrome menu/theme smoke is not the issue #14 file-click relaunch gate (workflow N=300). Issue #14 is not claimed fixed.",
+  "stdout": {
+    "passed": true,
+    "geometry": {
+      "x": 6,
+      "border": "1px",
+      "radius": "14px"
+    },
+    "unmappedFixtureEndpoints": [
+      "/api/taskmaster/installation-status",
+      "/api/agents/runtime-config",
+      "/api/commands/list",
+      "/api/v1/providers"
+    ],
+    "artifactDir": "/workspace/outputs/desktop-chrome-review/linux-wayland"
+  }
+}
