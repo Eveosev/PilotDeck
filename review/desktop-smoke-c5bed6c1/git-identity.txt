@@ -1,0 +1,17 @@
+# Verified immediately after clean checkout of the merge commit,
+# before any evidence files were written (see SUMMARY.md).
+#
+# Commands:
+#   git rev-parse HEAD
+#   git status --porcelain
+#
+# Results:
+gitSha=c5bed6c1475632b770dc99033c15ee24616e9227
+gitDirty=false
+porcelainByteCount=0
+verifiedAtUtc=2026-10-14T07:00:06Z
+branchAtVerify=cursor/desktop-smoke-c5bed6c1
+refMessage=Merge pull request #21 from Eveosev/cursor/t-p1-02-r2m1-ea2a
+parents=1d15a13033aeb57f2740b3677e13281cc5f9036d 683def9e0adb4dff9c07c8784af39ca082182395
+remoteBranch=origin/rust_standalone_alpha1
+remoteSha=c5bed6c1475632b770dc99033c15ee24616e9227
